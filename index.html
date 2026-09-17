@@ -290,7 +290,84 @@
     </script>
     <!-- 🔴 END: [BLOCK 09: APP_LOGIC] -->
 
-    <!-- 📌 YAHAN AAYENGE SAARE BLOCKS -->
+    <!-- 🟢 START: [BLOCK 10: TIMER_ENGINE] - Start/Stop, Countdown aur Ring Animation -->
+    <script>
+      const actionBtn = document.getElementById('main-action-btn');
+      const progressRing = document.getElementById('progress-ring-circle');
+      const totalRingLength = 660; // 2 * PI * 105
+
+      let timerInterval = null;
+      let isRunning = false;
+      let secondsPassed = 0;
+      const targetDuration = 25 * 60; // 25 minutes default
+
+      function updateDisplay() {
+        if (currentMode === 'timer') {
+          let remaining = Math.max(0, targetDuration - secondsPassed);
+          let m = Math.floor(remaining / 60).toString().padStart(2, '0');
+          let s = (remaining % 60).toString().padStart(2, '0');
+          timerDisplay.innerText = `${m}:${s}`;
+
+          // Green circle progress calculate karna
+          let progress = secondsPassed / targetDuration;
+          let offset = totalRingLength - (progress * totalRingLength);
+          progressRing.style.strokeDashoffset = offset;
+
+          if (remaining <= 0) {
+            stopSession(true);
+          }
+        } else {
+          // Stopwatch Mode (Aage ginti)
+          let m = Math.floor(secondsPassed / 60).toString().padStart(2, '0');
+          let s = (secondsPassed % 60).toString().padStart(2, '0');
+          timerDisplay.innerText = `${m}:${s}`;
+
+          // Har 1 ghante mein ring poora ghumega
+          let offset = totalRingLength - ((secondsPassed % 3600) / 3600 * totalRingLength);
+          progressRing.style.strokeDashoffset = offset;
+        }
+      }
+
+      function startSession() {
+        isRunning = true;
+        secondsPassed = 0;
+        actionBtn.innerHTML = '<span>🛑</span><span>Give Up</span>';
+        actionBtn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+        actionBtn.style.color = '#ffffff';
+        actionBtn.style.boxShadow = '0 0 16px rgba(239, 68, 68, 0.4)';
+
+        timerInterval = setInterval(() => {
+          secondsPassed++;
+          updateDisplay();
+        }, 1000);
+      }
+
+      function stopSession(completed = false) {
+        clearInterval(timerInterval);
+        isRunning = false;
+        actionBtn.innerHTML = '<span>🌱</span><span>Plant</span>';
+        actionBtn.style.background = 'linear-gradient(135deg, #11998e, #38ef7d)';
+        actionBtn.style.color = '#0b1320';
+        actionBtn.style.boxShadow = '0 0 16px rgba(56, 239, 125, 0.35)';
+
+        if (completed) {
+          alert('Shaandar! Aapka ped poori tarah ug chuka hai! 🌳');
+        }
+        
+        // Timer display reset
+        timerDisplay.innerText = currentMode === 'timer' ? '25:00' : '00:00';
+        progressRing.style.strokeDashoffset = totalRingLength;
+      }
+
+      actionBtn.addEventListener('click', () => {
+        if (!isRunning) {
+          startSession();
+        } else {
+          stopSession(false);
+        }
+      });
+    </script>
+    <!-- 🔴 END: [BLOCK 10: TIMER_ENGINE] -->
   </div>
 </body>
 </html>
