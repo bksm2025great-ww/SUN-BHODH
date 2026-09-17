@@ -215,6 +215,81 @@
     </nav>
     <!-- 🔴 END: [BLOCK 08: BOTTOM_NAV] -->
 
+    <!-- 🟢 START: [BLOCK 09: APP_LOGIC] - Subject Selection aur Mode Switch Logic -->
+    <script>
+      // 1. Subject to Tree mapping
+      const subjectTrees = {
+        'All': { name: 'Focus Session', tree: '🌱' },
+        'English': { name: 'English', tree: '🍁' },
+        'Maths': { name: 'Maths', tree: '🌲' },
+        'Science': { name: 'Science', tree: '🌿' },
+        'History': { name: 'History', tree: '🌳' }
+      };
+
+      // 2. Subject Chip Click Handler
+      const subjectButtons = document.querySelectorAll('section:nth-of-type(2) button');
+      const activeSubjectText = document.getElementById('active-subject-text');
+      const treeDisplay = document.getElementById('tree-display');
+
+      subjectButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const subject = btn.innerText.trim();
+          if (subject === '+ Add') return;
+
+          // Sabhi chips ko normal dark karo
+          subjectButtons.forEach(b => {
+            b.style.backgroundColor = '#1e2638';
+            b.style.color = '#cbd5e1';
+            b.style.border = '1px solid #2d3748';
+          });
+
+          // Chune hue chip ko highlight karo
+          btn.style.backgroundColor = '#3b82f6';
+          btn.style.color = '#ffffff';
+          btn.style.border = 'none';
+
+          // Screen par Subject ka naam aur Tree badlo
+          if (subjectTrees[subject]) {
+            activeSubjectText.innerText = 'STUDYING ' + subjectTrees[subject].name.toUpperCase();
+            treeDisplay.innerText = subjectTrees[subject].tree;
+          }
+        });
+      });
+
+      // 3. Mode Switch (Timer vs Stopwatch)
+      const timerBtn = document.getElementById('mode-timer-btn');
+      const stopwatchBtn = document.getElementById('mode-stopwatch-btn');
+      const timerDisplay = document.getElementById('timer-display');
+      let currentMode = 'timer'; // 'timer' ya 'stopwatch'
+
+      timerBtn.addEventListener('click', () => {
+        currentMode = 'timer';
+        timerBtn.style.backgroundColor = '#1e293b';
+        timerBtn.style.color = '#38ef7d';
+        timerBtn.style.border = '1px solid rgba(56, 239, 125, 0.4)';
+
+        stopwatchBtn.style.background = 'none';
+        stopwatchBtn.style.color = '#94a3b8';
+        stopwatchBtn.style.border = 'none';
+
+        timerDisplay.innerText = '25:00';
+      });
+
+      stopwatchBtn.addEventListener('click', () => {
+        currentMode = 'stopwatch';
+        stopwatchBtn.style.backgroundColor = '#1e293b';
+        stopwatchBtn.style.color = '#38ef7d';
+        stopwatchBtn.style.border = '1px solid rgba(56, 239, 125, 0.4)';
+
+        timerBtn.style.background = 'none';
+        timerBtn.style.color = '#94a3b8';
+        timerBtn.style.border = 'none';
+
+        timerDisplay.innerText = '00:00';
+      });
+    </script>
+    <!-- 🔴 END: [BLOCK 09: APP_LOGIC] -->
+
     <!-- 📌 YAHAN AAYENGE SAARE BLOCKS -->
   </div>
 </body>
