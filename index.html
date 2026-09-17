@@ -9,8 +9,213 @@
 <body style="margin: 0; background-color: #0d1117; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center;">
   <div style="width: 100%; max-width: 420px; min-height: 100vh; position: relative; box-sizing: border-box; overflow-x: hidden;">
 
-    <!-- 📌 YAHAN AAYENGE SAARE BLOCKS -->
+    <!-- 🟢 START: [BLOCK 01: SPLASH_SCREEN] - Welcome White Screen jo 1.5s baad gayab hogi -->
+    <div id="splash-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.6s ease, visibility 0.6s ease;">
+      <div style="font-size: 52px; margin-bottom: 10px; line-height: 1;">🧘‍♂️☀️</div>
+      <h1 style="color: #111827; font-size: 26px; font-weight: 700; margin: 0; letter-spacing: 1px;">Sun Bhodh</h1>
+    </div>
 
+    <script>
+      // 1.5 second baad splash screen ko aahista se fade karne ka dimaag
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          const splash = document.getElementById('splash-screen');
+          if (splash) {
+            splash.style.opacity = '0';
+            splash.style.visibility = 'hidden';
+          }
+        }, 1500);
+      });
+    </script>
+    <!-- 🔴 END: [BLOCK 01: SPLASH_SCREEN] -->
+
+   <!-- 🟢 START: [BLOCK 02: TOP_HEADER] - Logo, Streak, Sound Toggle, aur 3-Dots Menu -->
+    <header style="display: flex; justify-content: space-between; align-items: center; padding: 18px 20px 10px 20px;">
+      <!-- Left: Logo & App Title -->
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 22px; line-height: 1;">🧘‍♂️☀️</span>
+        <span style="font-size: 19px; font-weight: 700; letter-spacing: 0.5px; color: #ffffff;">Sun Bhodh</span>
+      </div>
+
+      <!-- Right Controls: Streak, Sound, 3-Dots -->
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <!-- Streak Badge -->
+        <div style="display: flex; align-items: center; gap: 4px; background-color: #1e2638; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #f59e0b;">
+          <span>🔥</span>
+          <span style="color: #ffffff;">3 <span style="font-size: 10px; color: #9ca3af;">DAYS</span></span>
+        </div>
+
+        <!-- Focus Sound Pill Button -->
+        <button type="button" style="display: flex; align-items: center; gap: 4px; background-color: #1e2638; border: 1px solid #2d3748; color: #a78bfa; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer;">
+          <span>🎵</span>
+          <span>Focus sound</span>
+        </button>
+
+        <!-- 3-Dots Menu Button -->
+        <button type="button" style="background: none; border: none; color: #9ca3af; font-size: 20px; cursor: pointer; padding: 0 4px; line-height: 1;">
+          &#8942;
+        </button>
+      </div>
+    </header>
+    <!-- 🔴 END: [BLOCK 02: TOP_HEADER] -->
+
+   <!-- 🟢 START: [BLOCK 03: DAILY_GOAL] - Goal card, target time, pencil edit icon aur progress bar -->
+    <section style="margin: 10px 20px; background-color: #161c28; border: 1px solid #232c3d; border-radius: 18px; padding: 14px 18px;">
+      <!-- Goal Header: Title & Target -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.8px; color: #9ca3af; text-transform: uppercase;">DAILY STUDY GOAL</span>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #ffffff;">
+          <span id="goal-time-display">0m / 4.5h</span>
+          <button type="button" title="Edit Goal" style="background: none; border: none; color: #9ca3af; font-size: 13px; cursor: pointer; padding: 0; line-height: 1;">✏️</button>
+        </div>
+      </div>
+
+      <!-- Goal Progress Bar & Percentage -->
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="flex: 1; height: 6px; background-color: #273142; border-radius: 10px; overflow: hidden;">
+          <div id="goal-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); border-radius: 10px; transition: width 0.3s ease;"></div>
+        </div>
+        <span id="goal-percent-text" style="font-size: 12px; font-weight: 600; color: #60a5fa; min-width: 28px; text-align: right;">0%</span>
+      </div>
+    </section>
+    <!-- 🔴 END: [BLOCK 03: DAILY_GOAL] -->
+
+    <!-- 🟢 START: [BLOCK 04: SUBJECT_CHIPS] - Select Subjects horizontal scrollable slider -->
+    <section style="margin: 10px 20px 16px 20px;">
+      <!-- Label -->
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.8px; color: #9ca3af; text-transform: uppercase; margin-bottom: 10px;">SELECT SUBJECTS</div>
+
+      <!-- Horizontal Scrollable Row -->
+      <div id="subject-chips-container" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; -ms-overflow-style: none;">
+        <style>
+          #subject-chips-container::-webkit-scrollbar { display: none; }
+          .subject-chip {
+            background-color: #1e2638;
+            color: #9ca3af;
+            border: 1px solid #283449;
+            border-radius: 20px;
+            padding: 7px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            user-select: none;
+          }
+          .subject-chip.active {
+            background-color: #3b82f6;
+            color: #ffffff;
+            border-color: #3b82f6;
+            font-weight: 600;
+          }
+        </style>
+        
+        <button type="button" class="subject-chip active">All</button>
+        <button type="button" class="subject-chip">Maths</button>
+        <button type="button" class="subject-chip">Physics</button>
+        <button type="button" class="subject-chip">Chemistry</button>
+        <button type="button" class="subject-chip">Biology</button>
+        <button type="button" class="subject-chip">Computer</button>
+        <button type="button" class="subject-chip">History</button>
+        <button type="button" class="subject-chip">Geography</button>
+        <button type="button" class="subject-chip">Economics</button>
+        <button type="button" class="subject-chip">Current Affairs</button>
+        <button type="button" class="subject-chip">English</button>
+        <button type="button" class="subject-chip">Hindi</button>
+        <button type="button" class="subject-chip">Art</button>
+        <button type="button" class="subject-chip">Psychology</button>
+        <button type="button" class="subject-chip" style="border-style: dashed; color: #60a5fa; border-color: #3b82f6;">+ Add</button>
+      </div>
+    </section>
+    <!-- 🔴 END: [BLOCK 04: SUBJECT_CHIPS] -->
+
+   <!-- 🟢 START: [BLOCK 05: MODE_TOGGLE] - ⏳ Timer aur ⏰ Stopwatch switch -->
+    <section style="display: flex; justify-content: center; margin: 20px 0 10px 0;">
+      <div style="display: flex; background-color: #161c28; border: 1px solid #232c3d; border-radius: 30px; padding: 4px;">
+        
+        <!-- Timer Button (Active Mode) -->
+        <button id="mode-timer" type="button" style="background-color: #3b82f6; color: #ffffff; border: none; border-radius: 25px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.3s ease;">
+          <span>⏳</span> Timer
+        </button>
+
+        <!-- Stopwatch Button (Inactive Mode) -->
+        <button id="mode-stopwatch" type="button" style="background: transparent; color: #9ca3af; border: none; border-radius: 25px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.3s ease;">
+          <span>⏰</span> Stopwatch
+        </button>
+
+      </div>
+    </section>
+    <!-- 🔴 END: [BLOCK 05: MODE_TOGGLE] -->
+
+    <!-- 🟢 START: [BLOCK 06: FOCUS_RING] - Neon Glowing Timer Arc, Tree, Digital Time, and Subject Label -->
+    <section style="display: flex; justify-content: center; align-items: center; margin: 20px 0; position: relative;">
+      
+      <!-- Ring Container: 240px x 240px ka breathing space -->
+      <div style="position: relative; width: 240px; height: 240px; display: flex; justify-content: center; align-items: center;">
+        
+        <!-- SVG Circle Background & Progress Arc -->
+        <svg width="240" height="240" viewBox="0 0 240 240" style="position: absolute; top: 0; left: 0; transform: rotate(-90deg);">
+          <!-- Halka dim track -->
+          <circle cx="120" cy="120" r="110" fill="none" stroke="#232c3d" stroke-width="8"></circle>
+          <!-- Neon Green Progress Ring (0% se shuru hogi, abhi aadhi dikhayi hai check karne ke liye) -->
+          <circle id="timer-progress-arc" cx="120" cy="120" r="110" fill="none" stroke="#22c55e" stroke-width="8" stroke-dasharray="691" stroke-dashoffset="345" stroke-linecap="round" style="filter: drop-shadow(0 0 8px rgba(34,197,94,0.4)); transition: stroke-dashoffset 1s linear;"></circle>
+        </svg>
+
+        <!-- Ring ke andar ka content (Tree, Time, Text) -->
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10;">
+          <!-- Tree Sprout (Current Subject Tree) -->
+          <div id="current-tree-display" style="font-size: 38px; margin-bottom: 8px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));">🌳</div>
+          
+          <!-- Large Digital Timer -->
+          <div id="main-timer-display" style="font-size: 46px; font-weight: 800; color: #ffffff; letter-spacing: 2px; line-height: 1; margin-bottom: 6px;">25:00</div>
+          
+          <!-- Subject Being Studied -->
+          <div id="current-subject-label" style="font-size: 13px; font-weight: 500; color: #a78bfa; letter-spacing: 1px; text-transform: uppercase;">Studying All</div>
+        </div>
+
+      </div>
+    </section>
+    <!-- 🔴 END: [BLOCK 06: FOCUS_RING] -->
+
+   <!-- 🟢 START: [BLOCK 07: ACTION_BUTTON] - Neon Plant Button -->
+    <section style="display: flex; justify-content: center; margin: 15px 0 25px 0;">
+      <button id="action-btn" type="button" style="background-color: #22c55e; color: #064e3b; border: none; border-radius: 30px; padding: 14px 45px; font-size: 18px; font-weight: 700; letter-spacing: 1px; cursor: pointer; box-shadow: 0 0 15px rgba(34,197,94,0.4); transition: all 0.2s ease;">
+        Plant
+      </button>
+    </section>
+    <!-- 🔴 END: [BLOCK 07: ACTION_BUTTON] -->
+
+    <!-- 🟢 START: [BLOCK 08: BOTTOM_NAV] - Fixed 4 Tabs Navigation Bar -->
+    <nav style="position: absolute; bottom: 0; left: 0; width: 100%; background-color: #0d1117; border-top: 1px solid #1f2937; padding: 12px 0 20px 0; display: flex; justify-content: space-around; align-items: center; z-index: 50;">
+      
+      <!-- Home Tab (Active) -->
+      <button type="button" style="background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #60a5fa; cursor: pointer;">
+        <span style="font-size: 22px; line-height: 1;">🏠</span>
+        <span style="font-size: 11px; font-weight: 600;">Home</span>
+      </button>
+
+      <!-- Stats Tab -->
+      <button type="button" style="background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #9ca3af; cursor: pointer;">
+        <span style="font-size: 22px; line-height: 1; filter: grayscale(100%); opacity: 0.7;">📊</span>
+        <span style="font-size: 11px; font-weight: 500;">Stats</span>
+      </button>
+
+      <!-- Achievements Tab -->
+      <button type="button" style="background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #9ca3af; cursor: pointer;">
+        <span style="font-size: 22px; line-height: 1; filter: grayscale(100%); opacity: 0.7;">🏆</span>
+        <span style="font-size: 11px; font-weight: 500;">Achievements</span>
+      </button>
+
+      <!-- Settings Tab -->
+      <button type="button" style="background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #9ca3af; cursor: pointer;">
+        <span style="font-size: 22px; line-height: 1; filter: grayscale(100%); opacity: 0.7;">⚙️</span>
+        <span style="font-size: 11px; font-weight: 500;">Settings</span>
+      </button>
+
+    </nav>
+    <!-- 🔴 END: [BLOCK 08: BOTTOM_NAV] -->
+
+    <!-- 📌 YAHAN AAYENGE SAARE BLOCKS -->
   </div>
 </body>
 </html>
