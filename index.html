@@ -369,21 +369,31 @@
     </script>
     <!-- 🔴 END: [BLOCK 10: TIMER_ENGINE] -->
   </div> 
-  <!-- 🟢 START: [SUBJECT_TREE_LOGIC] - Vishay chunte hi ped aur naam badalna -->
+  <!-- 🟢 START: [SUBJECT_TREE_LOGIC] - Sabhi 15 Subjects ka Dynamic Ped aur Label -->
   <script>
-    (function setupSubjectSelector() {
-      // 1. Vishay aur unke ped ki list
+    (function setupCompleteSubjectNursery() {
+      // 1. Sabhi 15 vishayon aur unke anokhe ped/paudhon ki poori list
       const subjectTrees = {
         'All': '🌳',
         'Maths': '🌲',
         'Physics': '🌴',
-        'Chemistry': '🎋'
+        'Chemistry': '🎋',
+        'Biology': '🌿',
+        'Computer': '🪴',
+        'History': '🍁',
+        'Geography': '🌵',
+        'English': '🌸',
+        'Hindi': '🪷',
+        'Polity': '🌾',
+        'Art Culture': '🌺',
+        'Art & Culture': '🌺',
+        'Current Affairs': '🌻',
+        'Science': '🍀',
+        'Psychology': '🪻'
       };
 
-      // 2. Screen ke sabhi elements ko scan karte hain
+      // 2. Timer display dhoondh kar ped (tree) aur text (label) ko pakadte hain
       const allEls = Array.from(document.querySelectorAll('*'));
-
-      // 3. '25:00' timer dhoondh kar uske aage-peeche ke ped aur label nikalte hain
       const timerDisplay = allEls.find(el => el.textContent.trim() === '25:00' && el.children.length === 0);
       let treeEl = null;
       let labelEl = null;
@@ -395,33 +405,46 @@
         if (timerIndex < ringChildren.length - 1) labelEl = ringChildren[timerIndex + 1];
       }
 
-      // 4. Subject chips (All, Maths, Physics, Chemistry) ko dhoondh kar click event jodte hain
-      const subjects = ['All', 'Maths', 'Physics', 'Chemistry'];
-      const chips = allEls.filter(el => subjects.includes(el.textContent.trim()) && el.children.length === 0);
+      // 3. Screen par jahan bhi "SELECT SUBJECTS" likha hai, uske andar ke buttons ko pakadte hain
+      const subjectHeader = allEls.find(el => el.textContent.trim().toUpperCase() === 'SELECT SUBJECTS' && el.children.length === 0);
+      let chips = [];
 
+      if (subjectHeader && subjectHeader.nextElementSibling) {
+        chips = Array.from(subjectHeader.nextElementSibling.querySelectorAll('*')).filter(el => {
+          return el.children.length === 0 && el.textContent.trim().length > 0;
+        });
+      }
+
+      // Agar list alag dhang se bani ho toh direct subject match fallback
+      if (chips.length === 0) {
+        const knownSubjects = Object.keys(subjectTrees);
+        chips = allEls.filter(el => knownSubjects.includes(el.textContent.trim()) && el.children.length === 0);
+      }
+
+      // 4. Har subject button par click action lagate hain
       chips.forEach(chip => {
         chip.style.cursor = 'pointer';
         chip.addEventListener('click', () => {
           const selectedName = chip.textContent.trim();
 
-          // Sabhi chips ko normal dark karo
+          // Sabhi buttons ko normal dark background dein
           chips.forEach(c => {
             c.style.backgroundColor = '#1e2638';
             c.style.color = '#9ca3af';
           });
 
-          // Chune hue chip ko bright blue karo
+          // Chune hue button ko bright blue highlight karein
           chip.style.backgroundColor = '#3b82f6';
           chip.style.color = '#ffffff';
 
-          // Text badlo: STUDYING [NAME]
+          // Beech ka text badlein: STUDYING [NAME]
           if (labelEl) {
             labelEl.textContent = 'STUDYING ' + selectedName.toUpperCase();
           }
 
-          // Ped ka roop badlo
-          if (treeEl && subjectTrees[selectedName]) {
-            treeEl.textContent = subjectTrees[selectedName];
+          // Beech ka ped badlein: List mein se matching ped, varna default 🌱 podha
+          if (treeEl) {
+            treeEl.textContent = subjectTrees[selectedName] || '🌱';
           }
         });
       });
