@@ -451,6 +451,55 @@
     })();
   </script>
   <!-- 🔴 END: [SUBJECT_TREE_LOGIC] -->
+  <!-- 🟢 START: [TIMER_LOGIC] -->
+<script>
+  // --- TIMER ENGINE: START / PAUSE LOGIC ---
+let timeLeft = 25 * 60; // 25 minutes in seconds
+let timerId = null;
+let isRunning = false;
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function updateDisplay() {
+    const timerDisplay = document.querySelector('.timer-display') || document.querySelector('h1, .time, [id*="time"]') || null;
+    // Agli line screen par 25:00 ko update karegi
+    document.querySelectorAll('*').forEach(el => {
+        if (el.children.length === 0 && el.textContent.trim().match(/^\d{2}:\d{2}$/)) {
+            el.textContent = formatTime(timeLeft);
+        }
+    });
+}
+
+function toggleTimer() {
+    if (isRunning) {
+        clearInterval(timerId);
+        isRunning = false;
+    } else {
+        isRunning = true;
+        timerId = setInterval(() => {
+            if (timeLeft > 0) {
+                timeLeft--;
+                updateDisplay();
+            } else {
+                clearInterval(timerId);
+                isRunning = false;
+                alert('Session Complete! Ped poori tarah ug chuka hai 🌱 -> 🌳');
+            }
+        }, 1000);
+    }
+}
+
+// Timer circle ya display click karne par timer start/pause hoga
+document.addEventListener('DOMContentLoaded', () => {
+    const dial = document.querySelector('.timer-circle') || document.querySelector('.dial') || document.body;
+    dial.addEventListener('click', toggleTimer);
+});
+</script>
+<!-- 🔴 END: [TIMER_LOGIC] -->
 </body>
 </html>
 <!-- 🔴 END: [BLOCK_00_CANVAS] -->
