@@ -368,7 +368,66 @@
       });
     </script>
     <!-- 🔴 END: [BLOCK 10: TIMER_ENGINE] -->
-  </div>
+  </div> 
+  <!-- 🟢 START: [SUBJECT_TREE_LOGIC] - Vishay chunte hi ped aur naam badalna -->
+  <script>
+    (function setupSubjectSelector() {
+      // 1. Vishay aur unke ped ki list
+      const subjectTrees = {
+        'All': '🌳',
+        'Maths': '🌲',
+        'Physics': '🌴',
+        'Chemistry': '🎋'
+      };
+
+      // 2. Screen ke sabhi elements ko scan karte hain
+      const allEls = Array.from(document.querySelectorAll('*'));
+
+      // 3. '25:00' timer dhoondh kar uske aage-peeche ke ped aur label nikalte hain
+      const timerDisplay = allEls.find(el => el.textContent.trim() === '25:00' && el.children.length === 0);
+      let treeEl = null;
+      let labelEl = null;
+
+      if (timerDisplay && timerDisplay.parentElement) {
+        const ringChildren = Array.from(timerDisplay.parentElement.children);
+        const timerIndex = ringChildren.indexOf(timerDisplay);
+        if (timerIndex > 0) treeEl = ringChildren[timerIndex - 1];
+        if (timerIndex < ringChildren.length - 1) labelEl = ringChildren[timerIndex + 1];
+      }
+
+      // 4. Subject chips (All, Maths, Physics, Chemistry) ko dhoondh kar click event jodte hain
+      const subjects = ['All', 'Maths', 'Physics', 'Chemistry'];
+      const chips = allEls.filter(el => subjects.includes(el.textContent.trim()) && el.children.length === 0);
+
+      chips.forEach(chip => {
+        chip.style.cursor = 'pointer';
+        chip.addEventListener('click', () => {
+          const selectedName = chip.textContent.trim();
+
+          // Sabhi chips ko normal dark karo
+          chips.forEach(c => {
+            c.style.backgroundColor = '#1e2638';
+            c.style.color = '#9ca3af';
+          });
+
+          // Chune hue chip ko bright blue karo
+          chip.style.backgroundColor = '#3b82f6';
+          chip.style.color = '#ffffff';
+
+          // Text badlo: STUDYING [NAME]
+          if (labelEl) {
+            labelEl.textContent = 'STUDYING ' + selectedName.toUpperCase();
+          }
+
+          // Ped ka roop badlo
+          if (treeEl && subjectTrees[selectedName]) {
+            treeEl.textContent = subjectTrees[selectedName];
+          }
+        });
+      });
+    })();
+  </script>
+  <!-- 🔴 END: [SUBJECT_TREE_LOGIC] -->
 </body>
 </html>
 <!-- 🔴 END: [BLOCK_00_CANVAS] -->
