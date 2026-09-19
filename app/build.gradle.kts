@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.vision.amon"
+    namespace = "com.amon.timer"
     compileSdk = 34
 
     defaultConfig {
