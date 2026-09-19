@@ -2,7 +2,7 @@ package com.amon.timer
 
 /**
  * 🟢 MODULE: TREE & SUBJECT REGISTRY
- * यह फ़ाइल सभी विषयों और उनके अनोखे पेड़ों का हिसाब रखती है।
+ * सभी विषयों और उनके अनोखे पेड़ों का हिसाब-किताब
  */
 
 // 1. पेड़ के बढ़ने के 4 पड़ाव (Stage 1 to 4)
@@ -10,7 +10,7 @@ enum class TreeGrowthStage {
     SPROUT,   // स्टेज 1: नन्हीं कोंपल (0% - 25%)
     SAPLING,  // स्टेज 2: बाल-वृक्ष / टहनी (25% - 60%)
     DENSE,    // स्टेज 3: घना पेड़ (60% - 95%)
-    MATURE    // स्टेज 4: फलों से लदा पूरा पेड़ (100%)
+    MATURE    // स्टेज 4: फलों/पत्तियों से लदा पूरा पेड़ (100%)
 }
 
 // 2. पेड़ की बुनियादी जानकारी
@@ -30,12 +30,14 @@ data class Subject(
 
 object PlantRegistry {
 
-    // 14 मुख्य विषयों के 14 अनोखे पेड़
+    // विषयों की मुख्य लिस्ट (सबसे पहला विकल्प 'All' - बरगद का पेड़)
     val defaultSubjects = listOf(
+        Subject("all", "All", TreeType("banyan", "Banyan Tree", "बरगद", "Sacred Fig")),
+        Subject("physics", "Physics", TreeType("apple", "Apple Tree", "सेब", "Apple")),
+        Subject("math", "Math", TreeType("lemon", "Lemon Tree", "नींबू", "Lemon")),
         Subject("hindi", "Hindi", TreeType("bael", "Bael Tree", "बेल", "Bael")),
         Subject("english", "English", TreeType("cherry", "Cherry Tree", "चेरी", "Cherry Blossom")),
         Subject("science", "Science", TreeType("kiwi", "Kiwi Tree", "कीवी", "Kiwi")),
-        Subject("math", "Math", TreeType("lemon", "Lemon Tree", "नींबू", "Lemon")),
         Subject("geography", "Geography", TreeType("coconut", "Coconut Tree", "नारियल", "Coconut")),
         Subject("art_culture", "Art and Culture", TreeType("mango", "Mango Tree", "आम", "Mango")),
         Subject("polity", "Polity", TreeType("walnut", "Walnut Tree", "अखरोट", "Walnut")),
@@ -44,12 +46,10 @@ object PlantRegistry {
         Subject("psychology", "Psychology", TreeType("peach", "Peach Tree", "आड़ू", "Peach")),
         Subject("history", "History", TreeType("olive", "Olive Tree", "जैतून", "Olive")),
         Subject("biology", "Biology", TreeType("fig", "Fig Tree", "अंजीर", "Fig")),
-        Subject("chemistry", "Chemistry", TreeType("pomegranate", "Pomegranate Tree", "अनार", "Pomegranate")),
-        Subject("physics", "Physics", TreeType("apple", "Apple Tree", "सेब", "Apple"))
+        Subject("chemistry", "Chemistry", TreeType("pomegranate", "Pomegranate Tree", "अनार", "Pomegranate"))
     )
 
-    // भविष्य के नए विषयों के लिए रिज़र्व पेड़ों का खज़ाना (Vault)
-    // जब भी कोई नया विषय बनेगा, इनमें से अगला अनोखा पेड़ आवंटित होगा
+    // रिज़र्व पेड़ों का खज़ाना (भविष्य के नए विषयों के लिए)
     val reservedTreeVault = listOf(
         TreeType("banana", "Banana Tree", "केला", "Banana"),
         TreeType("guava", "Guava Tree", "अमरूद", "Guava"),
@@ -63,7 +63,7 @@ object PlantRegistry {
         TreeType("lychee", "Lychee Tree", "लीची", "Lychee")
     )
 
-    // प्रोग्रेस के हिसाब से वर्तमान स्टेज तय करने का फ़ंक्शन
+    // प्रोग्रेस के हिसाब से स्टेज तय करने वाला फ़ंक्शन
     fun getGrowthStage(fractionComplete: Float): TreeGrowthStage {
         return when {
             fractionComplete < 0.25f -> TreeGrowthStage.SPROUT
