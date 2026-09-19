@@ -342,7 +342,7 @@ fun MainScreen() {
                         drawIntoCanvas { canvas ->
                             val glowPaint = Paint().apply {
                                 color = goldColor.copy(alpha = 0.4f).toArgb()
-                                strokeWidth = strokeWidth + 14.dp.toPx()
+                                setStrokeWidth(strokeWidth + 14.dp.toPx())
                                 style = Paint.Style.STROKE
                                 strokeCap = Paint.Cap.ROUND
                                 isAntiAlias = true
