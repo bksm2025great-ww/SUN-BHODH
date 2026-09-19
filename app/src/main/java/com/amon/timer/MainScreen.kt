@@ -1,11 +1,17 @@
 package com.amon.timer
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -21,17 +27,21 @@ import com.amon.timer.ui.theme.AccentYellow
 fun MainScreen() {
 
     // =========================================================================
-    // 🟢 MODULE 1: TIMER ENGINE & SESSION STATE (टाइमर और ब्रेक का लॉजिक)
-    // (यदि कभी सेशन का समय या ब्रेक बदलना हो, तो सिर्फ इस ब्लॉक को बदलें)
+    // 🟢 MODULE 1: SUBJECT & TREE SELECTION (विषय और पेड़ का चुनाव)
     // =========================================================================
-    val focusSeconds = 25 * 60       // 25 मिनट का फ़ोकस सेशन
+    var selectedSubject by remember { mutableStateOf(PlantRegistry.defaultSubjects.last()) } // डिफ़ॉल्ट: Physics (Apple Tree)
+
+    // =========================================================================
+    // 🟢 MODULE 2: TIMER ENGINE & SESSION STATE (टाइमर का दिमाग)
+    // =========================================================================
+    val focusSeconds = 25 * 60       // 25 मिनट का फ़ोकस सत्र
     val shortBreakSeconds = 5 * 60   // 5 मिनट का शॉर्ट ब्रेक
     val longBreakSeconds = 15 * 60   // 15 मिनट का लॉन्ग ब्रेक
 
     var initialSeconds by remember { mutableIntStateOf(focusSeconds) }
     var totalSeconds by remember { mutableIntStateOf(focusSeconds) }
     var isRunning by remember { mutableStateOf(false) }
-    var currentSession by remember { mutableIntStateOf(1) } // 1, 2, या 3
+    var currentSession by remember { mutableIntStateOf(1) }
     var isBreak by remember { mutableStateOf(false) }
 
     LaunchedEffect(isRunning) {
@@ -42,7 +52,6 @@ fun MainScreen() {
         if (totalSeconds == 0 && isRunning) {
             isRunning = false
             if (!isBreak) {
-                // फ़ोकस पूरा -> ब्रेक शुरू
                 isBreak = true
                 if (currentSession < 3) {
                     initialSeconds = shortBreakSeconds
@@ -52,12 +61,11 @@ fun MainScreen() {
                     totalSeconds = longBreakSeconds
                 }
             } else {
-                // ब्रेक पूरा -> अगला फ़ोकस सेशन
                 isBreak = false
                 if (currentSession < 3) {
                     currentSession++
                 } else {
-                    currentSession = 1 // चक्र दोबारा शुरू
+                    currentSession = 1
                 }
                 initialSeconds = focusSeconds
                 totalSeconds = focusSeconds
@@ -70,18 +78,17 @@ fun MainScreen() {
     val timeFormatted = String.format("%02d:%02d", minutes, seconds)
     val sessionProgress = (initialSeconds - totalSeconds).toFloat() / initialSeconds.toFloat()
 
-    // साइकोलॉजी कलर पैलेट
-    val activeColor = when {
-        !isBreak -> AccentYellow                       // फ़ोकस मोड: डोपामाइन येलो
-        currentSession < 3 -> Color(0xFF34D399)         // शॉर्ट ब्रेक: सेज ग्रीन
-        else -> Color(0xFF60A5FA)                       // 3 सेशन बाद लॉन्ग ब्रेक: स्काई ब्लू
-    }
-    val trackColor = Color(0xFF222228)                  // खाली रिंग का स्लेट डार्क कलर
+    // 4 स्टेज ग्रोथ लॉजिक (SubjectPlant.kt से जुड़ा हुआ)
+    val currentGrowthStage = PlantRegistry.getGrowthStage(sessionProgress)
 
-    // =========================================================================
-    // 🟢 MODULE 2: UI LAYOUT & 3-PART RING (स्क्रीन और 3-भागों वाली रिंग)
-    // (यदि रिंग की मोटाई या गैप बदलना हो, तो यहाँ बदलाव करें)
-    // =========================================================================
+    // कलर्स
+    val activeColor = when {
+        !isBreak -> AccentYellow
+        currentSession < 3 -> Color(0xFF34D399)
+        else -> Color(0xFF60A5FA)
+    }
+    val trackColor = Color(0xFF222228)
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
@@ -90,29 +97,77 @@ fun MainScreen() {
                 .fillMaxSize()
                 .padding(paddingValues),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
 
+            // =================================================================
+            // 🟢 MODULE 3: TOP SUBJECT SELECTOR (विषय बदलने वाली पट्टी)
+            // =================================================================
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "SELECT SUBJECT",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Gray,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(PlantRegistry.defaultSubjects) { subject ->
+                        val isSelected = subject.id == selectedSubject.id
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (isSelected) activeColor else Color(0xFF1E1E24))
+                                .clickable {
+                                    if (!isRunning) {
+                                        selectedSubject = subject
+                                    }
+                                }
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = subject.name,
+                                color = if (isSelected) Color.Black else Color.LightGray,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+            }
+
+            // =================================================================
+            // 🟢 MODULE 4: 3-PART RING & TREE DISPLAY (रिंग और उगता हुआ पेड़)
+            // =================================================================
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.size(280.dp)
             ) {
-                // 3-पार्ट वाली रिंग का विज़ुअल कैनवास
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val strokeWidth = 10.dp.toPx()
                     val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
                     val topLeft = Offset(strokeWidth / 2f, strokeWidth / 2f)
 
                     val gap = 12f
-                    val sweep = (360f - (gap * 3)) / 3f // प्रत्येक आर्क 108 डिग्री
+                    val sweep = (360f - (gap * 3)) / 3f
 
                     val startAngles = listOf(
-                        -90f + (gap / 2f),                 // सेशन 1 (शीर्ष)
-                        -90f + (gap / 2f) + sweep + gap,    // सेशन 2
-                        -90f + (gap / 2f) + (sweep + gap) * 2 // सेशन 3
+                        -90f + (gap / 2f),
+                        -90f + (gap / 2f) + sweep + gap,
+                        -90f + (gap / 2f) + (sweep + gap) * 2
                     )
 
-                    // तीनों सेगमेंट्स का बैकग्राउंड ट्रैक
+                    // बैकग्राउंड ट्रैक्स
                     startAngles.forEach { startAngle ->
                         drawArc(
                             color = trackColor,
@@ -125,7 +180,7 @@ fun MainScreen() {
                         )
                     }
 
-                    // सक्रिय और पूर्ण सेगमेंट्स की प्रोग्रेस
+                    // प्रोग्रेस आर्क्स
                     startAngles.forEachIndexed { index, startAngle ->
                         val segmentIndex = index + 1
                         val fillFraction = when {
@@ -148,20 +203,24 @@ fun MainScreen() {
                     }
                 }
 
-                // =============================================================
-                // 🟢 MODULE 3: CENTER DISPLAY (पौधा और टाइमर डिस्प्ले)
-                // (यदि पौधा, टेक्स्ट का साइज़ या सबटाइटल बदलना हो)
-                // =============================================================
+                // सेंटर इन्फो: पेड़ का विज़ुअल और स्टेज
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val plantEmoji = when (currentSession) {
-                        1 -> "🌱"
-                        2 -> "🌿"
-                        else -> "🌳"
+                    val stageText = when (currentGrowthStage) {
+                        TreeGrowthStage.SPROUT -> "🌱 Sprout"
+                        TreeGrowthStage.SAPLING -> "🌿 Sapling"
+                        TreeGrowthStage.DENSE -> "🌳 ${selectedSubject.tree.nameEn}"
+                        TreeGrowthStage.MATURE -> "✨ ${selectedSubject.tree.nameHi} (${selectedSubject.tree.fruitName})"
                     }
 
-                    Text(text = plantEmoji, fontSize = 28.sp)
+                    Text(
+                        text = stageText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = activeColor
+                    )
+
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
@@ -183,18 +242,16 @@ fun MainScreen() {
                         text = statusText,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = activeColor
+                        color = Color.Gray
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(44.dp))
-
             // =================================================================
-            // 🟢 MODULE 4: CONTROL BUTTONS (स्मार्ट पॉज़ और रीसेट बटन)
-            // (यदि बटन के रंग, नाम या डिज़ाइन में बदलाव करना हो)
+            // 🟢 MODULE 5: BUTTONS (स्टार्ट, पॉज़ और रीसेट)
             // =================================================================
             Row(
+                modifier = Modifier.padding(bottom = 32.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
