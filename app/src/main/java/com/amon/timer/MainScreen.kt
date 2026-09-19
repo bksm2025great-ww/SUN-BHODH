@@ -1,13 +1,20 @@
 package com.amon.timer
 
+import android.graphics.BlurMaskFilter
+import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,33 +24,33 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import com.amon.timer.ui.theme.AccentYellow
+import kotlin.math.*
 
 @Composable
 fun MainScreen() {
 
     // =========================================================================
-    // 🟢 MODULE 1: SUBJECT & TREE SELECTION (विषय और पेड़ का चुनाव)
+    // 🟢 1. STATE & CONTROLS (डेटा और टाइमर का इंजन)
     // =========================================================================
-    var selectedSubject by remember { mutableStateOf(PlantRegistry.defaultSubjects.last()) } // डिफ़ॉल्ट: Physics (Apple Tree)
+    var selectedSubject by remember { mutableStateOf(PlantRegistry.defaultSubjects.first()) } // डिफ़ॉल्ट: 'All'
+    var selectedTab by remember { mutableStateOf("Timer") } // "Timer" या "Stopwatch"
+    var selectedPreset by remember { mutableIntStateOf(25) } // 25, 45, या कस्टम टाइम
 
-    // =========================================================================
-    // 🟢 MODULE 2: TIMER ENGINE & SESSION STATE (टाइमर का दिमाग)
-    // =========================================================================
-    val focusSeconds = 25 * 60       // 25 मिनट का फ़ोकस सत्र
-    val shortBreakSeconds = 5 * 60   // 5 मिनट का शॉर्ट ब्रेक
-    val longBreakSeconds = 15 * 60   // 15 मिनट का लॉन्ग ब्रेक
-
-    var initialSeconds by remember { mutableIntStateOf(focusSeconds) }
-    var totalSeconds by remember { mutableIntStateOf(focusSeconds) }
+    // डायल का टाइम (मिनट में) — डिफ़ॉल्ट 25 मिनट
+    var dialMinutes by remember { mutableIntStateOf(25) }
+    var totalSeconds by remember { mutableIntStateOf(25 * 60) }
     var isRunning by remember { mutableStateOf(false) }
-    var currentSession by remember { mutableIntStateOf(1) }
-    var isBreak by remember { mutableStateOf(false) }
 
+    // टाइमर टिकर इंजन
     LaunchedEffect(isRunning) {
         while (isRunning && totalSeconds > 0) {
             delay(1000L)
@@ -51,95 +58,89 @@ fun MainScreen() {
         }
         if (totalSeconds == 0 && isRunning) {
             isRunning = false
-            if (!isBreak) {
-                isBreak = true
-                if (currentSession < 3) {
-                    initialSeconds = shortBreakSeconds
-                    totalSeconds = shortBreakSeconds
-                } else {
-                    initialSeconds = longBreakSeconds
-                    totalSeconds = longBreakSeconds
-                }
-            } else {
-                isBreak = false
-                if (currentSession < 3) {
-                    currentSession++
-                } else {
-                    currentSession = 1
-                }
-                initialSeconds = focusSeconds
-                totalSeconds = focusSeconds
-            }
         }
     }
 
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    val timeFormatted = String.format("%02d:%02d", minutes, seconds)
-    val sessionProgress = (initialSeconds - totalSeconds).toFloat() / initialSeconds.toFloat()
+    val displayMinutes = totalSeconds / 60
+    val displaySeconds = totalSeconds % 60
+    val timeFormatted = String.format("%02d:%02d", displayMinutes, displaySeconds)
 
-    // 4 स्टेज ग्रोथ लॉजिक (SubjectPlant.kt से जुड़ा हुआ)
+    val sessionTotalSeconds = (dialMinutes * 60).coerceAtLeast(1)
+    val sessionProgress = ((sessionTotalSeconds - totalSeconds).toFloat() / sessionTotalSeconds.toFloat()).coerceIn(0f, 1f)
     val currentGrowthStage = PlantRegistry.getGrowthStage(sessionProgress)
 
-    // कलर्स
-    val activeColor = when {
-        !isBreak -> AccentYellow
-        currentSession < 3 -> Color(0xFF34D399)
-        else -> Color(0xFF60A5FA)
-    }
-    val trackColor = Color(0xFF222228)
+    // कलर्स (गोल्डन नियॉन थीम)
+    val goldColor = Color(0xFFF5A524)
+    val glowYellow = Color(0xFFFDE68A)
+    val glassBg = Color(0xCC111116)
+    val glassBorder = Color(0x33FFFFFF)
+    val textMuted = Color(0xFF9CA3AF)
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = Color(0xFF08080B)
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .padding(paddingValues)
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
 
             // =================================================================
-            // 🟢 MODULE 3: TOP SUBJECT SELECTOR (विषय बदलने वाली पट्टी)
+            // 🟢 TOP HEADER
+            // =================================================================
+            Text(
+                text = "Select Time",
+                color = Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.5.sp
+            )
+
+            // =================================================================
+            // 🟢 HIERARCHY 1: SELECT SUBJECTS (हॉरिजॉन्टल स्क्रॉलिंग कैप्सूल बार)
             // =================================================================
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    text = "SELECT SUBJECT",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Gray,
-                    letterSpacing = 1.sp
+                    text = "SELECT SUBJECTS",
+                    color = textMuted,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(bottom = 6.dp)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
 
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp)
                 ) {
                     items(PlantRegistry.defaultSubjects) { subject ->
                         val isSelected = subject.id == selectedSubject.id
                         Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(if (isSelected) activeColor else Color(0xFF1E1E24))
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isSelected) goldColor else glassBg)
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSelected) glowYellow else glassBorder,
+                                    shape = RoundedCornerShape(50)
+                                )
                                 .clickable {
-                                    if (!isRunning) {
-                                        selectedSubject = subject
-                                    }
+                                    selectedSubject = subject
                                 }
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                                .padding(horizontal = 16.dp, vertical = 7.dp)
                         ) {
                             Text(
                                 text = subject.name,
-                                color = if (isSelected) Color.Black else Color.LightGray,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                color = if (isSelected) Color.Black else textMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -147,139 +148,348 @@ fun MainScreen() {
             }
 
             // =================================================================
-            // 🟢 MODULE 4: 3-PART RING & TREE DISPLAY (रिंग और उगता हुआ पेड़)
+            // 🟢 HIERARCHY 2: [ TIMER | STOPWATCH ] (सेंटर्ड फ्रॉस्टेड ग्लास कैप्सूल)
+            // =================================================================
+            Box(
+                modifier = Modifier
+                    .width(220.dp)
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(glassBg)
+                    .border(1.dp, glassBorder, RoundedCornerShape(50))
+                    .padding(3.dp)
+            ) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // Timer Tab
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(50))
+                            .background(if (selectedTab == "Timer") goldColor else Color.Transparent)
+                            .clickable { selectedTab = "Timer" }
+                    ) {
+                        Text(
+                            text = "Timer",
+                            color = if (selectedTab == "Timer") Color.Black else textMuted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+
+                    // Stopwatch Tab
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(50))
+                            .background(if (selectedTab == "Stopwatch") goldColor else Color.Transparent)
+                            .clickable { selectedTab = "Stopwatch" }
+                    ) {
+                        Text(
+                            text = "Stopwatch",
+                            color = if (selectedTab == "Stopwatch") Color.Black else textMuted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+            }
+
+            // =================================================================
+            // 🟢 HIERARCHY 3: PRESETS (25 POMODORO | 45 FOCUS)
+            // =================================================================
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Preset 25m
+                val is25 = selectedPreset == 25
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .width(115.dp)
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (is25) goldColor else glassBg)
+                        .border(1.dp, if (is25) glowYellow else glassBorder, RoundedCornerShape(50))
+                        .clickable {
+                            if (!isRunning) {
+                                selectedPreset = 25
+                                dialMinutes = 25
+                                totalSeconds = 25 * 60
+                            }
+                        }
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "25",
+                            color = if (is25) Color.Black else goldColor,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            text = "Pomodoro",
+                            color = if (is25) Color(0xFF1E1E1E) else glowYellow,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Preset 45m
+                val is45 = selectedPreset == 45
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .width(115.dp)
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (is45) goldColor else glassBg)
+                        .border(1.dp, if (is45) glowYellow else glassBorder, RoundedCornerShape(50))
+                        .clickable {
+                            if (!isRunning) {
+                                selectedPreset = 45
+                                dialMinutes = 45
+                                totalSeconds = 45 * 60
+                            }
+                        }
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "45",
+                            color = if (is45) Color.Black else goldColor,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            text = "Focus",
+                            color = if (is45) Color(0xFF1E1E1E) else glowYellow,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // =================================================================
+            // 🟢 HIERARCHY 4: 100% TRUE CIRCULAR ROTARY DIAL & HERO CORE
             // =================================================================
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(280.dp)
+                modifier = Modifier
+                    .size(270.dp)
+                    .aspectRatio(1f)
+                    .pointerInput(isRunning) {
+                        if (!isRunning) {
+                            detectDragGestures { change, _ ->
+                                change.consume()
+                                val touchX = change.position.x - (size.width / 2f)
+                                val touchY = change.position.y - (size.height / 2f)
+                                var angle = Math.toDegrees(atan2(touchY.toDouble(), touchX.toDouble())).toFloat()
+                                var adjustedAngle = (angle + 90f)
+                                if (adjustedAngle < 0f) adjustedAngle += 360f
+
+                                val rawMins = (adjustedAngle / 360f) * 120f
+                                val snappedMins = (Math.round(rawMins / 5f) * 5).coerceIn(5, 120)
+                                dialMinutes = snappedMins
+                                totalSeconds = snappedMins * 60
+                                selectedPreset = snappedMins
+                            }
+                        }
+                    }
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
-                    val strokeWidth = 10.dp.toPx()
-                    val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
-                    val topLeft = Offset(strokeWidth / 2f, strokeWidth / 2f)
+                    val strokeWidth = 11.dp.toPx()
+                    val radius = (size.minDimension - strokeWidth) / 2f
+                    val center = Offset(size.width / 2f, size.height / 2f)
+                    val arcSize = Size(radius * 2f, radius * 2f)
+                    val topLeft = Offset(center.x - radius, center.y - radius)
 
-                    val gap = 12f
-                    val sweep = (360f - (gap * 3)) / 3f
-
-                    val startAngles = listOf(
-                        -90f + (gap / 2f),
-                        -90f + (gap / 2f) + sweep + gap,
-                        -90f + (gap / 2f) + (sweep + gap) * 2
+                    // 1. बैकग्राउंड डार्क ट्रैक
+                    drawCircle(
+                        color = Color(0xFF14141A),
+                        radius = radius,
+                        center = center,
+                        style = Stroke(width = strokeWidth)
                     )
 
-                    // बैकग्राउंड ट्रैक्स
-                    startAngles.forEach { startAngle ->
+                    // 2. पूरे 120 मिनट के 5-मिनट माइक्रो-डॉट्स
+                    val totalDots = 24
+                    for (i in 0..totalDots) {
+                        val dotMins = i * 5
+                        val dotAngle = -90f + (dotMins / 120f) * 360f
+                        val rad = Math.toRadians(dotAngle.toDouble())
+                        val dotX = center.x + radius * cos(rad).toFloat()
+                        val dotY = center.y + radius * sin(rad).toFloat()
+
+                        val isFilled = dotMins <= dialMinutes
+                        val isMajor = dotMins % 15 == 0
+                        val dotRadius = if (isMajor) 3.5.dp.toPx() else 1.8.dp.toPx()
+
+                        drawCircle(
+                            color = if (isFilled) goldColor else Color(0xFF2B2B36),
+                            radius = dotRadius,
+                            center = Offset(dotX, dotY)
+                        )
+                    }
+
+                    // 3. सक्रिय आर्च पर वॉर्म गोल्डन नियॉन ग्लो (Halo Effect)
+                    val activeSweep = (dialMinutes / 120f) * 360f
+                    if (activeSweep > 0f) {
+                        drawIntoCanvas { canvas ->
+                            val glowPaint = Paint().apply {
+                                color = goldColor.copy(alpha = 0.4f).toArgb()
+                                strokeWidth = strokeWidth + 14.dp.toPx()
+                                style = Paint.Style.STROKE
+                                strokeCap = Paint.Cap.ROUND
+                                isAntiAlias = true
+                                maskFilter = BlurMaskFilter(16.dp.toPx(), BlurMaskFilter.Blur.NORMAL)
+                            }
+                            canvas.nativeCanvas.drawArc(
+                                topLeft.x, topLeft.y,
+                                topLeft.x + arcSize.width, topLeft.y + arcSize.height,
+                                -90f, activeSweep, false, glowPaint
+                            )
+                        }
+
+                        // सॉलिड कोर गोल्डन आर्च
                         drawArc(
-                            color = trackColor,
-                            startAngle = startAngle,
-                            sweepAngle = sweep,
+                            color = goldColor,
+                            startAngle = -90f,
+                            sweepAngle = activeSweep,
                             useCenter = false,
                             topLeft = topLeft,
                             size = arcSize,
                             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                         )
-                    }
 
-                    // प्रोग्रेस आर्क्स
-                    startAngles.forEachIndexed { index, startAngle ->
-                        val segmentIndex = index + 1
-                        val fillFraction = when {
-                            currentSession > segmentIndex -> 1.0f
-                            currentSession == segmentIndex -> if (isBreak) 1.0f else sessionProgress
-                            else -> 0.0f
-                        }
+                        // 4. ग्लोइंग रोटरी नॉब
+                        val knobAngle = -90f + activeSweep
+                        val knobRad = Math.toRadians(knobAngle.toDouble())
+                        val knobX = center.x + radius * cos(knobRad).toFloat()
+                        val knobY = center.y + radius * sin(knobRad).toFloat()
 
-                        if (fillFraction > 0f) {
-                            drawArc(
-                                color = activeColor,
-                                startAngle = startAngle,
-                                sweepAngle = sweep * fillFraction,
-                                useCenter = false,
-                                topLeft = topLeft,
-                                size = arcSize,
-                                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                            )
-                        }
+                        drawCircle(
+                            color = goldColor.copy(alpha = 0.35f),
+                            radius = 16.dp.toPx(),
+                            center = Offset(knobX, knobY)
+                        )
+                        drawCircle(
+                            color = goldColor,
+                            radius = 9.dp.toPx(),
+                            center = Offset(knobX, knobY)
+                        )
+                        drawCircle(
+                            color = Color.White,
+                            radius = 4.dp.toPx(),
+                            center = Offset(knobX, knobY)
+                        )
                     }
                 }
 
-                // सेंटर इन्फो: पेड़ का विज़ुअल और स्टेज
+                // 🟢 डायल के केंद्र का कोर (The Focus Display)
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    val stageText = when (currentGrowthStage) {
-                        TreeGrowthStage.SPROUT -> "🌱 Sprout"
-                        TreeGrowthStage.SAPLING -> "🌿 Sapling"
-                        TreeGrowthStage.DENSE -> "🌳 ${selectedSubject.tree.nameEn}"
-                        TreeGrowthStage.MATURE -> "✨ ${selectedSubject.tree.nameHi} (${selectedSubject.tree.fruitName})"
-                    }
-
                     Text(
-                        text = stageText,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = activeColor
+                        text = "DEEP FOCUS",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        color = textMuted,
+                        letterSpacing = 1.sp
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
 
                     Text(
                         text = timeFormatted,
-                        fontSize = 46.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
+                        fontSize = 44.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        letterSpacing = (-1).sp
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
 
-                    val statusText = when {
-                        !isBreak -> "SESSION $currentSession OF 3"
-                        currentSession < 3 -> "SHORT BREAK (5m)"
-                        else -> "LONG BREAK (15m)"
+                    Text(
+                        text = "STUDYING ${selectedSubject.name.uppercase()}",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        color = goldColor,
+                        letterSpacing = 1.sp
+                    )
+
+                    val treeName = selectedSubject.tree.nameEn
+                    val stageLabel = when (currentGrowthStage) {
+                        TreeGrowthStage.SPROUT -> "Stage 1 🌱"
+                        TreeGrowthStage.SAPLING -> "Stage 2 🌿"
+                        TreeGrowthStage.DENSE -> "Stage 3 🌳"
+                        TreeGrowthStage.MATURE -> "Mature ✨"
                     }
 
                     Text(
-                        text = statusText,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.Gray
+                        text = "$treeName • $stageLabel",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF34D399)
                     )
                 }
             }
 
             // =================================================================
-            // 🟢 MODULE 5: BUTTONS (स्टार्ट, पॉज़ और रीसेट)
+            // 🟢 HIERARCHY 5: ACTION BUTTONS (PLANT & CANCEL PILLS)
             // =================================================================
-            Row(
-                modifier = Modifier.padding(bottom = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Button(
-                    onClick = { isRunning = !isRunning },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = activeColor,
-                        contentColor = Color.Black
-                    )
+                // Plant / Pause Button
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(goldColor)
+                        .border(1.dp, glowYellow, RoundedCornerShape(50))
+                        .clickable {
+                            isRunning = !isRunning
+                        }
                 ) {
                     Text(
-                        text = if (isRunning) "Pause" else "Start",
-                        fontWeight = FontWeight.Bold
+                        text = if (isRunning) "Pause" else "Plant",
+                        color = Color.Black,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Black
                     )
                 }
 
-                OutlinedButton(
-                    onClick = {
-                        isRunning = false
-                        currentSession = 1
-                        isBreak = false
-                        initialSeconds = focusSeconds
-                        totalSeconds = focusSeconds
-                    }
+                // Cancel / Reset Button
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(glassBg)
+                        .border(1.dp, glassBorder, RoundedCornerShape(50))
+                        .clickable {
+                            isRunning = false
+                            totalSeconds = dialMinutes * 60
+                        }
                 ) {
                     Text(
-                        text = "Reset",
-                        color = MaterialTheme.colorScheme.onBackground
+                        text = "Cancel",
+                        color = goldColor,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
