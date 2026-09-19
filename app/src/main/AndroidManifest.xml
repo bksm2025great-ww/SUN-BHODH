@@ -1,36 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 1. समय पूरा होने पर हल्की वाइब्रेशन की अनुमति -->
+    <!-- 1. Session complete hone par halki vibration ki permission -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <!-- 2. बैकग्राउंड में पहरेदार (Service) चलाने की अनुमति -->
+    <!-- 2. Background me pehredaar (Service) chalane ki permission -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
-    <!-- 3. लॉक स्क्रीन पर टाइमर का नोटिफिकेशन दिखाने की अनुमति -->
+    <!-- 3. Lock screen par timer ka notification dikhane ki permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Amon">
+        android:theme="@android:style/Theme.Material.NoActionBar">
 
-        <!-- हमारी मुख्य स्क्रीन (MainScreen) -->
+        <!-- Hamari main screen (MainActivity) -->
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:theme="@style/Theme.Amon">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- बैकग्राउंड में टाइमर चलाने वाला पहरेदार (Service) -->
+        <!-- Background me timer chalane wala pehredaar (TimerService) -->
         <service
             android:name=".TimerService"
             android:enabled="true"
