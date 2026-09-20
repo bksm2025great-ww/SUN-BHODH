@@ -15,32 +15,50 @@ object FocusSessionManager {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    // 1. डायरी में लिखना (Save Data)
+    // 1. डायरी में लिखना (Save Data with Duplicate Prevention / Upsert)
     fun saveSession(context: Context, session: FocusSession) {
         val prefs = getPrefs(context)
-        // पुरानी सारी डायरी निकालो, अगर खाली है तो नया ब्रैकेट [] बनाओ
         val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
 
         try {
             val jsonArray = JSONArray(existingData)
-            val newSessionObj = JSONObject().apply {
-                put("id", session.id)
-                put("date", session.date)
-                put("subject", session.subject)
-                put("durationMinutes", session.durationMinutes)
-                put("earnedTrees", session.earnedTrees)
+            val updatedJsonArray = JSONArray()
+            var isAlreadyExists = false
+
+            // डुप्लीकेट रोकने का लॉजिक (Upsert check): अगर वही ID पहले से है तो उसे अपडेट करो
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                if (obj.getLong("id") == session.id) {
+                    isAlreadyExists = true
+                    // Update existing object
+                    obj.put("date", session.date)
+                    obj.put("subject", session.subject)
+                    obj.put("durationMinutes", session.durationMinutes)
+                    obj.put("earnedTrees", session.earnedTrees)
+                }
+                updatedJsonArray.put(obj)
             }
-            // नया रिकॉर्ड सबसे आखिर में जोड़ दो
-            jsonArray.put(newSessionObj)
+
+            // अगर नया सेशन है, तो इसे सूची में जोड़ दो
+            if (!isAlreadyExists) {
+                val newSessionObj = JSONObject().apply {
+                    put("id", session.id)
+                    put("date", session.date)
+                    put("subject", session.subject)
+                    put("durationMinutes", session.durationMinutes)
+                    put("earnedTrees", session.earnedTrees)
+                }
+                updatedJsonArray.put(newSessionObj)
+            }
 
             // वापस तिजोरी में सुरक्षित रख दो
-            prefs.edit().putString(KEY_SESSIONS, jsonArray.toString()).apply()
+            prefs.edit().putString(KEY_SESSIONS, updatedJsonArray.toString()).apply()
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    // 2. डायरी से पढ़ना (Read Data for Forest & Stats)
+    // 2. डायरी से पढ़ना (Read Data)
     fun getAllSessions(context: Context): List<FocusSession> {
         val prefs = getPrefs(context)
         val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
@@ -64,5 +82,10 @@ object FocusSessionManager {
         }
         // लिस्ट को उल्टा (reversed) कर रहे हैं ताकि सबसे नई पढ़ाई सबसे ऊपर दिखे
         return sessionList.reversed()
+    }
+
+    // 🟢 Shortcut alias to support any legacy getSessions calls smoothly
+    fun getSessions(context: Context): List<FocusSession> {
+        return getAllSessions(context)
     }
 }
