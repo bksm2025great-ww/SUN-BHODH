@@ -74,7 +74,7 @@ fun MainScreen() {
                 0 -> HomeTimerTab(context, goldColor, glowYellow, glassBg, glassBorder, textMuted)
                 1 -> ComingSoonTab(title = "Forest", iconRes = R.drawable.ic_nav_forest, desc = "Ugaye hue pedon ka bageecha jald hi aayega")
                 2 -> ComingSoonTab(title = "Stats", iconRes = R.drawable.ic_nav_stats, desc = "Daily & Weekly focus analytics jald hi aayega")
-                3 -> ComingSoonTab(title = "Profile", iconRes = R.drawable.ic_nav_profile, desc = "Badges, Themes & Settings jald hi aayenge")
+                3 -> ProfileScreen()
             }
         }
     }
