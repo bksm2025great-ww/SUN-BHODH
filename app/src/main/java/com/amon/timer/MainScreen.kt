@@ -81,8 +81,8 @@ fun MainScreen() {
         ) {
             when (currentNavIndex) {
                 0 -> HomeTimerTab(context, goldColor, glowYellow, cardBg, glassBorder, textMuted, textMain, isDark, isRunning)
-                1 -> ComingSoonTab(title = "Forest", iconRes = R.drawable.ic_nav_forest, desc = "Ugaye hue pedon ka bageecha jald hi aayega", cardBg = cardBg, borderCol = glassBorder, textMain = textMain)
-                2 -> ComingSoonTab(title = "Stats", iconRes = R.drawable.ic_nav_stats, desc = "Daily & Weekly focus analytics jald hi aayega", cardBg = cardBg, borderCol = glassBorder, textMain = textMain)
+                1 -> ForestScreen() // 🌲 Connected to your new Forest Garden!
+                2 -> StatsScreenPlaceholder(goldColor) // 📊 Clean slate ready for charts!
                 3 -> ProfileScreen()
             }
         }
@@ -503,46 +503,29 @@ fun HomeTimerTab(
 }
 
 // =============================================================================
-// 🟢 2. COMING SOON TAB
+// 🟢 2. STATS SCREEN PLACEHOLDER (CLEANED UP FOR NEXT TASK)
 // =============================================================================
 @Composable
-fun ComingSoonTab(title: String, iconRes: Int, desc: String, cardBg: Color, borderCol: Color, textMain: Color) {
+fun StatsScreenPlaceholder(goldColor: Color) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.88f)
-                .clip(RoundedCornerShape(24.dp))
-                .background(cardBg)
-                .border(1.dp, borderCol, RoundedCornerShape(24.dp))
-                .padding(28.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = title,
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Fit
-                )
-                Spacer(modifier = Modifier.height(14.dp))
-                Text(text = title, fontSize = 22.sp, fontWeight = FontWeight.Black, color = textMain)
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(text = "Coming Soon... 🌱", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5A524))
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = desc,
-                    fontSize = 11.sp,
-                    color = Color(0xFF9CA3AF),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-            }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = "📊", fontSize = 48.sp)
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Stats & Analytics",
+                color = goldColor,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Ready for the next task!",
+                color = Color.Gray,
+                fontSize = 14.sp
+            )
         }
     }
 }
