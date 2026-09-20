@@ -21,6 +21,9 @@ class TimerService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var timerJob: Job? = null
+    
+    // 🟢 नया वेरिएबल: ताकि ऐप को याद रहे कि टाइमर शुरू कितने समय का हुआ था
+    private var originalTimerSeconds = 0
 
     companion object {
         const val CHANNEL_ID = "amon_focus_timer_channel"
@@ -33,7 +36,6 @@ class TimerService : Service() {
         const val EXTRA_SECONDS = "extra_seconds"
         const val EXTRA_SUBJECT = "extra_subject"
 
-        // MainScreen is state ko seedhe read karti hai
         val remainingSeconds = mutableIntStateOf(25 * 60)
         val isTimerRunning = mutableStateOf(false)
         val currentSubjectName = mutableStateOf("All")
@@ -61,12 +63,12 @@ class TimerService : Service() {
     }
 
     private fun startTimer(seconds: Int, subject: String) {
+        originalTimerSeconds = seconds // सेशन सेव करने के लिए असली समय याद रखना
         timerJob?.cancel()
         remainingSeconds.intValue = seconds
         currentSubjectName.value = subject
         isTimerRunning.value = true
 
-        // 🟢 0 होने पर स्टॉपवॉच, वरना टाइमर
         val isStopwatch = (seconds == 0)
         val startTime = System.currentTimeMillis()
         val endTime = if (isStopwatch) startTime else startTime + seconds * 1000L
@@ -77,20 +79,17 @@ class TimerService : Service() {
 
         timerJob = serviceScope.launch {
             if (isStopwatch) {
-                // ⏱️ स्टॉपवॉच मोड: 0 से आगे बढ़ेगा (120 मिनट की लिमिट)
                 while (isActive) {
                     delay(1000L)
                     val elapsed = ((System.currentTimeMillis() - startTime) / 1000L).toInt()
                     remainingSeconds.intValue = elapsed
                     
-                    // 120 मिनट (7200 सेकंड) पूरे होते ही ऑटो-स्टॉप
-                    if (elapsed >= 7200) {
+                    if (elapsed >= 7200) { // 120 मिनट पर ऑटो-स्टॉप
                         onTimerFinished()
                         break
                     }
                 }
             } else {
-                // ⏳ टाइमर मोड: उल्टी गिनती
                 while (isActive && remainingSeconds.intValue > 0) {
                     delay(1000L)
                     val left = ((endTime - System.currentTimeMillis()) / 1000L).toInt().coerceAtLeast(0)
@@ -105,6 +104,7 @@ class TimerService : Service() {
     }
 
     private fun pauseTimer() {
+        saveSessionToDiary() // 🟢 बीच में रोका तो भी डायरी में सेव होगा
         timerJob?.cancel()
         isTimerRunning.value = false
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -112,13 +112,45 @@ class TimerService : Service() {
     }
 
     private fun onTimerFinished() {
+        saveSessionToDiary() // 🟢 पूरा हुआ तो भी डायरी में सेव होगा
         isTimerRunning.value = false
         triggerGentleVibration()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
-    // Session pura hone par 1 halki shaant vibration
+    // 🟢 नया फंक्शन: जो टाइम और पौधे कैलकुलेट करके डायरी में डेटा भेजेगा
+    private fun saveSessionToDiary() {
+        // पता लगाओ कितने सेकंड पढ़ाई हुई
+        val completedSeconds = if (originalTimerSeconds == 0) {
+            remainingSeconds.intValue // स्टॉपवॉच थी, तो जितना टाइम चला वही completed है
+        } else {
+            originalTimerSeconds - remainingSeconds.intValue // टाइमर था, तो (Total - बचा हुआ समय)
+        }
+
+        val minutes = completedSeconds / 60
+        if (minutes < 1) return // 1 मिनट से कम पर कुछ सेव नहीं होगा
+
+        // पौधों (Trees) का हिसाब
+        val trees = if (minutes >= 120) 4
+        else if (minutes >= 90) 3
+        else if (minutes >= 60) 2
+        else 1 
+
+        // आज की तारीख निकालो
+        val sdf = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+        val currentDate = sdf.format(java.util.Date())
+
+        // फॉर्मेट में डालो और डायरी मैनेजर को भेज दो
+        val session = FocusSession(
+            date = currentDate,
+            subject = currentSubjectName.value,
+            durationMinutes = minutes,
+            earnedTrees = trees
+        )
+        FocusSessionManager.saveSession(this, session)
+    }
+
     private fun triggerGentleVibration() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -143,7 +175,6 @@ class TimerService : Service() {
         }
     }
 
-    // Lock screen aur notification bar ka card
     private fun buildNotification(seconds: Int, subject: String, referenceTime: Long, isStopwatch: Boolean): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
