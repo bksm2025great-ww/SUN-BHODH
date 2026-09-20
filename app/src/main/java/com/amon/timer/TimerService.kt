@@ -144,7 +144,7 @@ class TimerService : Service() {
     }
 
     // Lock screen aur notification bar ka card
-    private fun buildNotification(seconds: Int, subject: String, endTime: Long): Notification {
+    private fun buildNotification(seconds: Int, subject: String, referenceTime: Long, isStopwatch: Boolean): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -165,15 +165,17 @@ class TimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val contentText = if (isStopwatch) "Stopwatch running in background" else "Timer running in background"
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Focus Session: $subject")
-            .setContentText("Timer running in background")
+            .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setOngoing(true)
             .setContentIntent(openAppPendingIntent)
             .setUsesChronometer(true)
-            .setChronometerCountDown(true)
-            .setWhen(endTime)
+            .setChronometerCountDown(!isStopwatch)
+            .setWhen(referenceTime)
             .addAction(android.R.drawable.ic_media_pause, "Pause", pausePendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
