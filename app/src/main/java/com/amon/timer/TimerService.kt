@@ -66,18 +66,39 @@ class TimerService : Service() {
         currentSubjectName.value = subject
         isTimerRunning.value = true
 
-        val endTime = System.currentTimeMillis() + seconds * 1000L
-        val notification = buildNotification(seconds, subject, endTime)
+        // 🟢 0 होने पर स्टॉपवॉच, वरना टाइमर
+        val isStopwatch = (seconds == 0)
+        val startTime = System.currentTimeMillis()
+        val endTime = if (isStopwatch) startTime else startTime + seconds * 1000L
+
+        val referenceTime = if (isStopwatch) startTime else endTime
+        val notification = buildNotification(seconds, subject, referenceTime, isStopwatch)
         startForeground(NOTIFICATION_ID, notification)
 
         timerJob = serviceScope.launch {
-            while (isActive && remainingSeconds.intValue > 0) {
-                delay(1000L)
-                val left = ((endTime - System.currentTimeMillis()) / 1000L).toInt().coerceAtLeast(0)
-                remainingSeconds.intValue = left
-                if (left == 0) {
-                    onTimerFinished()
-                    break
+            if (isStopwatch) {
+                // ⏱️ स्टॉपवॉच मोड: 0 से आगे बढ़ेगा (120 मिनट की लिमिट)
+                while (isActive) {
+                    delay(1000L)
+                    val elapsed = ((System.currentTimeMillis() - startTime) / 1000L).toInt()
+                    remainingSeconds.intValue = elapsed
+                    
+                    // 120 मिनट (7200 सेकंड) पूरे होते ही ऑटो-स्टॉप
+                    if (elapsed >= 7200) {
+                        onTimerFinished()
+                        break
+                    }
+                }
+            } else {
+                // ⏳ टाइमर मोड: उल्टी गिनती
+                while (isActive && remainingSeconds.intValue > 0) {
+                    delay(1000L)
+                    val left = ((endTime - System.currentTimeMillis()) / 1000L).toInt().coerceAtLeast(0)
+                    remainingSeconds.intValue = left
+                    if (left == 0) {
+                        onTimerFinished()
+                        break
+                    }
                 }
             }
         }
