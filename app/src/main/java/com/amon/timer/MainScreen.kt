@@ -36,23 +36,37 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.*
 
+// Shared Theme State across the app (Dark / Light)
+object AppThemeState {
+    var isDarkTheme by mutableStateOf(true)
+}
+
 @Composable
 fun MainScreen() {
     val context = LocalContext.current
     var currentNavIndex by remember { mutableIntStateOf(0) }
 
-    val goldColor = Color(0xFFF5A524)
-    val glowYellow = Color(0xFFFDE68A)
-    val glassBg = Color(0xEE121218)
-    val glassBorder = Color(0x2D2D38)
-    val textMuted = Color(0xFF9CA3AF)
+    val isDark = AppThemeState.isDarkTheme
+
+    // Dynamic Theme Colors
+    val bgColor = if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC)
+    val cardBg = if (isDark) Color(0xEE121218) else Color(0xFFFFFFFF)
+    val textMain = if (isDark) Color.White else Color(0xFF0F172A)
+    val textMuted = if (isDark) Color(0xFF9CA3AF) else Color(0xFF64748B)
+    val glassBorder = if (isDark) Color(0x2D2D38) else Color(0xFFCBD5E1)
+    val goldColor = if (isDark) Color(0xFFF5A524) else Color(0xFFD97706)
+    val glowYellow = if (isDark) Color(0xFFFDE68A) else Color(0xFFF59E0B)
 
     Scaffold(
-        containerColor = Color(0xFF08080B),
+        containerColor = bgColor,
         bottomBar = {
             AmonCurvedBottomBar(
                 selectedIndex = currentNavIndex,
-                onTabSelected = { newIndex -> currentNavIndex = newIndex }
+                onTabSelected = { newIndex -> currentNavIndex = newIndex },
+                isDark = isDark,
+                goldColor = goldColor,
+                cardBg = cardBg,
+                borderCol = glassBorder
             )
         }
     ) { paddingValues ->
@@ -62,9 +76,9 @@ fun MainScreen() {
                 .padding(paddingValues)
         ) {
             when (currentNavIndex) {
-                0 -> HomeTimerTab(context, goldColor, glowYellow, glassBg, glassBorder, textMuted)
-                1 -> ComingSoonTab(title = "Forest", iconRes = R.drawable.ic_nav_forest, desc = "Ugaye hue pedon ka bageecha jald hi aayega")
-                2 -> ComingSoonTab(title = "Stats", iconRes = R.drawable.ic_nav_stats, desc = "Daily & Weekly focus analytics jald hi aayega")
+                0 -> HomeTimerTab(context, goldColor, glowYellow, cardBg, glassBorder, textMuted, textMain, isDark)
+                1 -> ComingSoonTab(title = "Forest", iconRes = R.drawable.ic_nav_forest, desc = "Ugaye hue pedon ka bageecha jald hi aayega", cardBg = cardBg, borderCol = glassBorder, textMain = textMain)
+                2 -> ComingSoonTab(title = "Stats", iconRes = R.drawable.ic_nav_stats, desc = "Daily & Weekly focus analytics jald hi aayega", cardBg = cardBg, borderCol = glassBorder, textMain = textMain)
                 3 -> ProfileScreen()
             }
         }
@@ -72,16 +86,18 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🟢 1. HOME TAB (CLEAN, SPACIOUS & FAST)
+// 🟢 1. HOME TAB (THEME-AWARE, CLEAN & FAST)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
     context: android.content.Context,
     goldColor: Color,
     glowYellow: Color,
-    glassBg: Color,
+    cardBg: Color,
     glassBorder: Color,
-    textMuted: Color
+    textMuted: Color,
+    textMain: Color,
+    isDark: Boolean
 ) {
     var selectedSubject by remember { mutableStateOf(PlantRegistry.defaultSubjects.first()) }
     var isSoundOn by remember { mutableStateOf(false) }
@@ -95,9 +111,6 @@ fun HomeTimerTab(
     val displaySeconds = totalSeconds % 60
     val timeFormatted = String.format("%02d:%02d", displayMinutes, displaySeconds)
 
-    val sessionTotalSeconds = ((dialMinutes.toInt()) * 60).coerceAtLeast(1)
-    val sessionProgress = ((sessionTotalSeconds - totalSeconds).toFloat() / sessionTotalSeconds.toFloat()).coerceIn(0f, 1f)
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -105,7 +118,7 @@ fun HomeTimerTab(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // TOP BAR (MASCOT + AMON)
+        // TOP BAR (MASCOT + AMON + STREAK & SOUND CHIP)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -133,31 +146,53 @@ fun HomeTimerTab(
                 }
                 Text(
                     text = "AMON",
-                    color = Color.White,
+                    color = textMain,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
                 )
             }
 
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Color(0x33F5A524))
-                    .border(1.2.dp, goldColor, RoundedCornerShape(50))
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(if (isDark) Color(0x33F5A524) else Color(0x22D97706))
+                        .border(1.2.dp, goldColor, RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 3.dp)
                 ) {
-                    Text(text = "🔥", fontSize = 10.sp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(text = "🔥", fontSize = 9.sp)
+                        Text(
+                            text = "5 DAYS",
+                            color = goldColor,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(cardBg)
+                        .border(1.dp, goldColor, RoundedCornerShape(50))
+                        .clickable { isSoundOn = !isSoundOn }
+                        .padding(horizontal = 10.dp, vertical = 3.dp)
+                ) {
                     Text(
-                        text = "5 DAYS",
-                        color = glowYellow,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold
+                        text = if (isSoundOn) "🔊 Sound" else "🔈 Sound",
+                        color = goldColor,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -175,7 +210,7 @@ fun HomeTimerTab(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(if (isSelected) goldColor else glassBg)
+                            .background(if (isSelected) goldColor else cardBg)
                             .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
                             .clickable {
                                 if (!isRunning) selectedSubject = subject
@@ -184,7 +219,7 @@ fun HomeTimerTab(
                     ) {
                         Text(
                             text = subject.name,
-                            color = if (isSelected) Color.Black else textMuted,
+                            color = if (isSelected) Color.White else textMuted,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -193,7 +228,7 @@ fun HomeTimerTab(
             }
         }
 
-        // BIGGER TIME RING + TREE + SOUND CHIP ON SHOULDER
+        // BIGGER TIME RING + TREE
         Box(
             modifier = Modifier
                 .size(230.dp)
@@ -204,10 +239,8 @@ fun HomeTimerTab(
                 val radius = size.minDimension / 2f - 10.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
 
-                // Background Ring
-                drawCircle(color = Color(0xFF1E1E28), radius = radius, center = center, style = Stroke(width = 5.dp.toPx()))
+                drawCircle(color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0), radius = radius, center = center, style = Stroke(width = 5.dp.toPx()))
 
-                // Active Arc
                 val sweep = (dialMinutes / 120f) * 360f
                 drawArc(
                     color = goldColor,
@@ -217,26 +250,6 @@ fun HomeTimerTab(
                     topLeft = Offset(center.x - radius, center.y - radius),
                     size = Size(radius * 2f, radius * 2f),
                     style = Stroke(width = 5.5.dp.toPx(), cap = StrokeCap.Round)
-                )
-            }
-
-            // Sound Chip on Top-Right Shoulder
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = (-4).dp, y = 14.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(glassBg)
-                    .border(1.dp, goldColor, RoundedCornerShape(50))
-                    .clickable { isSoundOn = !isSoundOn }
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-            ) {
-                Text(
-                    text = if (isSoundOn) "🔊 Sound" else "🔈 Sound",
-                    color = goldColor,
-                    fontSize = 8.5.sp,
-                    fontWeight = FontWeight.Bold
                 )
             }
 
@@ -250,7 +263,7 @@ fun HomeTimerTab(
                     text = timeFormatted,
                     fontSize = 38.sp,
                     fontWeight = FontWeight.Black,
-                    color = Color.White
+                    color = textMain
                 )
             }
         }
@@ -272,7 +285,7 @@ fun HomeTimerTab(
                         .weight(1f)
                         .height(38.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(if (isSelected) goldColor else glassBg)
+                        .background(if (isSelected) goldColor else cardBg)
                         .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
                         .clickable {
                             isCustomMode = false
@@ -284,47 +297,46 @@ fun HomeTimerTab(
                 ) {
                     Text(
                         text = "${mins.toInt()}m",
-                        color = if (isSelected) Color.Black else Color.White,
+                        color = if (isSelected) Color.White else textMain,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            // Custom Button
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .weight(1f)
                     .height(38.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(if (isCustomMode) goldColor else glassBg)
+                    .background(if (isCustomMode) goldColor else cardBg)
                     .border(1.dp, if (isCustomMode) glowYellow else glassBorder, RoundedCornerShape(50))
                     .clickable { isCustomMode = !isCustomMode }
             ) {
                 Text(
                     text = "Custom",
-                    color = if (isCustomMode) Color.Black else Color.White,
+                    color = if (isCustomMode) Color.White else textMain,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
         }
 
-        // CUSTOM SLIDER CARD (OPENS ONLY WHEN CUSTOM IS CLICKED)
+        // CUSTOM SLIDER CARD
         if (isCustomMode) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(glassBg)
+                    .background(cardBg)
                     .border(1.4.dp, goldColor, RoundedCornerShape(16.dp))
                     .padding(12.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "${dialMinutes.toInt()} min",
-                        color = Color.White,
+                        text = if (dialMinutes == 0f) "0 min (Stopwatch)" else "${dialMinutes.toInt()} min",
+                        color = textMain,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Black
                     )
@@ -335,7 +347,7 @@ fun HomeTimerTab(
                         onValueChange = { 
                             if (!isRunning) {
                                 dialMinutes = it
-                                TimerService.remainingSeconds.intValue = (it.toInt() * 60)
+                                TimerService.remainingSeconds.intValue = if (it == 0f) 0 else (it.toInt() * 60)
                             }
                         },
                         valueRange = 0f..120f,
@@ -343,12 +355,12 @@ fun HomeTimerTab(
                         colors = SliderDefaults.colors(
                             thumbColor = goldColor,
                             activeTrackColor = goldColor,
-                            inactiveTrackColor = Color(0xFF27272A)
+                            inactiveTrackColor = if (isDark) Color(0xFF27272A) else Color(0xFFCBD5E1)
                         )
                     )
 
                     Text(
-                        text = if (dialMinutes == 0f) "Stopwatch Mode (0 min start)" else "Focus Timer >",
+                        text = if (dialMinutes == 0f) "Stopwatch Mode: Counts Up from 0" else "Focus Timer >",
                         color = textMuted,
                         fontSize = 9.5.sp,
                         fontWeight = FontWeight.Bold
@@ -364,7 +376,7 @@ fun HomeTimerTab(
             )
         }
 
-        // SIDE-BY-SIDE EQUAL ACTION BUTTONS (50:50 SPLIT IN ONE ROW)
+        // SIDE-BY-SIDE EQUAL ACTION BUTTONS (50:50 SPLIT)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -372,14 +384,13 @@ fun HomeTimerTab(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Cancel Button
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .weight(1f)
                     .height(46.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(glassBg)
+                    .background(cardBg)
                     .border(1.dp, glassBorder, RoundedCornerShape(50))
                     .clickable {
                         val intent = Intent(context, TimerService::class.java).apply {
@@ -392,7 +403,6 @@ fun HomeTimerTab(
                 Text(text = "Cancel", color = goldColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
 
-            // Plant Button (Hero Gold)
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -418,7 +428,7 @@ fun HomeTimerTab(
                         }
                     }
             ) {
-                Text(text = if (isRunning) "Pause" else "Plant 🌳", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                Text(text = if (isRunning) "Pause" else "Plant 🌳", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Black)
             }
         }
     }
@@ -428,7 +438,7 @@ fun HomeTimerTab(
 // 🟢 2. COMING SOON TAB
 // =============================================================================
 @Composable
-fun ComingSoonTab(title: String, iconRes: Int, desc: String) {
+fun ComingSoonTab(title: String, iconRes: Int, desc: String, cardBg: Color, borderCol: Color, textMain: Color) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -439,8 +449,8 @@ fun ComingSoonTab(title: String, iconRes: Int, desc: String) {
             modifier = Modifier
                 .fillMaxWidth(0.88f)
                 .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xEE121218))
-                .border(1.dp, Color(0x2D2D38), RoundedCornerShape(24.dp))
+                .background(cardBg)
+                .border(1.dp, borderCol, RoundedCornerShape(24.dp))
                 .padding(28.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -454,7 +464,7 @@ fun ComingSoonTab(title: String, iconRes: Int, desc: String) {
                     contentScale = ContentScale.Fit
                 )
                 Spacer(modifier = Modifier.height(14.dp))
-                Text(text = title, fontSize = 22.sp, fontWeight = FontWeight.Black, color = Color.White)
+                Text(text = title, fontSize = 22.sp, fontWeight = FontWeight.Black, color = textMain)
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(text = "Coming Soon... 🌱", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5A524))
                 Spacer(modifier = Modifier.height(8.dp))
@@ -470,12 +480,16 @@ fun ComingSoonTab(title: String, iconRes: Int, desc: String) {
 }
 
 // =============================================================================
-// 🟢 3. LIGHTWEIGHT SPEED-OPTIMIZED BOTTOM NAVIGATION BAR (60 FPS)
+// 🟢 3. LIGHTWEIGHT SPEED-OPTIMIZED BOTTOM NAVIGATION BAR
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
     selectedIndex: Int,
-    onTabSelected: (Int) -> Unit
+    onTabSelected: (Int) -> Unit,
+    isDark: Boolean,
+    goldColor: Color,
+    cardBg: Color,
+    borderCol: Color
 ) {
     val tabItems = listOf(
         Triple("Home", R.drawable.ic_nav_home, 0),
@@ -490,7 +504,6 @@ fun AmonCurvedBottomBar(
         label = "notch_slide"
     )
 
-    val goldColor = Color(0xFFF5A524)
     val inactiveColor = Color(0xFF9CA3AF)
 
     Box(
@@ -498,7 +511,6 @@ fun AmonCurvedBottomBar(
             .fillMaxWidth()
             .height(84.dp)
     ) {
-        // GPU RENDERED DOCK CANVAS (ZERO CPU LAG)
         Canvas(modifier = Modifier.fillMaxSize()) {
             val barHeight = 64.dp.toPx()
             val startY = size.height - barHeight
@@ -531,8 +543,8 @@ fun AmonCurvedBottomBar(
                 close()
             }
 
-            drawPath(path = path, color = Color(0xEE121218))
-            drawPath(path = path, color = Color(0x2D2D38), style = Stroke(width = 1.2.dp.toPx()))
+            drawPath(path = path, color = cardBg)
+            drawPath(path = path, color = borderCol, style = Stroke(width = 1.2.dp.toPx()))
         }
 
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -546,7 +558,7 @@ fun AmonCurvedBottomBar(
                     .offset(x = bubbleX, y = 2.dp)
                     .size(bubbleSize)
                     .clip(CircleShape)
-                    .background(Color(0xFF08080B))
+                    .background(if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC))
                     .border(2.6.dp, goldColor, CircleShape)
             ) {
                 val activeIconRes = tabItems[selectedIndex].second
