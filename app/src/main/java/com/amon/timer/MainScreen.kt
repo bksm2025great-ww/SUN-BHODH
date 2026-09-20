@@ -9,14 +9,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -47,6 +47,7 @@ fun MainScreen() {
     var currentNavIndex by remember { mutableIntStateOf(0) }
 
     val isDark = AppThemeState.isDarkTheme
+    val isRunning = TimerService.isTimerRunning.value
 
     // Dynamic Theme Colors
     val bgColor = if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC)
@@ -60,14 +61,17 @@ fun MainScreen() {
     Scaffold(
         containerColor = bgColor,
         bottomBar = {
-            AmonCurvedBottomBar(
-                selectedIndex = currentNavIndex,
-                onTabSelected = { newIndex -> currentNavIndex = newIndex },
-                isDark = isDark,
-                goldColor = goldColor,
-                cardBg = cardBg,
-                borderCol = glassBorder
-            )
+            // Hide bottom bar during active Focus Mode
+            if (!isRunning) {
+                AmonCurvedBottomBar(
+                    selectedIndex = currentNavIndex,
+                    onTabSelected = { newIndex -> currentNavIndex = newIndex },
+                    isDark = isDark,
+                    goldColor = goldColor,
+                    cardBg = cardBg,
+                    borderCol = glassBorder
+                )
+            }
         }
     ) { paddingValues ->
         Box(
@@ -76,7 +80,7 @@ fun MainScreen() {
                 .padding(paddingValues)
         ) {
             when (currentNavIndex) {
-                0 -> HomeTimerTab(context, goldColor, glowYellow, cardBg, glassBorder, textMuted, textMain, isDark)
+                0 -> HomeTimerTab(context, goldColor, glowYellow, cardBg, glassBorder, textMuted, textMain, isDark, isRunning)
                 1 -> ComingSoonTab(title = "Forest", iconRes = R.drawable.ic_nav_forest, desc = "Ugaye hue pedon ka bageecha jald hi aayega", cardBg = cardBg, borderCol = glassBorder, textMain = textMain)
                 2 -> ComingSoonTab(title = "Stats", iconRes = R.drawable.ic_nav_stats, desc = "Daily & Weekly focus analytics jald hi aayega", cardBg = cardBg, borderCol = glassBorder, textMain = textMain)
                 3 -> ProfileScreen()
@@ -86,7 +90,7 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🟢 1. HOME TAB (THEME-AWARE, CLEAN & FAST)
+// 🟢 1. HOME TAB (FOCUS MODE DISTRACTION-FREE & APPLE TICK RULER)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
@@ -97,14 +101,14 @@ fun HomeTimerTab(
     glassBorder: Color,
     textMuted: Color,
     textMain: Color,
-    isDark: Boolean
+    isDark: Boolean,
+    isRunning: Boolean
 ) {
     var selectedSubject by remember { mutableStateOf(PlantRegistry.defaultSubjects.first()) }
     var isSoundOn by remember { mutableStateOf(false) }
     var dialMinutes by remember { mutableFloatStateOf(25f) }
     var isCustomMode by remember { mutableStateOf(false) }
 
-    val isRunning = TimerService.isTimerRunning.value
     val totalSeconds = TimerService.remainingSeconds.intValue
 
     val displayMinutes = totalSeconds / 60
@@ -118,121 +122,143 @@ fun HomeTimerTab(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // TOP BAR (MASCOT + AMON + STREAK & SOUND CHIP)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 2.dp, bottom = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        // TOP BAR: Hidden during active timer (Focus Mode)
+        if (!isRunning) {
             Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp, bottom = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .border(1.4.dp, goldColor, RoundedCornerShape(12.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_mascot_amon),
-                        contentDescription = "Amon Mascot",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-                Text(
-                    text = "AMON",
-                    color = textMain,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp
-                )
-            }
-
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(if (isDark) Color(0x33F5A524) else Color(0x22D97706))
-                        .border(1.2.dp, goldColor, RoundedCornerShape(50))
-                        .padding(horizontal = 10.dp, vertical = 3.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.4.dp, goldColor, RoundedCornerShape(12.dp))
                     ) {
-                        Text(text = "🔥", fontSize = 9.sp)
-                        Text(
-                            text = "5 DAYS",
-                            color = goldColor,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.ExtraBold
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_mascot_amon),
+                            contentDescription = "Amon Mascot",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
                         )
                     }
-                }
-
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(cardBg)
-                        .border(1.dp, goldColor, RoundedCornerShape(50))
-                        .clickable { isSoundOn = !isSoundOn }
-                        .padding(horizontal = 10.dp, vertical = 3.dp)
-                ) {
                     Text(
-                        text = if (isSoundOn) "🔊 Sound" else "🔈 Sound",
-                        color = goldColor,
-                        fontSize = 8.5.sp,
-                        fontWeight = FontWeight.Bold
+                        text = "AMON",
+                        color = textMain,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp
                     )
                 }
-            }
-        }
 
-        // SUBJECTS ROW
-        Column(modifier = Modifier.fillMaxWidth()) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(horizontal = 2.dp)
-            ) {
-                items(PlantRegistry.defaultSubjects) { subject ->
-                    val isSelected = subject.id == selectedSubject.id
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(if (isSelected) goldColor else cardBg)
-                            .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                            .clickable {
-                                if (!isRunning) selectedSubject = subject
-                            }
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                            .background(if (isDark) Color(0x33F5A524) else Color(0x22D97706))
+                            .border(1.2.dp, goldColor, RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp, vertical = 3.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(text = "🔥", fontSize = 9.sp)
+                            Text(
+                                text = "5 DAYS",
+                                color = goldColor,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(cardBg)
+                            .border(1.dp, goldColor, RoundedCornerShape(50))
+                            .clickable { isSoundOn = !isSoundOn }
+                            .padding(horizontal = 10.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = subject.name,
-                            color = if (isSelected) Color.White else textMuted,
-                            fontSize = 11.sp,
+                            text = if (isSoundOn) "🔊 Sound" else "🔈 Sound",
+                            color = goldColor,
+                            fontSize = 8.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
+        } else {
+            // Minimal spacing placeholder in Focus Mode
+            Spacer(modifier = Modifier.height(10.dp))
         }
 
-        // BIGGER TIME RING + TREE
+        // SUBJECTS ROW: Hidden during active timer
+        if (!isRunning) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp)
+                ) {
+                    items(PlantRegistry.defaultSubjects) { subject ->
+                        val isSelected = subject.id == selectedSubject.id
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isSelected) goldColor else cardBg)
+                                .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                                .clickable { selectedSubject = subject }
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = subject.name,
+                                color = if (isSelected) Color.White else textMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            // Show active subject cleanly in Focus Mode
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(cardBg)
+                    .border(1.2.dp, goldColor, RoundedCornerShape(50))
+                    .padding(horizontal = 20.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "🎯 ${selectedSubject.name}",
+                    color = goldColor,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        // TIME RING + TREE (ALWAYS VISIBLE)
         Box(
             modifier = Modifier
-                .size(230.dp)
-                .padding(vertical = 2.dp),
+                .size(240.dp)
+                .padding(vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -257,130 +283,172 @@ fun HomeTimerTab(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(text = "🌱", fontSize = 24.sp)
+                Text(text = "🌱", fontSize = 26.sp)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = timeFormatted,
-                    fontSize = 38.sp,
+                    fontSize = 40.sp,
                     fontWeight = FontWeight.Black,
                     color = textMain
                 )
             }
         }
 
-        // PRESETS ROW [ 25m | 45m | 60m | Custom ]
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val presets = listOf(25f, 45f, 60f)
-            presets.forEach { mins ->
-                val isSelected = !isCustomMode && dialMinutes == mins
+        // PRESETS ROW: Hidden during active timer
+        if (!isRunning) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val presets = listOf(25f, 45f, 60f)
+                presets.forEach { mins ->
+                    val isSelected = !isCustomMode && dialMinutes == mins
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (isSelected) goldColor else cardBg)
+                            .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                            .clickable {
+                                isCustomMode = false
+                                dialMinutes = mins
+                                TimerService.remainingSeconds.intValue = (mins.toInt() * 60)
+                            }
+                    ) {
+                        Text(
+                            text = "${mins.toInt()}m",
+                            color = if (isSelected) Color.White else textMain,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .weight(1f)
                         .height(38.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(if (isSelected) goldColor else cardBg)
-                        .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                        .clickable {
-                            isCustomMode = false
-                            if (!isRunning) {
-                                dialMinutes = mins
-                                TimerService.remainingSeconds.intValue = (mins.toInt() * 60)
-                            }
-                        }
+                        .background(if (isCustomMode) goldColor else cardBg)
+                        .border(1.dp, if (isCustomMode) glowYellow else glassBorder, RoundedCornerShape(50))
+                        .clickable { isCustomMode = !isCustomMode }
                 ) {
                     Text(
-                        text = "${mins.toInt()}m",
-                        color = if (isSelected) Color.White else textMain,
+                        text = "Custom",
+                        color = if (isCustomMode) Color.White else textMain,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
-
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(38.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(if (isCustomMode) goldColor else cardBg)
-                    .border(1.dp, if (isCustomMode) glowYellow else glassBorder, RoundedCornerShape(50))
-                    .clickable { isCustomMode = !isCustomMode }
-            ) {
-                Text(
-                    text = "Custom",
-                    color = if (isCustomMode) Color.White else textMain,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+        } else {
+            Spacer(modifier = Modifier.height(20.dp))
         }
 
-        // CUSTOM SLIDER CARD
-        if (isCustomMode) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(cardBg)
-                    .border(1.4.dp, goldColor, RoundedCornerShape(16.dp))
-                    .padding(12.dp)
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = if (dialMinutes == 0f) "0 min (Stopwatch)" else "${dialMinutes.toInt()} min",
-                        color = textMain,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    Slider(
-                        value = dialMinutes,
-                        onValueChange = { 
-                            if (!isRunning) {
-                                dialMinutes = it
-                                TimerService.remainingSeconds.intValue = if (it == 0f) 0 else (it.toInt() * 60)
+        // APPLE-STYLE TICK RULER STICK CARD: Hidden during active timer
+        if (!isRunning) {
+            if (isCustomMode) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(cardBg)
+                        .border(1.4.dp, goldColor, RoundedCornerShape(16.dp))
+                        .padding(16.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .pointerInput(Unit) {
+                                detectHorizontalDragGestures { _, dragAmount ->
+                                    val sensitivity = 0.25f
+                                    val newMins = (dialMinutes - (dragAmount * sensitivity)).coerceIn(0f, 120f)
+                                    dialMinutes = newMins
+                                    TimerService.remainingSeconds.intValue = if (newMins == 0f) 0 else (newMins.toInt() * 60)
+                                }
                             }
-                        },
-                        valueRange = 0f..120f,
-                        steps = 23,
-                        colors = SliderDefaults.colors(
-                            thumbColor = goldColor,
-                            activeTrackColor = goldColor,
-                            inactiveTrackColor = if (isDark) Color(0xFF27272A) else Color(0xFFCBD5E1)
+                    ) {
+                        Text(
+                            text = if (dialMinutes == 0f) "0 min (Stopwatch)" else "${dialMinutes.toInt()} min",
+                            color = textMain,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Black
                         )
-                    )
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                    Text(
-                        text = if (dialMinutes == 0f) "Stopwatch Mode: Counts Up from 0" else "Focus Timer >",
-                        color = textMuted,
-                        fontSize = 9.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(36.dp)
+                        ) {
+                            val canvasWidth = size.width
+                            val canvasHeight = size.height
+                            val centerY = canvasHeight / 2f
+
+                            val totalTicks = 31
+                            val spacing = canvasWidth / (totalTicks - 1)
+
+                            val normalizedValue = dialMinutes / 120f
+                            val centerIndex = (normalizedValue * (totalTicks - 1)).toInt()
+
+                            for (i in 0 until totalTicks) {
+                                val x = i * spacing
+                                val distFromCenter = abs(i - centerIndex)
+                                val isCenter = (i == centerIndex)
+
+                                val tickHeight = if (isCenter) 24.dp.toPx() else max(6.dp.toPx(), 16.dp.toPx() - (distFromCenter * 0.7f))
+                                val tickWidth = if (isCenter) 3.2.dp.toPx() else 1.5.dp.toPx()
+                                
+                                val tickColor = if (isCenter) textMain else textMuted.copy(alpha = max(0.2f, 1.0f - distFromCenter * 0.07f))
+
+                                drawLine(
+                                    color = tickColor,
+                                    start = Offset(x, centerY - tickHeight / 2f),
+                                    end = Offset(x, centerY + tickHeight / 2f),
+                                    strokeWidth = tickWidth,
+                                    cap = StrokeCap.Round
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Focus >",
+                            color = textMuted,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
+            } else {
+                Text(
+                    text = "Standard Mode Active",
+                    color = textMuted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         } else {
             Text(
-                text = "Standard Mode Active",
-                color = textMuted,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium
+                text = "Focus Mode Active • Stay Distraction-Free",
+                color = goldColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
             )
         }
 
-        // SIDE-BY-SIDE EQUAL ACTION BUTTONS (50:50 SPLIT)
+        // SIDE-BY-SIDE EQUAL ACTION BUTTONS (50:50 SPLIT - ALWAYS VISIBLE)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 4.dp),
+                .padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -388,7 +456,7 @@ fun HomeTimerTab(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .weight(1f)
-                    .height(46.dp)
+                    .height(48.dp)
                     .clip(RoundedCornerShape(50))
                     .background(cardBg)
                     .border(1.dp, glassBorder, RoundedCornerShape(50))
@@ -407,7 +475,7 @@ fun HomeTimerTab(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .weight(1f)
-                    .height(46.dp)
+                    .height(48.dp)
                     .clip(RoundedCornerShape(50))
                     .background(goldColor)
                     .border(1.dp, glowYellow, RoundedCornerShape(50))
