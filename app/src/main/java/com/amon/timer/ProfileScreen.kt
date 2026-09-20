@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ProfileScreen() {
     val scrollState = rememberScrollState()
+    val context = LocalContext.current // ThemeManager को सेव करने के लिए चाहिए
 
     // Amon Dark Gold Theme Colors
     val goldColor = Color(0xFFF5A524)
@@ -35,6 +37,9 @@ fun ProfileScreen() {
     var selectedTheme by remember { mutableStateOf("Dark") }
     var isVibrationEnabled by remember { mutableStateOf(true) }
     var isKeepScreenAwake by remember { mutableStateOf(false) }
+
+    // ThemeManager से करेंट रंग पूछ रहे हैं
+    val currentAccent = ThemeManager.currentTheme.value
 
     Column(
         modifier = Modifier
@@ -86,7 +91,7 @@ fun ProfileScreen() {
                     }
                 }
 
-                // Name & Info (Focus Master title removed!)
+                // Name & Info
                 Column(verticalArrangement = Arrangement.Center) {
                     Text(
                         text = "VISION",
@@ -106,7 +111,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 3. ACHIEVEMENTS & BADGES (ABOVE THEME) -----------------
+        // ----------------- 3. ACHIEVEMENTS & BADGES -----------------
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "ACHIEVEMENTS & BADGES",
@@ -149,10 +154,10 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 4. THEME SELECTION -----------------
+        // ----------------- 4. APP MODE SELECTION -----------------
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = "🎨  THEME SELECTION",
+                text = "🌓  APP MODE",
                 color = goldColor,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Black,
@@ -182,9 +187,7 @@ fun ProfileScreen() {
                                 color = if (isSelected) goldColor else cardBorder,
                                 shape = RoundedCornerShape(16.dp)
                             )
-                            .clickable { selectedTheme = name 
-                            AppThemeState.isDarkTheme = (name != "Light")
-                            }
+                            .clickable { selectedTheme = name }
                             .padding(vertical = 12.dp, horizontal = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -210,6 +213,79 @@ fun ProfileScreen() {
             }
         }
 
+        // ----------------- 4.5. ACCENT COLOR SELECTION (NEW!) -----------------
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "✨  ACCENT COLOR",
+                color = goldColor,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(top = 4.dp, bottom = 6.dp, start = 2.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Classic Yellow Button
+                val isYellow = currentAccent == "Yellow"
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isYellow) Color(0x33FBBF24) else cardBg)
+                        .border(
+                            width = if (isYellow) 1.8.dp else 1.dp,
+                            color = if (isYellow) Color(0xFFFBBF24) else cardBorder,
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        .clickable { ThemeManager.saveTheme(context, "Yellow") }
+                        .padding(vertical = 12.dp, horizontal = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(Color(0xFFFBBF24)))
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Classic Yellow",
+                            color = if (isYellow) Color.White else textMuted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Luxe Gold Button
+                val isGold = currentAccent == "Gold"
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isGold) Color(0x33F3C669) else cardBg)
+                        .border(
+                            width = if (isGold) 1.8.dp else 1.dp,
+                            color = if (isGold) Color(0xFFF3C669) else cardBorder,
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        .clickable { ThemeManager.saveTheme(context, "Gold") }
+                        .padding(vertical = 12.dp, horizontal = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(Color(0xFFF3C669)))
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Luxe Gold 👑",
+                            color = if (isGold) Color.White else textMuted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
         // ----------------- 5. PREFERENCES & CONTROLS -----------------
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
@@ -218,7 +294,7 @@ fun ProfileScreen() {
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.sp,
-                modifier = Modifier.padding(bottom = 6.dp, start = 2.dp)
+                modifier = Modifier.padding(top = 4.dp, bottom = 6.dp, start = 2.dp)
             )
 
             // Vibration Switch Card
@@ -288,7 +364,7 @@ fun ProfileScreen() {
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Padhte waqt screen band nahi hogi (Background timer hamesha chalta rahega)",
+                            text = "Padhte waqt screen band nahi hogi",
                             color = textMuted,
                             fontSize = 8.5.sp
                         )
@@ -316,7 +392,7 @@ fun ProfileScreen() {
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.sp,
-                modifier = Modifier.padding(bottom = 6.dp, start = 2.dp)
+                modifier = Modifier.padding(top = 4.dp, bottom = 6.dp, start = 2.dp)
             )
 
             // Help Desk Card
@@ -353,7 +429,7 @@ fun ProfileScreen() {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Account & Sync Card (Shaant / Non-functional abhi ke liye)
+            // Account & Sync Card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -382,7 +458,6 @@ fun ProfileScreen() {
                         )
                     }
 
-                    // Inert button (sirf visual, abhi kuch open nahi hoga)
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
