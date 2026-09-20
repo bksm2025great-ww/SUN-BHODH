@@ -182,7 +182,9 @@ fun ProfileScreen() {
                                 color = if (isSelected) goldColor else cardBorder,
                                 shape = RoundedCornerShape(16.dp)
                             )
-                            .clickable { selectedTheme = name }
+                            .clickable { selectedTheme = name 
+                            AppThemeState.isDarkTheme = (name != "Light")
+                            }
                             .padding(vertical = 12.dp, horizontal = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {
