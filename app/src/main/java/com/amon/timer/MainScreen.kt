@@ -36,27 +36,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.*
 
-// Shared Theme State across the app (Dark / Light)
-object AppThemeState {
-    var isDarkTheme by mutableStateOf(true)
-}
-
 @Composable
 fun MainScreen() {
     val context = LocalContext.current
     var currentNavIndex by remember { mutableIntStateOf(0) }
 
-    val isDark = AppThemeState.isDarkTheme
+    // 🟢 App khulte hi saved theme load karna
+    LaunchedEffect(Unit) {
+        ThemeManager.loadTheme(context)
+    }
+
+    // 🟢 Asli ThemeManager se jud gaye saare controls
+    val isDark = ThemeManager.isDarkTheme.value
     val isRunning = TimerService.isTimerRunning.value
 
-    // Dynamic Theme Colors
-    val bgColor = if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC)
-    val cardBg = if (isDark) Color(0xEE121218) else Color(0xFFFFFFFF)
-    val textMain = if (isDark) Color.White else Color(0xFF0F172A)
-    val textMuted = if (isDark) Color(0xFF9CA3AF) else Color(0xFF64748B)
-    val glassBorder = if (isDark) Color(0x2D2D38) else Color(0xFFCBD5E1)
-    val goldColor = if (isDark) Color(0xFFF5A524) else Color(0xFFD97706)
-    val glowYellow = if (isDark) Color(0xFFFDE68A) else Color(0xFFF59E0B)
+    // Dynamic Theme Colors (Seedha ThemeManager se)
+    val bgColor = ThemeManager.getBackgroundColor()
+    val cardBg = ThemeManager.getCardColor()
+    val textMain = ThemeManager.getTextColor()
+    val textMuted = ThemeManager.getTextMutedColor()
+    val goldColor = ThemeManager.getAccentColor()
+    val glassBorder = if (isDark) Color(0x33F3C669) else Color(0xFFCBD5E1)
+    val glowYellow = if (ThemeManager.currentTheme.value == "Classic Yellow") Color(0xFFFDE68A) else Color(0xFFFFE082)
 
     Scaffold(
         containerColor = bgColor,
@@ -81,8 +82,8 @@ fun MainScreen() {
         ) {
             when (currentNavIndex) {
                 0 -> HomeTimerTab(context, goldColor, glowYellow, cardBg, glassBorder, textMuted, textMain, isDark, isRunning)
-                1 -> ForestScreen() // 🌲 Connected to your new Forest Garden!
-                2 -> StatsScreenPlaceholder(goldColor) // 📊 Clean slate ready for charts!
+                1 -> ForestScreen()
+                2 -> StatsScreenPlaceholder(goldColor)
                 3 -> ProfileScreen()
             }
         }
@@ -265,7 +266,12 @@ fun HomeTimerTab(
                 val radius = size.minDimension / 2f - 10.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
 
-                drawCircle(color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0), radius = radius, center = center, style = Stroke(width = 5.dp.toPx()))
+                drawCircle(
+                    color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
+                    radius = radius,
+                    center = center,
+                    style = Stroke(width = 5.dp.toPx())
+                )
 
                 val sweep = (dialMinutes / 120f) * 360f
                 drawArc(
