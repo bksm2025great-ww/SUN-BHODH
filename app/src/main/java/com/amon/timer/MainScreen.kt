@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,16 +42,13 @@ fun MainScreen() {
     val context = LocalContext.current
     var currentNavIndex by remember { mutableIntStateOf(0) }
 
-    // 🟢 App khulte hi saved theme load karna
     LaunchedEffect(Unit) {
         ThemeManager.loadTheme(context)
     }
 
-    // 🟢 Asli ThemeManager se jud gaye saare controls
     val isDark = ThemeManager.isDarkTheme.value
     val isRunning = TimerService.isTimerRunning.value
 
-    // Dynamic Theme Colors (Seedha ThemeManager se)
     val bgColor = ThemeManager.getBackgroundColor()
     val cardBg = ThemeManager.getCardColor()
     val textMain = ThemeManager.getTextColor()
@@ -62,7 +60,6 @@ fun MainScreen() {
     Scaffold(
         containerColor = bgColor,
         bottomBar = {
-            // Hide bottom bar during active Focus Mode
             if (!isRunning) {
                 AmonCurvedBottomBar(
                     selectedIndex = currentNavIndex,
@@ -91,7 +88,7 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🟢 1. HOME TAB (FOCUS MODE DISTRACTION-FREE & APPLE TICK RULER)
+// 🟢 1. HOME TAB (360° TO 0° DYNAMIC RING WITH PERSISTENT MEMORY)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
@@ -107,8 +104,11 @@ fun HomeTimerTab(
 ) {
     var selectedSubject by remember { mutableStateOf(PlantRegistry.defaultSubjects.first()) }
     var isSoundOn by remember { mutableStateOf(false) }
-    var dialMinutes by remember { mutableFloatStateOf(25f) }
-    var isCustomMode by remember { mutableStateOf(false) }
+
+    // 🟢 Screen off/on hone par bhi memory save rahegi
+    var dialMinutes by rememberSaveable { mutableFloatStateOf(25f) }
+    var isCustomMode by rememberSaveable { mutableStateOf(false) }
+    var initialTotalSeconds by rememberSaveable { mutableIntStateOf(25 * 60) }
 
     val totalSeconds = TimerService.remainingSeconds.intValue
 
@@ -123,7 +123,7 @@ fun HomeTimerTab(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // TOP BAR: Hidden during active timer (Focus Mode)
+        // TOP BAR: Hidden during active timer
         if (!isRunning) {
             Row(
                 modifier = Modifier
@@ -204,7 +204,6 @@ fun HomeTimerTab(
                 }
             }
         } else {
-            // Minimal spacing placeholder in Focus Mode
             Spacer(modifier = Modifier.height(10.dp))
         }
 
@@ -237,7 +236,6 @@ fun HomeTimerTab(
                 }
             }
         } else {
-            // Show active subject cleanly in Focus Mode
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -255,7 +253,7 @@ fun HomeTimerTab(
             }
         }
 
-        // TIME RING + TREE (ALWAYS VISIBLE)
+        // 🟢 TIME RING + TREE (360° TO 0° LOGIC)
         Box(
             modifier = Modifier
                 .size(240.dp)
@@ -266,6 +264,7 @@ fun HomeTimerTab(
                 val radius = size.minDimension / 2f - 10.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
 
+                // Background Ring
                 drawCircle(
                     color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
                     radius = radius,
@@ -273,7 +272,14 @@ fun HomeTimerTab(
                     style = Stroke(width = 5.dp.toPx())
                 )
 
-                val sweep = (dialMinutes / 120f) * 360f
+                // 🟢 Ring ka sweep angle: Timer chalte waqt 360° se 0° par smooth aayega
+                val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
+                val sweep = if (!isRunning) {
+                    360f
+                } else {
+                    (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
+                }
+
                 drawArc(
                     color = goldColor,
                     startAngle = -90f,
@@ -323,7 +329,9 @@ fun HomeTimerTab(
                             .clickable {
                                 isCustomMode = false
                                 dialMinutes = mins
-                                TimerService.remainingSeconds.intValue = (mins.toInt() * 60)
+                                val secs = mins.toInt() * 60
+                                TimerService.remainingSeconds.intValue = secs
+                                initialTotalSeconds = secs
                             }
                     ) {
                         Text(
@@ -377,7 +385,9 @@ fun HomeTimerTab(
                                     val sensitivity = 0.25f
                                     val newMins = (dialMinutes - (dragAmount * sensitivity)).coerceIn(0f, 120f)
                                     dialMinutes = newMins
-                                    TimerService.remainingSeconds.intValue = if (newMins == 0f) 0 else (newMins.toInt() * 60)
+                                    val secs = if (newMins == 0f) 0 else (newMins.toInt() * 60)
+                                    TimerService.remainingSeconds.intValue = secs
+                                    initialTotalSeconds = if (secs > 0) secs else 60
                                 }
                             }
                     ) {
@@ -450,7 +460,7 @@ fun HomeTimerTab(
             )
         }
 
-        // SIDE-BY-SIDE EQUAL ACTION BUTTONS (50:50 SPLIT - ALWAYS VISIBLE)
+        // SIDE-BY-SIDE EQUAL ACTION BUTTONS
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -471,7 +481,9 @@ fun HomeTimerTab(
                             action = TimerService.ACTION_STOP
                         }
                         context.startService(intent)
-                        TimerService.remainingSeconds.intValue = dialMinutes.toInt() * 60
+                        val resetSecs = dialMinutes.toInt() * 60
+                        TimerService.remainingSeconds.intValue = resetSecs
+                        initialTotalSeconds = resetSecs
                     }
             ) {
                 Text(text = "Cancel", color = goldColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -491,6 +503,7 @@ fun HomeTimerTab(
                             intent.action = TimerService.ACTION_PAUSE
                             context.startService(intent)
                         } else {
+                            initialTotalSeconds = if (totalSeconds > 0) totalSeconds else (dialMinutes.toInt() * 60)
                             intent.action = TimerService.ACTION_START
                             intent.putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
                             intent.putExtra(TimerService.EXTRA_SUBJECT, selectedSubject.name)
@@ -509,7 +522,7 @@ fun HomeTimerTab(
 }
 
 // =============================================================================
-// 🟢 2. STATS SCREEN PLACEHOLDER (CLEANED UP FOR NEXT TASK)
+// 🟢 2. STATS SCREEN PLACEHOLDER
 // =============================================================================
 @Composable
 fun StatsScreenPlaceholder(goldColor: Color) {
@@ -537,7 +550,7 @@ fun StatsScreenPlaceholder(goldColor: Color) {
 }
 
 // =============================================================================
-// 🟢 3. LIGHTWEIGHT SPEED-OPTIMIZED BOTTOM NAVIGATION BAR
+// 🟢 3. CURVED BOTTOM BAR
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
