@@ -138,7 +138,7 @@ class TimerService : Service() {
         else 1 
 
         // आज की तारीख निकालो
-        val sdf = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
         val currentDate = sdf.format(java.util.Date())
 
         // 1. फ़ोन की लोकल डायरी में सेव करना
