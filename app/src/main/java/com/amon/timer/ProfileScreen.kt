@@ -24,26 +24,29 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ProfileScreen() {
     val scrollState = rememberScrollState()
-    val context = LocalContext.current // ThemeManager को सेव करने के लिए चाहिए
+    val context = LocalContext.current
 
-    // Amon Dark Gold Theme Colors
-    val goldColor = Color(0xFFF5A524)
-    val glowYellow = Color(0xFFFDE68A)
-    val cardBg = Color(0xEE111116)
-    val cardBorder = Color(0x33FFFFFF)
-    val textMuted = Color(0xFF9CA3AF)
+    // 🟢 ThemeManager se direct live colors le rahe hain
+    val isDark = ThemeManager.isDarkTheme.value
+    val currentAccent = ThemeManager.currentTheme.value
+    val currentMode = ThemeManager.appMode.value
+
+    val bgColor = ThemeManager.getBackgroundColor()
+    val cardBg = ThemeManager.getCardColor()
+    val textMain = ThemeManager.getTextColor()
+    val textMuted = ThemeManager.getTextMutedColor()
+    val goldColor = ThemeManager.getAccentColor()
+    val glowYellow = if (currentAccent == "Classic Yellow") Color(0xFFFDE68A) else Color(0xFFFFE082)
+    val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
 
     // User Preferences State
-    var selectedTheme by remember { mutableStateOf("Dark") }
     var isVibrationEnabled by remember { mutableStateOf(true) }
     var isKeepScreenAwake by remember { mutableStateOf(false) }
-
-    // ThemeManager से करेंट रंग पूछ रहे हैं
-    val currentAccent = ThemeManager.currentTheme.value
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(bgColor)
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -52,7 +55,7 @@ fun ProfileScreen() {
         // ----------------- 1. TOP TITLE -----------------
         Text(
             text = "PROFILE & SETTINGS",
-            color = Color.White,
+            color = textMain,
             fontSize = 15.sp,
             fontWeight = FontWeight.ExtraBold,
             letterSpacing = 1.sp,
@@ -78,7 +81,7 @@ fun ProfileScreen() {
                     modifier = Modifier
                         .size(68.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF181822))
+                        .background(if (isDark) Color(0xFF181822) else Color(0xFFF1F5F9))
                         .border(1.5.dp, goldColor, RoundedCornerShape(16.dp))
                 ) {
                     Column(
@@ -86,7 +89,7 @@ fun ProfileScreen() {
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(text = "+", color = goldColor, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                        Text(text = "Add Photo", color = glowYellow, fontSize = 7.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text(text = "Add Photo", color = goldColor, fontSize = 7.5.sp, fontWeight = FontWeight.SemiBold)
                         Text(text = "(Optional)", color = textMuted, fontSize = 6.5.sp)
                     }
                 }
@@ -95,7 +98,7 @@ fun ProfileScreen() {
                 Column(verticalArrangement = Arrangement.Center) {
                     Text(
                         text = "VISION",
-                        color = Color.White,
+                        color = textMain,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.sp
@@ -138,7 +141,7 @@ fun ProfileScreen() {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "View Badges & Milestones",
-                            color = Color.White,
+                            color = textMain,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -176,18 +179,18 @@ fun ProfileScreen() {
                 )
 
                 themes.forEach { (name, desc, icon) ->
-                    val isSelected = selectedTheme == name
+                    val isSelected = currentMode == name
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) Color(0x33F5A524) else cardBg)
+                            .background(if (isSelected) (if (isDark) Color(0x33F5A524) else Color(0x22D97706)) else cardBg)
                             .border(
                                 width = if (isSelected) 1.8.dp else 1.dp,
                                 color = if (isSelected) goldColor else cardBorder,
                                 shape = RoundedCornerShape(16.dp)
                             )
-                            .clickable { selectedTheme = name }
+                            .clickable { ThemeManager.saveMode(context, name) }
                             .padding(vertical = 12.dp, horizontal = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -196,14 +199,14 @@ fun ProfileScreen() {
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = name,
-                                color = if (isSelected) Color.White else textMuted,
+                                color = if (isSelected) textMain else textMuted,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(1.dp))
                             Text(
                                 text = desc,
-                                color = if (isSelected) glowYellow else Color(0xFF6B7280),
+                                color = if (isSelected) goldColor else textMuted,
                                 fontSize = 8.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -213,7 +216,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 4.5. ACCENT COLOR SELECTION (NEW!) -----------------
+        // ----------------- 4.5. ACCENT COLOR SELECTION -----------------
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "✨  ACCENT COLOR",
@@ -229,27 +232,27 @@ fun ProfileScreen() {
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Classic Yellow Button
-                val isYellow = currentAccent == "Yellow"
+                val isYellow = currentAccent == "Classic Yellow"
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isYellow) Color(0x33FBBF24) else cardBg)
+                        .background(if (isYellow) (if (isDark) Color(0x33F5A524) else Color(0x22D97706)) else cardBg)
                         .border(
                             width = if (isYellow) 1.8.dp else 1.dp,
-                            color = if (isYellow) Color(0xFFFBBF24) else cardBorder,
+                            color = if (isYellow) Color(0xFFF5A524) else cardBorder,
                             shape = RoundedCornerShape(16.dp)
                         )
-                        .clickable { ThemeManager.saveTheme(context, "Yellow") }
+                        .clickable { ThemeManager.saveTheme(context, "Classic Yellow") }
                         .padding(vertical = 12.dp, horizontal = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(Color(0xFFFBBF24)))
+                        Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(Color(0xFFF5A524)))
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = "Classic Yellow",
-                            color = if (isYellow) Color.White else textMuted,
+                            color = if (isYellow) textMain else textMuted,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -257,18 +260,18 @@ fun ProfileScreen() {
                 }
 
                 // Luxe Gold Button
-                val isGold = currentAccent == "Gold"
+                val isGold = currentAccent == "Luxe Gold"
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isGold) Color(0x33F3C669) else cardBg)
+                        .background(if (isGold) (if (isDark) Color(0x33F3C669) else Color(0x22D97706)) else cardBg)
                         .border(
                             width = if (isGold) 1.8.dp else 1.dp,
                             color = if (isGold) Color(0xFFF3C669) else cardBorder,
                             shape = RoundedCornerShape(16.dp)
                         )
-                        .clickable { ThemeManager.saveTheme(context, "Gold") }
+                        .clickable { ThemeManager.saveTheme(context, "Luxe Gold") }
                         .padding(vertical = 12.dp, horizontal = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -277,7 +280,7 @@ fun ProfileScreen() {
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = "Luxe Gold 👑",
-                            color = if (isGold) Color.White else textMuted,
+                            color = if (isGold) textMain else textMuted,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -314,7 +317,7 @@ fun ProfileScreen() {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Session End Vibration (Haptic Buzz)",
-                            color = Color.White,
+                            color = textMain,
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -333,7 +336,7 @@ fun ProfileScreen() {
                             checkedThumbColor = Color.Black,
                             checkedTrackColor = goldColor,
                             uncheckedThumbColor = textMuted,
-                            uncheckedTrackColor = Color(0xFF27272A)
+                            uncheckedTrackColor = if (isDark) Color(0xFF27272A) else Color(0xFFE2E8F0)
                         )
                     )
                 }
@@ -358,7 +361,7 @@ fun ProfileScreen() {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Keep Screen Awake (Always On)",
-                            color = Color.White,
+                            color = textMain,
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -377,7 +380,7 @@ fun ProfileScreen() {
                             checkedThumbColor = Color.Black,
                             checkedTrackColor = goldColor,
                             uncheckedThumbColor = textMuted,
-                            uncheckedTrackColor = Color(0xFF27272A)
+                            uncheckedTrackColor = if (isDark) Color(0xFF27272A) else Color(0xFFE2E8F0)
                         )
                     )
                 }
@@ -412,7 +415,7 @@ fun ProfileScreen() {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Help Desk & FAQ",
-                            color = Color.White,
+                            color = textMain,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -446,7 +449,7 @@ fun ProfileScreen() {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Account & Sync",
-                            color = Color.White,
+                            color = textMain,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -462,13 +465,13 @@ fun ProfileScreen() {
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(Color(0x22F5A524))
+                            .background(if (isDark) Color(0x22F5A524) else Color(0x22D97706))
                             .border(1.dp, goldColor.copy(alpha = 0.6f), RoundedCornerShape(50))
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Text(
                             text = "Log In",
-                            color = glowYellow,
+                            color = goldColor,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold
                         )
