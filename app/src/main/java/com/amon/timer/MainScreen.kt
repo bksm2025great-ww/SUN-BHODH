@@ -80,7 +80,7 @@ fun MainScreen() {
             when (currentNavIndex) {
                 0 -> HomeTimerTab(context, goldColor, glowYellow, cardBg, glassBorder, textMuted, textMain, isDark, isRunning)
                 1 -> ForestScreen()
-                2 -> StatsScreenPlaceholder(goldColor)
+                2 -> StatsScreen() // 🟢 Nayi StatsScreen se connect ho gaya!
                 3 -> ProfileScreen()
             }
         }
@@ -105,7 +105,6 @@ fun HomeTimerTab(
     var selectedSubject by remember { mutableStateOf(PlantRegistry.defaultSubjects.first()) }
     var isSoundOn by remember { mutableStateOf(false) }
 
-    // 🟢 Screen off/on hone par bhi memory save rahegi
     var dialMinutes by rememberSaveable { mutableFloatStateOf(25f) }
     var isCustomMode by rememberSaveable { mutableStateOf(false) }
     var initialTotalSeconds by rememberSaveable { mutableIntStateOf(25 * 60) }
@@ -123,7 +122,6 @@ fun HomeTimerTab(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // TOP BAR: Hidden during active timer
         if (!isRunning) {
             Row(
                 modifier = Modifier
@@ -207,7 +205,6 @@ fun HomeTimerTab(
             Spacer(modifier = Modifier.height(10.dp))
         }
 
-        // SUBJECTS ROW: Hidden during active timer
         if (!isRunning) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 LazyRow(
@@ -253,7 +250,6 @@ fun HomeTimerTab(
             }
         }
 
-        // 🟢 TIME RING + TREE (360° TO 0° LOGIC)
         Box(
             modifier = Modifier
                 .size(240.dp)
@@ -264,7 +260,6 @@ fun HomeTimerTab(
                 val radius = size.minDimension / 2f - 10.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
 
-                // Background Ring
                 drawCircle(
                     color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
                     radius = radius,
@@ -272,7 +267,6 @@ fun HomeTimerTab(
                     style = Stroke(width = 5.dp.toPx())
                 )
 
-                // 🟢 Ring ka sweep angle: Timer chalte waqt 360° se 0° par smooth aayega
                 val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
                 val sweep = if (!isRunning) {
                     360f
@@ -306,7 +300,6 @@ fun HomeTimerTab(
             }
         }
 
-        // PRESETS ROW: Hidden during active timer
         if (!isRunning) {
             Row(
                 modifier = Modifier
@@ -365,7 +358,6 @@ fun HomeTimerTab(
             Spacer(modifier = Modifier.height(20.dp))
         }
 
-        // APPLE-STYLE TICK RULER STICK CARD: Hidden during active timer
         if (!isRunning) {
             if (isCustomMode) {
                 Box(
@@ -460,7 +452,6 @@ fun HomeTimerTab(
             )
         }
 
-        // SIDE-BY-SIDE EQUAL ACTION BUTTONS
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -522,35 +513,7 @@ fun HomeTimerTab(
 }
 
 // =============================================================================
-// 🟢 2. STATS SCREEN PLACEHOLDER
-// =============================================================================
-@Composable
-fun StatsScreenPlaceholder(goldColor: Color) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = "📊", fontSize = 48.sp)
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "Stats & Analytics",
-                color = goldColor,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Ready for the next task!",
-                color = Color.Gray,
-                fontSize = 14.sp
-            )
-        }
-    }
-}
-
-// =============================================================================
-// 🟢 3. CURVED BOTTOM BAR
+// 🟢 2. CURVED BOTTOM BAR
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
