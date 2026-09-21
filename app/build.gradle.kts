@@ -17,6 +17,10 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // 🔐 GitHub Secrets ki tijori se Google Sheet URL nikaal kar app ko dena
+        val sheetUrl: String = System.getenv("GOOGLE_SHEET_URL") ?: ""
+        buildConfigField("String", "GOOGLE_SHEET_URL", "\"$sheetUrl\"")
     }
 
     buildTypes {
@@ -40,6 +44,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true // 🔑 Secret keys padhne ki permission chalu ki
     }
 
     composeOptions {
@@ -68,4 +73,7 @@ dependencies {
 
     // Navigation (Back Stack & Traffic Controller)
     implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // 🌐 Internet postman: Data ko Google Sheet tak pahunchane ke liye
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
