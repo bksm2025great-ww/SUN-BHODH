@@ -153,12 +153,13 @@ LaunchedEffect(Unit) {
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            if (session != null) {
-                                Text(
-                                    text = "🌲",
-                                    fontSize = treeIconSize.value.sp,
-                                    modifier = Modifier.rotate(-45f)
-                                )
+                        if (session != null) {
+    val plantInfo = getPlantIconAndName(session.subject)
+    Text(
+        text = plantInfo.first,
+        fontSize = treeIconSize.value.sp,
+        modifier = Modifier.rotate(-45f)
+    )    
                             } else {
                                 Text(
                                     text = "🌱",
@@ -207,7 +208,15 @@ LaunchedEffect(Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "🌲", fontSize = 50.sp)
+                  val plantInfo = getPlantIconAndName(showDialog!!.subject)
+Text(text = plantInfo.first, fontSize = 50.sp)
+Spacer(modifier = Modifier.height(4.dp))
+Text(
+    text = plantInfo.second,
+    color = goldColor,
+    fontSize = 13.sp,
+    fontWeight = FontWeight.Bold
+) 
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = showDialog!!.subject,
@@ -239,4 +248,47 @@ LaunchedEffect(Unit) {
             }
         }
     }
+}
+// 🌳 Subject ke hisaab se unique plant aur naam nikaalne wala helper function
+private fun getPlantIconAndName(subjectName: String): Pair<String, String> {
+    val defaultMatch = PlantRegistry.defaultSubjects.find { it.name.equals(subjectName, ignoreCase = true) }
+    if (defaultMatch != null) {
+        val emoji = when (defaultMatch.tree.id) {
+            "cherry" -> "🌸" // English (Cherry Blossom)
+            "lemon" -> "🍋"  // Math (Lemon Tree)
+            "apple" -> "🍎"  // Physics (Apple Tree)
+            "coconut" -> "🌴"// Geography (Coconut Tree)
+            "mango" -> "🥭"  // Art & Culture (Mango Tree)
+            "banyan" -> "🌳" // All (Banyan Tree)
+            "bael" -> "🌿"   // Hindi (Bael Tree)
+            "kiwi" -> "🥝"   // Science (Kiwi Tree)
+            "walnut" -> "🌰" // Polity (Walnut Tree)
+            "orange" -> "🍊" // Economics (Orange Tree)
+            "starfruit" -> "⭐" // Current Affairs (Starfruit)
+            "peach" -> "🍑"  // Psychology (Peach Tree)
+            "olive" -> "🫒"  // History (Olive Tree)
+            "fig" -> "🪴"    // Biology (Fig Tree)
+            "pomegranate" -> "🌱" // Chemistry (Pomegranate)
+            else -> "🌲"
+        }
+        return Pair(emoji, "${defaultMatch.tree.nameEn} (${defaultMatch.tree.nameHi})")
+    }
+
+    // 🔐 Naye subject ke liye reservedTreeVault se automatic unique tree alag se milega
+    val vaultIndex = Math.abs(subjectName.hashCode()) % PlantRegistry.reservedTreeVault.size
+    val reservedTree = PlantRegistry.reservedTreeVault[vaultIndex]
+    val vaultEmoji = when (reservedTree.id) {
+        "banana" -> "🍌"
+        "guava" -> "🍈"
+        "papaya" -> "🥭"
+        "plum" -> "🫐"
+        "pear" -> "🍐"
+        "jackfruit" -> "🍈"
+        "cashew" -> "🥜"
+        "custard_apple" -> "🍏"
+        "apricot" -> "🍑"
+        "lychee" -> "🍓"
+        else -> "🌳"
+    }
+    return Pair(vaultEmoji, "${reservedTree.nameEn} (${reservedTree.nameHi})")
 }
