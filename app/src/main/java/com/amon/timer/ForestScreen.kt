@@ -40,11 +40,9 @@ fun ForestScreen() {
     var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
 
     // Load data
-    LaunchedEffect(Unit) {
-        // 🟢 FIX: Temporarily using empty list to prevent 'getSessions' build crash
-        allSessions = emptyList() 
-    }
-
+LaunchedEffect(Unit) {
+    allSessions = FocusSessionManager.getAllSessions(context)
+}
     // Filter data based on tab
     val displaySessions = when (selectedTab) {
         "Today" -> allSessions.takeLast(3)
