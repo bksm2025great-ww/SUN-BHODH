@@ -35,6 +35,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.text.SimpleDateFormat
+import java.util.*
 import kotlin.math.*
 
 @Composable
@@ -80,7 +82,7 @@ fun MainScreen() {
             when (currentNavIndex) {
                 0 -> HomeTimerTab(context, goldColor, glowYellow, cardBg, glassBorder, textMuted, textMain, isDark, isRunning)
                 1 -> ForestScreen()
-                2 -> StatsScreen() // 🟢 Nayi StatsScreen se connect ho gaya!
+                2 -> StatsScreen()
                 3 -> ProfileScreen()
             }
         }
@@ -110,6 +112,15 @@ fun HomeTimerTab(
     var initialTotalSeconds by rememberSaveable { mutableIntStateOf(25 * 60) }
 
     val totalSeconds = TimerService.remainingSeconds.intValue
+
+    // 🟢 अपडेट 1: डायरी से असली स्ट्रीक लोड करना
+    var streakDays by remember { mutableIntStateOf(0) }
+    LaunchedEffect(isRunning) {
+        if (!isRunning) {
+            val sessions = FocusSessionManager.getAllSessions(context)
+            streakDays = calculateStreakDays(sessions)
+        }
+    }
 
     val displayMinutes = totalSeconds / 60
     val displaySeconds = totalSeconds % 60
@@ -175,7 +186,7 @@ fun HomeTimerTab(
                         ) {
                             Text(text = "🔥", fontSize = 9.sp)
                             Text(
-                                text = "5 DAYS",
+                                text = "$streakDays DAYS",
                                 color = goldColor,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.ExtraBold
@@ -480,14 +491,15 @@ fun HomeTimerTab(
                 Text(text = "Cancel", color = goldColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
 
+            // 🟢 अपडेट 2: रनिंग मोड में बटन का चमकदार गोल्डन में बदलना
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .weight(1f)
                     .height(48.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(goldColor)
-                    .border(1.dp, glowYellow, RoundedCornerShape(50))
+                    .background(if (isRunning) goldColor else cardBg)
+                    .border(1.dp, if (isRunning) glowYellow else glassBorder, RoundedCornerShape(50))
                     .clickable {
                         val intent = Intent(context, TimerService::class.java)
                         if (isRunning) {
@@ -506,7 +518,12 @@ fun HomeTimerTab(
                         }
                     }
             ) {
-                Text(text = if (isRunning) "Pause" else "Plant 🌳", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                Text(
+                    text = if (isRunning) "Pause" else "Plant 🌳",
+                    color = if (isRunning) Color.White else goldColor,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black
+                )
             }
         }
     }
@@ -654,4 +671,53 @@ fun AmonCurvedBottomBar(
             }
         }
     }
+}
+
+// -----------------------------------------------------------------------------
+// 🔥 Helper: Calculate streak for Home Tab (Min 30 mins / day)
+// -----------------------------------------------------------------------------
+private fun calculateStreakDays(sessions: List<FocusSession>): Int {
+    if (sessions.isEmpty()) return 0
+    val dayMinutesMap = mutableMapOf<String, Int>()
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val formats = listOf(
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    )
+
+    sessions.forEach { s ->
+        var date: Date? = null
+        for (fmt in formats) {
+            try {
+                val d = fmt.parse(s.date)
+                if (d != null) { date = d; break }
+            } catch (_: Exception) {}
+        }
+        if (date != null) {
+            val key = sdf.format(date)
+            dayMinutesMap[key] = (dayMinutesMap[key] ?: 0) + s.durationMinutes
+        }
+    }
+
+    val cal = Calendar.getInstance()
+    var streak = 0
+    val todayKey = sdf.format(cal.time)
+    val todayMins = dayMinutesMap[todayKey] ?: 0
+    if (todayMins >= 30) {
+        streak++
+    }
+
+    while (true) {
+        cal.add(Calendar.DAY_OF_YEAR, -1)
+        val dateKey = sdf.format(cal.time)
+        val mins = dayMinutesMap[dateKey] ?: 0
+        if (mins >= 30) {
+            streak++
+        } else {
+            break
+        }
+    }
+    return streak
 }
