@@ -50,9 +50,10 @@ fun StatsScreen() {
     }
 
     // 📦 Saved Sessions Data
-    val allSessions = remember(context) {
-        FocusSessionManager.getAllSessions(context)
-    }
+  var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
+LaunchedEffect(Unit) {
+    allSessions = FocusSessionManager.getAllSessions(context)
+}
 
     // 🗓️ Date Display Text (e.g., "Today", "15 Sep - 21 Sep", "September 2026")
     val dateRangeText = remember(selectedTab, dateOffset) {
@@ -668,10 +669,11 @@ private fun formatMinutes(minutes: Int): String {
 // 🛡️ Helper: Parse date safely across multiple formats
 private fun parseDateSafely(dateStr: String): Date? {
     val formats = listOf(
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
         SimpleDateFormat("dd MMM yyyy", Locale.getDefault()),
-        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     )
     for (fmt in formats) {
         try {
