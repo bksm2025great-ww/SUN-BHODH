@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 🌐 Internet chalane ka license (Google Sheet me data bhejne ke liye) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- 1. Session complete hone par halki vibration ki permission -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
