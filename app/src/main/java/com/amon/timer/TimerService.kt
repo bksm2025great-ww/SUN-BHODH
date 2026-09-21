@@ -104,7 +104,7 @@ class TimerService : Service() {
     }
 
     private fun pauseTimer() {
-        saveSessionToDiary() // 🟢 बीच में रोका तो भी डायरी में सेव होगा
+        saveSessionToDiary() // 🟢 बीच में रोका तो भी डायरी और शीट में सेव होगा
         timerJob?.cancel()
         isTimerRunning.value = false
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -112,14 +112,14 @@ class TimerService : Service() {
     }
 
     private fun onTimerFinished() {
-        saveSessionToDiary() // 🟢 पूरा हुआ तो भी डायरी में सेव होगा
+        saveSessionToDiary() // 🟢 पूरा हुआ तो भी डायरी और शीट में सेव होगा
         isTimerRunning.value = false
         triggerGentleVibration()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
-    // 🟢 नया फंक्शन: जो टाइम और पौधे कैलकुलेट करके डायरी में डेटा भेजेगा
+    // 🟢 टाइम और पौधे कैलकुलेट करके डायरी और Google Sheet में डेटा भेजने वाला फ़ंक्शन
     private fun saveSessionToDiary() {
         // पता लगाओ कितने सेकंड पढ़ाई हुई
         val completedSeconds = if (originalTimerSeconds == 0) {
@@ -141,7 +141,7 @@ class TimerService : Service() {
         val sdf = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
         val currentDate = sdf.format(java.util.Date())
 
-        // फॉर्मेट में डालो और डायरी मैनेजर को भेज दो
+        // 1. फ़ोन की लोकल डायरी में सेव करना
         val session = FocusSession(
             date = currentDate,
             subject = currentSubjectName.value,
@@ -149,6 +149,14 @@ class TimerService : Service() {
             earnedTrees = trees
         )
         FocusSessionManager.saveSession(this, session)
+
+        // 2. 🌐 Google Sheet में बैकग्राउंड क्लाउड सिंक भेजना
+        CloudSyncManager.syncSession(
+            context = this,
+            subject = currentSubjectName.value,
+            durationMinutes = minutes.toLong(),
+            earnedTrees = trees
+        )
     }
 
     private fun triggerGentleVibration() {
