@@ -2,6 +2,7 @@ package com.amon.timer
 
 import android.content.Intent
 import android.os.Build
+import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -10,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -92,7 +94,7 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🟢 1. HOME TAB (TIMER, DYNAMIC SUBJECT RIBBON & POPUP DIALOG)
+// 🟢 1. HOME TAB (TIMER, DYNAMIC SUBJECTS & FLOATING SOUND PILL)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
@@ -113,12 +115,15 @@ fun HomeTimerTab(
     var isDeleteMode by remember { mutableStateOf(false) }
     var newSubjectInput by remember { mutableStateOf("") }
 
+    // 🎵 साउंड पैनल की स्टेट्स
+    var isSoundOn by rememberSaveable { mutableStateOf(false) }
+    var showSoundPanel by remember { mutableStateOf(false) }
+    var selectedSound by rememberSaveable { mutableStateOf("Rain") }
+
     // डायरी से विषय लोड करना (शुरू में Math, Hindi, English)
     LaunchedEffect(Unit) {
         userSubjects = SubjectManager.getUserSubjects(context)
     }
-
-    var isSoundOn by remember { mutableStateOf(false) }
 
     var dialMinutes by rememberSaveable { mutableFloatStateOf(25f) }
     var isCustomMode by rememberSaveable { mutableStateOf(false) }
@@ -138,317 +143,319 @@ fun HomeTimerTab(
     val displaySeconds = totalSeconds % 60
     val timeFormatted = String.format("%02d:%02d", displayMinutes, displaySeconds)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        // ----------------- TOP HEADER -----------------
-        if (!isRunning) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp, bottom = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // ----------------- TOP HEADER -----------------
+            if (!isRunning) {
                 Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 2.dp, bottom = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .border(1.4.dp, goldColor, RoundedCornerShape(12.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_mascot_amon),
-                            contentDescription = "Amon Mascot",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-                    Text(
-                        text = "AMON",
-                        color = textMain,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.sp
-                    )
-                }
-
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(if (isDark) Color(0x33F5A524) else Color(0x22D97706))
-                            .border(1.2.dp, goldColor, RoundedCornerShape(50))
-                            .padding(horizontal = 10.dp, vertical = 3.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .border(1.4.dp, goldColor, RoundedCornerShape(12.dp))
                         ) {
-                            Text(text = "🔥", fontSize = 9.sp)
-                            Text(
-                                text = "$streakDays DAYS",
-                                color = goldColor,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.ExtraBold
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_mascot_amon),
+                                contentDescription = "Amon Mascot",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
                             )
                         }
-                    }
-
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(cardBg)
-                            .border(1.dp, goldColor, RoundedCornerShape(50))
-                            .clickable { isSoundOn = !isSoundOn }
-                            .padding(horizontal = 10.dp, vertical = 3.dp)
-                    ) {
                         Text(
-                            text = if (isSoundOn) "🔊 Sound" else "🔈 Sound",
-                            color = goldColor,
-                            fontSize = 8.5.sp,
-                            fontWeight = FontWeight.Bold
+                            text = "AMON",
+                            color = textMain,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp
                         )
                     }
-                }
-            }
-        } else {
-            Spacer(modifier = Modifier.height(10.dp))
-        }
 
-        // ----------------- DYNAMIC SUBJECT HORIZONTAL RIBBON -----------------
-        if (!isRunning) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                LazyRow(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    contentPadding = PaddingValues(horizontal = 2.dp)
-                ) {
-                    // 1. + Add Button
-                    item {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
-                                .background(goldColor)
-                                .clickable {
-                                    isDeleteMode = false
-                                    showAddDialog = true
-                                }
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "+ Add",
-                                color = Color.Black,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
-
-                    // 2. All Chip
-                    item {
-                        val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(if (isSelected) goldColor else cardBg)
-                                .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                                .clickable {
-                                    if (!isDeleteMode) {
-                                        selectedSubjectName = "All"
-                                    }
-                                }
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "All",
-                                color = if (isSelected) Color.White else textMuted,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    // 3. Dynamic User Subjects (Math, Hindi, English + Custom)
-                    items(userSubjects) { subj ->
-                        val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(
-                                    if (isDeleteMode) Color(0x33EF4444)
-                                    else if (isSelected) goldColor
-                                    else cardBg
-                                )
-                                .border(
-                                    1.dp,
-                                    if (isDeleteMode) Color(0xFFEF4444)
-                                    else if (isSelected) glowYellow
-                                    else glassBorder,
-                                    RoundedCornerShape(50)
-                                )
-                                .clickable {
-                                    if (isDeleteMode) {
-                                        SubjectManager.removeSubject(context, subj)
-                                        userSubjects = SubjectManager.getUserSubjects(context)
-                                        if (selectedSubjectName.equals(subj, ignoreCase = true)) {
-                                            selectedSubjectName = "All"
-                                        }
-                                    } else {
-                                        selectedSubjectName = subj
-                                    }
-                                }
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                                .background(if (isDark) Color(0x33F5A524) else Color(0x22D97706))
+                                .border(1.2.dp, goldColor, RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 3.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
+                                Text(text = "🔥", fontSize = 9.sp)
                                 Text(
-                                    text = subj,
-                                    color = if (isDeleteMode) Color(0xFFEF4444) else if (isSelected) Color.White else textMuted,
+                                    text = "$streakDays DAYS",
+                                    color = goldColor,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
+
+                        // 🔊 साउंड बटन (क्लिक करने पर फ्लोटिंग पैनल खुलेगा)
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isSoundOn) goldColor.copy(alpha = 0.2f) else cardBg)
+                                .border(1.dp, goldColor, RoundedCornerShape(50))
+                                .clickable { showSoundPanel = true }
+                                .padding(horizontal = 10.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = if (isSoundOn) "🔊 Sound" else "🔈 Sound",
+                                color = goldColor,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            } else {
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            // ----------------- DYNAMIC SUBJECT HORIZONTAL RIBBON -----------------
+            if (!isRunning) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    LazyRow(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) {
+                        // 1. + Add Button
+                        item {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(goldColor)
+                                    .clickable {
+                                        isDeleteMode = false
+                                        showAddDialog = true
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "+ Add",
+                                    color = Color.Black,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
+
+                        // 2. All Chip
+                        item {
+                            val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isSelected) goldColor else cardBg)
+                                    .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                                    .clickable {
+                                        if (!isDeleteMode) {
+                                            selectedSubjectName = "All"
+                                        }
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "All",
+                                    color = if (isSelected) Color.White else textMuted,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                if (isDeleteMode) {
-                                    Text(
-                                        text = "✕",
-                                        color = Color(0xFFEF4444),
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Black
+                            }
+                        }
+
+                        // 3. Dynamic User Subjects (Math, Hindi, English + Custom)
+                        items(userSubjects) { subj ->
+                            val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(
+                                        if (isDeleteMode) Color(0x33EF4444)
+                                        else if (isSelected) goldColor
+                                        else cardBg
                                     )
+                                    .border(
+                                        1.dp,
+                                        if (isDeleteMode) Color(0xFFEF4444)
+                                        else if (isSelected) glowYellow
+                                        else glassBorder,
+                                        RoundedCornerShape(50)
+                                    )
+                                    .clickable {
+                                        if (isDeleteMode) {
+                                            SubjectManager.removeSubject(context, subj)
+                                            userSubjects = SubjectManager.getUserSubjects(context)
+                                            if (selectedSubjectName.equals(subj, ignoreCase = true)) {
+                                                selectedSubjectName = "All"
+                                            }
+                                        } else {
+                                            selectedSubjectName = subj
+                                        }
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = subj,
+                                        color = if (isDeleteMode) Color(0xFFEF4444) else if (isSelected) Color.White else textMuted,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (isDeleteMode) {
+                                        Text(
+                                            text = "✕",
+                                            color = Color(0xFFEF4444),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                // 4. Red Bin (Delete Mode Toggle)
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(CircleShape)
-                        .background(if (isDeleteMode) Color(0xFFEF4444) else cardBg)
-                        .border(1.dp, if (isDeleteMode) Color.White else glassBorder, CircleShape)
-                        .clickable { isDeleteMode = !isDeleteMode }
-                ) {
-                    Text(
-                        text = "🗑️",
-                        fontSize = 13.sp
-                    )
-                }
-            }
-        } else {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(cardBg)
-                    .border(1.2.dp, goldColor, RoundedCornerShape(50))
-                    .padding(horizontal = 20.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = "🎯 $selectedSubjectName",
-                    color = goldColor,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        // ----------------- TIMER RING -----------------
-        Box(
-            modifier = Modifier
-                .size(240.dp)
-                .padding(vertical = 4.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val radius = size.minDimension / 2f - 10.dp.toPx()
-                val center = Offset(size.width / 2f, size.height / 2f)
-
-                drawCircle(
-                    color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
-                    radius = radius,
-                    center = center,
-                    style = Stroke(width = 5.dp.toPx())
-                )
-
-                val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
-                val sweep = if (!isRunning) {
-                    360f
-                } else {
-                    (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
-                }
-
-                drawArc(
-                    color = goldColor,
-                    startAngle = -90f,
-                    sweepAngle = sweep,
-                    useCenter = false,
-                    topLeft = Offset(center.x - radius, center.y - radius),
-                    size = Size(radius * 2f, radius * 2f),
-                    style = Stroke(width = 5.5.dp.toPx(), cap = StrokeCap.Round)
-                )
-            }
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(text = "🌱", fontSize = 26.sp)
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = timeFormatted,
-                    fontSize = 40.sp,
-                    fontWeight = FontWeight.Black,
-                    color = textMain
-                )
-            }
-        }
-
-        // ----------------- PRESET BUTTONS -----------------
-        if (!isRunning) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val presets = listOf(25f, 45f, 60f)
-                presets.forEach { mins ->
-                    val isSelected = !isCustomMode && dialMinutes == mins
+                    // 4. Red Bin (Delete Mode Toggle)
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(if (isSelected) goldColor else cardBg)
-                            .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(if (isDeleteMode) Color(0xFFEF4444) else cardBg)
+                            .border(1.dp, if (isDeleteMode) Color.White else glassBorder, CircleShape)
+                            .clickable { isDeleteMode = !isDeleteMode }
+                    ) {
+                        Text(
+                            text = "🗑️",
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            } else {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(cardBg)
+                        .border(1.2.dp, goldColor, RoundedCornerShape(50))
+                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "🎯 $selectedSubjectName",
+                        color = goldColor,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // ----------------- TIMER RING -----------------
+            Box(
+                modifier = Modifier
+                    .size(240.dp)
+                    .padding(vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val radius = size.minDimension / 2f - 10.dp.toPx()
+                    val center = Offset(size.width / 2f, size.height / 2f)
+
+                    drawCircle(
+                        color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
+                        radius = radius,
+                        center = center,
+                        style = Stroke(width = 5.dp.toPx())
+                    )
+
+                    val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
+                    val sweep = if (!isRunning) {
+                        360f
+                    } else {
+                        (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
+                    }
+
+                    drawArc(
+                        color = goldColor,
+                        startAngle = -90f,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        topLeft = Offset(center.x - radius, center.y - radius),
+                        size = Size(radius * 2f, radius * 2f),
+                        style = Stroke(width = 5.5.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(text = "🌱", fontSize = 26.sp)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = timeFormatted,
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Black,
+                        color = textMain
+                    )
+                }
+            }
+
+            // ----------------- PRESET BUTTONS -----------------
+            if (!isRunning) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val presets = listOf(25f, 45f, 60f)
+                    presets.forEach { mins ->
+                        val isSelected = !isCustomMode && dialMinutes == mins
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isSelected) goldColor else cardBg)
+                                .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
                             .clickable {
                                 isCustomMode = false
                                 dialMinutes = mins
@@ -649,159 +656,269 @@ fun HomeTimerTab(
     }
 
     // =========================================================================
-    // 🎨 POPUP DIALOG (THEMED CHIPS + CUSTOM INPUT)
+    // 🎧 FLOATING PILL SOUND OVERLAY (SLIDE-IN FROM RIGHT)
     // =========================================================================
-    if (showAddDialog) {
-        Dialog(onDismissRequest = {
-            showAddDialog = false
-            newSubjectInput = ""
-        }) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(cardBg)
-                    .border(1.5.dp, goldColor, RoundedCornerShape(24.dp))
-                    .padding(20.dp)
+    if (showSoundPanel) {
+        // बाहर क्लिक करने पर बंद होने वाला बैकड्रॉप
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    showSoundPanel = false
+                }
+        )
+    }
+
+    AnimatedVisibility(
+        visible = showSoundPanel,
+        enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
+        exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .padding(top = 45.dp, end = 12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(105.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(cardBg.copy(alpha = 0.96f))
+                .border(1.5.dp, goldColor, RoundedCornerShape(28.dp))
+                .padding(vertical = 12.dp, horizontal = 8.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
+                // 1. Master ON / OFF Switch
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(50))
+                        .background(if (isSoundOn) goldColor.copy(alpha = 0.25f) else Color(0xFF2A2A32))
+                        .clickable { isSoundOn = !isSoundOn }
+                        .padding(horizontal = 8.dp, vertical = 5.dp)
                 ) {
                     Text(
-                        text = "Manage Subjects",
-                        color = goldColor,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        text = if (isSoundOn) "ON" else "OFF",
+                        color = if (isSoundOn) goldColor else textMuted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Choose from list or type your own",
-                        color = textMuted,
-                        fontSize = 11.sp
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(if (isSoundOn) Color(0xFF22C55E) else Color(0xFFEF4444))
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                }
 
-                    // 15 तय विषयों की लिस्ट
-                    val predefined = PlantRegistry.defaultSubjects
-                        .filter { !it.name.equals("All", ignoreCase = true) }
+                Spacer(modifier = Modifier.height(2.dp))
 
-                    Column(
+                // 2. 5 Focus Sounds
+                val soundOptions = listOf(
+                    Pair("Rain", "🌧️"),
+                    Pair("Forest", "🌲"),
+                    Pair("Clock Tick", "⏱️"),
+                    Pair("White Noise", "🌊"),
+                    Pair("Focus Piano", "🎹")
+                )
+
+                soundOptions.forEach { (name, icon) ->
+                    val isSelected = isSoundOn && selectedSound == name
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 160.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        predefined.chunked(3).forEach { rowItems ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                rowItems.forEach { subjItem ->
-                                    val alreadyInList = userSubjects.any { it.equals(subjItem.name, ignoreCase = true) }
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(if (alreadyInList) goldColor.copy(alpha = 0.25f) else Color(0xFF2A2A32))
-                                            .border(1.dp, if (alreadyInList) goldColor else glassBorder, RoundedCornerShape(12.dp))
-                                            .clickable {
-                                                if (!alreadyInList) {
-                                                    SubjectManager.addSubject(context, subjItem.name)
-                                                    userSubjects = SubjectManager.getUserSubjects(context)
-                                                }
-                                            }
-                                            .padding(vertical = 8.dp)
-                                    ) {
-                                        Text(
-                                            text = if (alreadyInList) "✓ ${subjItem.name}" else subjItem.name,
-                                            color = if (alreadyInList) goldColor else textMain,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 1
-                                        )
-                                    }
-                                }
-                                repeat(3 - rowItems.size) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (isSelected) goldColor else Color(0xFF24242A))
+                            .border(
+                                1.dp,
+                                if (isSelected) glowYellow else glassBorder,
+                                RoundedCornerShape(14.dp)
+                            )
+                            .clickable {
+                                selectedSound = name
+                                isSoundOn = true
                             }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // नया विषय टाइप करने वाला इनपुट बॉक्स
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(50))
-                            .background(Color(0xFF18181B))
-                            .border(1.dp, glassBorder, RoundedCornerShape(50))
-                            .padding(horizontal = 10.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(vertical = 6.dp, horizontal = 4.dp)
                     ) {
-                        OutlinedTextField(
-                            value = newSubjectInput,
-                            onValueChange = { newSubjectInput = it },
-                            placeholder = {
-                                Text("Type your subject...", color = textMuted, fontSize = 11.sp)
-                            },
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent,
-                                focusedTextColor = textMain,
-                                unfocusedTextColor = textMain,
-                                cursorColor = goldColor
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(goldColor)
-                                .clickable {
-                                    if (newSubjectInput.isNotBlank()) {
-                                        val success = SubjectManager.addSubject(context, newSubjectInput)
-                                        if (success) {
-                                            userSubjects = SubjectManager.getUserSubjects(context)
-                                            selectedSubjectName = newSubjectInput.trim()
-                                            newSubjectInput = ""
-                                            showAddDialog = false
-                                        }
-                                    }
-                                }
-                                .padding(horizontal = 14.dp, vertical = 8.dp)
-                        ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = icon, fontSize = 16.sp)
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Add",
-                                color = Color.Black,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold
+                                text = name,
+                                color = if (isSelected) Color.Black else textMain,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
                             )
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Button(
-                        onClick = {
-                            showAddDialog = false
-                            newSubjectInput = ""
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A32))
-                    ) {
-                        Text("Done", color = Color.White, fontSize = 12.sp)
                     }
                 }
             }
         }
     }
+}
+
+// =========================================================================
+// 🎨 POPUP DIALOG (THEMED CHIPS + CUSTOM INPUT)
+// =========================================================================
+if (showAddDialog) {
+    Dialog(onDismissRequest = {
+        showAddDialog = false
+        newSubjectInput = ""
+    }) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(cardBg)
+                .border(1.5.dp, goldColor, RoundedCornerShape(24.dp))
+                .padding(20.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Manage Subjects",
+                    color = goldColor,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Choose from list or type your own",
+                    color = textMuted,
+                    fontSize = 11.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 15 तय विषयों की लिस्ट
+                val predefined = PlantRegistry.defaultSubjects
+                    .filter { !it.name.equals("All", ignoreCase = true) }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 160.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    predefined.chunked(3).forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowItems.forEach { subjItem ->
+                                val alreadyInList = userSubjects.any { it.equals(subjItem.name, ignoreCase = true) }
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (alreadyInList) goldColor.copy(alpha = 0.25f) else Color(0xFF2A2A32))
+                                        .border(1.dp, if (alreadyInList) goldColor else glassBorder, RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            if (!alreadyInList) {
+                                                SubjectManager.addSubject(context, subjItem.name)
+                                                userSubjects = SubjectManager.getUserSubjects(context)
+                                            }
+                                        }
+                                        .padding(vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = if (alreadyInList) "✓ ${subjItem.name}" else subjItem.name,
+                                        color = if (alreadyInList) goldColor else textMain,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                            repeat(3 - rowItems.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // नया विषय टाइप करने वाला इनपुट बॉक्स
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(50))
+                        .background(Color(0xFF18181B))
+                        .border(1.dp, glassBorder, RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = newSubjectInput,
+                        onValueChange = { newSubjectInput = it },
+                        placeholder = {
+                            Text("Type your subject...", color = textMuted, fontSize = 11.sp)
+                        },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedTextColor = textMain,
+                            unfocusedTextColor = textMain,
+                            cursorColor = goldColor
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(goldColor)
+                            .clickable {
+                                if (newSubjectInput.isNotBlank()) {
+                                    val success = SubjectManager.addSubject(context, newSubjectInput)
+                                    if (success) {
+                                        userSubjects = SubjectManager.getUserSubjects(context)
+                                        selectedSubjectName = newSubjectInput.trim()
+                                        newSubjectInput = ""
+                                        showAddDialog = false
+                                    }
+                                }
+                            }
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "Add",
+                            color = Color.Black,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Button(
+                    onClick = {
+                        showAddDialog = false
+                        newSubjectInput = ""
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A32))
+                ) {
+                    Text("Done", color = Color.White, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
 }
 
 // =============================================================================
