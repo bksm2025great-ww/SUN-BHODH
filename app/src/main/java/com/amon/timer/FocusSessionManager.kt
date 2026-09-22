@@ -88,4 +88,60 @@ object FocusSessionManager {
     fun getSessions(context: Context): List<FocusSession> {
         return getAllSessions(context)
     }
+
+    // 3. 🛡️ Google Sheet से आया डेटा जोड़ना (स्मार्ट आधार कार्ड चेक - डुप्लीकेट नहीं बनेगा)
+    // यह फ़ंक्शन वापस बताता है: (कितने नए पेड़ जुड़े, कितने मिनट जुड़े)
+    fun restoreSessions(context: Context, incomingSessions: List<FocusSession>): Pair<Int, Int> {
+        val prefs = getPrefs(context)
+        val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
+        var restoredTrees = 0
+        var restoredMinutes = 0
+
+        try {
+            val jsonArray = JSONArray(existingData)
+            val existingList = mutableListOf<JSONObject>()
+            for (i in 0 until jsonArray.length()) {
+                existingList.add(jsonArray.getJSONObject(i))
+            }
+
+            var anyNewAdded = false
+
+            for (incoming in incomingSessions) {
+                // स्मार्ट आधार कार्ड चेक: क्या यह सेशन तारीख, विषय और समय से पहले से मौजूद है?
+                val alreadyExists = existingList.any { obj ->
+                    val sameId = obj.optLong("id", -1L) == incoming.id
+                    val sameDate = obj.optString("date") == incoming.date
+                    val sameSubject = obj.optString("subject").equals(incoming.subject, ignoreCase = true)
+                    val sameDuration = obj.optInt("durationMinutes") == incoming.durationMinutes
+
+                    sameId || (sameDate && sameSubject && sameDuration)
+                }
+
+                // अगर यह सेशन फ़ोन में नहीं है, तभी जोड़ेंगे
+                if (!alreadyExists) {
+                    val newObj = JSONObject().apply {
+                        put("id", if (incoming.id > 0) incoming.id else System.currentTimeMillis())
+                        put("date", incoming.date)
+                        put("subject", incoming.subject)
+                        put("durationMinutes", incoming.durationMinutes)
+                        put("earnedTrees", incoming.earnedTrees)
+                    }
+                    jsonArray.put(newObj)
+                    existingList.add(newObj)
+                    restoredTrees += incoming.earnedTrees
+                    restoredMinutes += incoming.durationMinutes
+                    anyNewAdded = true
+                }
+            }
+
+            // अगर कोई नया सेशन जुड़ा है, तो तिजोरी में पक्का सेव कर दो
+            if (anyNewAdded) {
+                prefs.edit().putString(KEY_SESSIONS, jsonArray.toString()).apply()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return Pair(restoredTrees, restoredMinutes)
+    }
 }
