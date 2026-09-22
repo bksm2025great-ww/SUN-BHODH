@@ -1,10 +1,12 @@
-package com.example.amon // (अपनी ऐप का सही पैकेज नाम यहाँ रहने दें)
+package com.amon.timer
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
-import kotlin.random.Random
+import android.provider.Settings
+import kotlin.math.abs
 
-class UserManager(context: Context) {
+class UserManager(private val context: Context) {
     private val prefs: SharedPreferences = 
         context.getSharedPreferences("amon_user_prefs", Context.MODE_PRIVATE)
 
@@ -12,12 +14,6 @@ class UserManager(context: Context) {
     fun setUserName(name: String) {
         val cleanName = name.trim().ifEmpty { "Vision" }
         prefs.edit().putString("display_name", cleanName).apply()
-        
-        // अगर 4-अंकों का गुप्त कोड पहले से नहीं बना है, तो नया बना लें
-        if (getSecretCode().isEmpty()) {
-            val randomCode = Random.nextInt(1000, 9999).toString()
-            prefs.edit().putString("secret_code", randomCode).apply()
-        }
     }
 
     // स्क्रीन पर दिखाने के लिए यूज़र का नाम
@@ -25,20 +21,28 @@ class UserManager(context: Context) {
         return prefs.getString("display_name", "") ?: ""
     }
 
-    // बैकग्राउंड का गुप्त 4-अंकों का कोड
+    // फ़ोन की स्थायी हार्डवेयर पहचान से 4-अंकों का फिक्स कोड
+    @SuppressLint("HardwareIds")
     fun getSecretCode(): String {
-        return prefs.getString("secret_code", "") ?: ""
+        val androidId = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ANDROID_ID
+        ) ?: "1234"
+        
+        // Android ID से 1000 से 9999 के बीच का फिक्स 4-अंकों का नंबर
+        val fixedNumber = abs(androidId.hashCode() % 9000) + 1000
+        return fixedNumber.toString()
     }
 
-    // Google Sheet के टैब का पूरा नाम (जैसे Vision_4821)
+    // Google Sheet के टैब का पूरा नाम (जैसे Vision_7392)
     fun getSheetTabId(): String {
         val name = getUserName().ifEmpty { "Vision" }
         val code = getSecretCode()
-        return if (code.isNotEmpty()) "${name}_$code" else name
+        return "${name}_$code"
     }
 
-    // क्या यूज़र ने पहली बार नाम सेट कर दिया है?
+    // क्या यूज़र ने नाम दर्ज कर दिया है?
     fun isUserRegistered(): Boolean {
-        return getUserName().isNotEmpty() && getSecretCode().isNotEmpty()
+        return getUserName().isNotEmpty()
     }
 }
