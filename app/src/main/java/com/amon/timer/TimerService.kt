@@ -22,8 +22,9 @@ class TimerService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var timerJob: Job? = null
     
-    // 🟢 नया वेरिएबल: ताकि ऐप को याद रहे कि टाइमर शुरू कितने समय का हुआ था
+    // 🟢 Asli time aur shuru hone ka timestamp yaad rakhne ke liye
     private var originalTimerSeconds = 0
+    private var sessionStartTimeMillis: Long = 0L
 
     companion object {
         const val CHANNEL_ID = "amon_focus_timer_channel"
@@ -63,14 +64,15 @@ class TimerService : Service() {
     }
 
     private fun startTimer(seconds: Int, subject: String) {
-        originalTimerSeconds = seconds // सेशन सेव करने के लिए असली समय याद रखना
+        originalTimerSeconds = seconds
+        sessionStartTimeMillis = System.currentTimeMillis() // ⏱️ Shuru hone ka exact waqt note kiya
         timerJob?.cancel()
         remainingSeconds.intValue = seconds
         currentSubjectName.value = subject
         isTimerRunning.value = true
 
         val isStopwatch = (seconds == 0)
-        val startTime = System.currentTimeMillis()
+        val startTime = sessionStartTimeMillis
         val endTime = if (isStopwatch) startTime else startTime + seconds * 1000L
 
         val referenceTime = if (isStopwatch) startTime else endTime
@@ -84,7 +86,7 @@ class TimerService : Service() {
                     val elapsed = ((System.currentTimeMillis() - startTime) / 1000L).toInt()
                     remainingSeconds.intValue = elapsed
                     
-                    if (elapsed >= 7200) { // 120 मिनट पर ऑटो-स्टॉप
+                    if (elapsed >= 7200) { // 120 minute par auto-stop
                         onTimerFinished()
                         break
                     }
@@ -104,7 +106,9 @@ class TimerService : Service() {
     }
 
     private fun pauseTimer() {
-        saveSessionToDiary() // 🟢 बीच में रोका तो भी डायरी और शीट में सेव होगा
+        if (isTimerRunning.value) {
+            saveSessionToDiary()
+        }
         timerJob?.cancel()
         isTimerRunning.value = false
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -112,36 +116,48 @@ class TimerService : Service() {
     }
 
     private fun onTimerFinished() {
-        saveSessionToDiary() // 🟢 पूरा हुआ तो भी डायरी और शीट में सेव होगा
+        if (isTimerRunning.value) {
+            saveSessionToDiary()
+        }
         isTimerRunning.value = false
         triggerGentleVibration()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
-    // 🟢 टाइम और पौधे कैलकुलेट करके डायरी और Google Sheet में डेटा भेजने वाला फ़ंक्शन
+    // 🟢 Asli padhai aur naye ped ka niyam calculate karne wala function
     private fun saveSessionToDiary() {
-        // पता लगाओ कितने सेकंड पढ़ाई हुई
-        val completedSeconds = if (originalTimerSeconds == 0) {
-            remainingSeconds.intValue // स्टॉपवॉच थी, तो जितना टाइम चला वही completed है
+        if (sessionStartTimeMillis == 0L) return
+
+        // 1. Asli beeta hua waqt (Elapsed Time) seconds me nikalna
+        val elapsedMillis = System.currentTimeMillis() - sessionStartTimeMillis
+        val elapsedSeconds = (elapsedMillis / 1000L).toInt().coerceAtLeast(0)
+
+        val completedSeconds = if (originalTimerSeconds > 0) {
+            minOf(elapsedSeconds, originalTimerSeconds) // Timer se zyada seconds count nahi honge
         } else {
-            originalTimerSeconds - remainingSeconds.intValue // टाइमर था, तो (Total - बचा हुआ समय)
+            elapsedSeconds
         }
 
+        sessionStartTimeMillis = 0L
+
         val minutes = completedSeconds / 60
-        if (minutes < 1) return // 1 मिनट से कम पर कुछ सेव नहीं होगा
+        if (minutes < 1) return // 1 minute se kam par save nahi hoga
 
-        // पौधों (Trees) का हिसाब
-        val trees = if (minutes >= 120) 4
-        else if (minutes >= 90) 3
-        else if (minutes >= 60) 2
-        else 1 
+        // 2. 🌲 Naye slab ke hisaab se ped (Trees) ka niyam
+        val trees = when {
+            minutes >= 105 -> 4
+            minutes >= 75  -> 3
+            minutes >= 45  -> 2
+            minutes >= 15  -> 1
+            else -> 0 // 15 minute se kam par 0 tree
+        }
 
-        // आज की तारीख निकालो
+        // Aaj ki date format
         val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
         val currentDate = sdf.format(java.util.Date())
 
-        // 1. फ़ोन की लोकल डायरी में सेव करना
+        // 3. Phone ki diary me save karna
         val session = FocusSession(
             date = currentDate,
             subject = currentSubjectName.value,
@@ -150,7 +166,7 @@ class TimerService : Service() {
         )
         FocusSessionManager.saveSession(this, session)
 
-        // 2. 🌐 Google Sheet में बैकग्राउंड क्लाउड सिंक भेजना
+        // 4. 🌐 Google Sheet me cloud backup bhejna
         CloudSyncManager.syncSession(
             context = this,
             subject = currentSubjectName.value,
