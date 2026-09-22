@@ -1,7 +1,6 @@
 package com.amon.timer
 
 import android.content.Context
-import android.provider.Settings
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -25,38 +24,32 @@ object CloudSyncManager {
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
     /**
-     * 1. पढ़ाई पूरी होने पर डेटा को Google Sheet में भेजना (POST)
+     * 1. पढ़ाई पूरी होने पर डेटा Google Sheet में भेजना (POST)
      */
     fun syncSession(
         context: Context,
         subject: String,
         durationMinutes: Long,
-        earnedTrees: Int,
-        userName: String = "Vision"
+        earnedTrees: Int
     ) {
         val sheetUrl = BuildConfig.GOOGLE_SHEET_URL
 
-        // Agar secret URL nahi mila to aage nahi badhenge
         if (sheetUrl.isBlank()) {
             Log.w(TAG, "Google Sheet URL set nahi hai!")
             return
         }
 
-        // Phone ka 4-digit unique code nikalna
-        val deviceId = try {
-            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "1234"
-        } catch (e: Exception) {
-            "1234"
-        }
-        val uniqueId = if (deviceId.length >= 4) deviceId.takeLast(4) else deviceId
+        // UserManager se live naam aur 6-digit permanent code lena
+        val userManager = UserManager(context)
+        val userName = userManager.getUserName().ifEmpty { "Vision" }
+        val uniqueId = userManager.getSecretCode()
 
-        // Aaj ki taareekh aur samay
         val currentDateTime = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
 
-        // Data ka digital lifafa (JSON packet)
         val jsonPayload = JSONObject().apply {
             put("userName", userName)
             put("userId", uniqueId)
+            put("tabName", "${userName}_$uniqueId")
             put("date", currentDateTime)
             put("subject", subject)
             put("durationMinutes", durationMinutes)
@@ -71,7 +64,6 @@ object CloudSyncManager {
             .post(requestBody)
             .build()
 
-        // Background me silent request bhejna taaki app ruke ya hang na ho
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 Log.e(TAG, "Sheet sync fail ho gaya: ${e.message}")
@@ -90,21 +82,18 @@ object CloudSyncManager {
     }
 
     /**
-     * 2. 🟢 NEW: Google Sheet से डेटा वापस मंगाना (GET)
-     * सिर्फ इसी फोन के 4-digit code वाला डेटा खींच कर लाएगा
+     * 2. Google Sheet से डेटा वापस मंगाना (GET)
+     * सिर्फ इसी फोन के 6-digit code वाले टैब का डेटा लाएगा
      */
-    suspend fun fetchSessions(context: Context, userName: String = "Vision"): List<FocusSession> = withContext(Dispatchers.IO) {
+    suspend fun fetchSessions(context: Context): List<FocusSession> = withContext(Dispatchers.IO) {
         val sheetUrl = BuildConfig.GOOGLE_SHEET_URL
         if (sheetUrl.isBlank()) return@withContext emptyList()
 
-        val deviceId = try {
-            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "1234"
-        } catch (e: Exception) {
-            "1234"
-        }
-        val uniqueId = if (deviceId.length >= 4) deviceId.takeLast(4) else deviceId
+        // UserManager se live naam aur 6-digit code maangna
+        val userManager = UserManager(context)
+        val userName = userManager.getUserName().ifEmpty { "Vision" }
+        val uniqueId = userManager.getSecretCode()
 
-        // Sheet ko hamara 4-digit code bhej kar data maangna
         val fetchUrl = "$sheetUrl?userName=$userName&userId=$uniqueId"
         val request = Request.Builder()
             .url(fetchUrl)
