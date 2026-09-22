@@ -11,7 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha // 🟢 FIX: Added alpha import
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
@@ -20,12 +20,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun ForestScreen() {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
-    
+
     // Colors (Luxe Gold Theme)
     val goldColor = Color(0xFFF3C669)
     val darkBg = Color(0xFF121214)
@@ -35,19 +39,52 @@ fun ForestScreen() {
     val textMuted = Color(0xFFA0A0A5)
 
     // States
-    var selectedTab by remember { mutableStateOf("All Time") }
+    var selectedTab by remember { mutableStateOf("Today") }
     var showDialog by remember { mutableStateOf<FocusSession?>(null) }
     var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
 
-    // Load data
-LaunchedEffect(Unit) {
-    allSessions = FocusSessionManager.getAllSessions(context)
-}
-    // Filter data based on tab
-    val displaySessions = when (selectedTab) {
-        "Today" -> allSessions.takeLast(3)
-        "This Week" -> allSessions.takeLast(7)
-        else -> allSessions
+    // Load data from diary
+    LaunchedEffect(Unit) {
+        allSessions = FocusSessionManager.getAllSessions(context)
+    }
+
+    // 🟢 स्मार्ट डेट फ़िल्टर: सिर्फ़ असली पेड़ (> 0) और चुनी हुई तारीख के हिसाब से
+    val displaySessions = remember(allSessions, selectedTab) {
+        val treeOnlySessions = allSessions.filter { it.earnedTrees > 0 }
+        val now = Calendar.getInstance()
+
+        when (selectedTab) {
+            "Today" -> {
+                val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(now.time)
+                treeOnlySessions.filter { session ->
+                    val d = parseSessionDate(session.date)
+                    if (d != null) {
+                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(d) == todayStr
+                    } else {
+                        session.date.startsWith(todayStr)
+                    }
+                }
+            }
+            "This Week" -> {
+                val cal = Calendar.getInstance()
+                cal.add(Calendar.DAY_OF_YEAR, -7)
+                val sevenDaysAgo = cal.time
+                treeOnlySessions.filter { session ->
+                    val d = parseSessionDate(session.date)
+                    if (d != null) {
+                        !d.before(sevenDaysAgo)
+                    } else false
+                }
+            }
+            else -> treeOnlySessions // "All Time"
+        }
+    }
+
+    // ऊपर का मोटिवेशनल संदेश
+    val motivationSubtitle = when (selectedTab) {
+        "Today" -> if (displaySessions.isEmpty()) "No trees grown today yet. Start focusing!" else "You've grown ${displaySessions.size} tree${if (displaySessions.size > 1) "s" else ""} today, keep it up!"
+        "This Week" -> "You've grown ${displaySessions.size} tree${if (displaySessions.size > 1) "s" else ""} this week, keep it up!"
+        else -> "You've grown ${displaySessions.size} tree${if (displaySessions.size > 1) "s" else ""} in total, keep it up!"
     }
 
     Column(
@@ -77,7 +114,7 @@ LaunchedEffect(Unit) {
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "You've grown ${allSessions.size} trees, keep it up!",
+                    text = motivationSubtitle,
                     color = textMuted,
                     fontSize = 12.sp
                 )
@@ -153,13 +190,13 @@ LaunchedEffect(Unit) {
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                        if (session != null) {
-    val plantInfo = getPlantIconAndName(session.subject)
-    Text(
-        text = plantInfo.first,
-        fontSize = treeIconSize.value.sp,
-        modifier = Modifier.rotate(-45f)
-    )    
+                            if (session != null) {
+                                val plantInfo = getPlantIconAndName(session.subject)
+                                Text(
+                                    text = plantInfo.first,
+                                    fontSize = treeIconSize.value.sp,
+                                    modifier = Modifier.rotate(-45f)
+                                )
                             } else {
                                 Text(
                                     text = "🌱",
@@ -181,7 +218,7 @@ LaunchedEffect(Unit) {
                 .clip(RoundedCornerShape(50))
                 .background(Color(0xFF18181B))
                 .border(1.dp, boxBorderGolden, RoundedCornerShape(50))
-                .clickable { /* Future me list khulegi */ }
+                .clickable { /* Future me full history view */ }
                 .padding(horizontal = 24.dp, vertical = 12.dp)
         ) {
             Text(
@@ -191,7 +228,7 @@ LaunchedEffect(Unit) {
                 fontWeight = FontWeight.Bold
             )
         }
-        
+
         Spacer(modifier = Modifier.height(20.dp))
     }
 
@@ -208,15 +245,15 @@ LaunchedEffect(Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                  val plantInfo = getPlantIconAndName(showDialog!!.subject)
-Text(text = plantInfo.first, fontSize = 50.sp)
-Spacer(modifier = Modifier.height(4.dp))
-Text(
-    text = plantInfo.second,
-    color = goldColor,
-    fontSize = 13.sp,
-    fontWeight = FontWeight.Bold
-) 
+                    val plantInfo = getPlantIconAndName(showDialog!!.subject)
+                    Text(text = plantInfo.first, fontSize = 50.sp)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = plantInfo.second,
+                        color = goldColor,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = showDialog!!.subject,
@@ -249,6 +286,26 @@ Text(
         }
     }
 }
+
+// -----------------------------------------------------------------------------
+// 📅 Helper: Tariq ko sahi se parse karne wala function
+// -----------------------------------------------------------------------------
+private fun parseSessionDate(dateStr: String): Date? {
+    val formats = listOf(
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    )
+    for (fmt in formats) {
+        try {
+            val d = fmt.parse(dateStr)
+            if (d != null) return d
+        } catch (_: Exception) {}
+    }
+    return null
+}
+
 // 🌳 Subject ke hisaab se unique plant aur naam nikaalne wala helper function
 private fun getPlantIconAndName(subjectName: String): Pair<String, String> {
     val defaultMatch = PlantRegistry.defaultSubjects.find { it.name.equals(subjectName, ignoreCase = true) }
@@ -274,7 +331,6 @@ private fun getPlantIconAndName(subjectName: String): Pair<String, String> {
         return Pair(emoji, "${defaultMatch.tree.nameEn} (${defaultMatch.tree.nameHi})")
     }
 
-    // 🔐 Naye subject ke liye reservedTreeVault se automatic unique tree alag se milega
     val vaultIndex = Math.abs(subjectName.hashCode()) % PlantRegistry.reservedTreeVault.size
     val reservedTree = PlantRegistry.reservedTreeVault[vaultIndex]
     val vaultEmoji = when (reservedTree.id) {
