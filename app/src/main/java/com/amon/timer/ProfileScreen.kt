@@ -13,10 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +33,11 @@ fun ProfileScreen() {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    // 👤 User Manager & Name State
+    val userManager = remember { UserManager(context) }
+    var currentUserName by remember { mutableStateOf(userManager.getUserName().ifEmpty { "Vision" }) }
+    var showEditNameDialog by remember { mutableStateOf(false) }
 
     // 🟢 ThemeManager se direct live colors
     val isDark = ThemeManager.isDarkTheme.value
@@ -89,7 +91,7 @@ fun ProfileScreen() {
             modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
         )
 
-        // ----------------- 2. USER PROFILE CARD (CENTERED AMON) -----------------
+        // ----------------- 2. USER PROFILE CARD (AMON + USER NAME) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -103,6 +105,7 @@ fun ProfileScreen() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+                // मुख्य नाम: AMON
                 Text(
                     text = "AMON",
                     color = textMain,
@@ -110,13 +113,29 @@ fun ProfileScreen() {
                     fontWeight = FontWeight.Black,
                     letterSpacing = 2.sp
                 )
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = "Focus Account",
-                    color = textMuted,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // यूज़र का नाम + एडिट पेंसिल (बिना 4-अंकों के कोड के)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showEditNameDialog = true }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = currentUserName,
+                        color = goldColor,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "✏️",
+                        fontSize = 12.sp
+                    )
+                }
             }
         }
 
@@ -399,7 +418,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 6. ACCOUNT & SYNC (ASLI GOOGLE SHEET SE JURA HUA) -----------------
+        // ----------------- 6. ACCOUNT & SYNC -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -428,7 +447,7 @@ fun ProfileScreen() {
                     )
                 }
 
-                // 🔘 100% REAL TWO-WAY SYNC BUTTON
+                // 🔘 TWO-WAY SYNC BUTTON
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -446,7 +465,6 @@ fun ProfileScreen() {
                                         syncPopupTitle = "No Connection"
                                         syncPopupMessage = "No Internet Connection. Please check your network."
                                     } else {
-                                        // 🟢 GOOGLE SHEET SE REAL DATA FETCH KARNA
                                         val cloudSessions = CloudSyncManager.fetchSessions(context)
                                         val (restoredTrees, restoredMinutes) = FocusSessionManager.restoreSessions(context, cloudSessions)
                                         isSyncSuccess = true
@@ -487,7 +505,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 7. EXPANDABLE: APP UPDATES (DRAWER TAB) -----------------
+        // ----------------- 7. EXPANDABLE: APP UPDATES -----------------
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
@@ -636,6 +654,51 @@ fun ProfileScreen() {
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+
+    // ✏️ EDIT NAME DIALOG
+    if (showEditNameDialog) {
+        var editInput by remember { mutableStateOf(currentUserName) }
+        AlertDialog(
+            onDismissRequest = { showEditNameDialog = false },
+            title = {
+                Text(text = "Edit Display Name", color = textMain, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            },
+            text = {
+                OutlinedTextField(
+                    value = editInput,
+                    onValueChange = { editInput = it },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = textMain,
+                        unfocusedTextColor = textMain,
+                        focusedBorderColor = goldColor,
+                        unfocusedBorderColor = cardBorder
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (editInput.trim().isNotEmpty()) {
+                            userManager.setUserName(editInput.trim())
+                            currentUserName = editInput.trim()
+                            showEditNameDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = goldColor)
+                ) {
+                    Text("Save", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditNameDialog = false }) {
+                    Text("Cancel", color = textMuted)
+                }
+            },
+            containerColor = if (isDark) Color(0xFF1E1E24) else Color.White
+        )
     }
 
     // 🟢 SYNC POPUP VIEW
