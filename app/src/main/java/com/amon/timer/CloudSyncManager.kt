@@ -3,6 +3,8 @@ package com.amon.timer
 import android.content.Context
 import android.provider.Settings
 import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -23,7 +25,7 @@ object CloudSyncManager {
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
     /**
-     * Study session complete hone par data ko Google Sheet me bhejta hai.
+     * 1. पढ़ाई पूरी होने पर डेटा को Google Sheet में भेजना (POST)
      */
     fun syncSession(
         context: Context,
@@ -40,7 +42,7 @@ object CloudSyncManager {
             return
         }
 
-        // Phone ka 4-digit unique code nikalna (taaki alag-alag users ka data mix na ho)
+        // Phone ka 4-digit unique code nikalna
         val deviceId = try {
             Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "1234"
         } catch (e: Exception) {
@@ -85,5 +87,59 @@ object CloudSyncManager {
                 }
             }
         })
+    }
+
+    /**
+     * 2. 🟢 NEW: Google Sheet से डेटा वापस मंगाना (GET)
+     * सिर्फ इसी फोन के 4-digit code वाला डेटा खींच कर लाएगा
+     */
+    suspend fun fetchSessions(context: Context, userName: String = "Vision"): List<FocusSession> = withContext(Dispatchers.IO) {
+        val sheetUrl = BuildConfig.GOOGLE_SHEET_URL
+        if (sheetUrl.isBlank()) return@withContext emptyList()
+
+        val deviceId = try {
+            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "1234"
+        } catch (e: Exception) {
+            "1234"
+        }
+        val uniqueId = if (deviceId.length >= 4) deviceId.takeLast(4) else deviceId
+
+        // Sheet ko hamara 4-digit code bhej kar data maangna
+        val fetchUrl = "$sheetUrl?userName=$userName&userId=$uniqueId"
+        val request = Request.Builder()
+            .url(fetchUrl)
+            .get()
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+            val responseText = response.body?.string().orEmpty()
+
+            if (responseText.isNotBlank()) {
+                val json = JSONObject(responseText)
+                if (json.optString("status") == "success") {
+                    val sessionsArray = json.optJSONArray("sessions") ?: return@withContext emptyList()
+                    val resultList = mutableListOf<FocusSession>()
+
+                    for (i in 0 until sessionsArray.length()) {
+                        val item = sessionsArray.getJSONObject(i)
+                        resultList.add(
+                            FocusSession(
+                                id = System.currentTimeMillis() + i,
+                                date = item.optString("date"),
+                                subject = item.optString("subject", "General"),
+                                durationMinutes = item.optInt("durationMinutes", 0),
+                                earnedTrees = item.optInt("earnedTrees", 0)
+                            )
+                        )
+                    }
+                    return@withContext resultList
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Google Sheet se data lane me error: ${e.message}")
+        }
+
+        return@withContext emptyList()
     }
 }
