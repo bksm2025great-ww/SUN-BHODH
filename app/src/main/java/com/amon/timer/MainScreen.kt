@@ -112,7 +112,11 @@ fun HomeTimerTab(
     var userSubjects by remember { mutableStateOf(listOf<String>()) }
     var selectedSubjectName by rememberSaveable { mutableStateOf("All") }
     var showAddDialog by remember { mutableStateOf(false) }
-    var isDeleteMode by remember { mutableStateOf(false) }
+  // छिपे हुए (अनसिलेक्टेड) विषयों की लिस्ट याद रखने के लिए
+    val subjectPrefs = context.getSharedPreferences("amon_subject_prefs", android.content.Context.MODE_PRIVATE)
+    var hiddenSubjects by remember { 
+        mutableStateOf(subjectPrefs.getStringSet("hidden_subjects", emptySet()) ?: emptySet()) 
+    }
     var newSubjectInput by remember { mutableStateOf("") }
 
     // 🎵 साउंड पैनल की स्टेट्स
@@ -139,10 +143,22 @@ fun HomeTimerTab(
         }
     }
 
-    val displayMinutes = totalSeconds / 60
+   val displayMinutes = totalSeconds / 60
     val displaySeconds = totalSeconds % 60
     val timeFormatted = String.format("%02d:%02d", displayMinutes, displaySeconds)
 
+// हर विषय के कुल पढ़े गए मिनट गिनना और सबसे ज़्यादा पढ़े गए विषय को आगे रखना
+    val allSessions = remember(isRunning) { FocusSessionManager.getAllSessions(context) }
+    val subjectMinutesMap = remember(allSessions) {
+        allSessions.groupBy { it.subject }
+            .mapValues { entry -> entry.value.sumOf { it.durationMinutes } }
+    }
+    val activeSortedSubjects = remember(userSubjects, hiddenSubjects, subjectMinutesMap) {
+        userSubjects
+            .filter { it !in hiddenSubjects }
+            .sortedByDescending { subjectMinutesMap[it] ?: 0 }
+    }
+    
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
