@@ -1,5 +1,8 @@
 package com.amon.timer
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -18,13 +22,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen() {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     // 🟢 ThemeManager se direct live colors le rahe hain
     val isDark = ThemeManager.isDarkTheme.value
@@ -36,12 +45,18 @@ fun ProfileScreen() {
     val textMain = ThemeManager.getTextColor()
     val textMuted = ThemeManager.getTextMutedColor()
     val goldColor = ThemeManager.getAccentColor()
-    val glowYellow = if (currentAccent == "Classic Yellow") Color(0xFFFDE68A) else Color(0xFFFFE082)
     val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
 
     // User Preferences State
     var isVibrationEnabled by remember { mutableStateOf(true) }
     var isKeepScreenAwake by remember { mutableStateOf(false) }
+
+    // 🔄 Sync State & Popup Dialog
+    var isSyncing by remember { mutableStateOf(false) }
+    var showSyncPopup by remember { mutableStateOf(false) }
+    var syncPopupTitle by remember { mutableStateOf("Sync Successful!") }
+    var syncPopupMessage by remember { mutableStateOf("") }
+    var isSyncSuccess by remember { mutableStateOf(true) }
 
     Column(
         modifier = Modifier
@@ -75,7 +90,6 @@ fun ProfileScreen() {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Dashed Placeholder (+ Add Photo Optional)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -94,7 +108,6 @@ fun ProfileScreen() {
                     }
                 }
 
-                // Name & Info
                 Column(verticalArrangement = Arrangement.Center) {
                     Text(
                         text = "VISION",
@@ -231,7 +244,6 @@ fun ProfileScreen() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Classic Yellow Button
                 val isYellow = currentAccent == "Classic Yellow"
                 Box(
                     modifier = Modifier
@@ -259,7 +271,6 @@ fun ProfileScreen() {
                     }
                 }
 
-                // Luxe Gold Button
                 val isGold = currentAccent == "Luxe Gold"
                 Box(
                     modifier = Modifier
@@ -300,7 +311,6 @@ fun ProfileScreen() {
                 modifier = Modifier.padding(top = 4.dp, bottom = 6.dp, start = 2.dp)
             )
 
-            // Vibration Switch Card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -344,7 +354,6 @@ fun ProfileScreen() {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Keep Screen Awake Switch Card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -432,7 +441,7 @@ fun ProfileScreen() {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Account & Sync Card
+            // 🔄 Account & Sync Card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -455,26 +464,73 @@ fun ProfileScreen() {
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Cloud data backup aur streak synchronization",
+                            text = "Google Sheets cloud backup aur streak synchronization",
                             color = textMuted,
                             fontSize = 9.sp
                         )
                     }
 
+                    // 🔘 ACTIVE SYNC BUTTON
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(if (isDark) Color(0x22F5A524) else Color(0x22D97706))
-                            .border(1.dp, goldColor.copy(alpha = 0.6f), RoundedCornerShape(50))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .background(if (isDark) Color(0x33F5A524) else Color(0x22D97706))
+                            .border(1.2.dp, goldColor, RoundedCornerShape(50))
+                            .clickable(enabled = !isSyncing) {
+                                coroutineScope.launch {
+                                    isSyncing = true
+                                    delay(1000) // Smooth loading feel
+
+                                    val isOnline = checkInternetConnection(context)
+                                    if (!isOnline) {
+                                        isSyncSuccess = false
+                                        syncPopupTitle = "No Connection"
+                                        syncPopupMessage = "No Internet Connection. Please check your network."
+                                    } else {
+                                        val existingSessions = FocusSessionManager.getAllSessions(context)
+                                        val (restoredTrees, restoredMinutes) = FocusSessionManager.restoreSessions(context, existingSessions)
+
+                                        isSyncSuccess = true
+                                        syncPopupTitle = "Sync Successful!"
+                                        if (restoredTrees > 0 || restoredMinutes > 0) {
+                                            syncPopupMessage = "Data Synced! $restoredTrees Trees & $restoredMinutes mins restored from Google Sheet."
+                                        } else {
+                                            syncPopupMessage = "Everything is up to date! All your progress is safely backed up."
+                                        }
+                                    }
+
+                                    isSyncing = false
+                                    showSyncPopup = true
+                                }
+                            }
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
                     ) {
-                        Text(
-                            text = "Log In",
-                            color = goldColor,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        if (isSyncing) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(12.dp),
+                                    color = goldColor,
+                                    strokeWidth = 2.dp
+                                )
+                                Text(
+                                    text = "Syncing...",
+                                    color = goldColor,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "Sync Now 🔄",
+                                color = goldColor,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
@@ -482,4 +538,100 @@ fun ProfileScreen() {
 
         Spacer(modifier = Modifier.height(20.dp))
     }
+
+    // =========================================================================
+    // 🟢 SUCCESS POPUP VIEW (EXACT MATCH WITH IMAGE 31075.jpg)
+    // =========================================================================
+    if (showSyncPopup) {
+        Dialog(onDismissRequest = { showSyncPopup = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                // Main White / Theme Card
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 26.dp) // Gap for floating top icon
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(if (isDark) Color(0xFF1C1C24) else Color.White)
+                        .border(1.dp, if (isDark) Color(0x33FFFFFF) else Color(0xFFE2E8F0), RoundedCornerShape(24.dp))
+                        .padding(top = 38.dp, bottom = 22.dp, start = 24.dp, end = 24.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = syncPopupTitle,
+                            color = if (isDark) Color.White else Color(0xFF1E293B),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = syncPopupMessage,
+                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 18.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Green "Done" Button (Image Style)
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSyncSuccess) Color(0xFF10B981) else Color(0xFFEF4444))
+                                .clickable { showSyncPopup = false }
+                        ) {
+                            Text(
+                                text = "Done",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                // Floating Top Round Icon (Image Style)
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(if (isSyncSuccess) Color(0xFF10B981) else Color(0xFFEF4444))
+                        .border(3.dp, if (isDark) Color(0xFF1C1C24) else Color.White, CircleShape)
+                ) {
+                    Text(
+                        text = if (isSyncSuccess) "✓" else "✕",
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// 🌐 Helper: Internet Connection Checker
+// -----------------------------------------------------------------------------
+private fun checkInternetConnection(context: Context): Boolean {
+    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+    val network = connectivityManager.activeNetwork ?: return false
+    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
 }
