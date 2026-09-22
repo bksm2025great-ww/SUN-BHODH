@@ -21,20 +21,20 @@ class UserManager(private val context: Context) {
         return prefs.getString("display_name", "") ?: ""
     }
 
-    // फ़ोन की स्थायी हार्डवेयर पहचान से 4-अंकों का फिक्स कोड
+    // फ़ोन की स्थायी हार्डवेयर पहचान से 6-अंकों का फिक्स कोड
     @SuppressLint("HardwareIds")
     fun getSecretCode(): String {
         val androidId = Settings.Secure.getString(
             context.contentResolver,
             Settings.Secure.ANDROID_ID
-        ) ?: "1234"
+        ) ?: "123456"
         
-        // Android ID से 1000 से 9999 के बीच का फिक्स 4-अंकों का नंबर
-        val fixedNumber = abs(androidId.hashCode() % 9000) + 1000
+        // Android ID से 100000 से 999999 के बीच का फिक्स 6-अंकों का नंबर
+        val fixedNumber = abs(androidId.hashCode() % 900000) + 100000
         return fixedNumber.toString()
     }
 
-    // Google Sheet के टैब का पूरा नाम (जैसे Vision_7392)
+    // Google Sheet के टैब का पूरा नाम (जैसे Vision_482915)
     fun getSheetTabId(): String {
         val name = getUserName().ifEmpty { "Vision" }
         val code = getSecretCode()
