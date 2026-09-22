@@ -161,7 +161,6 @@ fun ProfileScreen() {
                 .padding(14.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Header Row (Click to Expand / Collapse)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -198,13 +197,11 @@ fun ProfileScreen() {
                     )
                 }
 
-                // Drawer Content
                 if (isThemeExpanded) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // 1. Theme Mode
                     Text(
                         text = "🌓  THEME MODE",
                         color = goldColor,
@@ -254,7 +251,6 @@ fun ProfileScreen() {
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // 2. Accent Color
                     Text(
                         text = "✨  ACCENT COLOR",
                         color = goldColor,
@@ -339,7 +335,6 @@ fun ProfileScreen() {
                 .padding(14.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Vibration
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -372,7 +367,6 @@ fun ProfileScreen() {
 
                 Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
 
-                // Keep Awake
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -405,7 +399,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 6. ACCOUNT & SYNC -----------------
+        // ----------------- 6. ACCOUNT & SYNC (ASLI GOOGLE SHEET SE JURA HUA) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -434,7 +428,7 @@ fun ProfileScreen() {
                     )
                 }
 
-                // 🔘 100% CRASH-PROOF SYNC BUTTON
+                // 🔘 100% REAL TWO-WAY SYNC BUTTON
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -444,7 +438,7 @@ fun ProfileScreen() {
                         .clickable(enabled = !isSyncing) {
                             coroutineScope.launch {
                                 isSyncing = true
-                                delay(800)
+                                delay(600)
                                 try {
                                     val isOnline = checkInternetConnectionSafely(context)
                                     if (!isOnline) {
@@ -452,8 +446,9 @@ fun ProfileScreen() {
                                         syncPopupTitle = "No Connection"
                                         syncPopupMessage = "No Internet Connection. Please check your network."
                                     } else {
-                                        val existingSessions = FocusSessionManager.getAllSessions(context)
-                                        val (restoredTrees, restoredMinutes) = FocusSessionManager.restoreSessions(context, existingSessions)
+                                        // 🟢 GOOGLE SHEET SE REAL DATA FETCH KARNA
+                                        val cloudSessions = CloudSyncManager.fetchSessions(context)
+                                        val (restoredTrees, restoredMinutes) = FocusSessionManager.restoreSessions(context, cloudSessions)
                                         isSyncSuccess = true
                                         syncPopupTitle = "Sync Successful!"
                                         if (restoredTrees > 0 || restoredMinutes > 0) {
@@ -503,7 +498,6 @@ fun ProfileScreen() {
                 .padding(14.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Header Row (Click to Expand / Collapse)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -553,7 +547,6 @@ fun ProfileScreen() {
                     }
                 }
 
-                // Drawer Content
                 if (isUpdateExpanded) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
@@ -645,9 +638,7 @@ fun ProfileScreen() {
         Spacer(modifier = Modifier.height(16.dp))
     }
 
-    // =========================================================================
-    // 🟢 SYNC SUCCESS POPUP VIEW
-    // =========================================================================
+    // 🟢 SYNC POPUP VIEW
     if (showSyncPopup) {
         Dialog(onDismissRequest = { showSyncPopup = false }) {
             Box(
@@ -725,9 +716,6 @@ fun ProfileScreen() {
     }
 }
 
-// -----------------------------------------------------------------------------
-// 🌐 Helper: 100% Safe Internet Checker (No Crashing)
-// -----------------------------------------------------------------------------
 private fun checkInternetConnectionSafely(context: Context): Boolean {
     return try {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
