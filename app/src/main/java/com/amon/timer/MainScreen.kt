@@ -94,7 +94,7 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🟢 1. HOME TAB (TIMER, DYNAMIC SUBJECTS & FLOATING SOUND PILL)
+// 🟢 1. HOME TAB (TIMER, SMART RANKED SUBJECTS & SOUND PILL)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
@@ -108,23 +108,25 @@ fun HomeTimerTab(
     isDark: Boolean,
     isRunning: Boolean
 ) {
-    // 📚 यूजर के विषयों की स्टेट्स
+    // 📚 विषयों की स्टेट्स
     var userSubjects by remember { mutableStateOf(listOf<String>()) }
     var selectedSubjectName by rememberSaveable { mutableStateOf("All") }
     var showAddDialog by remember { mutableStateOf(false) }
-  // छिपे हुए (अनसिलेक्टेड) विषयों की लिस्ट याद रखने के लिए
-    val subjectPrefs = context.getSharedPreferences("amon_subject_prefs", android.content.Context.MODE_PRIVATE)
-    var hiddenSubjects by remember { 
-        mutableStateOf(subjectPrefs.getStringSet("hidden_subjects", emptySet()) ?: emptySet()) 
-    }
     var newSubjectInput by remember { mutableStateOf("") }
+
+    // 🔒 छिपे हुए (अनसिलेक्टेड) विषयों की परसिस्टेंट लिस्ट
+    val subjectPrefs = remember {
+        context.getSharedPreferences("amon_subject_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    var hiddenSubjects by remember {
+        mutableStateOf(subjectPrefs.getStringSet("hidden_subjects", emptySet())?.toSet() ?: emptySet())
+    }
 
     // 🎵 साउंड पैनल की स्टेट्स
     var isSoundOn by rememberSaveable { mutableStateOf(false) }
     var showSoundPanel by remember { mutableStateOf(false) }
     var selectedSound by rememberSaveable { mutableStateOf("Rain") }
 
-    // डायरी से विषय लोड करना (शुरू में Math, Hindi, English)
     LaunchedEffect(Unit) {
         userSubjects = SubjectManager.getUserSubjects(context)
     }
@@ -143,11 +145,11 @@ fun HomeTimerTab(
         }
     }
 
-   val displayMinutes = totalSeconds / 60
+    val displayMinutes = totalSeconds / 60
     val displaySeconds = totalSeconds % 60
     val timeFormatted = String.format("%02d:%02d", displayMinutes, displaySeconds)
 
-// हर विषय के कुल पढ़े गए मिनट गिनना और सबसे ज़्यादा पढ़े गए विषय को आगे रखना
+    // ⏱️ हर विषय के कुल पढ़े गए मिनट गिनना और सबसे ज़्यादा पढ़े गए विषय को आगे रखना
     val allSessions = remember(isRunning) { FocusSessionManager.getAllSessions(context) }
     val subjectMinutesMap = remember(allSessions) {
         allSessions.groupBy { it.subject }
@@ -158,7 +160,7 @@ fun HomeTimerTab(
             .filter { it !in hiddenSubjects }
             .sortedByDescending { subjectMinutesMap[it] ?: 0 }
     }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -229,7 +231,7 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // 🔊 साउंड बटन (क्लिक करने पर फ्लोटिंग पैनल खुलेगा)
+                        // 🔊 साउंड बटन
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -256,26 +258,22 @@ fun HomeTimerTab(
             if (!isRunning) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     LazyRow(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         contentPadding = PaddingValues(horizontal = 2.dp)
                     ) {
-                        // 1. + Add Button
+                        // 1. + Add Button (सबसे पहले)
                         item {
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(50))
                                     .background(goldColor)
-                                    .clickable {
-                                        isDeleteMode = false
-                                        showAddDialog = true
-                                    }
+                                    .clickable { showAddDialog = true }
                                     .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
                                 Text(
@@ -287,7 +285,7 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // 2. All Chip
+                        // 2. All Chip (दूसरे नंबर पर)
                         item {
                             val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
                             Box(
@@ -296,11 +294,7 @@ fun HomeTimerTab(
                                     .clip(RoundedCornerShape(50))
                                     .background(if (isSelected) goldColor else cardBg)
                                     .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                                    .clickable {
-                                        if (!isDeleteMode) {
-                                            selectedSubjectName = "All"
-                                        }
-                                    }
+                                    .clickable { selectedSubjectName = "All" }
                                     .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
                                 Text(
@@ -312,75 +306,32 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // 3. Dynamic User Subjects (Math, Hindi, English + Custom)
-                        items(userSubjects) { subj ->
+                        // 3. पढ़े गए घंटों के क्रम में सजे विषय (Top 1, Top 2, Top 3...)
+                        items(activeSortedSubjects) { subj ->
                             val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(50))
-                                    .background(
-                                        if (isDeleteMode) Color(0x33EF4444)
-                                        else if (isSelected) goldColor
-                                        else cardBg
-                                    )
+                                    .background(if (isSelected) goldColor else cardBg)
                                     .border(
                                         1.dp,
-                                        if (isDeleteMode) Color(0xFFEF4444)
-                                        else if (isSelected) glowYellow
-                                        else glassBorder,
+                                        if (isSelected) glowYellow else glassBorder,
                                         RoundedCornerShape(50)
                                     )
                                     .clickable {
-                                        if (isDeleteMode) {
-                                            SubjectManager.removeSubject(context, subj)
-                                            userSubjects = SubjectManager.getUserSubjects(context)
-                                            if (selectedSubjectName.equals(subj, ignoreCase = true)) {
-                                                selectedSubjectName = "All"
-                                            }
-                                        } else {
-                                            selectedSubjectName = subj
-                                        }
+                                        selectedSubjectName = subj
                                     }
                                     .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(
-                                        text = subj,
-                                        color = if (isDeleteMode) Color(0xFFEF4444) else if (isSelected) Color.White else textMuted,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    if (isDeleteMode) {
-                                        Text(
-                                            text = "✕",
-                                            color = Color(0xFFEF4444),
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Black
-                                        )
-                                    }
-                                }
+                                Text(
+                                    text = subj,
+                                    color = if (isSelected) Color.White else textMuted,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
-                    }
-
-                    // 4. Red Bin (Delete Mode Toggle)
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(if (isDeleteMode) Color(0xFFEF4444) else cardBg)
-                            .border(1.dp, if (isDeleteMode) Color.White else glassBorder, CircleShape)
-                            .clickable { isDeleteMode = !isDeleteMode }
-                    ) {
-                        Text(
-                            text = "🗑️",
-                            fontSize = 13.sp
-                        )
                     }
                 }
             } else {
@@ -472,469 +423,488 @@ fun HomeTimerTab(
                                 .clip(RoundedCornerShape(50))
                                 .background(if (isSelected) goldColor else cardBg)
                                 .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                            .clickable {
-                                isCustomMode = false
-                                dialMinutes = mins
-                                val secs = mins.toInt() * 60
-                                TimerService.remainingSeconds.intValue = secs
-                                initialTotalSeconds = secs
-                            }
+                                .clickable {
+                                    isCustomMode = false
+                                    dialMinutes = mins
+                                    val secs = mins.toInt() * 60
+                                    TimerService.remainingSeconds.intValue = secs
+                                    initialTotalSeconds = secs
+                                }
+                        ) {
+                            Text(
+                                text = "${mins.toInt()}m",
+                                color = if (isSelected) Color.White else textMain,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (isCustomMode) goldColor else cardBg)
+                            .border(1.dp, if (isCustomMode) glowYellow else glassBorder, RoundedCornerShape(50))
+                            .clickable { isCustomMode = !isCustomMode }
                     ) {
                         Text(
-                            text = "${mins.toInt()}m",
-                            color = if (isSelected) Color.White else textMain,
+                            text = "Custom",
+                            color = if (isCustomMode) Color.White else textMain,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
+                }
+            } else {
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            // ----------------- CUSTOM SLIDER -----------------
+            if (!isRunning) {
+                if (isCustomMode) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(cardBg)
+                            .border(1.4.dp, goldColor, RoundedCornerShape(16.dp))
+                            .padding(16.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .pointerInput(Unit) {
+                                    detectHorizontalDragGestures { _, dragAmount ->
+                                        val sensitivity = 0.25f
+                                        val newMins = (dialMinutes - (dragAmount * sensitivity)).coerceIn(0f, 120f)
+                                        dialMinutes = newMins
+                                        val secs = if (newMins == 0f) 0 else (newMins.toInt() * 60)
+                                        TimerService.remainingSeconds.intValue = secs
+                                        initialTotalSeconds = if (secs > 0) secs else 60
+                                    }
+                                }
+                        ) {
+                            Text(
+                                text = if (dialMinutes == 0f) "0 min (Stopwatch)" else "${dialMinutes.toInt()} min",
+                                color = textMain,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Canvas(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(36.dp)
+                            ) {
+                                val canvasWidth = size.width
+                                val canvasHeight = size.height
+                                val centerY = canvasHeight / 2f
+
+                                val totalTicks = 31
+                                val spacing = canvasWidth / (totalTicks - 1)
+
+                                val normalizedValue = dialMinutes / 120f
+                                val centerIndex = (normalizedValue * (totalTicks - 1)).toInt()
+
+                                for (i in 0 until totalTicks) {
+                                    val x = i * spacing
+                                    val distFromCenter = abs(i - centerIndex)
+                                    val isCenter = (i == centerIndex)
+
+                                    val tickHeight = if (isCenter) 24.dp.toPx() else max(6.dp.toPx(), 16.dp.toPx() - (distFromCenter * 0.7f))
+                                    val tickWidth = if (isCenter) 3.2.dp.toPx() else 1.5.dp.toPx()
+                                    val tickColor = if (isCenter) textMain else textMuted.copy(alpha = max(0.2f, 1.0f - distFromCenter * 0.07f))
+
+                                    drawLine(
+                                        color = tickColor,
+                                        start = Offset(x, centerY - tickHeight / 2f),
+                                        end = Offset(x, centerY + tickHeight / 2f),
+                                        strokeWidth = tickWidth,
+                                        cap = StrokeCap.Round
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Focus >",
+                                color = textMuted,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "Standard Mode Active",
+                        color = textMuted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else {
+                Text(
+                    text = "Focus Mode Active • Stay Distraction-Free",
+                    color = goldColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // ----------------- ACTION BUTTONS -----------------
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(cardBg)
+                        .border(1.dp, glassBorder, RoundedCornerShape(50))
+                        .clickable {
+                            val intent = Intent(context, TimerService::class.java).apply {
+                                action = TimerService.ACTION_STOP
+                            }
+                            context.startService(intent)
+                            val resetSecs = dialMinutes.toInt() * 60
+                            TimerService.remainingSeconds.intValue = resetSecs
+                            initialTotalSeconds = resetSecs
+                        }
+                ) {
+                    Text(text = "Cancel", color = goldColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .weight(1f)
-                        .height(38.dp)
+                        .height(48.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(if (isCustomMode) goldColor else cardBg)
-                        .border(1.dp, if (isCustomMode) glowYellow else glassBorder, RoundedCornerShape(50))
-                        .clickable { isCustomMode = !isCustomMode }
+                        .background(if (isRunning) goldColor else cardBg)
+                        .border(1.dp, if (isRunning) glowYellow else glassBorder, RoundedCornerShape(50))
+                        .clickable {
+                            val intent = Intent(context, TimerService::class.java)
+                            if (isRunning) {
+                                intent.action = TimerService.ACTION_PAUSE
+                                context.startService(intent)
+                            } else {
+                                initialTotalSeconds = if (totalSeconds > 0) totalSeconds else (dialMinutes.toInt() * 60)
+                                intent.action = TimerService.ACTION_START
+                                intent.putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
+                                intent.putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    context.startForegroundService(intent)
+                                } else {
+                                    context.startService(intent)
+                                }
+                            }
+                        }
                 ) {
                     Text(
-                        text = "Custom",
-                        color = if (isCustomMode) Color.White else textMain,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
+                        text = if (isRunning) "Pause" else "Plant 🌳",
+                        color = if (isRunning) Color.White else goldColor,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black
                     )
                 }
             }
-        } else {
-            Spacer(modifier = Modifier.height(20.dp))
         }
 
-        // ----------------- CUSTOM SLIDER -----------------
-        if (!isRunning) {
-            if (isCustomMode) {
+        // =====================================================================
+        // 🎧 FLOATING PILL SOUND OVERLAY (SLIDE-IN FROM RIGHT)
+        // =====================================================================
+        if (showSoundPanel) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        showSoundPanel = false
+                    }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showSoundPanel,
+            enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
+            exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 45.dp, end = 12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(105.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(cardBg.copy(alpha = 0.96f))
+                    .border(1.5.dp, goldColor, RoundedCornerShape(28.dp))
+                    .padding(vertical = 12.dp, horizontal = 8.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // 1. Master ON / OFF Switch
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(50))
+                            .background(if (isSoundOn) goldColor.copy(alpha = 0.25f) else Color(0xFF2A2A32))
+                            .clickable { isSoundOn = !isSoundOn }
+                            .padding(horizontal = 8.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            text = if (isSoundOn) "ON" else "OFF",
+                            color = if (isSoundOn) goldColor else textMuted,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(if (isSoundOn) Color(0xFF22C55E) else Color(0xFFEF4444))
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    // 2. Focus Sounds
+                    val soundOptions = listOf(
+                        Pair("Rain", "🌧️"),
+                        Pair("Forest", "🌲"),
+                        Pair("Clock Tick", "⏱️"),
+                        Pair("White Noise", "🌊"),
+                        Pair("Focus Piano", "🎹")
+                    )
+
+                    soundOptions.forEach { (name, icon) ->
+                        val isSelected = isSoundOn && selectedSound == name
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isSelected) goldColor else Color(0xFF24242A))
+                                .border(
+                                    1.dp,
+                                    if (isSelected) glowYellow else glassBorder,
+                                    RoundedCornerShape(14.dp)
+                                )
+                                .clickable {
+                                    selectedSound = name
+                                    isSoundOn = true
+                                }
+                                .padding(vertical = 6.dp, horizontal = 4.dp)
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(text = icon, fontSize = 16.sp)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = name,
+                                    color = if (isSelected) Color.Black else textMain,
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // =====================================================================
+        // 🎨 POPUP DIALOG (MANAGE SUBJECTS - GOLD ACTIVE / PLAIN HIDDEN)
+        // =====================================================================
+        if (showAddDialog) {
+            Dialog(onDismissRequest = {
+                showAddDialog = false
+                newSubjectInput = ""
+            }) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(24.dp))
                         .background(cardBg)
-                        .border(1.4.dp, goldColor, RoundedCornerShape(16.dp))
-                        .padding(16.dp)
+                        .border(1.5.dp, goldColor, RoundedCornerShape(24.dp))
+                        .padding(20.dp)
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .pointerInput(Unit) {
-                                detectHorizontalDragGestures { _, dragAmount ->
-                                    val sensitivity = 0.25f
-                                    val newMins = (dialMinutes - (dragAmount * sensitivity)).coerceIn(0f, 120f)
-                                    dialMinutes = newMins
-                                    val secs = if (newMins == 0f) 0 else (newMins.toInt() * 60)
-                                    TimerService.remainingSeconds.intValue = secs
-                                    initialTotalSeconds = if (secs > 0) secs else 60
-                                }
-                            }
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = if (dialMinutes == 0f) "0 min (Stopwatch)" else "${dialMinutes.toInt()} min",
-                            color = textMain,
+                            text = "Manage Subjects",
+                            color = goldColor,
                             fontSize = 18.sp,
-                            fontWeight = FontWeight.Black
+                            fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Tap to Show (Gold) or Hide (Plain)",
+                            color = textMuted,
+                            fontSize = 11.sp
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        Canvas(
+                        // यूजर के सभी विषय (गोल्ड = एक्टिव, सादा = हिडन)
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(36.dp)
+                                .heightIn(max = 180.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            val canvasWidth = size.width
-                            val canvasHeight = size.height
-                            val centerY = canvasHeight / 2f
+                            userSubjects.chunked(3).forEach { rowItems ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowItems.forEach { subj ->
+                                        val isHidden = subj in hiddenSubjects
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(
+                                                    if (!isHidden) goldColor.copy(alpha = 0.25f)
+                                                    else Color(0xFF222228)
+                                                )
+                                                .border(
+                                                    1.2.dp,
+                                                    if (!isHidden) goldColor else glassBorder,
+                                                    RoundedCornerShape(12.dp)
+                                                )
+                                                .clickable {
+                                                    val newHidden = if (isHidden) {
+                                                        hiddenSubjects - subj
+                                                    } else {
+                                                        hiddenSubjects + subj
+                                                    }
+                                                    hiddenSubjects = newHidden
+                                                    subjectPrefs.edit()
+                                                        .putStringSet("hidden_subjects", newHidden)
+                                                        .apply()
 
-                            val totalTicks = 31
-                            val spacing = canvasWidth / (totalTicks - 1)
+                                                    // अगर सिलेक्टेड विषय को ही हाइड कर दिया तो 'All' पर शिफ्ट हो जाओ
+                                                    if (!isHidden && selectedSubjectName.equals(subj, ignoreCase = true)) {
+                                                        selectedSubjectName = "All"
+                                                    }
+                                                }
+                                                .padding(vertical = 8.dp, horizontal = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (!isHidden) "● $subj" else "○ $subj",
+                                                color = if (!isHidden) goldColor else textMuted,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                    repeat(3 - rowItems.size) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
 
-                            val normalizedValue = dialMinutes / 120f
-                            val centerIndex = (normalizedValue * (totalTicks - 1)).toInt()
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                            for (i in 0 until totalTicks) {
-                                val x = i * spacing
-                                val distFromCenter = abs(i - centerIndex)
-                                val isCenter = (i == centerIndex)
+                        // नया विषय जोड़ने का इनपुट बॉक्स
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(50))
+                                .background(Color(0xFF18181B))
+                                .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = newSubjectInput,
+                                onValueChange = { newSubjectInput = it },
+                                placeholder = {
+                                    Text("Type new subject...", color = textMuted, fontSize = 11.sp)
+                                },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    focusedTextColor = textMain,
+                                    unfocusedTextColor = textMain,
+                                    cursorColor = goldColor
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
 
-                                val tickHeight = if (isCenter) 24.dp.toPx() else max(6.dp.toPx(), 16.dp.toPx() - (distFromCenter * 0.7f))
-                                val tickWidth = if (isCenter) 3.2.dp.toPx() else 1.5.dp.toPx()
-                                
-                                val tickColor = if (isCenter) textMain else textMuted.copy(alpha = max(0.2f, 1.0f - distFromCenter * 0.07f))
-
-                                drawLine(
-                                    color = tickColor,
-                                    start = Offset(x, centerY - tickHeight / 2f),
-                                    end = Offset(x, centerY + tickHeight / 2f),
-                                    strokeWidth = tickWidth,
-                                    cap = StrokeCap.Round
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(goldColor)
+                                    .clickable {
+                                        if (newSubjectInput.isNotBlank()) {
+                                            val cleanInput = newSubjectInput.trim()
+                                            val success = SubjectManager.addSubject(context, cleanInput)
+                                            if (success) {
+                                                userSubjects = SubjectManager.getUserSubjects(context)
+                                                // नए जुड़े विषय को अन-हाइड (एक्टिव) रखना
+                                                if (cleanInput in hiddenSubjects) {
+                                                    val newHidden = hiddenSubjects - cleanInput
+                                                    hiddenSubjects = newHidden
+                                                    subjectPrefs.edit().putStringSet("hidden_subjects", newHidden).apply()
+                                                }
+                                                selectedSubjectName = cleanInput
+                                                newSubjectInput = ""
+                                                showAddDialog = false
+                                            }
+                                        }
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "Add",
+                                    color = Color.Black,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Focus >",
-                            color = textMuted,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            } else {
-                Text(
-                    text = "Standard Mode Active",
-                    color = textMuted,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        } else {
-            Text(
-                text = "Focus Mode Active • Stay Distraction-Free",
-                color = goldColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
+                        Spacer(modifier = Modifier.height(14.dp))
 
-        // ----------------- ACTION BUTTONS -----------------
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(cardBg)
-                    .border(1.dp, glassBorder, RoundedCornerShape(50))
-                    .clickable {
-                        val intent = Intent(context, TimerService::class.java).apply {
-                            action = TimerService.ACTION_STOP
-                        }
-                        context.startService(intent)
-                        val resetSecs = dialMinutes.toInt() * 60
-                        TimerService.remainingSeconds.intValue = resetSecs
-                        initialTotalSeconds = resetSecs
-                    }
-            ) {
-                Text(text = "Cancel", color = goldColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            }
-
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(if (isRunning) goldColor else cardBg)
-                    .border(1.dp, if (isRunning) glowYellow else glassBorder, RoundedCornerShape(50))
-                    .clickable {
-                        val intent = Intent(context, TimerService::class.java)
-                        if (isRunning) {
-                            intent.action = TimerService.ACTION_PAUSE
-                            context.startService(intent)
-                        } else {
-                            initialTotalSeconds = if (totalSeconds > 0) totalSeconds else (dialMinutes.toInt() * 60)
-                            intent.action = TimerService.ACTION_START
-                            intent.putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
-                            intent.putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                context.startForegroundService(intent)
-                            } else {
-                                context.startService(intent)
-                            }
-                        }
-                    }
-            ) {
-                Text(
-                    text = if (isRunning) "Pause" else "Plant 🌳",
-                    color = if (isRunning) Color.White else goldColor,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
-        }
-    }
-
-    // =========================================================================
-    // 🎧 FLOATING PILL SOUND OVERLAY (SLIDE-IN FROM RIGHT)
-    // =========================================================================
-    if (showSoundPanel) {
-        // बाहर क्लिक करने पर बंद होने वाला बैकड्रॉप
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    showSoundPanel = false
-                }
-        )
-    }
-
-    AnimatedVisibility(
-        visible = showSoundPanel,
-        enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
-        exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
-        modifier = Modifier
-            .align(Alignment.TopEnd)
-            .padding(top = 45.dp, end = 12.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .width(105.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(cardBg.copy(alpha = 0.96f))
-                .border(1.5.dp, goldColor, RoundedCornerShape(28.dp))
-                .padding(vertical = 12.dp, horizontal = 8.dp)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // 1. Master ON / OFF Switch
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(50))
-                        .background(if (isSoundOn) goldColor.copy(alpha = 0.25f) else Color(0xFF2A2A32))
-                        .clickable { isSoundOn = !isSoundOn }
-                        .padding(horizontal = 8.dp, vertical = 5.dp)
-                ) {
-                    Text(
-                        text = if (isSoundOn) "ON" else "OFF",
-                        color = if (isSoundOn) goldColor else textMuted,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(if (isSoundOn) Color(0xFF22C55E) else Color(0xFFEF4444))
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // 2. 5 Focus Sounds
-                val soundOptions = listOf(
-                    Pair("Rain", "🌧️"),
-                    Pair("Forest", "🌲"),
-                    Pair("Clock Tick", "⏱️"),
-                    Pair("White Noise", "🌊"),
-                    Pair("Focus Piano", "🎹")
-                )
-
-                soundOptions.forEach { (name, icon) ->
-                    val isSelected = isSoundOn && selectedSound == name
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(if (isSelected) goldColor else Color(0xFF24242A))
-                            .border(
-                                1.dp,
-                                if (isSelected) glowYellow else glassBorder,
-                                RoundedCornerShape(14.dp)
-                            )
-                            .clickable {
-                                selectedSound = name
-                                isSoundOn = true
-                            }
-                            .padding(vertical = 6.dp, horizontal = 4.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = icon, fontSize = 16.sp)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = name,
-                                color = if (isSelected) Color.Black else textMain,
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// =========================================================================
-// 🎨 POPUP DIALOG (THEMED CHIPS + CUSTOM INPUT)
-// =========================================================================
-if (showAddDialog) {
-    Dialog(onDismissRequest = {
-        showAddDialog = false
-        newSubjectInput = ""
-    }) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(cardBg)
-                .border(1.5.dp, goldColor, RoundedCornerShape(24.dp))
-                .padding(20.dp)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "Manage Subjects",
-                    color = goldColor,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Choose from list or type your own",
-                    color = textMuted,
-                    fontSize = 11.sp
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 15 तय विषयों की लिस्ट
-                val predefined = PlantRegistry.defaultSubjects
-                    .filter { !it.name.equals("All", ignoreCase = true) }
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 160.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    predefined.chunked(3).forEach { rowItems ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Button(
+                            onClick = {
+                                showAddDialog = false
+                                newSubjectInput = ""
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A32))
                         ) {
-                            rowItems.forEach { subjItem ->
-                                val alreadyInList = userSubjects.any { it.equals(subjItem.name, ignoreCase = true) }
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(if (alreadyInList) goldColor.copy(alpha = 0.25f) else Color(0xFF2A2A32))
-                                        .border(1.dp, if (alreadyInList) goldColor else glassBorder, RoundedCornerShape(12.dp))
-                                        .clickable {
-                                            if (!alreadyInList) {
-                                                SubjectManager.addSubject(context, subjItem.name)
-                                                userSubjects = SubjectManager.getUserSubjects(context)
-                                            }
-                                        }
-                                        .padding(vertical = 8.dp)
-                                ) {
-                                    Text(
-                                        text = if (alreadyInList) "✓ ${subjItem.name}" else subjItem.name,
-                                        color = if (alreadyInList) goldColor else textMain,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                            repeat(3 - rowItems.size) {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
+                            Text("Done", color = Color.White, fontSize = 12.sp)
                         }
                     }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // नया विषय टाइप करने वाला इनपुट बॉक्स
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(50))
-                        .background(Color(0xFF18181B))
-                        .border(1.dp, glassBorder, RoundedCornerShape(50))
-                        .padding(horizontal = 10.dp, vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = newSubjectInput,
-                        onValueChange = { newSubjectInput = it },
-                        placeholder = {
-                            Text("Type your subject...", color = textMuted, fontSize = 11.sp)
-                        },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            focusedTextColor = textMain,
-                            unfocusedTextColor = textMain,
-                            cursorColor = goldColor
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(goldColor)
-                            .clickable {
-                                if (newSubjectInput.isNotBlank()) {
-                                    val success = SubjectManager.addSubject(context, newSubjectInput)
-                                    if (success) {
-                                        userSubjects = SubjectManager.getUserSubjects(context)
-                                        selectedSubjectName = newSubjectInput.trim()
-                                        newSubjectInput = ""
-                                        showAddDialog = false
-                                    }
-                                }
-                            }
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = "Add",
-                            color = Color.Black,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Button(
-                    onClick = {
-                        showAddDialog = false
-                        newSubjectInput = ""
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A32))
-                ) {
-                    Text("Done", color = Color.White, fontSize = 12.sp)
                 }
             }
         }
     }
-}
 }
 
 // =============================================================================
@@ -1082,7 +1052,7 @@ fun AmonCurvedBottomBar(
 }
 
 // -----------------------------------------------------------------------------
-// 🔥 Helper: Calculate streak for Home Tab (Min 30 mins / day)
+// 🔥 Helper: Streak Calculator (Min 30 mins / day)
 // -----------------------------------------------------------------------------
 private fun calculateStreakDays(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
