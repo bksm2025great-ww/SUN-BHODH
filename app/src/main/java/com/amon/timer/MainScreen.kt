@@ -196,13 +196,36 @@ fun HomeTimerTab(
                                 contentScale = ContentScale.Crop
                             )
                         }
-                        Text(
-                            text = "AMON",
-                            color = textMain,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp
-                        )
+
+                        // ⏰ समय के हिसाब से ग्रीटिंग और इमोजी तय करना
+                        val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+                        val timeGreeting = remember(currentHour) {
+                            when (currentHour) {
+                                in 4..11 -> "Good Morning ☀️"
+                                in 12..16 -> "Good Afternoon 🌤️"
+                                in 17..19 -> "Good Evening 🌆"
+                                else -> "Good Night 🌙"
+                            }
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "AMON",
+                                color = textMain,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "• $timeGreeting",
+                                color = goldColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
 
                     Column(
