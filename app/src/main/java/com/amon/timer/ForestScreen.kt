@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -42,26 +43,29 @@ fun ForestScreen() {
     var selectedTab by remember { mutableStateOf("Today") }
     var showDialog by remember { mutableStateOf<FocusSession?>(null) }
     var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
+    var refreshTrigger by remember { mutableStateOf(0) }
 
-    // Load data from diary
-    LaunchedEffect(Unit) {
+    // 🔄 Load / Reload data from diary
+    LaunchedEffect(refreshTrigger) {
         allSessions = FocusSessionManager.getAllSessions(context)
     }
 
-    // 🟢 स्मार्ट डेट फ़िल्टर: सिर्फ़ असली पेड़ (> 0) और चुनी हुई तारीख के हिसाब से
+    // 🟢 स्मार्ट डेट फ़िल्टर: स्लैश (/) और हाइफ़न (-) दोनों तारीखों को पहचानता है
     val displaySessions = remember(allSessions, selectedTab) {
         val treeOnlySessions = allSessions.filter { it.earnedTrees > 0 }
         val now = Calendar.getInstance()
 
         when (selectedTab) {
             "Today" -> {
-                val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(now.time)
+                val todayStrDash = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(now.time)
+                val todayStrSlash = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(now.time)
+
                 treeOnlySessions.filter { session ->
                     val d = parseSessionDate(session.date)
                     if (d != null) {
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(d) == todayStr
+                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(d) == todayStrDash
                     } else {
-                        session.date.startsWith(todayStr)
+                        session.date.startsWith(todayStrDash) || session.date.startsWith(todayStrSlash)
                     }
                 }
             }
@@ -95,29 +99,47 @@ fun ForestScreen() {
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ----------------- 1. TOP MOTIVATION CARD -----------------
+        // ----------------- 1. TOP MOTIVATION CARD (WITH LIVE REFRESH) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .background(cardBg)
                 .border(1.dp, boxBorderGolden, RoundedCornerShape(20.dp))
-                .padding(20.dp),
-            contentAlignment = Alignment.Center
+                .padding(20.dp)
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "Your Amon Forest",
-                    color = goldColor,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = motivationSubtitle,
-                    color = textMuted,
-                    fontSize = 12.sp
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Your Amon Forest",
+                        color = goldColor,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = motivationSubtitle,
+                        color = textMuted,
+                        fontSize = 12.sp
+                    )
+                }
+
+                // 🔄 छोटा सा रीफ़्रेश बटन
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(boxDarkGray)
+                        .border(1.dp, boxBorderGolden, CircleShape)
+                        .clickable { refreshTrigger++ },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "🔄", fontSize = 14.sp)
+                }
             }
         }
 
@@ -288,13 +310,16 @@ fun ForestScreen() {
 }
 
 // -----------------------------------------------------------------------------
-// 📅 Helper: Tariq ko sahi se parse karne wala function
+// 📅 Helper: अब यह स्लैश (/) और हाइफ़न (-) दोनों रूपों को पहचानता है
 // -----------------------------------------------------------------------------
 private fun parseSessionDate(dateStr: String): Date? {
     val formats = listOf(
-        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()),
+        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
         SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     )
     for (fmt in formats) {
