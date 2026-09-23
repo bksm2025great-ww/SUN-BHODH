@@ -25,6 +25,10 @@ import kotlinx.coroutines.delay
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ⏰ चारों दैनिक रिमाइंडर्स (05:30 AM, 10:00 AM, 04:30 PM, 08:00 PM) को बैकग्राउंड में ऑन करना
+        AmonReminderManager.scheduleAllReminders(this)
+
         setContent {
             AmonTheme {
                 Surface(
