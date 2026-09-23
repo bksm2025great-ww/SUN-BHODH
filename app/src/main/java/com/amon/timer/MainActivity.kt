@@ -21,12 +21,19 @@ import androidx.compose.ui.unit.sp
 import com.amon.timer.ui.theme.AmonTheme
 import kotlinx.coroutines.delay
 
+// 📱 App ki 3 stages
+private enum class AppScreenState {
+    SPLASH,  // 1.5 second ka Angel of Time intro
+    AUTH,    // Welcome + Login / Guest (sirf first time user ke liye)
+    MAIN     // Main Timer & Forest page
+}
+
 // 🟢 START: [MAIN_ACTIVITY_ENTRY]
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ⏰ चारों दैनिक रिमाइंडर्स (05:30 AM, 10:00 AM, 04:30 PM, 08:00 PM) को बैकग्राउंड में ऑन करना
+        // ⏰ Charo daily reminders (05:30 AM, 10:00 AM, 04:30 PM, 08:00 PM) schedule karna
         AmonReminderManager.scheduleAllReminders(this)
 
         setContent {
@@ -35,24 +42,39 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = Color(0xFF0F0F12)
                 ) {
-                    // 1.5 सेकंड का टाइमर (Splash State)
-                    var showSplash by remember { mutableStateOf(true) }
+                    val userManager = remember { UserManager(this@MainActivity) }
+                    var currentScreen by remember { mutableStateOf(AppScreenState.SPLASH) }
 
+                    // 1.5 second ka splash delay aur check
                     LaunchedEffect(Unit) {
-                        delay(1500) // ठीक 1.5 सेकंड का ठहराव
-                        showSplash = false
+                        delay(1500)
+                        currentScreen = if (userManager.isAccountSetupDone()) {
+                            AppScreenState.MAIN
+                        } else {
+                            AppScreenState.AUTH
+                        }
                     }
 
-                    // स्मूथ बदलाव (Fade Animation)
+                    // Smooth transition animation
                     Crossfade(
-                        targetState = showSplash,
+                        targetState = currentScreen,
                         animationSpec = tween(durationMillis = 400),
-                        label = "SplashTransition"
-                    ) { isSplashActive ->
-                        if (isSplashActive) {
-                            SplashScreenContent()
-                        } else {
-                            MainScreen()
+                        label = "ScreenTransition"
+                    ) { screen ->
+                        when (screen) {
+                            AppScreenState.SPLASH -> {
+                                SplashScreenContent()
+                            }
+                            AppScreenState.AUTH -> {
+                                AuthScreen(
+                                    onAuthComplete = {
+                                        currentScreen = AppScreenState.MAIN
+                                    }
+                                )
+                            }
+                            AppScreenState.MAIN -> {
+                                MainScreen()
+                            }
                         }
                     }
                 }
@@ -61,7 +83,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ✨ 1.5 सेकंड वाली Amon Splash Screen (Angel of Time)
+// ✨ 1.5 second wali Amon Splash Screen (Angel of Time)
 @Composable
 private fun SplashScreenContent() {
     Box(
@@ -74,7 +96,7 @@ private fun SplashScreenContent() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // 1. मुख्य लोगो: AMON
+            // 1. Mukhya Logo: AMON
             Text(
                 text = "AMON",
                 color = Color(0xFFF5A524),
@@ -85,20 +107,19 @@ private fun SplashScreenContent() {
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // 2. सब-टाइटल: Angel of Time - LOTM (तिरछा / Italic)
+            // 2. Sub-title: Angel of Time - LOTM
             Text(
                 text = "Angel of Time - LOTM",
                 color = Color(0xFFCBD5E1),
                 fontSize = 13.sp,
-                fontStyle = FontStyle.Italic,
                 fontWeight = FontWeight.Normal,
+                fontStyle = FontStyle.Italic,
                 letterSpacing = 1.sp
             )
 
-            // 3-4 लाइन का खाली स्पेस
             Spacer(modifier = Modifier.height(46.dp))
 
-            // 3. क्लासिक फॉन्ट: STAY FOCUSED & GROW
+            // 3. Classic font: STAY FOCUSED & GROW
             Text(
                 text = "S T A Y   F O C U S E D\n&\nG R O W",
                 color = Color(0xFF94A3B8),
