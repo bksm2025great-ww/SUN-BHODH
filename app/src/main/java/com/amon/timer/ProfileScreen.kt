@@ -30,6 +30,15 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen() {
+    // 🏆 स्क्रीन स्विच: क्या अचीवमेंट का पन्ना खुला है?
+    var showAchievementsScreen by remember { mutableStateOf(false) }
+
+    // अगर अचीवमेंट का पन्ना खुला है, तो उसे दिखाएँ
+    if (showAchievementsScreen) {
+        AchievementScreen(onBack = { showAchievementsScreen = false })
+        return
+    }
+
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -105,7 +114,6 @@ fun ProfileScreen() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // मुख्य नाम: AMON
                 Text(
                     text = "AMON",
                     color = textMain,
@@ -115,7 +123,6 @@ fun ProfileScreen() {
                 )
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // यूज़र का नाम + एडिट पेंसिल (बिना 4-अंकों के कोड के)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
@@ -139,13 +146,14 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 3. ACHIEVEMENTS & BADGES -----------------
+        // ----------------- 3. ACHIEVEMENTS & BADGES (CLICK TO OPEN) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
+                .clickable { showAchievementsScreen = true }
                 .padding(14.dp)
         ) {
             Row(
@@ -747,7 +755,7 @@ fun ProfileScreen() {
                                 .height(46.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (isSyncSuccess) Color(0xFF10B981) else Color(0xFFEF4444))
-                                .clickable { showSyncPopup = false }
+                            .clickable { showSyncPopup = false }
                         ) {
                             Text(
                                 text = "Done",
