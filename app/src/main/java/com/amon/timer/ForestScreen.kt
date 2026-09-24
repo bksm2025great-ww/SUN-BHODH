@@ -39,6 +39,10 @@ fun ForestScreen() {
     val boxBorderGolden = Color(0x33F3C669)
     val textMuted = Color(0xFFA0A0A5)
 
+    // 🌲 30 घंटे अनलॉक वाला डार्क फ़ॉरेस्ट ग्रीन शेड
+    val forestGreenBg = Color(0xFF163323)
+    val forestGreenBorder = Color(0xFF4CAF50)
+
     // States
     var selectedTab by remember { mutableStateOf("Today") }
     var showDialog by remember { mutableStateOf<FocusSession?>(null) }
@@ -48,6 +52,12 @@ fun ForestScreen() {
     // 🔄 Load / Reload data from diary
     LaunchedEffect(refreshTrigger) {
         allSessions = FocusSessionManager.getAllSessions(context)
+    }
+
+    // 🧮 हर विषय के कुल पढ़ाई के मिनट गिनने वाला स्मार्ट कैलकुलेटर
+    val subjectTotalMinutes = remember(allSessions) {
+        allSessions.groupBy { it.subject.trim().lowercase() }
+            .mapValues { entry -> entry.value.sumOf { it.durationMinutes } }
     }
 
     // 🟢 स्मार्ट डेट फ़िल्टर: स्लैश (/) और हाइफ़न (-) दोनों तारीखों को पहचानता है
@@ -99,7 +109,7 @@ fun ForestScreen() {
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ----------------- 1. TOP MOTIVATION CARD (WITH LIVE REFRESH) -----------------
+        // ----------------- 1. TOP MOTIVATION CARD (WITH CLEAN REFRESH ICON) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -128,17 +138,18 @@ fun ForestScreen() {
                     )
                 }
 
-                // 🔄 छोटा सा रीफ़्रेश बटन
+                // 🔄 साफ़ रीफ़्रेश बटन (बिना किसी नीले या डार्क बैकग्राउंड के)
                 Box(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(boxDarkGray)
-                        .border(1.dp, boxBorderGolden, CircleShape)
                         .clickable { refreshTrigger++ },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "🔄", fontSize = 14.sp)
+                    Text(
+                        text = "🔄",
+                        fontSize = 18.sp
+                    )
                 }
             }
         }
@@ -178,7 +189,7 @@ fun ForestScreen() {
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // ----------------- 3. DIAMOND GRID (3D LOOK) -----------------
+        // ----------------- 3. DIAMOND GRID (SMART 30H CHECK) -----------------
         val boxSize = 50.dp
         val treeIconSize = 32.dp
 
@@ -198,13 +209,20 @@ fun ForestScreen() {
                         val session = displaySessions.getOrNull(sessionIndex)
                         sessionIndex++
 
+                        // 🌟 30 घंटे (1800 मिनट) का स्मार्ट चेक
+                        val isMastered = session != null &&
+                                ((subjectTotalMinutes[session.subject.trim().lowercase()] ?: 0) >= 1800)
+
+                        val tileBg = if (isMastered) forestGreenBg else boxDarkGray
+                        val tileBorder = if (isMastered) forestGreenBorder else boxBorderGolden
+
                         Box(
                             modifier = Modifier
                                 .size(boxSize)
                                 .rotate(45f)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(boxDarkGray)
-                                .border(1.2.dp, boxBorderGolden, RoundedCornerShape(12.dp))
+                                .background(tileBg)
+                                .border(1.2.dp, tileBorder, RoundedCornerShape(12.dp))
                                 .clickable {
                                     if (session != null) {
                                         showDialog = session
@@ -310,7 +328,7 @@ fun ForestScreen() {
 }
 
 // -----------------------------------------------------------------------------
-// 📅 Helper: अब यह स्लैश (/) और हाइफ़न (-) दोनों रूपों को पहचानता है
+// 📅 Helper: स्लैश (/) और हाइफ़न (-) दोनों तारीखों को पहचानता है
 // -----------------------------------------------------------------------------
 private fun parseSessionDate(dateStr: String): Date? {
     val formats = listOf(
@@ -331,7 +349,7 @@ private fun parseSessionDate(dateStr: String): Date? {
     return null
 }
 
-// 🌳 Subject ke hisaab se unique plant aur naam nikaalne wala helper function
+// 🌳 Helper: Subject ke hisaab se unique plant aur naam nikaalne wala helper function
 private fun getPlantIconAndName(subjectName: String): Pair<String, String> {
     val defaultMatch = PlantRegistry.defaultSubjects.find { it.name.equals(subjectName, ignoreCase = true) }
     if (defaultMatch != null) {
