@@ -1,13 +1,14 @@
 package com.amon.timer
 
-import android.app.DatePickerDialog
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,11 +18,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.util.Calendar
 
 @Composable
 fun AuthScreen(
@@ -39,24 +37,32 @@ fun AuthScreen(
     val boxBorderGolden = Color(0x33F3C669)
     val textMuted = Color(0xFFA0A0A5)
 
-    // Form States
+    // Form State (Sirf Username)
     var username by remember { mutableStateOf(userManager.getUserName().ifEmpty { "Vision" }) }
-    var password by remember { mutableStateOf(userManager.getPassword()) }
-    var birthday by remember { mutableStateOf(userManager.getBirthday()) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // 📅 DatePickerDialog Setup (Birthday Calendar)
-    val calendar = Calendar.getInstance()
-    val datePickerDialog = remember {
-        DatePickerDialog(
-            context,
-            { _, year, month, dayOfMonth ->
-                birthday = String.format("%02d/%02d/%04d", dayOfMonth, month + 1, year)
-            },
-            calendar.get(Calendar.YEAR) - 18,
-            calendar.get(Calendar.MONTH),
-            calendar.get(Calendar.DAY_OF_MONTH)
-        )
+    // 🔔 Android ka Asli Default Permission Popup Launcher
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        // User chahe Allow kare ya Don't allow, bina kisi crash ke aage badhein
+        onAuthComplete()
+    }
+
+    val completeSetupAndProceed = {
+        val cleanName = username.trim().ifEmpty { "Vision" }
+        userManager.setUserName(cleanName)
+        // SharedPreferences ki safety taaki purana logic isAccountSetupDone par na atke
+        userManager.setPassword("active")
+        userManager.setBirthday("01/01/2000")
+        userManager.setGuestUser(false)
+
+        // Android 13+ me notification permission ka default popup trigger karna
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            onAuthComplete()
+        }
     }
 
     Box(
@@ -100,7 +106,7 @@ fun AuthScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // ----------------- 2. INPUT CARD -----------------
+            // ----------------- 2. INPUT CARD (ONLY NAME) -----------------
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -110,20 +116,22 @@ fun AuthScreen(
                     .padding(20.dp)
             ) {
                 Column {
-                    // USERNAME FIELD
                     Text(
-                        text = "Username",
+                        text = "What should we call you?",
                         color = goldColor,
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = username,
-                        onValueChange = { username = it },
+                        onValueChange = { 
+                            username = it
+                            if (errorMessage.isNotEmpty()) errorMessage = ""
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        placeholder = { Text("Apna naam likhein", color = textMuted) },
+                        placeholder = { Text("Apna naam likhein (e.g. Vision)", color = textMuted) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = goldColor,
                             unfocusedBorderColor = boxDarkGray,
@@ -133,70 +141,9 @@ fun AuthScreen(
                         ),
                         shape = RoundedCornerShape(12.dp)
                     )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // PASSWORD FIELD
-                    Text(
-                        text = "Secret Password",
-                        color = goldColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        placeholder = { Text("Password (Letters, Numbers & Symbols)", color = textMuted) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = goldColor,
-                            unfocusedBorderColor = boxDarkGray,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            cursorColor = goldColor
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // BIRTHDAY FIELD (CALENDAR PICKER)
-                    Text(
-                        text = "Birthday",
-                        color = goldColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(boxDarkGray)
-                            .border(1.dp, boxBorderGolden, RoundedCornerShape(12.dp))
-                            .clickable { datePickerDialog.show() }
-                            .padding(horizontal = 16.dp, vertical = 14.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = birthday.ifEmpty { "Select Birthday" },
-                                color = if (birthday.isNotEmpty()) Color.White else textMuted,
-                                fontSize = 14.sp
-                            )
-                            Text(text = "📅", fontSize = 16.sp)
-                        }
-                    }
 
                     if (errorMessage.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
                         Text(
                             text = errorMessage,
                             color = Color(0xFFFF6B6B),
@@ -212,15 +159,9 @@ fun AuthScreen(
             Button(
                 onClick = {
                     if (username.isBlank()) {
-                        errorMessage = "Kripya apna username likhein!"
-                    } else if (password.isBlank()) {
-                        errorMessage = "Kripya apna password daalein!"
+                        errorMessage = "Kripya apna naam likhein!"
                     } else {
-                        userManager.setUserName(username)
-                        userManager.setPassword(password)
-                        userManager.setBirthday(birthday)
-                        userManager.setGuestUser(false)
-                        onAuthComplete()
+                        completeSetupAndProceed()
                     }
                 },
                 modifier = Modifier
@@ -230,7 +171,7 @@ fun AuthScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = goldColor)
             ) {
                 Text(
-                    text = "Save & Continue ➔",
+                    text = "Start Journey 🚀",
                     color = Color.Black,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
@@ -239,15 +180,23 @@ fun AuthScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ----------------- 4. GUEST BUTTON -----------------
+            // ----------------- 4. GUEST / SKIP BUTTON -----------------
             TextButton(
                 onClick = {
+                    userManager.setUserName("Guest")
+                    userManager.setPassword("active")
+                    userManager.setBirthday("01/01/2000")
                     userManager.setGuestUser(true)
-                    onAuthComplete()
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        onAuthComplete()
+                    }
                 }
             ) {
                 Text(
-                    text = "Continue as Guest",
+                    text = "Skip & Continue as Guest",
                     color = textMuted,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
