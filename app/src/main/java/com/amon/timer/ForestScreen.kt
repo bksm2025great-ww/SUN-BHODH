@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -214,7 +213,7 @@ fun ForestScreen() {
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // ----------------- 3. DIAMOND GRID (2.4x ZOOMED 2.5D ISLAND) -----------------
+        // ----------------- 3. DIAMOND GRID (130dp DIRECT 2.5D ISLAND) -----------------
         val boxSize = 50.dp
         val treeIconSize = 32.dp
 
@@ -264,17 +263,16 @@ fun ForestScreen() {
                         ) {
                             if (session != null) {
                                 if (isWithered) {
-                                    // 🍂 सूखा पेड़ (2.4x Zoom - बड़ा और साफ़)
+                                    // 🍂 सूखा पेड़ (130dp - बिना किसी दबाव के बड़ा और साफ़)
                                     Image(
                                         painter = painterResource(id = R.drawable.tree_withered),
                                         contentDescription = "Withered Tree",
                                         modifier = Modifier
-                                            .size(60.dp)
-                                            .scale(2.4f)
+                                            .requiredSize(130.dp)
                                             .rotate(-45f)
                                     )
                                 } else if (isMastered) {
-                                    // ✨ 30 घंटे पूरे होने पर 2.5D पेड़ (2.4x Zoom - डिब्बे पर खिलता हुआ 3D पेड़)
+                                    // ✨ 30 घंटे पूरे होने पर 2.5D पेड़ (130dp - डिब्बे के ऊपर शानदार 3D खिलता हुआ)
                                     val isSakura = session.subject.contains("english", ignoreCase = true) ||
                                             session.subject.contains("art", ignoreCase = true) ||
                                             session.subject.contains("cherry", ignoreCase = true)
@@ -285,8 +283,7 @@ fun ForestScreen() {
                                         painter = painterResource(id = treeResId),
                                         contentDescription = "Mastered 2.5D Tree",
                                         modifier = Modifier
-                                            .size(60.dp)
-                                            .scale(2.4f)
+                                            .requiredSize(130.dp)
                                             .rotate(-45f)
                                     )
                                 } else {
@@ -355,9 +352,7 @@ fun ForestScreen() {
                         Image(
                             painter = painterResource(id = R.drawable.tree_withered),
                             contentDescription = "Withered Tree",
-                            modifier = Modifier
-                                .size(90.dp)
-                                .scale(1.8f)
+                            modifier = Modifier.requiredSize(140.dp)
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
@@ -376,9 +371,7 @@ fun ForestScreen() {
                         Image(
                             painter = painterResource(id = treeResId),
                             contentDescription = "Mastered Tree",
-                            modifier = Modifier
-                                .size(90.dp)
-                                .scale(1.8f)
+                            modifier = Modifier.requiredSize(140.dp)
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         val treeName = if (isSakura) "✨ Magical Cherry Sakura (Mastered)" else "✨ Magical Classic Oak (Mastered)"
