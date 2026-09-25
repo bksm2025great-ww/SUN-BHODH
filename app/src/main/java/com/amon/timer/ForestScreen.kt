@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -40,7 +41,7 @@ fun ForestScreen() {
     val boxBorderGolden = Color(0x33F3C669)
     val textMuted = Color(0xFFA0A0A5)
 
-    // 🌲 30 ghante unlock wala dark forest green shade
+    // 🌲 30 घंटे अनलॉक वाला डार्क फ़ॉरेस्ट ग्रीन शेड
     val forestGreenBg = Color(0xFF163323)
     val forestGreenBorder = Color(0xFF4CAF50)
 
@@ -49,14 +50,14 @@ fun ForestScreen() {
     var showDialog by remember { mutableStateOf<FocusSession?>(null) }
     var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
     var refreshTrigger by remember { mutableStateOf(0) }
-    var isExpanded by remember { mutableStateOf(false) } // 🌿 Jangal ko bada/chhota karne wala switch
+    var isExpanded by remember { mutableStateOf(false) }
 
     // 🔄 Load / Reload data from diary
     LaunchedEffect(refreshTrigger) {
         allSessions = FocusSessionManager.getAllSessions(context)
     }
 
-    // 🧮 Har subject ke kul padhai ke minutes ginne wala calculator
+    // 🧮 हर विषय के कुल पढ़ाई के मिनट गिनने वाला कैलकुलेटर
     val subjectTotalMinutes = remember(allSessions) {
         allSessions.groupBy { it.subject.trim().lowercase() }
             .mapValues { entry -> entry.value.sumOf { it.durationMinutes } }
@@ -103,7 +104,7 @@ fun ForestScreen() {
         else -> "You've grown $successfulTreesCount tree${if (successfulTreesCount > 1) "s" else ""} in total, keep it up!"
     }
 
-    // 🗺️ Dynamic Grid Pattern: Expand hone par niche nayi diamond rows apne aap judegi
+    // 🗺️ Dynamic Grid Pattern (Expand होने पर नीचे नई कतारें जुड़ेंगी)
     val gridPattern = remember(isExpanded, displaySessions.size) {
         val basePattern = listOf(2, 3, 4, 3, 2)
         if (!isExpanded) {
@@ -212,7 +213,7 @@ fun ForestScreen() {
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // ----------------- 3. DIAMOND GRID (EXPANDABLE 2.5D ISLAND) -----------------
+        // ----------------- 3. DIAMOND GRID (2.5D ISLAND) -----------------
         val boxSize = 50.dp
         val treeIconSize = 32.dp
 
@@ -262,7 +263,7 @@ fun ForestScreen() {
                         ) {
                             if (session != null) {
                                 if (isWithered) {
-                                    // 🍂 Sukha ped (85dp)
+                                    // 🍂 सूखा पेड़ (85dp)
                                     Image(
                                         painter = painterResource(id = R.drawable.tree_withered),
                                         contentDescription = "Withered Tree",
@@ -271,18 +272,12 @@ fun ForestScreen() {
                                             .rotate(-45f)
                                     )
                                 } else if (isMastered) {
-                                    // ✨ Mastered 2.5D Tree (85dp)
+                                    // ✨ 30 घंटे पूरे होने पर 2.5D पेड़
                                     val isSakura = session.subject.contains("english", ignoreCase = true) ||
                                             session.subject.contains("art", ignoreCase = true) ||
                                             session.subject.contains("cherry", ignoreCase = true)
-                                    val isApple = session.subject.contains("physics", ignoreCase = true) ||
-                                            session.subject.contains("apple", ignoreCase = true)
 
-                                    val treeResId = when {
-                                        isSakura -> R.drawable.tree_sakura
-                                        isApple -> R.drawable.tree_apple
-                                        else -> R.drawable.tree_oak
-                                    }
+                                    val treeResId = if (isSakura) R.drawable.tree_sakura else R.drawable.tree_oak
 
                                     Image(
                                         painter = painterResource(id = treeResId),
@@ -292,7 +287,7 @@ fun ForestScreen() {
                                             .rotate(-45f)
                                     )
                                 } else {
-                                    // 🌸 Samanya Emoji (0 to 29 ghante)
+                                    // 🌸 सामान्य इमोजी (0 से 29 घंटे तक)
                                     val plantInfo = getPlantIconAndName(session.subject)
                                     Text(
                                         text = plantInfo.first,
@@ -301,7 +296,7 @@ fun ForestScreen() {
                                     )
                                 }
                             } else {
-                                // 🌱 Khali slot
+                                // 🌱 खाली स्लॉट
                                 Text(
                                     text = "🌱",
                                     fontSize = 14.sp,
@@ -370,14 +365,8 @@ fun ForestScreen() {
                         val isSakura = showDialog!!.subject.contains("english", ignoreCase = true) ||
                                 showDialog!!.subject.contains("art", ignoreCase = true) ||
                                 showDialog!!.subject.contains("cherry", ignoreCase = true)
-                        val isApple = showDialog!!.subject.contains("physics", ignoreCase = true) ||
-                                showDialog!!.subject.contains("apple", ignoreCase = true)
 
-                        val treeResId = when {
-                            isSakura -> R.drawable.tree_sakura
-                            isApple -> R.drawable.tree_apple
-                            else -> R.drawable.tree_oak
-                        }
+                        val treeResId = if (isSakura) R.drawable.tree_sakura else R.drawable.tree_oak
 
                         Image(
                             painter = painterResource(id = treeResId),
@@ -385,11 +374,7 @@ fun ForestScreen() {
                             modifier = Modifier.size(110.dp)
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        val treeName = when {
-                            isSakura -> "✨ Magical Cherry Sakura (Mastered)"
-                            isApple -> "✨ Magical Fruitful Apple (Mastered)"
-                            else -> "✨ Magical Classic Oak (Mastered)"
-                        }
+                        val treeName = if (isSakura) "✨ Magical Cherry Sakura (Mastered)" else "✨ Magical Classic Oak (Mastered)"
                         Text(
                             text = treeName,
                             color = goldColor,
