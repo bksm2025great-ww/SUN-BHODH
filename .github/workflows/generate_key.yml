@@ -1,0 +1,25 @@
+name: Generate Permanent Keystore
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Keystore
+        run: |
+          keytool -genkeypair -v -keystore amon.jks -alias amon_key -keyalg RSA -keysize 2048 -validity 10000 -storepass AmonRelease2026 -keypass AmonRelease2026 -dname "CN=Amon, OU=Focus, O=AmonTimer, L=India, S=Rajasthan, C=IN"
+          base64 -w 0 amon.jks > keystore_base64.txt
+          echo "KEY_ALIAS: amon_key" > key_details.txt
+          echo "KEYSTORE_PASSWORD: AmonRelease2026" >> key_details.txt
+          echo "KEY_PASSWORD: AmonRelease2026" >> key_details.txt
+
+      - name: Upload Keystore Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Amon-Permanent-Key
+          path: |
+            amon.jks
+            keystore_base64.txt
+            key_details.txt
