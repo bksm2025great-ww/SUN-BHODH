@@ -41,7 +41,7 @@ fun ForestScreen() {
     val boxBorderGolden = Color(0x33F3C669)
     val textMuted = Color(0xFFA0A0A5)
 
-    // 🌲 30 घंटे अनलॉक वाला डार्क फ़ॉरेस्ट ग्रीन शेड
+    // 🌲 30 ghante unlock wala dark forest green shade
     val forestGreenBg = Color(0xFF163323)
     val forestGreenBorder = Color(0xFF4CAF50)
 
@@ -57,38 +57,41 @@ fun ForestScreen() {
         allSessions = FocusSessionManager.getAllSessions(context)
     }
 
-    // 🧮 हर विषय के कुल पढ़ाई के मिनट गिनने वाला कैलकुलेटर
+    // 🧮 Har subject ke kul padhai ke minutes calculator
     val subjectTotalMinutes = remember(allSessions) {
         allSessions.groupBy { it.subject.trim().lowercase() }
             .mapValues { entry -> entry.value.sumOf { it.durationMinutes } }
     }
 
-    // 🟢 Smart Date Filter
+    // 🟢 Smart Date Filter (Today, This Week, All Time)
     val displaySessions = remember(allSessions, selectedTab) {
-        val now = Calendar.getInstance()
+        val nowCal = Calendar.getInstance()
+        val nowYear = nowCal.get(Calendar.YEAR)
+        val nowDayOfYear = nowCal.get(Calendar.DAY_OF_YEAR)
+
+        val weekAgoCal = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -7)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
 
         when (selectedTab) {
             "Today" -> {
-                val todayStrDash = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(now.time)
-                val todayStrSlash = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(now.time)
-
                 allSessions.filter { session ->
                     val d = parseSessionDate(session.date)
                     if (d != null) {
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(d) == todayStrDash
-                    } else {
-                        session.date.startsWith(todayStrDash) || session.date.startsWith(todayStrSlash)
-                    }
+                        val sessionCal = Calendar.getInstance().apply { time = d }
+                        sessionCal.get(Calendar.YEAR) == nowYear && sessionCal.get(Calendar.DAY_OF_YEAR) == nowDayOfYear
+                    } else false
                 }
             }
             "This Week" -> {
-                val cal = Calendar.getInstance()
-                cal.add(Calendar.DAY_OF_YEAR, -7)
-                val sevenDaysAgo = cal.time
                 allSessions.filter { session ->
                     val d = parseSessionDate(session.date)
                     if (d != null) {
-                        !d.before(sevenDaysAgo)
+                        !d.before(weekAgoCal.time)
                     } else false
                 }
             }
@@ -104,18 +107,20 @@ fun ForestScreen() {
         else -> "You've grown $successfulTreesCount tree${if (successfulTreesCount > 1) "s" else ""} in total, keep it up!"
     }
 
-    // 🗺️ Dynamic Grid Pattern (Expand होने पर नीचे नई कतारें जुड़ेंगी)
+    // 🗺️ Naya Grid Pattern: Base 3,4,3,4,3 (17 slots) aur Expand par 4,3,4,3... judte jayenge
     val gridPattern = remember(isExpanded, displaySessions.size) {
-        val basePattern = listOf(2, 3, 4, 3, 2)
+        val basePattern = listOf(3, 4, 3, 4, 3) // 17 slots base
         if (!isExpanded) {
             basePattern
         } else {
             val dynamicList = basePattern.toMutableList()
-            var currentCapacity = 14
-            val extraRowCycle = listOf(3, 4, 3, 2)
+            var currentCapacity = 17
+            val extraRowCycle = listOf(4, 3)
             var cycleIndex = 0
 
-            while (currentCapacity < displaySessions.size) {
+            // Expanded mode me kam se kam 2 extra rows judengi, aur session zyada hone par aur judengi
+            val targetCapacity = maxOf(displaySessions.size, 24)
+            while (currentCapacity < targetCapacity) {
                 val nextCount = extraRowCycle[cycleIndex % extraRowCycle.size]
                 dynamicList.add(nextCount)
                 currentCapacity += nextCount
@@ -213,7 +218,7 @@ fun ForestScreen() {
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // ----------------- 3. DIAMOND GRID (130dp DIRECT 2.5D ISLAND) -----------------
+        // ----------------- 3. DIAMOND GRID (3,4,3,4,3 PATTERN) -----------------
         val boxSize = 50.dp
         val treeIconSize = 32.dp
 
@@ -263,7 +268,7 @@ fun ForestScreen() {
                         ) {
                             if (session != null) {
                                 if (isWithered) {
-                                    // 🍂 सूखा पेड़ (130dp - बिना किसी दबाव के बड़ा और साफ़)
+                                    // 🍂 Sukha ped (130dp)
                                     Image(
                                         painter = painterResource(id = R.drawable.tree_withered),
                                         contentDescription = "Withered Tree",
@@ -272,7 +277,7 @@ fun ForestScreen() {
                                             .rotate(-45f)
                                     )
                                 } else if (isMastered) {
-                                    // ✨ 30 घंटे पूरे होने पर 2.5D पेड़ (130dp - डिब्बे के ऊपर शानदार 3D खिलता हुआ)
+                                    // ✨ 30 ghante poore hone par 2.5D ped (130dp)
                                     val isSakura = session.subject.contains("english", ignoreCase = true) ||
                                             session.subject.contains("art", ignoreCase = true) ||
                                             session.subject.contains("cherry", ignoreCase = true)
@@ -287,7 +292,7 @@ fun ForestScreen() {
                                             .rotate(-45f)
                                     )
                                 } else {
-                                    // 🌸 सामान्य इमोजी (0 से 29 घंटे तक)
+                                    // 🌸 Samanya emoji (0 to 29 ghante)
                                     val plantInfo = getPlantIconAndName(session.subject)
                                     Text(
                                         text = plantInfo.first,
@@ -296,7 +301,7 @@ fun ForestScreen() {
                                     )
                                 }
                             } else {
-                                // 🌱 खाली स्लॉट
+                                // 🌱 Khali slot
                                 Text(
                                     text = "🌱",
                                     fontSize = 14.sp,
@@ -427,9 +432,51 @@ fun ForestScreen() {
 }
 
 // -----------------------------------------------------------------------------
-// 📅 Helper: Dates check karne wala function
+// 📅 Smart Date Cleaner & Detector
 // -----------------------------------------------------------------------------
-private fun parseSessionDate(dateStr: String): Date? {
+private fun parseSessionDate(rawDateStr: String): Date? {
+    if (rawDateStr.isBlank()) return null
+
+    var clean = rawDateStr
+        .replace("\n", " ")
+        .replace("\r", " ")
+        .replace("\"", "")
+        .replace("'", "")
+        .trim()
+
+    clean = clean.replace(Regex("\\s+"), " ")
+
+    // Format A: yyyy-MM-dd
+    val ymdMatch = Regex("(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})").find(clean)
+    if (ymdMatch != null) {
+        val (y, m, d) = ymdMatch.destructured
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.YEAR, y.toInt())
+        cal.set(Calendar.MONTH, m.toInt() - 1)
+        cal.set(Calendar.DAY_OF_MONTH, d.toInt())
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return cal.time
+    }
+
+    // Format B: dd/MM/yyyy
+    val dmyMatch = Regex("(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{4})").find(clean)
+    if (dmyMatch != null) {
+        val (d, m, y) = dmyMatch.destructured
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.YEAR, y.toInt())
+        cal.set(Calendar.MONTH, m.toInt() - 1)
+        cal.set(Calendar.DAY_OF_MONTH, d.toInt())
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return cal.time
+    }
+
+    // Backup formats
     val formats = listOf(
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
@@ -437,11 +484,12 @@ private fun parseSessionDate(dateStr: String): Date? {
         SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()),
         SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()),
         SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
-        SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+        SimpleDateFormat("d/M/yyyy", Locale.getDefault()),
+        SimpleDateFormat("yyyy-M-d", Locale.getDefault())
     )
     for (fmt in formats) {
         try {
-            val d = fmt.parse(dateStr)
+            val d = fmt.parse(clean)
             if (d != null) return d
         } catch (_: Exception) {}
     }
