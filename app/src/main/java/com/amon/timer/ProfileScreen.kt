@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,8 +26,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
 @Composable
 fun ProfileScreen() {
@@ -74,12 +80,12 @@ fun ProfileScreen() {
     // 📂 Accordion State: Ek khule to baaki band ("theme", "update", ya null)
     var activeExpandedCard by remember { mutableStateOf<String?>(null) }
 
-    // 🚀 In-App Update State
+    // 🚀 In-App Update State (Smart GitHub Integration)
     val currentAppVersion = "v1.0.0"
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var hasNewUpdate by remember { mutableStateOf(false) }
     var latestReleaseVersion by remember { mutableStateOf("v1.0.0") }
-    val githubReleaseUrl = "https://github.com"
+    var githubReleaseUrl by remember { mutableStateOf("https://github.com/bksm2025great-ww/SUN-BHODH/releases") }
 
     Column(
         modifier = Modifier
@@ -426,7 +432,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 6. ACCOUNT & SYNC -----------------
+        // ----------------- 6. ACCOUNT & CLOUD SYNC -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -513,7 +519,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 7. EXPANDABLE: APP UPDATES -----------------
+        // ----------------- 7. EXPANDABLE: APP UPDATES (SMART GITHUB CHECK) -----------------
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
@@ -587,7 +593,7 @@ fun ProfileScreen() {
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Includes tree slab fixes, safe sheet sync & UI updates.",
+                            text = "Includes latest 2.5D Forest assets and system upgrades.",
                             color = textMuted,
                             fontSize = 9.sp
                         )
@@ -603,7 +609,9 @@ fun ProfileScreen() {
                                     try {
                                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(githubReleaseUrl))
                                         context.startActivity(intent)
-                                    } catch (_: Exception) {}
+                                    } catch (_: Exception) {
+                                        Toast.makeText(context, "Cannot open download link", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                         ) {
                             Text(
@@ -634,6 +642,7 @@ fun ProfileScreen() {
                                 )
                             }
 
+                            // 🔍 Smart GitHub Update Button
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -643,8 +652,58 @@ fun ProfileScreen() {
                                     .clickable(enabled = !isCheckingUpdate) {
                                         coroutineScope.launch {
                                             isCheckingUpdate = true
-                                            delay(800)
-                                            isCheckingUpdate = false
+                                            try {
+                                                val updateResult = withContext(Dispatchers.IO) {
+                                                    val apiUrl = URL("https://api.github.com/repos/bksm2025great-ww/SUN-BHODH/releases/latest")
+                                                    val conn = apiUrl.openConnection() as HttpURLConnection
+                                                    conn.setRequestProperty("User-Agent", "Amon-Study-App")
+                                                    conn.connectTimeout = 6000
+                                                    conn.readTimeout = 6000
+
+                                                    if (conn.responseCode == 200) {
+                                                        val body = conn.inputStream.bufferedReader().use { it.readText() }
+                                                        val json = JSONObject(body)
+                                                        val tagName = json.optString("tag_name", "").trim()
+                                                        var targetUrl = json.optString("html_url", "https://github.com/bksm2025great-ww/SUN-BHODH/releases")
+
+                                                        val assets = json.optJSONArray("assets")
+                                                        if (assets != null && assets.length() > 0) {
+                                                            for (i in 0 until assets.length()) {
+                                                                val asset = assets.getJSONObject(i)
+                                                                val name = asset.optString("name", "")
+                                                                if (name.endsWith(".apk", ignoreCase = true)) {
+                                                                    targetUrl = asset.optString("browser_download_url", targetUrl)
+                                                                    break
+                                                                }
+                                                            }
+                                                        }
+                                                        Pair(tagName, targetUrl)
+                                                    } else {
+                                                        null
+                                                    }
+                                                }
+
+                                                if (updateResult != null) {
+                                                    val (remoteVersion, downloadLink) = updateResult
+                                                    if (remoteVersion.isNotEmpty() && remoteVersion != currentAppVersion) {
+                                                        latestReleaseVersion = remoteVersion
+                                                        githubReleaseUrl = downloadLink
+                                                        hasNewUpdate = true
+                                                        Toast.makeText(context, "New update found: $remoteVersion!", Toast.LENGTH_SHORT).show()
+                                                    } else {
+                                                        hasNewUpdate = false
+                                                        Toast.makeText(context, "Amon is up to date!", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                } else {
+                                                    hasNewUpdate = false
+                                                    Toast.makeText(context, "Amon is up to date!", Toast.LENGTH_SHORT).show()
+                                                }
+                                            } catch (_: Exception) {
+                                                hasNewUpdate = false
+                                                Toast.makeText(context, "Could not check updates. Check internet.", Toast.LENGTH_SHORT).show()
+                                            } finally {
+                                                isCheckingUpdate = false
+                                            }
                                         }
                                     }
                                     .padding(horizontal = 10.dp, vertical = 5.dp)
@@ -755,7 +814,7 @@ fun ProfileScreen() {
                                 .height(46.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (isSyncSuccess) Color(0xFF10B981) else Color(0xFFEF4444))
-                            .clickable { showSyncPopup = false }
+                                .clickable { showSyncPopup = false }
                         ) {
                             Text(
                                 text = "Done",
