@@ -46,7 +46,7 @@ fun StatsScreen() {
         dateOffset = 0
     }
 
-    // 📦 Saved Sessions: Har tab switch ya offset badalne par hamesha taaza data read karega
+    // 📦 Saved Sessions
     var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
     LaunchedEffect(selectedTab, dateOffset) {
         allSessions = FocusSessionManager.getAllSessions(context)
@@ -54,7 +54,7 @@ fun StatsScreen() {
 
     // 🗓️ Date Display Text
     val dateRangeText = remember(selectedTab, dateOffset) {
-        val cal = Calendar.getInstance()
+        val cal = Calendar.getInstance().apply { firstDayOfWeek = Calendar.MONDAY }
         when (selectedTab) {
             "Today" -> {
                 cal.add(Calendar.DAY_OF_YEAR, dateOffset)
@@ -63,10 +63,11 @@ fun StatsScreen() {
             }
             "Weekly" -> {
                 cal.add(Calendar.WEEK_OF_YEAR, dateOffset)
-                cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                val dayOfWeek = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7
+                cal.add(Calendar.DAY_OF_YEAR, -dayOfWeek)
                 val startFormat = SimpleDateFormat("dd MMM", Locale.getDefault())
                 val startDate = startFormat.format(cal.time)
-                cal.add(Calendar.DAY_OF_WEEK, 6)
+                cal.add(Calendar.DAY_OF_YEAR, 6)
                 val endFormat = SimpleDateFormat("dd MMM, yyyy", Locale.getDefault())
                 val endDate = endFormat.format(cal.time)
                 "$startDate - $endDate"
@@ -116,7 +117,7 @@ fun StatsScreen() {
         String.format(Locale.getDefault(), "%.1f h", avgHours)
     }
 
-    // 🔥 30-Minute Streak Calculation Logic
+    // 🔥 Streak Calculation
     val streakText = remember(allSessions) {
         calculateStreak(allSessions)
     }
@@ -140,14 +141,14 @@ fun StatsScreen() {
             modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
         )
 
-        // 2. TIME FILTER TABS
+        // 2. TIME FILTER TABS (कैप्सूल का साइज़ वही, फ़ॉन्ट 15.sp और टाइट पैडिंग)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(50))
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(50))
-                .padding(4.dp),
+                .padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             listOf("Today", "Weekly", "Monthly").forEach { tab ->
@@ -158,13 +159,13 @@ fun StatsScreen() {
                         .clip(RoundedCornerShape(50))
                         .background(if (isSelected) goldColor else Color.Transparent)
                         .clickable { selectedTab = tab }
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 5.dp), // पैडिंग कम की ताकि 15.sp पर भी बाहरी कैप्सूल न फैले
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = tab,
                         color = if (isSelected) Color.White else textMuted,
-                        fontSize = 12.sp,
+                        fontSize = 15.sp, // नया बड़ा फ़ॉन्ट साइज़
                         fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold
                     )
                 }
@@ -529,12 +530,12 @@ data class BarItem(
     val minutes: Int
 )
 
+// 🔍 अचूक तारीख फ़िल्टर (Weekly: सोमवार से रविवार तक का सॉलिड घेरा)
 private fun filterSessionsByPeriod(
     sessions: List<FocusSession>,
     period: String,
     offset: Int
 ): List<FocusSession> {
-    val targetCal = Calendar.getInstance()
     return sessions.filter { s ->
         val date = parseDateSafelyUniversal(s.date)
         if (date == null) false
@@ -542,33 +543,42 @@ private fun filterSessionsByPeriod(
             val sessionCal = Calendar.getInstance().apply { time = date }
             when (period) {
                 "Today" -> {
-                    targetCal.time = Date()
-                    targetCal.add(Calendar.DAY_OF_YEAR, offset)
+                    val targetCal = Calendar.getInstance().apply {
+                        time = Date()
+                        add(Calendar.DAY_OF_YEAR, offset)
+                    }
                     sessionCal.get(Calendar.YEAR) == targetCal.get(Calendar.YEAR) &&
                             sessionCal.get(Calendar.DAY_OF_YEAR) == targetCal.get(Calendar.DAY_OF_YEAR)
                 }
                 "Weekly" -> {
-                    targetCal.time = Date()
-                    targetCal.add(Calendar.WEEK_OF_YEAR, offset)
-                    targetCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-                    targetCal.set(Calendar.HOUR_OF_DAY, 0)
-                    targetCal.set(Calendar.MINUTE, 0)
-                    targetCal.set(Calendar.SECOND, 0)
-                    targetCal.set(Calendar.MILLISECOND, 0)
-                    val startMillis = targetCal.timeInMillis
+                    val startCal = Calendar.getInstance().apply {
+                        firstDayOfWeek = Calendar.MONDAY
+                        time = Date()
+                        add(Calendar.WEEK_OF_YEAR, offset)
+                        val dow = (get(Calendar.DAY_OF_WEEK) + 5) % 7 // Monday = 0
+                        add(Calendar.DAY_OF_YEAR, -dow)
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
 
-                    targetCal.add(Calendar.DAY_OF_WEEK, 6)
-                    targetCal.set(Calendar.HOUR_OF_DAY, 23)
-                    targetCal.set(Calendar.MINUTE, 59)
-                    targetCal.set(Calendar.SECOND, 59)
-                    targetCal.set(Calendar.MILLISECOND, 999)
-                    val endMillis = targetCal.timeInMillis
+                    val endCal = Calendar.getInstance().apply {
+                        timeInMillis = startCal.timeInMillis
+                        add(Calendar.DAY_OF_YEAR, 6)
+                        set(Calendar.HOUR_OF_DAY, 23)
+                        set(Calendar.MINUTE, 59)
+                        set(Calendar.SECOND, 59)
+                        set(Calendar.MILLISECOND, 999)
+                    }
 
-                    date.time in startMillis..endMillis
+                    date.time in startCal.timeInMillis..endCal.timeInMillis
                 }
                 else -> {
-                    targetCal.time = Date()
-                    targetCal.add(Calendar.MONTH, offset)
+                    val targetCal = Calendar.getInstance().apply {
+                        time = Date()
+                        add(Calendar.MONTH, offset)
+                    }
                     sessionCal.get(Calendar.YEAR) == targetCal.get(Calendar.YEAR) &&
                             sessionCal.get(Calendar.MONTH) == targetCal.get(Calendar.MONTH)
                 }
@@ -593,8 +603,10 @@ private fun generateChartBars(
         "Weekly" -> {
             val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
             val cal = Calendar.getInstance().apply {
+                firstDayOfWeek = Calendar.MONDAY
                 add(Calendar.WEEK_OF_YEAR, offset)
-                set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                val dow = (get(Calendar.DAY_OF_WEEK) + 5) % 7
+                add(Calendar.DAY_OF_YEAR, -dow)
             }
             val result = mutableListOf<BarItem>()
             for (i in 0..6) {
@@ -609,7 +621,7 @@ private fun generateChartBars(
                 }.sumOf { it.durationMinutes }
 
                 result.add(BarItem(title = days[i], minutes = dayMins))
-                cal.add(Calendar.DAY_OF_WEEK, 1)
+                cal.add(Calendar.DAY_OF_YEAR, 1) // 1 दिन आगे बढ़ाया
             }
             result
         }
@@ -648,7 +660,7 @@ private fun formatMinutes(minutes: Int): String {
     return if (m == 0) "${h}h" else "${h}h ${m}m"
 }
 
-// 🛡️ Bulletproof Universal Date Parser
+// 🛡️ Bulletproof Universal Date Parser (Google Sheet, ISO, व अन्य फ़ॉर्मेट सपोर्टर)
 private fun parseDateSafelyUniversal(dateStr: String): Date? {
     if (dateStr.isBlank()) return null
 
@@ -666,6 +678,10 @@ private fun parseDateSafelyUniversal(dateStr: String): Date? {
     }
 
     val formats = listOf(
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US),
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US),
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US),
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US),
         SimpleDateFormat("dd MMM yyyy hh:mm:ss a", Locale.ENGLISH),
         SimpleDateFormat("dd MMM yyyy hh:mm a", Locale.ENGLISH),
         SimpleDateFormat("dd MMM yyyy HH:mm:ss", Locale.ENGLISH),
@@ -690,11 +706,12 @@ private fun parseDateSafelyUniversal(dateStr: String): Date? {
         } catch (_: Exception) {}
     }
 
+    // Regex Fallback (12 दोपहर सेट ताकि टाइमज़ोन से दिन न बदले)
     val ymdMatch = Regex("(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})").find(clean)
     if (ymdMatch != null) {
         val (y, m, d) = ymdMatch.destructured
         return Calendar.getInstance().apply {
-            set(y.toInt(), m.toInt() - 1, d.toInt(), 0, 0, 0)
+            set(y.toInt(), m.toInt() - 1, d.toInt(), 12, 0, 0)
             set(Calendar.MILLISECOND, 0)
         }.time
     }
@@ -703,7 +720,7 @@ private fun parseDateSafelyUniversal(dateStr: String): Date? {
     if (dmyMatch != null) {
         val (d, m, y) = dmyMatch.destructured
         return Calendar.getInstance().apply {
-            set(y.toInt(), m.toInt() - 1, d.toInt(), 0, 0, 0)
+            set(y.toInt(), m.toInt() - 1, d.toInt(), 12, 0, 0)
             set(Calendar.MILLISECOND, 0)
         }.time
     }
