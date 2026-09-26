@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -46,8 +47,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ⏰ Charo daily reminders schedule karna
-        AmonReminderManager.scheduleAllReminders(this)
+        // 🛡️ सुरक्षा कवच: अलार्म एरर की वजह से ऐप कभी क्रैश नहीं होगा
+        try {
+            AmonReminderManager.scheduleAllReminders(this)
+        } catch (e: Exception) {
+            Log.e("AmonLaunch", "Safe Reminder catch: ${e.localizedMessage}")
+        }
 
         setContent {
             AmonTheme {
