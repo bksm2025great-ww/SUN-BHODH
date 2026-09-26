@@ -89,16 +89,16 @@ fun ProfileScreen() {
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp) // संतुलित ब्रीदिंग स्पेस
     ) {
-        // ----------------- 1. TOP TITLE -----------------
+        // ----------------- 1. TOP TITLE (18.sp) -----------------
         Text(
             text = "PROFILE & SETTINGS",
             color = textMain,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 1.sp,
-            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 1.2.sp,
+            modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
         )
 
         // ----------------- 2. USER PROFILE CARD -----------------
@@ -128,23 +128,23 @@ fun ProfileScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .clickable { showEditNameDialog = true }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
                 ) {
                     Text(
                         text = currentUserName,
                         color = goldColor,
-                        fontSize = 15.sp,
+                        fontSize = 16.5.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "✏️", fontSize = 12.sp)
+                    Text(text = "✏️", fontSize = 13.sp)
                 }
             }
         }
 
-        // ----------------- 3. ACHIEVEMENTS & BADGES -----------------
+        // ----------------- 3. ACHIEVEMENTS & BADGES (14.sp) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -152,7 +152,7 @@ fun ProfileScreen() {
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
                 .clickable { showAchievementsScreen = true }
-                .padding(14.dp)
+                .padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -161,17 +161,17 @@ fun ProfileScreen() {
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(text = "🏆", fontSize = 16.sp)
+                    Text(text = "🏆", fontSize = 18.sp)
                     Text(
                         text = "Achievements & Badges",
                         color = textMain,
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                Text(text = "➔", color = goldColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text = "➔", color = goldColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -183,7 +183,7 @@ fun ProfileScreen() {
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
                 .border(1.dp, if (isThemeExpanded) goldColor.copy(alpha = 0.6f) else cardBorder, RoundedCornerShape(16.dp))
-                .padding(14.dp)
+                .padding(16.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -197,27 +197,28 @@ fun ProfileScreen() {
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(text = "🎨", fontSize = 16.sp)
+                        Text(text = "🎨", fontSize = 18.sp)
                         Column {
                             Text(
                                 text = "Appearance & Themes",
                                 color = textMain,
-                                fontSize = 12.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "$currentMode • $currentAccent",
                                 color = textMuted,
-                                fontSize = 9.sp
+                                fontSize = 10.5.sp
                             )
                         }
                     }
                     Text(
                         text = if (isThemeExpanded) "⌃" else "⌄",
                         color = goldColor,
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -230,7 +231,7 @@ fun ProfileScreen() {
                     Text(
                         text = "🌓  THEME MODE",
                         color = goldColor,
-                        fontSize = 9.5.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.sp
                     )
@@ -257,16 +258,16 @@ fun ProfileScreen() {
                                         shape = RoundedCornerShape(12.dp)
                                     )
                                     .clickable { ThemeManager.saveMode(context, name) }
-                                    .padding(vertical = 8.dp),
+                                    .padding(vertical = 10.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(text = icon, fontSize = 14.sp)
+                                    Text(text = icon, fontSize = 15.sp)
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = desc,
                                         color = if (isSelected) textMain else textMuted,
-                                        fontSize = 10.sp,
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -279,7 +280,7 @@ fun ProfileScreen() {
                     Text(
                         text = "✨  ACCENT COLOR",
                         color = goldColor,
-                        fontSize = 9.5.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.sp
                     )
@@ -300,7 +301,7 @@ fun ProfileScreen() {
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .clickable { ThemeManager.saveTheme(context, "Classic Yellow") }
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Row(
@@ -311,7 +312,7 @@ fun ProfileScreen() {
                                 Text(
                                     text = "Classic Yellow",
                                     color = if (isYellow) textMain else textMuted,
-                                    fontSize = 10.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -329,7 +330,7 @@ fun ProfileScreen() {
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .clickable { ThemeManager.saveTheme(context, "Luxe Gold") }
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Row(
@@ -340,7 +341,7 @@ fun ProfileScreen() {
                                 Text(
                                     text = "Luxe Gold 👑",
                                     color = if (isGold) textMain else textMuted,
-                                    fontSize = 10.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -350,16 +351,17 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 5. PREFERENCES & CONTROLS -----------------
+        // ----------------- 5. PREFERENCES & CONTROLS (14.sp) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
-                .padding(14.dp)
+                .padding(16.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                // Haptic Buzz Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -369,15 +371,17 @@ fun ProfileScreen() {
                         Text(
                             text = "Haptic Buzz (Vibration)",
                             color = textMain,
-                            fontSize = 11.5.sp,
+                            fontSize = 14.sp, // 2.5 sp बड़ा
                             fontWeight = FontWeight.Bold
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = "Session poora hone par halka vibrate karega",
                             color = textMuted,
-                            fontSize = 8.5.sp
+                            fontSize = 10.5.sp // 2 sp बड़ा
                         )
                     }
+                    Spacer(modifier = Modifier.width(12.dp))
                     Switch(
                         checked = isVibrationEnabled,
                         onCheckedChange = { isVibrationEnabled = it },
@@ -392,6 +396,7 @@ fun ProfileScreen() {
 
                 Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
 
+                // Keep Screen Awake Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -401,15 +406,17 @@ fun ProfileScreen() {
                         Text(
                             text = "Keep Screen Awake (Always On)",
                             color = textMain,
-                            fontSize = 11.5.sp,
+                            fontSize = 14.sp, // 2.5 sp बड़ा
                             fontWeight = FontWeight.Bold
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = "Padhte waqt screen band nahi hogi",
                             color = textMuted,
-                            fontSize = 8.5.sp
+                            fontSize = 10.5.sp // 2 sp बड़ा
                         )
                     }
+                    Spacer(modifier = Modifier.width(12.dp))
                     Switch(
                         checked = isKeepScreenAwake,
                         onCheckedChange = { isKeepScreenAwake = it },
@@ -431,7 +438,7 @@ fun ProfileScreen() {
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
-                .padding(14.dp)
+                .padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -442,17 +449,17 @@ fun ProfileScreen() {
                     Text(
                         text = "Account & Cloud Sync",
                         color = textMain,
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = "Google Sheets cloud backup aur streak synchronization",
                         color = textMuted,
-                        fontSize = 9.sp
+                        fontSize = 10.5.sp
                     )
                 }
-
+                Spacer(modifier = Modifier.width(10.dp))
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -490,7 +497,7 @@ fun ProfileScreen() {
                                 }
                             }
                         }
-                        .padding(horizontal = 14.dp, vertical = 7.dp)
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     if (isSyncing) {
                         CircularProgressIndicator(
@@ -502,7 +509,7 @@ fun ProfileScreen() {
                         Text(
                             text = "Sync Now 🔄",
                             color = goldColor,
-                            fontSize = 10.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -510,7 +517,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 7. EXPANDABLE: APP UPDATES (DIRECT IN-APP DOWNLOAD) -----------------
+        // ----------------- 7. EXPANDABLE: APP UPDATES -----------------
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
@@ -518,7 +525,7 @@ fun ProfileScreen() {
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
                 .border(1.dp, if (isUpdateExpanded) Color(0xFF10B981).copy(alpha = 0.6f) else cardBorder, RoundedCornerShape(16.dp))
-                .padding(14.dp)
+                .padding(16.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -532,19 +539,19 @@ fun ProfileScreen() {
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(text = "🚀", fontSize = 16.sp)
+                        Text(text = "🚀", fontSize = 18.sp)
                         Text(
                             text = "App Updates",
                             color = textMain,
-                            fontSize = 12.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                         if (hasNewUpdate) {
                             Box(
                                 modifier = Modifier
-                                    .size(7.dp)
+                                    .size(8.dp)
                                     .clip(CircleShape)
                                     .background(Color(0xFF10B981))
                             )
@@ -558,13 +565,13 @@ fun ProfileScreen() {
                         Text(
                             text = if (hasNewUpdate) "Update Available" else currentAppVersion,
                             color = if (hasNewUpdate) Color(0xFF10B981) else textMuted,
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
                             text = if (isUpdateExpanded) "⌃" else "⌄",
                             color = goldColor,
-                            fontSize = 16.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -579,24 +586,24 @@ fun ProfileScreen() {
                         Text(
                             text = "🟢 New Version $latestReleaseVersion is Ready!",
                             color = Color(0xFF10B981),
-                            fontSize = 11.5.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Includes notification permissions, design polish & stability fixes.",
                             color = textMuted,
-                            fontSize = 9.sp
+                            fontSize = 10.5.sp
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                        // 📲 Direct In-App Download Button
+                        // Direct Download Button
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(38.dp)
-                                .clip(RoundedCornerShape(10.dp))
+                                .height(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
                                 .background(Color(0xFF10B981))
                                 .clickable(enabled = !isDownloading) {
                                     coroutineScope.launch {
@@ -620,14 +627,14 @@ fun ProfileScreen() {
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.size(14.dp),
+                                        modifier = Modifier.size(16.dp),
                                         color = Color.White,
                                         strokeWidth = 2.dp
                                     )
                                     Text(
                                         text = "Downloading... $downloadProgress%",
                                         color = Color.White,
-                                        fontSize = 11.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -635,7 +642,7 @@ fun ProfileScreen() {
                                 Text(
                                     text = "Download & Install Update 🚀",
                                     color = Color.White,
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -650,18 +657,18 @@ fun ProfileScreen() {
                                 Text(
                                     text = "✓ You are using the latest version",
                                     color = Color(0xFF10B981),
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "Installed: $currentAppVersion  •  Amon is up to date",
                                     color = textMuted,
-                                    fontSize = 8.5.sp
+                                    fontSize = 10.sp
                                 )
                             }
 
-                            // 🔍 Check Button
+                            // Check Button
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -685,7 +692,7 @@ fun ProfileScreen() {
                                             }
                                         }
                                     }
-                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
                             ) {
                                 if (isCheckingUpdate) {
                                     CircularProgressIndicator(
@@ -697,7 +704,7 @@ fun ProfileScreen() {
                                     Text(
                                         text = "Check 🚀",
                                         color = textMain,
-                                        fontSize = 9.sp,
+                                        fontSize = 10.5.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -708,7 +715,7 @@ fun ProfileScreen() {
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
     }
 
     // ✏️ EDIT NAME DIALOG
@@ -789,7 +796,7 @@ fun ProfileScreen() {
                         Text(
                             text = syncPopupMessage,
                             color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Normal,
                             textAlign = TextAlign.Center,
                             lineHeight = 18.sp
