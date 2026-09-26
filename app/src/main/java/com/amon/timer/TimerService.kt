@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.app.NotificationCompat
@@ -21,8 +22,8 @@ class TimerService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var timerJob: Job? = null
-    
-    // 🟢 Asli time aur shuru hone ka timestamp yaad rakhne ke liye
+
+    // 🟢 असली टाइम और शुरू होने का टाइमस्टैम्प
     private var originalTimerSeconds = 0
     private var sessionStartTimeMillis: Long = 0L
 
@@ -40,6 +41,18 @@ class TimerService : Service() {
         val remainingSeconds = mutableIntStateOf(25 * 60)
         val isTimerRunning = mutableStateOf(false)
         val currentSubjectName = mutableStateOf("All")
+
+        // ⏱️ स्क्रीन ऑन होते ही रिंग और टाइमर को तुरंत री-सिंक करने के लिए टारगेट टाइम
+        var sessionEndTimeMillis: Long = 0L
+            private set
+
+        // 🔄 स्क्रीन खुलते ही 1 मिलीसेकंड में टाइम सिंक करने वाला जादुई फ़ंक्शन
+        fun syncRemainingTime() {
+            if (isTimerRunning.value && sessionEndTimeMillis > 0L) {
+                val left = ((sessionEndTimeMillis - System.currentTimeMillis()) / 1000L).toInt().coerceAtLeast(0)
+                remainingSeconds.intValue = left
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -65,7 +78,7 @@ class TimerService : Service() {
 
     private fun startTimer(seconds: Int, subject: String) {
         originalTimerSeconds = seconds
-        sessionStartTimeMillis = System.currentTimeMillis() // ⏱️ Shuru hone ka exact waqt note kiya
+        sessionStartTimeMillis = System.currentTimeMillis()
         timerJob?.cancel()
         remainingSeconds.intValue = seconds
         currentSubjectName.value = subject
@@ -73,11 +86,18 @@ class TimerService : Service() {
 
         val isStopwatch = (seconds == 0)
         val startTime = sessionStartTimeMillis
-        val endTime = if (isStopwatch) startTime else startTime + seconds * 1000L
+        val endTime = if (isStopwatch) startTime else startTime + (seconds * 1000L)
+        sessionEndTimeMillis = endTime
 
         val referenceTime = if (isStopwatch) startTime else endTime
-        val notification = buildNotification(seconds, subject, referenceTime, isStopwatch)
-        startForeground(NOTIFICATION_ID, notification)
+
+        // 🛡️ Samsung & Android 14+ सुरक्षा कवच: Foreground Service कभी क्रैश नहीं होगी
+        try {
+            val notification = buildNotification(seconds, subject, referenceTime, isStopwatch)
+            startForeground(NOTIFICATION_ID, notification)
+        } catch (e: Exception) {
+            Log.e("AmonTimer", "Safe startForeground catch: ${e.localizedMessage}")
+        }
 
         timerJob = serviceScope.launch {
             if (isStopwatch) {
@@ -85,8 +105,8 @@ class TimerService : Service() {
                     delay(1000L)
                     val elapsed = ((System.currentTimeMillis() - startTime) / 1000L).toInt()
                     remainingSeconds.intValue = elapsed
-                    
-                    if (elapsed >= 7200) { // 120 minute par auto-stop
+
+                    if (elapsed >= 7200) { // 120 मिनट पर ऑटो-स्टॉप
                         onTimerFinished()
                         break
                     }
@@ -111,7 +131,10 @@ class TimerService : Service() {
         }
         timerJob?.cancel()
         isTimerRunning.value = false
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        sessionEndTimeMillis = 0L
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (_: Exception) {}
         stopSelf()
     }
 
@@ -120,59 +143,65 @@ class TimerService : Service() {
             saveSessionToDiary()
         }
         isTimerRunning.value = false
+        sessionEndTimeMillis = 0L
         triggerGentleVibration()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (_: Exception) {}
         stopSelf()
     }
 
-    // 🟢 Asli padhai aur naye ped ka niyam calculate karne wala function
+    // 🟢 सुरक्षित डायरी व क्लाउड सेव
     private fun saveSessionToDiary() {
         if (sessionStartTimeMillis == 0L) return
 
-        // 1. Asli beeta hua waqt (Elapsed Time) seconds me nikalna
-        val elapsedMillis = System.currentTimeMillis() - sessionStartTimeMillis
-        val elapsedSeconds = (elapsedMillis / 1000L).toInt().coerceAtLeast(0)
+        try {
+            // 1. बीता हुआ असली समय सेकंड में निकालना
+            val elapsedMillis = System.currentTimeMillis() - sessionStartTimeMillis
+            val elapsedSeconds = (elapsedMillis / 1000L).toInt().coerceAtLeast(0)
 
-        val completedSeconds = if (originalTimerSeconds > 0) {
-            minOf(elapsedSeconds, originalTimerSeconds) // Timer se zyada seconds count nahi honge
-        } else {
-            elapsedSeconds
+            val completedSeconds = if (originalTimerSeconds > 0) {
+                minOf(elapsedSeconds, originalTimerSeconds)
+            } else {
+                elapsedSeconds
+            }
+
+            sessionStartTimeMillis = 0L
+
+            val minutes = completedSeconds / 60
+            if (minutes < 1) return // 1 मिनट से कम पर सेव नहीं होगा
+
+            // 2. 🌲 नए स्लैब के हिसाब से पेड़ का नियम
+            val trees = when {
+                minutes >= 105 -> 4
+                minutes >= 75  -> 3
+                minutes >= 45  -> 2
+                minutes >= 15  -> 1
+                else -> 0
+            }
+
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+            val currentDate = sdf.format(java.util.Date())
+
+            // 3. फ़ोन की लोकल डायरी में सुरक्षित सेव
+            val session = FocusSession(
+                date = currentDate,
+                subject = currentSubjectName.value,
+                durationMinutes = minutes,
+                earnedTrees = trees
+            )
+            FocusSessionManager.saveSession(this, session)
+
+            // 4. 🌐 Google Sheet में बैकअप
+            CloudSyncManager.syncSession(
+                context = this,
+                subject = currentSubjectName.value,
+                durationMinutes = minutes.toLong(),
+                earnedTrees = trees
+            )
+        } catch (e: Exception) {
+            Log.e("AmonTimer", "Safe session save catch: ${e.localizedMessage}")
         }
-
-        sessionStartTimeMillis = 0L
-
-        val minutes = completedSeconds / 60
-        if (minutes < 1) return // 1 minute se kam par save nahi hoga
-
-        // 2. 🌲 Naye slab ke hisaab se ped (Trees) ka niyam
-        val trees = when {
-            minutes >= 105 -> 4
-            minutes >= 75  -> 3
-            minutes >= 45  -> 2
-            minutes >= 15  -> 1
-            else -> 0 // 15 minute se kam par 0 tree
-        }
-
-        // Aaj ki date format
-        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
-        val currentDate = sdf.format(java.util.Date())
-
-        // 3. Phone ki diary me save karna
-        val session = FocusSession(
-            date = currentDate,
-            subject = currentSubjectName.value,
-            durationMinutes = minutes,
-            earnedTrees = trees
-        )
-        FocusSessionManager.saveSession(this, session)
-
-        // 4. 🌐 Google Sheet me cloud backup bhejna
-        CloudSyncManager.syncSession(
-            context = this,
-            subject = currentSubjectName.value,
-            durationMinutes = minutes.toLong(),
-            earnedTrees = trees
-        )
     }
 
     private fun triggerGentleVibration() {
@@ -195,7 +224,7 @@ class TimerService : Service() {
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("AmonTimer", "Vibration error: ${e.localizedMessage}")
         }
     }
 
