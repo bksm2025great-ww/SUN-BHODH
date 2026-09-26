@@ -29,7 +29,7 @@ fun StatsScreen() {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
-    // 🎨 Theme Colors (Direct ThemeManager se)
+    // 🎨 Theme Colors
     val isDark = ThemeManager.isDarkTheme.value
     val bgColor = ThemeManager.getBackgroundColor()
     val cardBg = ThemeManager.getCardColor()
@@ -38,24 +38,21 @@ fun StatsScreen() {
     val goldColor = ThemeManager.getAccentColor()
     val cardBorder = if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1)
 
-    // 🎛️ Filter Tabs State ("Today", "Weekly", "Monthly")
+    // Filter Tabs State
     var selectedTab by remember { mutableStateOf("Weekly") }
-
-    // 📅 Date Navigation Offset (0 = Current, -1 = Previous, +1 = Next)
     var dateOffset by remember { mutableIntStateOf(0) }
 
-    // Reset date offset when switching tabs
     LaunchedEffect(selectedTab) {
         dateOffset = 0
     }
 
-    // 📦 Saved Sessions Data
-  var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
-LaunchedEffect(Unit) {
-    allSessions = FocusSessionManager.getAllSessions(context)
-}
+    // 📦 Saved Sessions: Har tab switch ya offset badalne par hamesha taaza data read karega
+    var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
+    LaunchedEffect(selectedTab, dateOffset) {
+        allSessions = FocusSessionManager.getAllSessions(context)
+    }
 
-    // 🗓️ Date Display Text (e.g., "Today", "15 Sep - 21 Sep", "September 2026")
+    // 🗓️ Date Display Text
     val dateRangeText = remember(selectedTab, dateOffset) {
         val cal = Calendar.getInstance()
         when (selectedTab) {
@@ -74,7 +71,7 @@ LaunchedEffect(Unit) {
                 val endDate = endFormat.format(cal.time)
                 "$startDate - $endDate"
             }
-            else -> { // Monthly
+            else -> {
                 cal.add(Calendar.MONTH, dateOffset)
                 val format = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
                 format.format(cal.time)
@@ -92,15 +89,13 @@ LaunchedEffect(Unit) {
         generateChartBars(filteredSessions, selectedTab, dateOffset)
     }
 
-    // 👆 Selected Bar Index for Floating Time Pop-up
     var selectedBarIndex by remember { mutableStateOf<Int?>(null) }
 
-    // Reset selected bar when tab or date changes
     LaunchedEffect(selectedTab, dateOffset) {
         selectedBarIndex = null
     }
 
-    // 🧮 Calculations for 4 Summary Cards
+    // 🧮 Summary Cards Calculation
     val totalMinutes = remember(filteredSessions) {
         filteredSessions.sumOf { it.durationMinutes }
     }
@@ -135,7 +130,7 @@ LaunchedEffect(Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // ----------------- 1. SCREEN HEADER -----------------
+        // 1. SCREEN HEADER
         Text(
             text = "STATS & ANALYTICS",
             color = textMain,
@@ -145,7 +140,7 @@ LaunchedEffect(Unit) {
             modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
         )
 
-        // ----------------- 2. TIME FILTER TABS -----------------
+        // 2. TIME FILTER TABS
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -176,7 +171,7 @@ LaunchedEffect(Unit) {
             }
         }
 
-        // ----------------- 3. DATE SWITCHER (PREV / NEXT) -----------------
+        // 3. DATE SWITCHER
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -184,7 +179,6 @@ LaunchedEffect(Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Previous Arrow
             Box(
                 modifier = Modifier
                     .size(36.dp)
@@ -197,7 +191,6 @@ LaunchedEffect(Unit) {
                 Text(text = "◀", color = goldColor, fontSize = 12.sp)
             }
 
-            // Current Range Label
             Text(
                 text = dateRangeText,
                 color = textMain,
@@ -205,7 +198,6 @@ LaunchedEffect(Unit) {
                 fontWeight = FontWeight.Bold
             )
 
-            // Next Arrow
             Box(
                 modifier = Modifier
                     .size(36.dp)
@@ -223,7 +215,7 @@ LaunchedEffect(Unit) {
             }
         }
 
-        // ----------------- 4. INTERACTIVE BAR CHART -----------------
+        // 4. INTERACTIVE BAR CHART
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -237,7 +229,6 @@ LaunchedEffect(Unit) {
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Top Indicator Row: Floating Pop-up Badge or Tap Hint
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -257,7 +248,6 @@ LaunchedEffect(Unit) {
                         letterSpacing = 0.8.sp
                     )
 
-                    // Floating Time Pop-up
                     if (selectedBarIndex != null && selectedBarIndex!! in chartBars.indices) {
                         val bar = chartBars[selectedBarIndex!!]
                         Box(
@@ -284,9 +274,7 @@ LaunchedEffect(Unit) {
                     }
                 }
 
-                // Chart Bars Area
                 if (chartBars.isEmpty()) {
-                    // Empty state (Today with no study)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -359,7 +347,6 @@ LaunchedEffect(Unit) {
                             }
                         }
                     } else {
-                        // Weekly or Monthly
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -428,12 +415,11 @@ LaunchedEffect(Unit) {
             }
         }
 
-        // ----------------- 5. 4 SUMMARY CARDS (2x2 GRID) -----------------
+        // 5. 4 SUMMARY CARDS
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Row 1: Total Hours & Completed Sessions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -462,7 +448,6 @@ LaunchedEffect(Unit) {
                 )
             }
 
-            // Row 2: Current Streak & Daily Average
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -496,7 +481,6 @@ LaunchedEffect(Unit) {
     }
 }
 
-// 🎴 Reusable Helper Component for 4 Summary Cards
 @Composable
 fun SummaryCard(
     modifier: Modifier = Modifier,
@@ -540,13 +524,11 @@ fun SummaryCard(
     }
 }
 
-// 📊 Helper Data Class for Chart Bars
 data class BarItem(
     val title: String,
     val minutes: Int
 )
 
-// 🔍 Helper: Filter sessions by period safely
 private fun filterSessionsByPeriod(
     sessions: List<FocusSession>,
     period: String,
@@ -554,7 +536,7 @@ private fun filterSessionsByPeriod(
 ): List<FocusSession> {
     val targetCal = Calendar.getInstance()
     return sessions.filter { s ->
-        val date = parseDateSafely(s.date)
+        val date = parseDateSafelyUniversal(s.date)
         if (date == null) false
         else {
             val sessionCal = Calendar.getInstance().apply { time = date }
@@ -563,7 +545,7 @@ private fun filterSessionsByPeriod(
                     targetCal.time = Date()
                     targetCal.add(Calendar.DAY_OF_YEAR, offset)
                     sessionCal.get(Calendar.YEAR) == targetCal.get(Calendar.YEAR) &&
-                    sessionCal.get(Calendar.DAY_OF_YEAR) == targetCal.get(Calendar.DAY_OF_YEAR)
+                            sessionCal.get(Calendar.DAY_OF_YEAR) == targetCal.get(Calendar.DAY_OF_YEAR)
                 }
                 "Weekly" -> {
                     targetCal.time = Date()
@@ -572,28 +554,29 @@ private fun filterSessionsByPeriod(
                     targetCal.set(Calendar.HOUR_OF_DAY, 0)
                     targetCal.set(Calendar.MINUTE, 0)
                     targetCal.set(Calendar.SECOND, 0)
+                    targetCal.set(Calendar.MILLISECOND, 0)
                     val startMillis = targetCal.timeInMillis
 
                     targetCal.add(Calendar.DAY_OF_WEEK, 6)
                     targetCal.set(Calendar.HOUR_OF_DAY, 23)
                     targetCal.set(Calendar.MINUTE, 59)
                     targetCal.set(Calendar.SECOND, 59)
+                    targetCal.set(Calendar.MILLISECOND, 999)
                     val endMillis = targetCal.timeInMillis
 
                     date.time in startMillis..endMillis
                 }
-                else -> { // Monthly
+                else -> {
                     targetCal.time = Date()
                     targetCal.add(Calendar.MONTH, offset)
                     sessionCal.get(Calendar.YEAR) == targetCal.get(Calendar.YEAR) &&
-                    sessionCal.get(Calendar.MONTH) == targetCal.get(Calendar.MONTH)
+                            sessionCal.get(Calendar.MONTH) == targetCal.get(Calendar.MONTH)
                 }
             }
         }
     }
 }
 
-// 📊 Helper: Generate Bars based on Selected Tab
 private fun generateChartBars(
     filteredSessions: List<FocusSession>,
     period: String,
@@ -618,7 +601,7 @@ private fun generateChartBars(
                 val currentYear = cal.get(Calendar.YEAR)
                 val currentDayOfYear = cal.get(Calendar.DAY_OF_YEAR)
                 val dayMins = filteredSessions.filter { s ->
-                    val d = parseDateSafely(s.date)
+                    val d = parseDateSafelyUniversal(s.date)
                     if (d != null) {
                         val scal = Calendar.getInstance().apply { time = d }
                         scal.get(Calendar.YEAR) == currentYear && scal.get(Calendar.DAY_OF_YEAR) == currentDayOfYear
@@ -642,12 +625,12 @@ private fun generateChartBars(
             val result = mutableListOf<BarItem>()
             for (day in 1..maxDays) {
                 val dayMins = filteredSessions.filter { s ->
-                    val d = parseDateSafely(s.date)
+                    val d = parseDateSafelyUniversal(s.date)
                     if (d != null) {
                         val scal = Calendar.getInstance().apply { time = d }
                         scal.get(Calendar.YEAR) == currentYear &&
-                        scal.get(Calendar.MONTH) == currentMonth &&
-                        scal.get(Calendar.DAY_OF_MONTH) == day
+                                scal.get(Calendar.MONTH) == currentMonth &&
+                                scal.get(Calendar.DAY_OF_MONTH) == day
                     } else false
                 }.sumOf { it.durationMinutes }
 
@@ -658,7 +641,6 @@ private fun generateChartBars(
     }
 }
 
-// ⏱️ Helper: Format minutes to string e.g. "1h 45m" or "25m"
 private fun formatMinutes(minutes: Int): String {
     if (minutes < 60) return "${minutes}m"
     val h = minutes / 60
@@ -666,25 +648,69 @@ private fun formatMinutes(minutes: Int): String {
     return if (m == 0) "${h}h" else "${h}h ${m}m"
 }
 
-// 🛡️ Helper: Parse date safely across multiple formats
-private fun parseDateSafely(dateStr: String): Date? {
+// 🛡️ Bulletproof Universal Date Parser
+private fun parseDateSafelyUniversal(dateStr: String): Date? {
+    if (dateStr.isBlank()) return null
+
+    val clean = dateStr
+        .replace("\n", " ")
+        .replace("\r", " ")
+        .replace("\"", "")
+        .replace("'", "")
+        .replace(",", " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
+    clean.toLongOrNull()?.let { millis ->
+        if (millis > 1000000000000L) return Date(millis)
+    }
+
     val formats = listOf(
-        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("dd MMM yyyy hh:mm:ss a", Locale.ENGLISH),
+        SimpleDateFormat("dd MMM yyyy hh:mm a", Locale.ENGLISH),
+        SimpleDateFormat("dd MMM yyyy HH:mm:ss", Locale.ENGLISH),
+        SimpleDateFormat("dd MMM yyyy HH:mm", Locale.ENGLISH),
+        SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH),
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
-        SimpleDateFormat("dd MMM yyyy", Locale.getDefault()),
-        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()),
+        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
+        SimpleDateFormat("d/M/yyyy", Locale.getDefault()),
+        SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()),
+        SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()),
+        SimpleDateFormat("MMMM dd yyyy", Locale.ENGLISH)
     )
+
     for (fmt in formats) {
         try {
-            val d = fmt.parse(dateStr)
+            val d = fmt.parse(clean)
             if (d != null) return d
         } catch (_: Exception) {}
     }
+
+    val ymdMatch = Regex("(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})").find(clean)
+    if (ymdMatch != null) {
+        val (y, m, d) = ymdMatch.destructured
+        return Calendar.getInstance().apply {
+            set(y.toInt(), m.toInt() - 1, d.toInt(), 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.time
+    }
+
+    val dmyMatch = Regex("(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{4})").find(clean)
+    if (dmyMatch != null) {
+        val (d, m, y) = dmyMatch.destructured
+        return Calendar.getInstance().apply {
+            set(y.toInt(), m.toInt() - 1, d.toInt(), 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.time
+    }
+
     return null
 }
 
-// 🔥 Helper: 30-minute daily requirement streak calculator
 private fun calculateStreak(sessions: List<FocusSession>): String {
     if (sessions.isEmpty()) return "__"
 
@@ -692,7 +718,7 @@ private fun calculateStreak(sessions: List<FocusSession>): String {
     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
     sessions.forEach { s ->
-        val d = parseDateSafely(s.date)
+        val d = parseDateSafelyUniversal(s.date)
         if (d != null) {
             val key = sdf.format(d)
             dayMinutesMap[key] = (dayMinutesMap[key] ?: 0) + s.durationMinutes
