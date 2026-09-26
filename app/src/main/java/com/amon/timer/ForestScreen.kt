@@ -41,7 +41,6 @@ fun ForestScreen() {
     val boxBorderGolden = Color(0x33F3C669)
     val textMuted = Color(0xFFA0A0A5)
 
-    // 🌲 30 ghante unlock wala dark forest green shade
     val forestGreenBg = Color(0xFF163323)
     val forestGreenBorder = Color(0xFF4CAF50)
 
@@ -49,15 +48,14 @@ fun ForestScreen() {
     var selectedTab by remember { mutableStateOf("Today") }
     var showDialog by remember { mutableStateOf<FocusSession?>(null) }
     var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
-    var refreshTrigger by remember { mutableStateOf(0) }
+    var refreshTrigger by remember { mutableIntStateOf(0) }
     var isExpanded by remember { mutableStateOf(false) }
 
-    // 🔄 Load / Reload data from diary
-    LaunchedEffect(refreshTrigger) {
+    // 🔄 Har tab switch aur refresh par diary se taaza data read karega
+    LaunchedEffect(refreshTrigger, selectedTab) {
         allSessions = FocusSessionManager.getAllSessions(context)
     }
 
-    // 🧮 Har subject ke kul padhai ke minutes calculator
     val subjectTotalMinutes = remember(allSessions) {
         allSessions.groupBy { it.subject.trim().lowercase() }
             .mapValues { entry -> entry.value.sumOf { it.durationMinutes } }
@@ -80,7 +78,7 @@ fun ForestScreen() {
         when (selectedTab) {
             "Today" -> {
                 allSessions.filter { session ->
-                    val d = parseSessionDate(session.date)
+                    val d = parseSessionDateUniversal(session.date)
                     if (d != null) {
                         val sessionCal = Calendar.getInstance().apply { time = d }
                         sessionCal.get(Calendar.YEAR) == nowYear && sessionCal.get(Calendar.DAY_OF_YEAR) == nowDayOfYear
@@ -89,17 +87,16 @@ fun ForestScreen() {
             }
             "This Week" -> {
                 allSessions.filter { session ->
-                    val d = parseSessionDate(session.date)
+                    val d = parseSessionDateUniversal(session.date)
                     if (d != null) {
                         !d.before(weekAgoCal.time)
                     } else false
                 }
             }
-            else -> allSessions // "All Time"
+            else -> allSessions
         }
     }
 
-    // Motivation Card Subtitle
     val successfulTreesCount = displaySessions.count { it.earnedTrees > 0 }
     val motivationSubtitle = when (selectedTab) {
         "Today" -> if (successfulTreesCount == 0) "No trees grown today yet. Start focusing!" else "You've grown $successfulTreesCount tree${if (successfulTreesCount > 1) "s" else ""} today, keep it up!"
@@ -107,9 +104,8 @@ fun ForestScreen() {
         else -> "You've grown $successfulTreesCount tree${if (successfulTreesCount > 1) "s" else ""} in total, keep it up!"
     }
 
-    // 🗺️ Naya Grid Pattern: Base 3,4,3,4,3 (17 slots) aur Expand par 4,3,4,3... judte jayenge
     val gridPattern = remember(isExpanded, displaySessions.size) {
-        val basePattern = listOf(3, 4, 3, 4, 3) // 17 slots base
+        val basePattern = listOf(3, 4, 3, 4, 3)
         if (!isExpanded) {
             basePattern
         } else {
@@ -118,7 +114,6 @@ fun ForestScreen() {
             val extraRowCycle = listOf(4, 3)
             var cycleIndex = 0
 
-            // Expanded mode me kam se kam 2 extra rows judengi, aur session zyada hone par aur judengi
             val targetCapacity = maxOf(displaySessions.size, 24)
             while (currentCapacity < targetCapacity) {
                 val nextCount = extraRowCycle[cycleIndex % extraRowCycle.size]
@@ -138,7 +133,7 @@ fun ForestScreen() {
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ----------------- 1. TOP MOTIVATION CARD -----------------
+        // 1. TOP MOTIVATION CARD
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -167,7 +162,6 @@ fun ForestScreen() {
                     )
                 }
 
-                // 🔄 Refresh Button
                 Box(
                     modifier = Modifier
                         .size(36.dp)
@@ -175,17 +169,14 @@ fun ForestScreen() {
                         .clickable { refreshTrigger++ },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "🔄",
-                        fontSize = 18.sp
-                    )
+                    Text(text = "🔄", fontSize = 18.sp)
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ----------------- 2. CALENDAR TABS -----------------
+        // 2. CALENDAR TABS
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -194,8 +185,7 @@ fun ForestScreen() {
                 .padding(4.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            val tabs = listOf("Today", "This Week", "All Time")
-            tabs.forEach { tab ->
+            listOf("Today", "This Week", "All Time").forEach { tab ->
                 val isSelected = selectedTab == tab
                 Box(
                     modifier = Modifier
@@ -218,7 +208,7 @@ fun ForestScreen() {
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // ----------------- 3. DIAMOND GRID (3,4,3,4,3 PATTERN) -----------------
+        // 3. DIAMOND GRID (3,4,3,4,3)
         val boxSize = 50.dp
         val treeIconSize = 32.dp
 
@@ -238,7 +228,6 @@ fun ForestScreen() {
                         sessionIndex++
 
                         val isWithered = session != null && session.earnedTrees == 0
-
                         val isMastered = session != null && !isWithered &&
                                 ((subjectTotalMinutes[session.subject.trim().lowercase()] ?: 0) >= 1800)
 
@@ -268,16 +257,12 @@ fun ForestScreen() {
                         ) {
                             if (session != null) {
                                 if (isWithered) {
-                                    // 🍂 Sukha ped (130dp)
                                     Image(
                                         painter = painterResource(id = R.drawable.tree_withered),
                                         contentDescription = "Withered Tree",
-                                        modifier = Modifier
-                                            .requiredSize(130.dp)
-                                            .rotate(-45f)
+                                        modifier = Modifier.requiredSize(130.dp).rotate(-45f)
                                     )
                                 } else if (isMastered) {
-                                    // ✨ 30 ghante poore hone par 2.5D ped (130dp)
                                     val isSakura = session.subject.contains("english", ignoreCase = true) ||
                                             session.subject.contains("art", ignoreCase = true) ||
                                             session.subject.contains("cherry", ignoreCase = true)
@@ -287,12 +272,9 @@ fun ForestScreen() {
                                     Image(
                                         painter = painterResource(id = treeResId),
                                         contentDescription = "Mastered 2.5D Tree",
-                                        modifier = Modifier
-                                            .requiredSize(130.dp)
-                                            .rotate(-45f)
+                                        modifier = Modifier.requiredSize(130.dp).rotate(-45f)
                                     )
                                 } else {
-                                    // 🌸 Samanya emoji (0 to 29 ghante)
                                     val plantInfo = getPlantIconAndName(session.subject)
                                     Text(
                                         text = plantInfo.first,
@@ -301,7 +283,6 @@ fun ForestScreen() {
                                     )
                                 }
                             } else {
-                                // 🌱 Khali slot
                                 Text(
                                     text = "🌱",
                                     fontSize = 14.sp,
@@ -316,7 +297,7 @@ fun ForestScreen() {
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // ----------------- 4. VIEW MORE / SHOW LESS BUTTON -----------------
+        // 4. VIEW MORE / SHOW LESS BUTTON
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
@@ -336,7 +317,7 @@ fun ForestScreen() {
         Spacer(modifier = Modifier.height(20.dp))
     }
 
-    // ----------------- 5. POP-UP DIALOG -----------------
+    // 5. POP-UP DIALOG
     if (showDialog != null) {
         val isDialogWithered = showDialog!!.earnedTrees == 0
         val isDialogMastered = !isDialogWithered &&
@@ -432,52 +413,31 @@ fun ForestScreen() {
 }
 
 // -----------------------------------------------------------------------------
-// 📅 Smart Date Cleaner & Detector
+// 📅 Universal Smart Date Parser (Sheet + Local Compatible)
 // -----------------------------------------------------------------------------
-private fun parseSessionDate(rawDateStr: String): Date? {
+fun parseSessionDateUniversal(rawDateStr: String): Date? {
     if (rawDateStr.isBlank()) return null
 
-    var clean = rawDateStr
+    val clean = rawDateStr
         .replace("\n", " ")
         .replace("\r", " ")
         .replace("\"", "")
         .replace("'", "")
+        .replace(",", " ")
+        .replace(Regex("\\s+"), " ")
         .trim()
 
-    clean = clean.replace(Regex("\\s+"), " ")
-
-    // Format A: yyyy-MM-dd
-    val ymdMatch = Regex("(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})").find(clean)
-    if (ymdMatch != null) {
-        val (y, m, d) = ymdMatch.destructured
-        val cal = Calendar.getInstance()
-        cal.set(Calendar.YEAR, y.toInt())
-        cal.set(Calendar.MONTH, m.toInt() - 1)
-        cal.set(Calendar.DAY_OF_MONTH, d.toInt())
-        cal.set(Calendar.HOUR_OF_DAY, 0)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        return cal.time
+    // Agar numeric timestamp ho (e.g. 1727334000000)
+    clean.toLongOrNull()?.let { millis ->
+        if (millis > 1000000000000L) return Date(millis)
     }
 
-    // Format B: dd/MM/yyyy
-    val dmyMatch = Regex("(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{4})").find(clean)
-    if (dmyMatch != null) {
-        val (d, m, y) = dmyMatch.destructured
-        val cal = Calendar.getInstance()
-        cal.set(Calendar.YEAR, y.toInt())
-        cal.set(Calendar.MONTH, m.toInt() - 1)
-        cal.set(Calendar.DAY_OF_MONTH, d.toInt())
-        cal.set(Calendar.HOUR_OF_DAY, 0)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        return cal.time
-    }
-
-    // Backup formats
     val formats = listOf(
+        SimpleDateFormat("dd MMM yyyy hh:mm:ss a", Locale.ENGLISH),
+        SimpleDateFormat("dd MMM yyyy hh:mm a", Locale.ENGLISH),
+        SimpleDateFormat("dd MMM yyyy HH:mm:ss", Locale.ENGLISH),
+        SimpleDateFormat("dd MMM yyyy HH:mm", Locale.ENGLISH),
+        SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH),
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
@@ -485,18 +445,41 @@ private fun parseSessionDate(rawDateStr: String): Date? {
         SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()),
         SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
         SimpleDateFormat("d/M/yyyy", Locale.getDefault()),
-        SimpleDateFormat("yyyy-M-d", Locale.getDefault())
+        SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()),
+        SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()),
+        SimpleDateFormat("MMMM dd yyyy", Locale.ENGLISH)
     )
+
     for (fmt in formats) {
         try {
             val d = fmt.parse(clean)
             if (d != null) return d
         } catch (_: Exception) {}
     }
+
+    // Fallback: yyyy-MM-dd regex
+    val ymdMatch = Regex("(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})").find(clean)
+    if (ymdMatch != null) {
+        val (y, m, d) = ymdMatch.destructured
+        return Calendar.getInstance().apply {
+            set(y.toInt(), m.toInt() - 1, d.toInt(), 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.time
+    }
+
+    // Fallback: dd-MM-yyyy regex
+    val dmyMatch = Regex("(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{4})").find(clean)
+    if (dmyMatch != null) {
+        val (d, m, y) = dmyMatch.destructured
+        return Calendar.getInstance().apply {
+            set(y.toInt(), m.toInt() - 1, d.toInt(), 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.time
+    }
+
     return null
 }
 
-// 🌳 Helper: Subject ke hisaab se emoji aur naam nikaalne wala helper
 private fun getPlantIconAndName(subjectName: String): Pair<String, String> {
     val defaultMatch = PlantRegistry.defaultSubjects.find { it.name.equals(subjectName, ignoreCase = true) }
     if (defaultMatch != null) {
