@@ -131,17 +131,17 @@ fun StatsScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. SCREEN HEADER
+        // 1. SCREEN HEADER (18.sp साइज़)
         Text(
             text = "STATS & ANALYTICS",
             color = textMain,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 1.sp,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 1.2.sp,
             modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
         )
 
-        // 2. TIME FILTER TABS (कैप्सूल का साइज़ वही, फ़ॉन्ट 15.sp और टाइट पैडिंग)
+        // 2. TIME FILTER TABS (15.sp साइज़)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -159,20 +159,20 @@ fun StatsScreen() {
                         .clip(RoundedCornerShape(50))
                         .background(if (isSelected) goldColor else Color.Transparent)
                         .clickable { selectedTab = tab }
-                        .padding(vertical = 5.dp), // पैडिंग कम की ताकि 15.sp पर भी बाहरी कैप्सूल न फैले
+                        .padding(vertical = 5.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = tab,
                         color = if (isSelected) Color.White else textMuted,
-                        fontSize = 15.sp, // नया बड़ा फ़ॉन्ट साइज़
+                        fontSize = 15.sp,
                         fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold
                     )
                 }
             }
         }
 
-        // 3. DATE SWITCHER
+        // 3. DATE SWITCHER (14.5.sp साइज़)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -195,7 +195,7 @@ fun StatsScreen() {
             Text(
                 text = dateRangeText,
                 color = textMain,
-                fontSize = 13.sp,
+                fontSize = 14.5.sp,
                 fontWeight = FontWeight.Bold
             )
 
@@ -237,6 +237,7 @@ fun StatsScreen() {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // 🌟 1 sp बढ़ाया गया: 11.5.sp
                     Text(
                         text = when (selectedTab) {
                             "Today" -> "STUDY BY SUBJECT"
@@ -244,7 +245,7 @@ fun StatsScreen() {
                             else -> "MONTHLY ACTIVITY"
                         },
                         color = textMuted,
-                        fontSize = 10.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.8.sp
                     )
@@ -262,15 +263,16 @@ fun StatsScreen() {
                             Text(
                                 text = "${bar.title}: ${formatMinutes(bar.minutes)}",
                                 color = goldColor,
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
                         }
                     } else {
+                        // 🌟 1 sp बढ़ाया गया: 10.5.sp
                         Text(
                             text = "Tap bar to inspect ☝️",
                             color = textMuted.copy(alpha = 0.6f),
-                            fontSize = 9.sp
+                            fontSize = 10.5.sp
                         )
                     }
                 }
@@ -288,7 +290,7 @@ fun StatsScreen() {
                             Text(
                                 text = "No study sessions on this day",
                                 color = textMuted,
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -339,7 +341,7 @@ fun StatsScreen() {
                                     Text(
                                         text = bar.title,
                                         color = if (isSelected) goldColor else textMain,
-                                        fontSize = 10.sp,
+                                        fontSize = 11.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -401,7 +403,7 @@ fun StatsScreen() {
                                         Text(
                                             text = bar.title,
                                             color = if (isSelected) goldColor else textMuted,
-                                            fontSize = if (isMonthly) 7.5.sp else 9.5.sp,
+                                            fontSize = if (isMonthly) 9.sp else 11.sp,
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                             textAlign = TextAlign.Center
                                         )
@@ -482,6 +484,7 @@ fun StatsScreen() {
     }
 }
 
+// 🧮 Summary Cards Composable
 @Composable
 fun SummaryCard(
     modifier: Modifier = Modifier,
@@ -505,21 +508,21 @@ fun SummaryCard(
             Text(
                 text = title,
                 color = textMuted,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
                 color = if (value == "__") textMuted else accentColor,
-                fontSize = 20.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Black
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
                 color = textMuted.copy(alpha = 0.8f),
-                fontSize = 9.sp
+                fontSize = 10.sp
             )
         }
     }
@@ -555,7 +558,7 @@ private fun filterSessionsByPeriod(
                         firstDayOfWeek = Calendar.MONDAY
                         time = Date()
                         add(Calendar.WEEK_OF_YEAR, offset)
-                        val dow = (get(Calendar.DAY_OF_WEEK) + 5) % 7 // Monday = 0
+                        val dow = (get(Calendar.DAY_OF_WEEK) + 5) % 7
                         add(Calendar.DAY_OF_YEAR, -dow)
                         set(Calendar.HOUR_OF_DAY, 0)
                         set(Calendar.MINUTE, 0)
@@ -621,7 +624,7 @@ private fun generateChartBars(
                 }.sumOf { it.durationMinutes }
 
                 result.add(BarItem(title = days[i], minutes = dayMins))
-                cal.add(Calendar.DAY_OF_YEAR, 1) // 1 दिन आगे बढ़ाया
+                cal.add(Calendar.DAY_OF_YEAR, 1)
             }
             result
         }
@@ -660,7 +663,7 @@ private fun formatMinutes(minutes: Int): String {
     return if (m == 0) "${h}h" else "${h}h ${m}m"
 }
 
-// 🛡️ Bulletproof Universal Date Parser (Google Sheet, ISO, व अन्य फ़ॉर्मेट सपोर्टर)
+// 🛡️ Bulletproof Universal Date Parser
 private fun parseDateSafelyUniversal(dateStr: String): Date? {
     if (dateStr.isBlank()) return null
 
@@ -706,7 +709,6 @@ private fun parseDateSafelyUniversal(dateStr: String): Date? {
         } catch (_: Exception) {}
     }
 
-    // Regex Fallback (12 दोपहर सेट ताकि टाइमज़ोन से दिन न बदले)
     val ymdMatch = Regex("(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})").find(clean)
     if (ymdMatch != null) {
         val (y, m, d) = ymdMatch.destructured
