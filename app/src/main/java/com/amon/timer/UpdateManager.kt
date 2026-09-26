@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
-import android.os.Build
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,7 +15,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
-// 📦 अपडेट की सारी जानकारी का डिब्बा
+// 📦 अपडेट की सारी जानकारी का मॉडल
 data class AppUpdateInfo(
     val hasUpdate: Boolean,
     val currentVersion: String,
@@ -27,7 +26,14 @@ data class AppUpdateInfo(
 
 class UpdateManager(private val context: Context) {
 
-    // 📱 फ़ोन के सिस्टम से सीधे असली वर्ज़न पढ़ना (अब कभी हार्डकोड नहीं रहेगा)
+    companion object {
+        // 🔗 आपकी असली GitHub Repository का सटीक पता
+        private const val GITHUB_REPO = "bksm2025great-ww/SUN-BHODH"
+        private const val API_URL = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
+        private const val RELEASES_WEB_URL = "https://github.com/$GITHUB_REPO/releases/latest"
+    }
+
+    // 📱 फ़ोन के सिस्टम से सीधे असली इंस्टॉल हुआ वर्ज़न पढ़ना
     val currentVersion: String
         get() {
             return try {
@@ -50,7 +56,7 @@ class UpdateManager(private val context: Context) {
         prefs.edit().putString("dismissed_version", version).apply()
     }
 
-    // 🌐 GitHub Releases से लेटेस्ट अपडेट चेक करना
+    // 🌐 GitHub Releases से ताज़ा अपडेट ढूँढना
     suspend fun checkLatestUpdate(): AppUpdateInfo = withContext(Dispatchers.IO) {
         val activeVersion = currentVersion
         var updateInfo = AppUpdateInfo(
@@ -62,12 +68,13 @@ class UpdateManager(private val context: Context) {
         )
 
         try {
-            val apiUrl = "https://api.github.com/repos/SUN-BHODH/SUN-BHODH/releases/latest"
-            val url = URL(apiUrl)
+            val url = URL(API_URL)
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 8000
-                readTimeout = 8000
+                connectTimeout = 10000
+                readTimeout = 10000
+                // GitHub के लिए ज़रूरी पहचान (User-Agent) और हेडर
+                setRequestProperty("User-Agent", "Amon-App")
                 setRequestProperty("Accept", "application/vnd.github.v3+json")
             }
 
@@ -79,7 +86,7 @@ class UpdateManager(private val context: Context) {
                 val json = JSONObject(response)
                 val tagName = json.optString("tag_name", activeVersion)
                 val body = json.optString("body", "Bug fixes and performance improvements.")
-                val htmlUrl = json.optString("html_url", "https://github.com")
+                val htmlUrl = json.optString("html_url", RELEASES_WEB_URL)
 
                 var apkDownloadUrl = htmlUrl
                 val assets = json.optJSONArray("assets")
@@ -87,6 +94,7 @@ class UpdateManager(private val context: Context) {
                     for (i in 0 until assets.length()) {
                         val asset = assets.getJSONObject(i)
                         val name = asset.optString("name", "")
+                        // केवल असली .apk फ़ाइल को ढूँढना (zip को छोड़ देना)
                         if (name.endsWith(".apk")) {
                             apkDownloadUrl = asset.optString("browser_download_url", htmlUrl)
                             break
@@ -105,13 +113,13 @@ class UpdateManager(private val context: Context) {
                 )
             }
         } catch (_: Exception) {
-            // नेटवर्क न होने पर ऐप क्रैश नहीं होगा
+            // नेटवर्क या सर्वर दिक्कत होने पर ऐप सुरक्षित रहेगा
         }
 
         updateInfo
     }
 
-    // 📥 इन-ऐप बैकग्राउंड डाउनलोड (सीधे कैशे में, कोई कचरा नहीं बचेगा)
+    // 📥 इन-ऐप बैकग्राउंड डाउनलोड
     suspend fun downloadUpdateApk(
         downloadUrl: String,
         onProgress: (Int) -> Unit
@@ -120,15 +128,15 @@ class UpdateManager(private val context: Context) {
             val updateDir = File(context.cacheDir, "updates")
             if (!updateDir.exists()) updateDir.mkdirs()
 
-            // पुराना कोई भी APK हो तो पहले ही साफ़ कर दो (Single-file rule)
             val apkFile = File(updateDir, "amon_update.apk")
             if (apkFile.exists()) apkFile.delete()
 
             val url = URL(downloadUrl)
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 instanceFollowRedirects = true
-                connectTimeout = 10000
-                readTimeout = 15000
+                connectTimeout = 15000
+                readTimeout = 20000
+                setRequestProperty("User-Agent", "Amon-App")
             }
 
             val fileLength = connection.contentLength
@@ -160,7 +168,7 @@ class UpdateManager(private val context: Context) {
         }
     }
 
-    // ⚙️ सिस्टम का इंस्टॉलर स्क्रीन पर खोलना
+    // ⚙️ फ़ोन का इंस्टॉलर स्क्रीन पर खोलना
     fun installApk(apkFile: File) {
         try {
             val authority = "${context.packageName}.provider"
@@ -172,14 +180,14 @@ class UpdateManager(private val context: Context) {
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            // अगर सीधे इंस्टॉलर न खुले तो ब्राउज़र बैकअप
-            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/SUN-BHODH/SUN-BHODH/releases/latest"))
-            browserIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(RELEASES_WEB_URL)).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
             context.startActivity(browserIntent)
         }
     }
 
-    // 🔢 सही वर्ज़न तुलना (v1.0.2 vs v1.0.1)
+    // 🔢 वर्ज़न तुलना (जैसे v1.0.3 बड़ा है v1.0.2 से)
     private fun isVersionNewer(latest: String, current: String): Boolean {
         return try {
             val cleanLatest = latest.replace("v", "").replace("V", "").trim().split(".")
