@@ -165,90 +165,189 @@ fun HomeTimerTab(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // ----------------- TOP HEADER -----------------
+            // ----------------- TOP BRACKET / HEADER -----------------
             if (!isRunning) {
-                Row(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 2.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(cardBg)
+                        .border(1.dp, glassBorder, RoundedCornerShape(18.dp))
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .border(1.4.dp, goldColor, RoundedCornerShape(12.dp))
+                        // बायाँ हिस्सा: Mascot + AMON + Greeting
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_mascot_amon),
-                                contentDescription = "Amon Mascot",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.4.dp, goldColor, RoundedCornerShape(12.dp))
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_mascot_amon),
+                                    contentDescription = "Amon Mascot",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
 
-                        val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
-                        val timeGreeting = remember(currentHour) {
-                            when (currentHour) {
-                                in 4..11 -> "Good Morning ☀️"
-                                in 12..16 -> "Good Afternoon 🌤️"
-                                in 17..19 -> "Good Evening 🌆"
-                                else -> "Good Night 🌙"
+                            val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+                            val timeGreeting = remember(currentHour) {
+                                when (currentHour) {
+                                    in 4..11 -> "Good Morning ☀️"
+                                    in 12..16 -> "Good Afternoon 🌤️"
+                                    in 17..19 -> "Good Evening 🌆"
+                                    else -> "Good Night 🌙"
+                                }
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "AMON",
+                                    color = textMain,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.2.sp
+                                )
+                                Text(
+                                    text = "• $timeGreeting",
+                                    color = goldColor,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                text = "AMON",
-                                color = textMain,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp
-                            )
-                            Text(
-                                text = "• $timeGreeting",
-                                color = goldColor,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
+                        // दायाँ हिस्सा: Streak कैप्सूल (AMON के ठीक पैरेलल)
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
                                 .background(if (isDark) Color(0x33F5A524) else Color(0x22D97706))
                                 .border(1.2.dp, goldColor, RoundedCornerShape(50))
-                                .padding(horizontal = 10.dp, vertical = 3.dp)
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Text(text = "🔥", fontSize = 9.sp)
+                                Text(text = "🔥", fontSize = 10.sp)
                                 Text(
                                     text = "$streakDays DAYS",
                                     color = goldColor,
-                                    fontSize = 9.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                             }
                         }
+                    }
+                }
+            } else {
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
+            // ----------------- DYNAMIC SUBJECT RIBBON + SOUND PILL (BELOW SUBJECTS) -----------------
+            if (!isRunning) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp) // सब्जेक्ट लाइन और साउंड के बीच ठीक 2 dp का गैप
+                ) {
+                    // सब्जेक्ट रो (फ़ॉन्ट 12.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            contentPadding = PaddingValues(horizontal = 2.dp)
+                        ) {
+                            item {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(goldColor)
+                                        .clickable { showAddDialog = true }
+                                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = "+ Add",
+                                        color = Color.Black,
+                                        fontSize = 12.sp, // 1 बढ़ाया गया
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                            }
+
+                            item {
+                                val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (isSelected) goldColor else cardBg)
+                                        .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                                        .clickable { selectedSubjectName = "All" }
+                                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = "All",
+                                        color = if (isSelected) Color.White else textMuted,
+                                        fontSize = 12.sp, // 1 बढ़ाया गया
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            items(activeSortedSubjects) { subj ->
+                                val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (isSelected) goldColor else cardBg)
+                                        .border(
+                                            1.dp,
+                                            if (isSelected) glowYellow else glassBorder,
+                                            RoundedCornerShape(50)
+                                        )
+                                        .clickable {
+                                            selectedSubjectName = subj
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = subj,
+                                        color = if (isSelected) Color.White else textMuted,
+                                        fontSize = 12.sp, // 1 बढ़ाया गया
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // साउंड बटन: सब्जेक्ट्स के ठीक नीचे, 2 dp के गैप पर, दाएँ कोने में
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = 4.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -261,90 +360,9 @@ fun HomeTimerTab(
                             Text(
                                 text = if (isSoundOn) "🔊 Sound" else "🔈 Sound",
                                 color = goldColor,
-                                fontSize = 8.5.sp,
+                                fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                        }
-                    }
-                }
-            } else {
-                Spacer(modifier = Modifier.height(10.dp))
-            }
-
-            // ----------------- DYNAMIC SUBJECT HORIZONTAL RIBBON -----------------
-            if (!isRunning) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        contentPadding = PaddingValues(horizontal = 2.dp)
-                    ) {
-                        item {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(goldColor)
-                                    .clickable { showAddDialog = true }
-                                    .padding(horizontal = 14.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = "+ Add",
-                                    color = Color.Black,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
-                        }
-
-                        item {
-                            val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(if (isSelected) goldColor else cardBg)
-                                    .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                                    .clickable { selectedSubjectName = "All" }
-                                    .padding(horizontal = 14.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = "All",
-                                    color = if (isSelected) Color.White else textMuted,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        items(activeSortedSubjects) { subj ->
-                            val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(if (isSelected) goldColor else cardBg)
-                                    .border(
-                                        1.dp,
-                                        if (isSelected) glowYellow else glassBorder,
-                                        RoundedCornerShape(50)
-                                    )
-                                    .clickable {
-                                        selectedSubjectName = subj
-                                    }
-                                    .padding(horizontal = 14.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = subj,
-                                    color = if (isSelected) Color.White else textMuted,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
                         }
                     }
                 }
@@ -369,7 +387,7 @@ fun HomeTimerTab(
             // ----------------- TIMER RING -----------------
             Box(
                 modifier = Modifier
-                    .size(240.dp)
+                    .size(248.dp)
                     .padding(vertical = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -406,18 +424,18 @@ fun HomeTimerTab(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(text = "🌱", fontSize = 26.sp)
+                    Text(text = "🌱", fontSize = 28.sp)
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = timeFormatted,
-                        fontSize = 40.sp,
+                        fontSize = 43.sp,
                         fontWeight = FontWeight.Black,
                         color = textMain
                     )
                 }
             }
 
-            // ----------------- PRESET BUTTONS -----------------
+            // ----------------- PRESET BUTTONS (12.sp) -----------------
             if (!isRunning) {
                 Row(
                     modifier = Modifier
@@ -448,7 +466,7 @@ fun HomeTimerTab(
                             Text(
                                 text = "${mins.toInt()}m",
                                 color = if (isSelected) Color.White else textMain,
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -467,7 +485,7 @@ fun HomeTimerTab(
                         Text(
                             text = "Custom",
                             color = if (isCustomMode) Color.White else textMain,
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -554,12 +572,7 @@ fun HomeTimerTab(
                         }
                     }
                 } else {
-                    Text(
-                        text = "Standard Mode Active",
-                        color = textMuted,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             } else {
                 Text(
@@ -571,66 +584,89 @@ fun HomeTimerTab(
             }
 
             // ----------------- ACTION BUTTONS -----------------
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            if (!isRunning) {
+                // केवल Plant बटन
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
+                        .fillMaxWidth()
+                        .height(53.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(cardBg)
-                        .border(1.dp, glassBorder, RoundedCornerShape(50))
-                        .clickable {
-                            val intent = Intent(context, TimerService::class.java).apply {
-                                action = TimerService.ACTION_STOP
-                            }
-                            context.startService(intent)
-                            val resetSecs = dialMinutes.toInt() * 60
-                            TimerService.remainingSeconds.intValue = resetSecs
-                            initialTotalSeconds = resetSecs
-                        }
-                ) {
-                    Text(text = "Cancel", color = goldColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(if (isRunning) goldColor else cardBg)
-                        .border(1.dp, if (isRunning) glowYellow else glassBorder, RoundedCornerShape(50))
+                        .background(goldColor)
+                        .border(1.dp, glowYellow, RoundedCornerShape(50))
                         .clickable {
                             val intent = Intent(context, TimerService::class.java)
-                            if (isRunning) {
-                                intent.action = TimerService.ACTION_PAUSE
-                                context.startService(intent)
+                            initialTotalSeconds = if (totalSeconds > 0) totalSeconds else (dialMinutes.toInt() * 60)
+                            intent.action = TimerService.ACTION_START
+                            intent.putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
+                            intent.putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(intent)
                             } else {
-                                initialTotalSeconds = if (totalSeconds > 0) totalSeconds else (dialMinutes.toInt() * 60)
-                                intent.action = TimerService.ACTION_START
-                                intent.putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
-                                intent.putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    context.startForegroundService(intent)
-                                } else {
-                                    context.startService(intent)
-                                }
+                                context.startService(intent)
                             }
                         }
+                        .padding(horizontal = 24.dp)
                 ) {
                     Text(
-                        text = if (isRunning) "Pause" else "Plant 🌳",
-                        color = if (isRunning) Color.White else goldColor,
-                        fontSize = 14.sp,
+                        text = "Plant 🌳",
+                        color = Color.Black,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Black
                     )
+                }
+            } else {
+                // टाइमर चालू होने पर Cancel व Pause (5 ऊपर खिसकाए गए)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(53.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(cardBg)
+                            .border(1.dp, glassBorder, RoundedCornerShape(50))
+                            .clickable {
+                                val intent = Intent(context, TimerService::class.java).apply {
+                                    action = TimerService.ACTION_STOP
+                                }
+                                context.startService(intent)
+                                val resetSecs = dialMinutes.toInt() * 60
+                                TimerService.remainingSeconds.intValue = resetSecs
+                                initialTotalSeconds = resetSecs
+                            }
+                    ) {
+                        Text(text = "Cancel", color = textMuted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(53.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(cardBg)
+                            .border(1.4.dp, goldColor, RoundedCornerShape(50))
+                            .clickable {
+                                val intent = Intent(context, TimerService::class.java).apply {
+                                    action = TimerService.ACTION_PAUSE
+                                }
+                                context.startService(intent)
+                            }
+                    ) {
+                        Text(
+                            text = "Pause",
+                            color = goldColor,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
                 }
             }
         }
@@ -657,7 +693,7 @@ fun HomeTimerTab(
             exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 45.dp, end = 12.dp)
+                .padding(top = 110.dp, end = 12.dp) // साउंड बटन के ठीक पास खुलेगा
         ) {
             Box(
                 modifier = Modifier
@@ -671,7 +707,6 @@ fun HomeTimerTab(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // 1. Master ON / OFF Switch
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -698,7 +733,6 @@ fun HomeTimerTab(
 
                     Spacer(modifier = Modifier.height(2.dp))
 
-                    // 2. Focus Sounds
                     val soundOptions = listOf(
                         Pair("Rain", "🌧️"),
                         Pair("Forest", "🌲"),
@@ -744,7 +778,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎨 POPUP DIALOG (MANAGE SUBJECTS - GOLD ACTIVE / PLAIN HIDDEN)
+        // 🎨 POPUP DIALOG (MANAGE SUBJECTS)
         // =====================================================================
         if (showAddDialog) {
             Dialog(onDismissRequest = {
