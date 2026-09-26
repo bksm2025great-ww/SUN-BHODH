@@ -1,11 +1,17 @@
 package com.amon.timer
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
+import android.os.Build
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
@@ -21,42 +27,47 @@ data class AppUpdateInfo(
 
 class UpdateManager(private val context: Context) {
 
-    // 📱 हमारा मौजूदा वर्ज़न
-    val currentVersion = "v1.0.0"
+    // 📱 फ़ोन के सिस्टम से सीधे असली वर्ज़न पढ़ना (अब कभी हार्डकोड नहीं रहेगा)
+    val currentVersion: String
+        get() {
+            return try {
+                val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                "v${pInfo.versionName}"
+            } catch (_: Exception) {
+                "v1.0.0"
+            }
+        }
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("amon_update_prefs", Context.MODE_PRIVATE)
 
-    // 🔒 चेक करना कि क्या इस वर्ज़न का 1-टाइम पॉप-अप पहले दिखाया जा चुका है?
     fun shouldShowOneTimePopup(version: String): Boolean {
         val lastDismissedVersion = prefs.getString("dismissed_version", "")
         return lastDismissedVersion != version
     }
 
-    // 📌 जब यूज़र पॉप-अप हटा दे, तो उसे याद रखना (ताकि दोबारा न दिखे)
     fun markPopupAsDismissed(version: String) {
         prefs.edit().putString("dismissed_version", version).apply()
     }
 
-    // 🌐 इंटरनेट से नया अपडेट चेक करना (बैकग्राउंड में)
+    // 🌐 GitHub Releases से लेटेस्ट अपडेट चेक करना
     suspend fun checkLatestUpdate(): AppUpdateInfo = withContext(Dispatchers.IO) {
-        // डिफ़ॉल्ट जानकारी (अगर इंटरनेट न हो या कुछ नया न हो)
+        val activeVersion = currentVersion
         var updateInfo = AppUpdateInfo(
             hasUpdate = false,
-            currentVersion = currentVersion,
-            latestVersion = currentVersion,
+            currentVersion = activeVersion,
+            latestVersion = activeVersion,
             whatsNew = "You are using the latest version of Amon.",
-            downloadUrl = "https://github.com"
+            downloadUrl = ""
         )
 
         try {
-            // 🔗 GitHub Releases API का लिंक
             val apiUrl = "https://api.github.com/repos/SUN-BHODH/SUN-BHODH/releases/latest"
             val url = URL(apiUrl)
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                connectTimeout = 6000
-                readTimeout = 6000
+                connectTimeout = 8000
+                readTimeout = 8000
                 setRequestProperty("Accept", "application/vnd.github.v3+json")
             }
 
@@ -66,11 +77,10 @@ class UpdateManager(private val context: Context) {
                 reader.close()
 
                 val json = JSONObject(response)
-                val tagName = json.optString("tag_name", currentVersion)
+                val tagName = json.optString("tag_name", activeVersion)
                 val body = json.optString("body", "Bug fixes and performance improvements.")
                 val htmlUrl = json.optString("html_url", "https://github.com")
 
-                // APK का डायरेक्ट डाउनलोड लिंक ढूँढना (अगर release में apk अपलोड है)
                 var apkDownloadUrl = htmlUrl
                 val assets = json.optJSONArray("assets")
                 if (assets != null && assets.length() > 0) {
@@ -84,28 +94,107 @@ class UpdateManager(private val context: Context) {
                     }
                 }
 
-                // वर्ज़न की तुलना: अगर टैग अलग और नया है
-                val isNewer = isVersionNewer(tagName, currentVersion)
+                val isNewer = isVersionNewer(tagName, activeVersion)
 
                 updateInfo = AppUpdateInfo(
                     hasUpdate = isNewer,
-                    currentVersion = currentVersion,
+                    currentVersion = activeVersion,
                     latestVersion = tagName,
                     whatsNew = body.ifBlank { "✨ New features and performance optimizations." },
                     downloadUrl = apkDownloadUrl
                 )
             }
         } catch (_: Exception) {
-            // इंटरनेट एरर होने पर ऐप क्रैश नहीं होगा, शांत रहेगा
+            // नेटवर्क न होने पर ऐप क्रैश नहीं होगा
         }
 
         updateInfo
     }
 
-    // वर्ज़न तुलना करने का सरल नियम (v1.0.1 > v1.0.0)
+    // 📥 इन-ऐप बैकग्राउंड डाउनलोड (सीधे कैशे में, कोई कचरा नहीं बचेगा)
+    suspend fun downloadUpdateApk(
+        downloadUrl: String,
+        onProgress: (Int) -> Unit
+    ): File? = withContext(Dispatchers.IO) {
+        try {
+            val updateDir = File(context.cacheDir, "updates")
+            if (!updateDir.exists()) updateDir.mkdirs()
+
+            // पुराना कोई भी APK हो तो पहले ही साफ़ कर दो (Single-file rule)
+            val apkFile = File(updateDir, "amon_update.apk")
+            if (apkFile.exists()) apkFile.delete()
+
+            val url = URL(downloadUrl)
+            val connection = (url.openConnection() as HttpURLConnection).apply {
+                instanceFollowRedirects = true
+                connectTimeout = 10000
+                readTimeout = 15000
+            }
+
+            val fileLength = connection.contentLength
+            val input = connection.inputStream
+            val output = FileOutputStream(apkFile)
+
+            val data = ByteArray(4096)
+            var total: Long = 0
+            var count: Int
+
+            while (input.read(data).also { count = it } != -1) {
+                total += count
+                if (fileLength > 0) {
+                    val progress = ((total * 100) / fileLength).toInt()
+                    withContext(Dispatchers.Main) {
+                        onProgress(progress)
+                    }
+                }
+                output.write(data, 0, count)
+            }
+
+            output.flush()
+            output.close()
+            input.close()
+
+            apkFile
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    // ⚙️ सिस्टम का इंस्टॉलर स्क्रीन पर खोलना
+    fun installApk(apkFile: File) {
+        try {
+            val authority = "${context.packageName}.provider"
+            val apkUri: Uri = FileProvider.getUriForFile(context, authority, apkFile)
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            // अगर सीधे इंस्टॉलर न खुले तो ब्राउज़र बैकअप
+            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/SUN-BHODH/SUN-BHODH/releases/latest"))
+            browserIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            context.startActivity(browserIntent)
+        }
+    }
+
+    // 🔢 सही वर्ज़न तुलना (v1.0.2 vs v1.0.1)
     private fun isVersionNewer(latest: String, current: String): Boolean {
-        val cleanLatest = latest.replace("v", "").replace("V", "").trim()
-        val cleanCurrent = current.replace("v", "").replace("V", "").trim()
-        return cleanLatest.isNotEmpty() && cleanLatest != cleanCurrent
+        return try {
+            val cleanLatest = latest.replace("v", "").replace("V", "").trim().split(".")
+            val cleanCurrent = current.replace("v", "").replace("V", "").trim().split(".")
+
+            val maxLength = maxOf(cleanLatest.size, cleanCurrent.size)
+            for (i in 0 until maxLength) {
+                val latestPart = cleanLatest.getOrNull(i)?.toIntOrNull() ?: 0
+                val currentPart = cleanCurrent.getOrNull(i)?.toIntOrNull() ?: 0
+                if (latestPart > currentPart) return true
+                if (latestPart < currentPart) return false
+            }
+            false
+        } catch (_: Exception) {
+            false
+        }
     }
 }
