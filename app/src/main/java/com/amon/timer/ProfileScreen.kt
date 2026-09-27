@@ -1,9 +1,11 @@
 package com.amon.timer
 
 import android.content.Context
+import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,7 +20,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -89,9 +93,9 @@ fun ProfileScreen() {
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp) // संतुलित ब्रीदिंग स्पेस
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // ----------------- 1. TOP TITLE (18.sp) -----------------
+        // ----------------- 1. TOP TITLE -----------------
         Text(
             text = "PROFILE & SETTINGS",
             color = textMain,
@@ -101,50 +105,84 @@ fun ProfileScreen() {
             modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
         )
 
-        // ----------------- 2. USER PROFILE CARD -----------------
+        // ----------------- 2. USER PROFILE CARD (AVATAR + NAME + RANK) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(20.dp))
-                .padding(vertical = 22.dp, horizontal = 16.dp),
-            contentAlignment = Alignment.Center
+                .padding(vertical = 18.dp, horizontal = 18.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(
-                    text = "AMON",
-                    color = textMain,
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 2.sp
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
+                // Amon गोल मैस्कॉट अवतार (गोल्डन रिंग)
+                Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { showEditNameDialog = true }
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                        .size(62.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0xFF141418) else Color(0xFFF1F5F9))
+                        .border(2.dp, goldColor, CircleShape)
                 ) {
-                    Text(
-                        text = currentUserName,
-                        color = goldColor,
-                        fontSize = 16.5.sp,
-                        fontWeight = FontWeight.Bold
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_mascot_amon),
+                        contentDescription = "Amon Mascot",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "✏️", fontSize = 13.sp)
+                }
+
+                // नाम और लेवल/रैंक विवरण
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showEditNameDialog = true }
+                            .padding(vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = currentUserName,
+                            color = textMain,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(text = "✏️", fontSize = 12.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // लेवल और रैंक बैज कैप्सूल
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(goldColor.copy(alpha = 0.18f))
+                            .border(1.dp, goldColor.copy(alpha = 0.5f), RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "Level 1 • Focus Novice 🏆",
+                            color = goldColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
 
-        // ----------------- 3. ACHIEVEMENTS & BADGES (14.sp) -----------------
+        // ----------------- 3. ACHIEVEMENTS & BADGES -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -351,7 +389,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 5. PREFERENCES & CONTROLS (14.sp) -----------------
+        // ----------------- 5. PREFERENCES & CONTROLS -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -371,14 +409,14 @@ fun ProfileScreen() {
                         Text(
                             text = "Haptic Buzz (Vibration)",
                             color = textMain,
-                            fontSize = 14.sp, // 2.5 sp बड़ा
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = "Session poora hone par halka vibrate karega",
                             color = textMuted,
-                            fontSize = 10.5.sp // 2 sp बड़ा
+                            fontSize = 10.5.sp
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
@@ -406,14 +444,14 @@ fun ProfileScreen() {
                         Text(
                             text = "Keep Screen Awake (Always On)",
                             color = textMain,
-                            fontSize = 14.sp, // 2.5 sp बड़ा
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = "Padhte waqt screen band nahi hogi",
                             color = textMuted,
-                            fontSize = 10.5.sp // 2 sp बड़ा
+                            fontSize = 10.5.sp
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
@@ -712,6 +750,53 @@ fun ProfileScreen() {
                         }
                     }
                 }
+            }
+        }
+
+        // ----------------- 8. SHARE WITH FRIENDS (DIRECT DOWNLOAD LINK) -----------------
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(cardBg)
+                .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
+                .clickable {
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        val shareMessage = "Hey! Check out Amon Focus Timer to stay focused and build your garden 🌸🌳.\n\nDownload directly here:\nhttps://github.com/bksm2025great-ww/SUN-BHODH/releases/latest/download/Amon.apk"
+                        putExtra(Intent.EXTRA_SUBJECT, "Amon Focus Timer")
+                        putExtra(Intent.EXTRA_TEXT, shareMessage)
+                    }
+                    context.startActivity(Intent.createChooser(shareIntent, "Share Amon with Friends"))
+                }
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(text = "📤", fontSize = 18.sp)
+                    Column {
+                        Text(
+                            text = "Share with Friends",
+                            color = textMain,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Invite friends (Direct APK Download)",
+                            color = textMuted,
+                            fontSize = 10.5.sp
+                        )
+                    }
+                }
+                Text(text = "➔", color = goldColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
 
