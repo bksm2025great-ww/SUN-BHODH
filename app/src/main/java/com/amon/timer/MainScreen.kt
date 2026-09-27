@@ -2,6 +2,7 @@ package com.amon.timer
 
 import android.content.Intent
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -36,6 +37,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -111,6 +113,7 @@ fun HomeTimerTab(
     var userSubjects by remember { mutableStateOf(listOf<String>()) }
     var selectedSubjectName by rememberSaveable { mutableStateOf("All") }
     var showAddDialog by remember { mutableStateOf(false) }
+    var showGiveUpDialog by remember { mutableStateOf(false) }
     var newSubjectInput by remember { mutableStateOf("") }
 
     val subjectPrefs = remember {
@@ -123,6 +126,11 @@ fun HomeTimerTab(
     var isSoundOn by rememberSaveable { mutableStateOf(false) }
     var showSoundPanel by remember { mutableStateOf(false) }
     var selectedSound by rememberSaveable { mutableStateOf("Rain") }
+
+    // 🔒 Discipline Mode: एक्टिव टाइमर के दौरान बैक बटन दबाने पर वार्निंग पॉप-अप
+    BackHandler(enabled = isRunning) {
+        showGiveUpDialog = true
+    }
 
     LaunchedEffect(Unit) {
         userSubjects = SubjectManager.getUserSubjects(context)
@@ -230,24 +238,24 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // दायाँ हिस्सा: Streak कैप्सूल (AMON के ठीक पैरेलल)
+                        // दायाँ हिस्सा: Streak कैप्सूल (Compact Pill - No DAYS)
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
                                 .background(if (isDark) Color(0x33F5A524) else Color(0x22D97706))
                                 .border(1.2.dp, goldColor, RoundedCornerShape(50))
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .padding(horizontal = 9.dp, vertical = 4.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
-                                Text(text = "🔥", fontSize = 10.sp)
+                                Text(text = "🔥", fontSize = 11.sp)
                                 Text(
-                                    text = "$streakDays DAYS",
+                                    text = "$streakDays",
                                     color = goldColor,
-                                    fontSize = 10.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                             }
@@ -258,13 +266,12 @@ fun HomeTimerTab(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // ----------------- DYNAMIC SUBJECT RIBBON + SOUND PILL (BELOW SUBJECTS) -----------------
+            // ----------------- DYNAMIC SUBJECT RIBBON + SOUND PILL -----------------
             if (!isRunning) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(2.dp) // सब्जेक्ट लाइन और साउंड के बीच ठीक 2 dp का गैप
+                    verticalArrangement = Arrangement.spacedBy(6.dp) // 6 dp गैप
                 ) {
-                    // सब्जेक्ट रो (फ़ॉन्ट 12.sp)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -287,7 +294,7 @@ fun HomeTimerTab(
                                     Text(
                                         text = "+ Add",
                                         color = Color.Black,
-                                        fontSize = 12.sp, // 1 बढ़ाया गया
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.ExtraBold
                                     )
                                 }
@@ -307,7 +314,7 @@ fun HomeTimerTab(
                                     Text(
                                         text = "All",
                                         color = if (isSelected) Color.White else textMuted,
-                                        fontSize = 12.sp, // 1 बढ़ाया गया
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -333,7 +340,7 @@ fun HomeTimerTab(
                                     Text(
                                         text = subj,
                                         color = if (isSelected) Color.White else textMuted,
-                                        fontSize = 12.sp, // 1 बढ़ाया गया
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -341,7 +348,7 @@ fun HomeTimerTab(
                         }
                     }
 
-                    // साउंड बटन: सब्जेक्ट्स के ठीक नीचे, 2 dp के गैप पर, दाएँ कोने में
+                    // साउंड बटन: साफ़ गैप के साथ
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -435,7 +442,7 @@ fun HomeTimerTab(
                 }
             }
 
-            // ----------------- PRESET BUTTONS (12.sp) -----------------
+            // ----------------- PRESET BUTTONS -----------------
             if (!isRunning) {
                 Row(
                     modifier = Modifier
@@ -583,9 +590,8 @@ fun HomeTimerTab(
                 )
             }
 
-            // ----------------- ACTION BUTTONS -----------------
+            // ----------------- ACTION BUTTONS (PLANT / PAUSE & CANCEL) -----------------
             if (!isRunning) {
-                // केवल Plant बटन
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -616,14 +622,15 @@ fun HomeTimerTab(
                     )
                 }
             } else {
-                // टाइमर चालू होने पर Cancel व Pause (5 ऊपर खिसकाए गए)
+                // टाइमर चालू होने पर Cancel व Pause (गोल्डन लुक के साथ)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Cancel Button (Gold Accent Border)
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -631,20 +638,20 @@ fun HomeTimerTab(
                             .height(53.dp)
                             .clip(RoundedCornerShape(50))
                             .background(cardBg)
-                            .border(1.dp, glassBorder, RoundedCornerShape(50))
+                            .border(1.3.dp, goldColor.copy(alpha = 0.6f), RoundedCornerShape(50))
                             .clickable {
-                                val intent = Intent(context, TimerService::class.java).apply {
-                                    action = TimerService.ACTION_STOP
-                                }
-                                context.startService(intent)
-                                val resetSecs = dialMinutes.toInt() * 60
-                                TimerService.remainingSeconds.intValue = resetSecs
-                                initialTotalSeconds = resetSecs
+                                showGiveUpDialog = true
                             }
                     ) {
-                        Text(text = "Cancel", color = textMuted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Cancel",
+                            color = goldColor.copy(alpha = 0.85f),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
+                    // Pause Button (Gold Accent Border)
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -672,7 +679,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎧 FLOATING PILL SOUND OVERLAY (SLIDE-IN FROM RIGHT)
+        // 🎧 SOUND OVERLAY PANEL
         // =====================================================================
         if (showSoundPanel) {
             Box(
@@ -693,7 +700,7 @@ fun HomeTimerTab(
             exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 110.dp, end = 12.dp) // साउंड बटन के ठीक पास खुलेगा
+                .padding(top = 110.dp, end = 12.dp)
         ) {
             Box(
                 modifier = Modifier
@@ -778,7 +785,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎨 POPUP DIALOG (MANAGE SUBJECTS)
+        // 🎨 POPUP DIALOG (MANAGE SUBJECTS - LARGER FONTS)
         // =====================================================================
         if (showAddDialog) {
             Dialog(onDismissRequest = {
@@ -800,14 +807,14 @@ fun HomeTimerTab(
                         Text(
                             text = "Manage Subjects",
                             color = goldColor,
-                            fontSize = 18.sp,
+                            fontSize = 20.sp, // बढ़ाया गया
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Tap to Show (Gold) or Hide (Plain)",
                             color = textMuted,
-                            fontSize = 11.sp
+                            fontSize = 13.sp // बढ़ाया गया
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
@@ -854,12 +861,12 @@ fun HomeTimerTab(
                                                         selectedSubjectName = "All"
                                                     }
                                                 }
-                                                .padding(vertical = 8.dp, horizontal = 4.dp)
+                                                .padding(vertical = 10.dp, horizontal = 4.dp)
                                         ) {
                                             Text(
                                                 text = if (!isHidden) "● $subj" else "○ $subj",
                                                 color = if (!isHidden) goldColor else textMuted,
-                                                fontSize = 10.sp,
+                                                fontSize = 12.sp, // बढ़ाया गया
                                                 fontWeight = FontWeight.Bold,
                                                 maxLines = 1
                                             )
@@ -887,7 +894,7 @@ fun HomeTimerTab(
                                 value = newSubjectInput,
                                 onValueChange = { newSubjectInput = it },
                                 placeholder = {
-                                    Text("Type new subject...", color = textMuted, fontSize = 11.sp)
+                                    Text("Type new subject...", color = textMuted, fontSize = 13.sp)
                                 },
                                 singleLine = true,
                                 colors = OutlinedTextFieldDefaults.colors(
@@ -927,7 +934,7 @@ fun HomeTimerTab(
                                 Text(
                                     text = "Add",
                                     color = Color.Black,
-                                    fontSize = 11.sp,
+                                    fontSize = 13.sp, // बढ़ाया गया
                                     fontWeight = FontWeight.ExtraBold
                                 )
                             }
@@ -942,7 +949,98 @@ fun HomeTimerTab(
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A32))
                         ) {
-                            Text("Done", color = Color.White, fontSize = 12.sp)
+                            Text("Done", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // =====================================================================
+        // ⚠️ DISCIPLINE WARNING POPUP (GIVE UP ON FOCUS)
+        // =====================================================================
+        if (showGiveUpDialog) {
+            Dialog(onDismissRequest = { showGiveUpDialog = false }) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(cardBg)
+                        .border(1.6.dp, goldColor, RoundedCornerShape(24.dp))
+                        .padding(22.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Give Up on Focus? ⚠️",
+                            color = goldColor,
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "Your plant is still growing. Leaving now will break your streak and your tree will wither (🥀) in your garden.\n\nAre you sure you want to quit?",
+                            color = textMain,
+                            fontSize = 13.5.sp,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 19.sp
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Give Up (Red Accent Penalty)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(Color(0xFF2A1C1C))
+                                    .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f), RoundedCornerShape(50))
+                                    .clickable {
+                                        showGiveUpDialog = false
+                                        val intent = Intent(context, TimerService::class.java).apply {
+                                            action = TimerService.ACTION_STOP
+                                        }
+                                        context.startService(intent)
+                                        val resetSecs = dialMinutes.toInt() * 60
+                                        TimerService.remainingSeconds.intValue = resetSecs
+                                        initialTotalSeconds = resetSecs
+                                    }
+                            ) {
+                                Text(
+                                    text = "Give Up 🥀",
+                                    color = Color(0xFFF87171),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Keep Focusing (Gold Accent)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(goldColor)
+                                    .clickable {
+                                        showGiveUpDialog = false
+                                    }
+                            ) {
+                                Text(
+                                    text = "Keep Focusing 🌿",
+                                    color = Color.Black,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
                         }
                     }
                 }
