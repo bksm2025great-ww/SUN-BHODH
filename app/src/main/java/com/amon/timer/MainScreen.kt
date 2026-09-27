@@ -270,7 +270,7 @@ fun HomeTimerTab(
             if (!isRunning) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp) // 6 dp गैप
+                    verticalArrangement = Arrangement.spacedBy(10.dp) // 2-3 dp बढ़ाकर 10.dp किया (साफ़ गैप)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -348,7 +348,7 @@ fun HomeTimerTab(
                         }
                     }
 
-                    // साउंड बटन: साफ़ गैप के साथ
+                    // साउंड बटन: साफ़ गैप और पैडिंग के साथ
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -362,12 +362,12 @@ fun HomeTimerTab(
                                 .background(if (isSoundOn) goldColor.copy(alpha = 0.2f) else cardBg)
                                 .border(1.dp, goldColor, RoundedCornerShape(50))
                                 .clickable { showSoundPanel = true }
-                                .padding(horizontal = 10.dp, vertical = 3.dp)
+                                .padding(horizontal = 11.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 text = if (isSoundOn) "🔊 Sound" else "🔈 Sound",
                                 color = goldColor,
-                                fontSize = 9.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -679,7 +679,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎧 SOUND OVERLAY PANEL
+        // 🎧 SOUND OVERLAY PANEL (LIGHT & DARK THEME FIXED)
         // =====================================================================
         if (showSoundPanel) {
             Box(
@@ -700,27 +700,31 @@ fun HomeTimerTab(
             exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 110.dp, end = 12.dp)
+                .padding(top = 114.dp, end = 12.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .width(105.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(cardBg.copy(alpha = 0.96f))
-                    .border(1.5.dp, goldColor, RoundedCornerShape(28.dp))
+                    .width(108.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(cardBg)
+                    .border(1.5.dp, goldColor, RoundedCornerShape(26.dp))
                     .padding(vertical = 12.dp, horizontal = 8.dp)
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    // ON/OFF Pill (Theme Adaptive)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(50))
-                            .background(if (isSoundOn) goldColor.copy(alpha = 0.25f) else Color(0xFF2A2A32))
+                            .background(
+                                if (isSoundOn) goldColor.copy(alpha = 0.25f)
+                                else (if (isDark) Color(0xFF2A2A32) else Color(0xFFE2E8F0))
+                            )
                             .clickable { isSoundOn = !isSoundOn }
                             .padding(horizontal = 8.dp, vertical = 5.dp)
                     ) {
@@ -750,12 +754,18 @@ fun HomeTimerTab(
 
                     soundOptions.forEach { (name, icon) ->
                         val isSelected = isSoundOn && selectedSound == name
+                        val tileBg = if (isSelected) {
+                            goldColor
+                        } else {
+                            if (isDark) Color(0xFF24242A) else Color(0xFFF1F5F9) // लाइट मोड में सॉफ्ट लाइट ग्रे
+                        }
+
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(if (isSelected) goldColor else Color(0xFF24242A))
+                                .background(tileBg)
                                 .border(
                                     1.dp,
                                     if (isSelected) glowYellow else glassBorder,
@@ -765,15 +775,15 @@ fun HomeTimerTab(
                                     selectedSound = name
                                     isSoundOn = true
                                 }
-                                .padding(vertical = 6.dp, horizontal = 4.dp)
+                                .padding(vertical = 7.dp, horizontal = 4.dp)
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(text = icon, fontSize = 16.sp)
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = name,
-                                    color = if (isSelected) Color.Black else textMain,
-                                    fontSize = 8.5.sp,
+                                    color = if (isSelected) Color.Black else textMain, // लाइट मोड में साफ डार्क टेक्स्ट
+                                    fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1
                                 )
@@ -785,7 +795,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎨 POPUP DIALOG (MANAGE SUBJECTS - LARGER FONTS)
+        // 🎨 POPUP DIALOG (MANAGE SUBJECTS - LIGHT & DARK THEME FIXED)
         // =====================================================================
         if (showAddDialog) {
             Dialog(onDismissRequest = {
@@ -807,14 +817,14 @@ fun HomeTimerTab(
                         Text(
                             text = "Manage Subjects",
                             color = goldColor,
-                            fontSize = 20.sp, // बढ़ाया गया
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Tap to Show (Gold) or Hide (Plain)",
                             color = textMuted,
-                            fontSize = 13.sp // बढ़ाया गया
+                            fontSize = 13.sp
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
@@ -832,15 +842,18 @@ fun HomeTimerTab(
                                 ) {
                                     rowItems.forEach { subj ->
                                         val isHidden = subj in hiddenSubjects
+                                        val chipBg = if (!isHidden) {
+                                            goldColor.copy(alpha = 0.22f)
+                                        } else {
+                                            if (isDark) Color(0xFF222228) else Color(0xFFF1F5F9) // लाइट मोड में सॉफ्ट लाइट ग्रे
+                                        }
+
                                         Box(
                                             contentAlignment = Alignment.Center,
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .clip(RoundedCornerShape(12.dp))
-                                                .background(
-                                                    if (!isHidden) goldColor.copy(alpha = 0.25f)
-                                                    else Color(0xFF222228)
-                                                )
+                                                .background(chipBg)
                                                 .border(
                                                     1.2.dp,
                                                     if (!isHidden) goldColor else glassBorder,
@@ -865,8 +878,8 @@ fun HomeTimerTab(
                                         ) {
                                             Text(
                                                 text = if (!isHidden) "● $subj" else "○ $subj",
-                                                color = if (!isHidden) goldColor else textMuted,
-                                                fontSize = 12.sp, // बढ़ाया गया
+                                                color = if (!isHidden) goldColor else (if (isDark) textMuted else Color(0xFF475569)),
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 maxLines = 1
                                             )
@@ -881,11 +894,12 @@ fun HomeTimerTab(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
+                        // New Subject Input Bar (Theme Adaptive)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(50))
-                                .background(Color(0xFF18181B))
+                                .background(if (isDark) Color(0xFF18181B) else Color(0xFFF8FAFC)) // लाइट मोड में सॉफ्ट ऑफ-व्हाइट
                                 .border(1.dp, glassBorder, RoundedCornerShape(50))
                                 .padding(horizontal = 10.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -934,7 +948,7 @@ fun HomeTimerTab(
                                 Text(
                                     text = "Add",
                                     color = Color.Black,
-                                    fontSize = 13.sp, // बढ़ाया गया
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                             }
@@ -942,12 +956,16 @@ fun HomeTimerTab(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
+                        // Done Button (Theme Adaptive)
                         Button(
                             onClick = {
                                 showAddDialog = false
                                 newSubjectInput = ""
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2A32))
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isDark) Color(0xFF2A2A32) else Color(0xFF0F172A)
+                            ),
+                            shape = RoundedCornerShape(50)
                         ) {
                             Text("Done", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
@@ -1001,7 +1019,7 @@ fun HomeTimerTab(
                                     .weight(1f)
                                     .height(44.dp)
                                     .clip(RoundedCornerShape(50))
-                                    .background(Color(0xFF2A1C1C))
+                                    .background(if (isDark) Color(0xFF2A1C1C) else Color(0xFFFEE2E2))
                                     .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f), RoundedCornerShape(50))
                                     .clickable {
                                         showGiveUpDialog = false
@@ -1016,7 +1034,7 @@ fun HomeTimerTab(
                             ) {
                                 Text(
                                     text = "Give Up 🥀",
-                                    color = Color(0xFFF87171),
+                                    color = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
