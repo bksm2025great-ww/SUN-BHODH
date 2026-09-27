@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.widget.Toast
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,7 +20,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -93,7 +96,7 @@ fun ProfileScreen() {
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // ----------------- 1. TOP TITLE -----------------
         Text(
@@ -102,7 +105,7 @@ fun ProfileScreen() {
             fontSize = 18.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 1.2.sp,
-            modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
+            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
         )
 
         // ----------------- 2. USER PROFILE CARD (AVATAR + NAME + RANK) -----------------
@@ -112,18 +115,18 @@ fun ProfileScreen() {
                 .clip(RoundedCornerShape(20.dp))
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(20.dp))
-                .padding(vertical = 18.dp, horizontal = 18.dp)
+                .padding(vertical = 16.dp, horizontal = 16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(15.dp)
             ) {
                 // Amon गोल मैस्कॉट अवतार (गोल्डन रिंग)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(62.dp)
+                        .size(60.dp)
                         .clip(CircleShape)
                         .background(if (isDark) Color(0xFF141418) else Color(0xFFF1F5F9))
                         .border(2.dp, goldColor, CircleShape)
@@ -154,7 +157,7 @@ fun ProfileScreen() {
                         Text(
                             text = currentUserName,
                             color = textMain,
-                            fontSize = 18.sp,
+                            fontSize = 19.sp,
                             fontWeight = FontWeight.Black
                         )
                         Text(text = "✏️", fontSize = 12.sp)
@@ -169,12 +172,12 @@ fun ProfileScreen() {
                             .clip(RoundedCornerShape(50))
                             .background(goldColor.copy(alpha = 0.18f))
                             .border(1.dp, goldColor.copy(alpha = 0.5f), RoundedCornerShape(50))
-                            .padding(horizontal = 10.dp, vertical = 3.dp)
+                            .padding(horizontal = 10.dp, vertical = 3.5.dp)
                     ) {
                         Text(
                             text = "Level 1 • Focus Novice 🏆",
                             color = goldColor,
-                            fontSize = 11.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -199,17 +202,17 @@ fun ProfileScreen() {
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(13.dp)
                 ) {
-                    Text(text = "🏆", fontSize = 18.sp)
+                    Text(text = "🏆", fontSize = 20.sp)
                     Text(
                         text = "Achievements & Badges",
                         color = textMain,
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                Text(text = "➔", color = goldColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(text = "➔", color = goldColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -235,28 +238,28 @@ fun ProfileScreen() {
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        Text(text = "🎨", fontSize = 18.sp)
+                        Text(text = "🎨", fontSize = 20.sp)
                         Column {
                             Text(
                                 text = "Appearance & Themes",
                                 color = textMain,
-                                fontSize = 14.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
                             Text(
                                 text = "$currentMode • $currentAccent",
                                 color = textMuted,
-                                fontSize = 10.5.sp
+                                fontSize = 11.5.sp
                             )
                         }
                     }
                     Text(
                         text = if (isThemeExpanded) "⌃" else "⌄",
                         color = goldColor,
-                        fontSize = 17.sp,
+                        fontSize = 19.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -269,7 +272,7 @@ fun ProfileScreen() {
                     Text(
                         text = "🌓  THEME MODE",
                         color = goldColor,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.sp
                     )
@@ -300,12 +303,12 @@ fun ProfileScreen() {
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(text = icon, fontSize = 15.sp)
+                                    Text(text = icon, fontSize = 16.sp)
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = desc,
                                         color = if (isSelected) textMain else textMuted,
-                                        fontSize = 11.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -318,7 +321,7 @@ fun ProfileScreen() {
                     Text(
                         text = "✨  ACCENT COLOR",
                         color = goldColor,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.sp
                     )
@@ -350,7 +353,7 @@ fun ProfileScreen() {
                                 Text(
                                     text = "Classic Yellow",
                                     color = if (isYellow) textMain else textMuted,
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -379,7 +382,7 @@ fun ProfileScreen() {
                                 Text(
                                     text = "Luxe Gold 👑",
                                     color = if (isGold) textMain else textMuted,
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -409,17 +412,18 @@ fun ProfileScreen() {
                         Text(
                             text = "Haptic Buzz (Vibration)",
                             color = textMain,
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = "Session poora hone par halka vibrate karega",
                             color = textMuted,
-                            fontSize = 10.5.sp
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Switch(
                         checked = isVibrationEnabled,
                         onCheckedChange = { isVibrationEnabled = it },
@@ -444,17 +448,18 @@ fun ProfileScreen() {
                         Text(
                             text = "Keep Screen Awake (Always On)",
                             color = textMain,
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = "Padhte waqt screen band nahi hogi",
                             color = textMuted,
-                            fontSize = 10.5.sp
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Switch(
                         checked = isKeepScreenAwake,
                         onCheckedChange = { isKeepScreenAwake = it },
@@ -487,14 +492,15 @@ fun ProfileScreen() {
                     Text(
                         text = "Account & Cloud Sync",
                         color = textMain,
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = "Google Sheets cloud backup aur streak synchronization",
                         color = textMuted,
-                        fontSize = 10.5.sp
+                        fontSize = 11.5.sp,
+                        lineHeight = 16.sp
                     )
                 }
                 Spacer(modifier = Modifier.width(10.dp))
@@ -535,7 +541,7 @@ fun ProfileScreen() {
                                 }
                             }
                         }
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                        .padding(horizontal = 13.dp, vertical = 7.dp)
                 ) {
                     if (isSyncing) {
                         CircularProgressIndicator(
@@ -547,7 +553,7 @@ fun ProfileScreen() {
                         Text(
                             text = "Sync Now 🔄",
                             color = goldColor,
-                            fontSize = 11.5.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -577,13 +583,13 @@ fun ProfileScreen() {
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        Text(text = "🚀", fontSize = 18.sp)
+                        Text(text = "🚀", fontSize = 20.sp)
                         Text(
                             text = "App Updates",
                             color = textMain,
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                         if (hasNewUpdate) {
@@ -603,13 +609,13 @@ fun ProfileScreen() {
                         Text(
                             text = if (hasNewUpdate) "Update Available" else currentAppVersion,
                             color = if (hasNewUpdate) Color(0xFF10B981) else textMuted,
-                            fontSize = 11.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
                             text = if (isUpdateExpanded) "⌃" else "⌄",
                             color = goldColor,
-                            fontSize = 17.sp,
+                            fontSize = 19.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -624,14 +630,14 @@ fun ProfileScreen() {
                         Text(
                             text = "🟢 New Version $latestReleaseVersion is Ready!",
                             color = Color(0xFF10B981),
-                            fontSize = 13.sp,
+                            fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = "Includes notification permissions, design polish & stability fixes.",
                             color = textMuted,
-                            fontSize = 10.5.sp
+                            fontSize = 11.5.sp
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
@@ -695,14 +701,14 @@ fun ProfileScreen() {
                                 Text(
                                     text = "✓ You are using the latest version",
                                     color = Color(0xFF10B981),
-                                    fontSize = 12.sp,
+                                    fontSize = 12.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "Installed: $currentAppVersion  •  Amon is up to date",
                                     color = textMuted,
-                                    fontSize = 10.sp
+                                    fontSize = 11.sp
                                 )
                             }
 
@@ -742,7 +748,7 @@ fun ProfileScreen() {
                                     Text(
                                         text = "Check 🚀",
                                         color = textMain,
-                                        fontSize = 10.5.sp,
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -753,7 +759,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 8. SHARE WITH FRIENDS (DIRECT DOWNLOAD LINK) -----------------
+        // ----------------- 8. SHARE WITH FRIENDS (PAPER AIRPLANE ICON) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -778,29 +784,34 @@ fun ProfileScreen() {
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(13.dp)
                 ) {
-                    Text(text = "📤", fontSize = 18.sp)
+                    // नया लक्ज़री गोल्डन पेपर प्लेन आइकन (20.sp साइज में टिल्टेड)
+                    PaperAirplaneIcon(
+                        tint = goldColor,
+                        modifier = Modifier.rotate(-20f)
+                    )
+
                     Column {
                         Text(
                             text = "Share with Friends",
                             color = textMain,
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = "Invite friends (Direct APK Download)",
                             color = textMuted,
-                            fontSize = 10.5.sp
+                            fontSize = 11.5.sp
                         )
                     }
                 }
-                Text(text = "➔", color = goldColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(text = "➔", color = goldColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(18.dp))
     }
 
     // ✏️ EDIT NAME DIALOG
@@ -923,6 +934,28 @@ fun ProfileScreen() {
                 }
             }
         }
+    }
+}
+
+// ----------------- Lightweight Paper Airplane Vector Component -----------------
+@Composable
+private fun PaperAirplaneIcon(
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier.size(20.dp)) {
+        val scaleX = size.width / 24f
+        val scaleY = size.height / 24f
+        val path = Path().apply {
+            moveTo(2.01f * scaleX, 21f * scaleY)
+            lineTo(23f * scaleX, 12f * scaleY)
+            lineTo(2.01f * scaleX, 3f * scaleY)
+            lineTo(2f * scaleX, 10f * scaleY)
+            lineTo(17f * scaleX, 12f * scaleY)
+            lineTo(2f * scaleX, 14f * scaleY)
+            close()
+        }
+        drawPath(path = path, color = tint)
     }
 }
 
