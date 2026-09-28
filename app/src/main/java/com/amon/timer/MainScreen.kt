@@ -26,6 +26,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -127,7 +128,7 @@ fun HomeTimerTab(
     var showSoundPanel by remember { mutableStateOf(false) }
     var selectedSound by rememberSaveable { mutableStateOf("Rain") }
 
-    // 🔒 Discipline Mode: एक्टिव टाइमर के दौरान बैक बटन दबाने पर वार्निंग पॉप-अप
+    // 🔒 Discipline Mode: Active timer ke dauran back press par popup
     BackHandler(enabled = isRunning) {
         showGiveUpDialog = true
     }
@@ -188,7 +189,7 @@ fun HomeTimerTab(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // बायाँ हिस्सा: Mascot + AMON + Greeting
+                        // Mascot + AMON + Greeting
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -238,7 +239,7 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // दायाँ हिस्सा: Streak कैप्सूल (Compact Pill - No DAYS)
+                        // Streak Capsule
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -270,7 +271,7 @@ fun HomeTimerTab(
             if (!isRunning) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp) // 2-3 dp बढ़ाकर 10.dp किया (साफ़ गैप)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -348,7 +349,7 @@ fun HomeTimerTab(
                         }
                     }
 
-                    // साउंड बटन: साफ़ गैप और पैडिंग के साथ
+                    // Sound Button
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -391,7 +392,7 @@ fun HomeTimerTab(
                 }
             }
 
-            // ----------------- TIMER RING -----------------
+            // ----------------- TIMER RING (DYNAMIC DOUBLE-SIDED GLOW) -----------------
             Box(
                 modifier = Modifier
                     .size(248.dp)
@@ -402,6 +403,7 @@ fun HomeTimerTab(
                     val radius = size.minDimension / 2f - 10.dp.toPx()
                     val center = Offset(size.width / 2f, size.height / 2f)
 
+                    // 1. Background quiet base circle
                     drawCircle(
                         color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
                         radius = radius,
@@ -416,6 +418,29 @@ fun HomeTimerTab(
                         (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
                     }
 
+                    // ✨ 2. Wide Outer & Inner Glow (Inside-Outside Double Sided Soft Aura)
+                    drawArc(
+                        color = goldColor.copy(alpha = 0.18f),
+                        startAngle = -90f,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        topLeft = Offset(center.x - radius, center.y - radius),
+                        size = Size(radius * 2f, radius * 2f),
+                        style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                    )
+
+                    // ✨ 3. Mid Glow (Depth Layer)
+                    drawArc(
+                        color = goldColor.copy(alpha = 0.35f),
+                        startAngle = -90f,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        topLeft = Offset(center.x - radius, center.y - radius),
+                        size = Size(radius * 2f, radius * 2f),
+                        style = Stroke(width = 11.dp.toPx(), cap = StrokeCap.Round)
+                    )
+
+                    // 🌟 4. Main Core Sharp Ring Line
                     drawArc(
                         color = goldColor,
                         startAngle = -90f,
@@ -590,13 +615,20 @@ fun HomeTimerTab(
                 )
             }
 
-            // ----------------- ACTION BUTTONS (PLANT / PAUSE & CANCEL) -----------------
+            // ----------------- ACTION BUTTONS (PLANT WITH GOLDEN GLOW SHADOW) -----------------
             if (!isRunning) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(53.dp)
+                        // 🌟 Golden Glow Shadow Effect
+                        .shadow(
+                            elevation = 14.dp,
+                            shape = RoundedCornerShape(50),
+                            spotColor = goldColor,
+                            ambientColor = goldColor
+                        )
                         .clip(RoundedCornerShape(50))
                         .background(goldColor)
                         .border(1.dp, glowYellow, RoundedCornerShape(50))
@@ -622,7 +654,7 @@ fun HomeTimerTab(
                     )
                 }
             } else {
-                // टाइमर चालू होने पर Cancel व Pause (गोल्डन लुक के साथ)
+                // Timer Running: Cancel & Pause
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -630,7 +662,7 @@ fun HomeTimerTab(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Cancel Button (Gold Accent Border)
+                    // Cancel Button
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -651,7 +683,7 @@ fun HomeTimerTab(
                         )
                     }
 
-                    // Pause Button (Gold Accent Border)
+                    // Pause Button
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -679,7 +711,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎧 SOUND OVERLAY PANEL (LIGHT & DARK THEME FIXED)
+        // 🎧 SOUND OVERLAY PANEL
         // =====================================================================
         if (showSoundPanel) {
             Box(
@@ -714,7 +746,7 @@ fun HomeTimerTab(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // ON/OFF Pill (Theme Adaptive)
+                    // ON/OFF Pill
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -757,7 +789,7 @@ fun HomeTimerTab(
                         val tileBg = if (isSelected) {
                             goldColor
                         } else {
-                            if (isDark) Color(0xFF24242A) else Color(0xFFF1F5F9) // लाइट मोड में सॉफ्ट लाइट ग्रे
+                            if (isDark) Color(0xFF24242A) else Color(0xFFF1F5F9)
                         }
 
                         Box(
@@ -782,7 +814,7 @@ fun HomeTimerTab(
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = name,
-                                    color = if (isSelected) Color.Black else textMain, // लाइट मोड में साफ डार्क टेक्स्ट
+                                    color = if (isSelected) Color.Black else textMain,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1
@@ -795,7 +827,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎨 POPUP DIALOG (MANAGE SUBJECTS - LIGHT & DARK THEME FIXED)
+        // 🎨 POPUP DIALOG (MANAGE SUBJECTS)
         // =====================================================================
         if (showAddDialog) {
             Dialog(onDismissRequest = {
@@ -845,7 +877,7 @@ fun HomeTimerTab(
                                         val chipBg = if (!isHidden) {
                                             goldColor.copy(alpha = 0.22f)
                                         } else {
-                                            if (isDark) Color(0xFF222228) else Color(0xFFF1F5F9) // लाइट मोड में सॉफ्ट लाइट ग्रे
+                                            if (isDark) Color(0xFF222228) else Color(0xFFF1F5F9)
                                         }
 
                                         Box(
@@ -894,12 +926,12 @@ fun HomeTimerTab(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // New Subject Input Bar (Theme Adaptive)
+                        // New Subject Input Bar
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(50))
-                                .background(if (isDark) Color(0xFF18181B) else Color(0xFFF8FAFC)) // लाइट मोड में सॉफ्ट ऑफ-व्हाइट
+                                .background(if (isDark) Color(0xFF18181B) else Color(0xFFF8FAFC))
                                 .border(1.dp, glassBorder, RoundedCornerShape(50))
                                 .padding(horizontal = 10.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -956,7 +988,7 @@ fun HomeTimerTab(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Done Button (Theme Adaptive)
+                        // Done Button
                         Button(
                             onClick = {
                                 showAddDialog = false
@@ -1012,7 +1044,7 @@ fun HomeTimerTab(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Give Up (Red Accent Penalty)
+                            // Give Up
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -1040,7 +1072,7 @@ fun HomeTimerTab(
                                 )
                             }
 
-                            // Keep Focusing (Gold Accent)
+                            // Keep Focusing
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
