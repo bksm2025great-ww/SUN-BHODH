@@ -5,6 +5,10 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+# 🔑 रोबोट को Releases काउंटर पर नया वर्ज़न पब्लिश करने की अनुमति देना
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,8 +43,33 @@ jobs:
             -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
             -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
 
-      - name: Upload Signed APK
+      # 📦 1. अंदरूनी स्टोर रूम में APK सुरक्षित रखना (पुराना तरीक़ा)
+      - name: Upload Signed APK to Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Amon-Release-APK
           path: app/build/outputs/apk/release/*.apk
+
+      # 🔍 2. build.gradle.kts से ताज़ा वर्ज़न (जैसे 1.0.7) अपने-आप पढ़ना
+      - name: Extract App Version
+        id: get_version
+        run: |
+          VERSION=$(grep 'versionName =' app/build.gradle.kts | cut -d '"' -f 2)
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Detected Version: $VERSION"
+
+      # 🚀 3. GitHub Releases काउंटर पर सीधे पब्लिश करना (ताकि फ़ोन में तुरंत अपडेट दिखे)
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ env.APP_VERSION }}"
+          name: "Amon v${{ env.APP_VERSION }}"
+          body: |
+            ✨ Amon Auto Update v${{ env.APP_VERSION }}
+            - Focus & Garden system updates
+            - 120Hz display optimizations & stability fixes
+          draft: false
+          prerelease: false
+          files: app/build/outputs/apk/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
