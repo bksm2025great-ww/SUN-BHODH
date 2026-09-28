@@ -47,6 +47,26 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // ⚡ 120Hz Force Unlock: फ़ोन की स्क्रीन को उसके सबसे उच्चतम रिफ्रेश रेट पर लॉक करना
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val currentDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    display
+                } else {
+                    @Suppress("DEPRECATION")
+                    windowManager.defaultDisplay
+                }
+                val maxRefreshMode = currentDisplay?.supportedModes?.maxByOrNull { it.refreshRate }
+                if (maxRefreshMode != null) {
+                    val params = window.attributes
+                    params.preferredDisplayModeId = maxRefreshMode.modeId
+                    window.attributes = params
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("AmonLaunch", "120Hz unlock catch: ${e.localizedMessage}")
+        }
+
         // 🛡️ सुरक्षा कवच: अलार्म एरर की वजह से ऐप कभी क्रैश नहीं होगा
         try {
             AmonReminderManager.scheduleAllReminders(this)
@@ -91,7 +111,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             AppScreenState.MAIN -> {
-                                // 1. Piche main timer screen chalu rahegi
+                                // 1. Main timer screen
                                 MainScreen()
 
                                 // 2. Android 13+ Notification Permission Dialog
