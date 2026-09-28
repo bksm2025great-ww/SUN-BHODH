@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ⚡ 120Hz Force Unlock: फ़ोन की स्क्रीन को उसके सबसे उच्चतम रिफ्रेश रेट पर लॉक करना
+        // ⚡ 120Hz Force Unlock: फ़ोन की स्क्रीन को उसके सबसे उच्चतम रिफ्रेश रेट (120Hz) पर लॉक करना
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val currentDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -111,7 +111,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             AppScreenState.MAIN -> {
-                                // 1. Main timer screen
+                                // 1. Piche main timer screen chalu rahegi
                                 MainScreen()
 
                                 // 2. Android 13+ Notification Permission Dialog
