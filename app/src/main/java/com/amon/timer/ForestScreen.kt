@@ -13,10 +13,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -41,9 +42,6 @@ fun ForestScreen() {
     val boxBorderGolden = Color(0x33F3C669)
     val textMuted = Color(0xFFA0A0A5)
 
-    val forestGreenBg = Color(0xFF163323)
-    val forestGreenBorder = Color(0xFF4CAF50)
-
     // States
     var selectedTab by remember { mutableStateOf("Today") }
     var showDialog by remember { mutableStateOf<FocusSession?>(null) }
@@ -51,14 +49,8 @@ fun ForestScreen() {
     var refreshTrigger by remember { mutableIntStateOf(0) }
     var isExpanded by remember { mutableStateOf(false) }
 
-    // 🔄 Har tab switch aur refresh par diary se taaza data read karega
     LaunchedEffect(refreshTrigger, selectedTab) {
         allSessions = FocusSessionManager.getAllSessions(context)
-    }
-
-    val subjectTotalMinutes = remember(allSessions) {
-        allSessions.groupBy { it.subject.trim().lowercase() }
-            .mapValues { entry -> entry.value.sumOf { it.durationMinutes } }
     }
 
     // 🟢 Smart Date Filter (Today, This Week, All Time)
@@ -99,44 +91,48 @@ fun ForestScreen() {
 
     val successfulTreesCount = displaySessions.count { it.earnedTrees > 0 }
     val motivationSubtitle = when (selectedTab) {
-        "Today" -> if (successfulTreesCount == 0) "No trees grown today yet. Start focusing!" else "You've grown $successfulTreesCount tree${if (successfulTreesCount > 1) "s" else ""} today, keep it up!"
-        "This Week" -> "You've grown $successfulTreesCount tree${if (successfulTreesCount > 1) "s" else ""} this week, keep it up!"
-        else -> "You've grown $successfulTreesCount tree${if (successfulTreesCount > 1) "s" else ""} in total, keep it up!"
+        "Today" -> if (successfulTreesCount == 0) "No blooms grown today yet. Start focusing!" else "You've grown $successfulTreesCount bloom${if (successfulTreesCount > 1) "s" else ""} today, keep it up!"
+        "This Week" -> "You've grown $successfulTreesCount bloom${if (successfulTreesCount > 1) "s" else ""} this week, keep it up!"
+        else -> "You've grown $successfulTreesCount bloom${if (successfulTreesCount > 1) "s" else ""} in total, keep it up!"
     }
 
-    val gridPattern = remember(isExpanded, displaySessions.size) {
-        val basePattern = listOf(3, 4, 3, 4, 3)
-        if (!isExpanded) {
-            basePattern
-        } else {
-            val dynamicList = basePattern.toMutableList()
-            var currentCapacity = 17
-            val extraRowCycle = listOf(4, 3)
-            var cycleIndex = 0
-
-            val targetCapacity = maxOf(displaySessions.size, 24)
-            while (currentCapacity < targetCapacity) {
-                val nextCount = extraRowCycle[cycleIndex % extraRowCycle.size]
-                dynamicList.add(nextCount)
-                currentCapacity += nextCount
-                cycleIndex++
-            }
-            dynamicList
-        }
+    // पगडंडी के मोड़ों पर सभी स्लॉट्स के Coordinates (पहले 5 स्लॉट पेज 1 पर दिखेंगे)
+    val pathwaySlots = remember {
+        listOf(
+            Pair(45.dp, 190.dp),  // Slot 1 (Gate ke paas)
+            Pair(215.dp, 280.dp), // Slot 2
+            Pair(40.dp, 400.dp),  // Slot 3
+            Pair(225.dp, 510.dp), // Slot 4
+            Pair(50.dp, 630.dp),  // Slot 5 (Page 1 end)
+            Pair(220.dp, 750.dp), // Slot 6 (Page 2 start)
+            Pair(45.dp, 880.dp),
+            Pair(225.dp, 1000.dp),
+            Pair(50.dp, 1130.dp),
+            Pair(220.dp, 1250.dp),
+            Pair(55.dp, 1380.dp),
+            Pair(215.dp, 1500.dp),
+            Pair(60.dp, 1630.dp),
+            Pair(210.dp, 1750.dp),
+            Pair(70.dp, 1880.dp),
+            Pair(205.dp, 2000.dp)
+        )
     }
+
+    val visibleSlots = if (isExpanded) pathwaySlots else pathwaySlots.take(5)
+    val pathwayHeight = if (isExpanded) 2150.dp else 750.dp
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(darkBg)
-            .verticalScroll(scrollState)
-            .padding(20.dp),
+            .verticalScroll(scrollState),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // 1. TOP MOTIVATION CARD
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(cardBg)
                 .border(1.dp, boxBorderGolden, RoundedCornerShape(20.dp))
@@ -149,7 +145,7 @@ fun ForestScreen() {
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Your Amon Forest",
+                        text = "Your Amon Garden",
                         color = goldColor,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
@@ -174,12 +170,11 @@ fun ForestScreen() {
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
         // 2. CALENDAR TABS
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 20.dp)
                 .clip(RoundedCornerShape(50))
                 .background(Color(0xFF18181B))
                 .padding(4.dp),
@@ -206,98 +201,68 @@ fun ForestScreen() {
             }
         }
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // 3. DIAMOND GRID (3,4,3,4,3)
-        val boxSize = 50.dp
-        val treeIconSize = 32.dp
-
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy((-10).dp)
+        // 3. 2.5D GARDEN PATHWAY (With Dark Gradient Vignette)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(pathwayHeight)
+                .clipToBounds()
         ) {
-            var sessionIndex = 0
+            // बैकग्राउंड पगडंडी
+            Image(
+                painter = painterResource(id = R.drawable.bg_pathway_meadow),
+                contentDescription = "Amon Garden Pathway",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2150.dp),
+                contentScale = ContentScale.FillWidth,
+                alignment = Alignment.TopCenter
+            )
 
-            gridPattern.forEach { count ->
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.padding(vertical = 8.dp)
-                ) {
-                    repeat(count) {
-                        val session = displaySessions.getOrNull(sessionIndex)
-                        sessionIndex++
+            // केवल पूर्ण हुए सेशन के पौधे और क्यारियां
+            visibleSlots.forEachIndexed { index, (xPos, yPos) ->
+                val session = displaySessions.getOrNull(index)
 
-                        val isWithered = session != null && session.earnedTrees == 0
-                        val isMastered = session != null && !isWithered &&
-                                ((subjectTotalMinutes[session.subject.trim().lowercase()] ?: 0) >= 1800)
-
-                        val tileBg = when {
-                            isWithered -> Color(0xFF241E1E)
-                            isMastered -> forestGreenBg
-                            else -> boxDarkGray
-                        }
-                        val tileBorder = when {
-                            isWithered -> Color(0xFF7F1D1D)
-                            isMastered -> forestGreenBorder
-                            else -> boxBorderGolden
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .size(boxSize)
-                                .rotate(45f)
-                                .background(tileBg, RoundedCornerShape(12.dp))
-                                .border(1.2.dp, tileBorder, RoundedCornerShape(12.dp))
-                                .clickable {
-                                    if (session != null) {
-                                        showDialog = session
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (session != null) {
-                                if (isWithered) {
-                                    Image(
-                                        painter = painterResource(id = R.drawable.tree_withered),
-                                        contentDescription = "Withered Tree",
-                                        modifier = Modifier.requiredSize(130.dp).rotate(-45f)
-                                    )
-                                } else if (isMastered) {
-                                    val isSakura = session.subject.contains("english", ignoreCase = true) ||
-                                            session.subject.contains("art", ignoreCase = true) ||
-                                            session.subject.contains("cherry", ignoreCase = true)
-
-                                    val treeResId = if (isSakura) R.drawable.tree_sakura else R.drawable.tree_oak
-
-                                    Image(
-                                        painter = painterResource(id = treeResId),
-                                        contentDescription = "Mastered 2.5D Tree",
-                                        modifier = Modifier.requiredSize(130.dp).rotate(-45f)
-                                    )
-                                } else {
-                                    val plantInfo = getPlantIconAndName(session.subject)
-                                    Text(
-                                        text = plantInfo.first,
-                                        fontSize = treeIconSize.value.sp,
-                                        modifier = Modifier.rotate(-45f)
-                                    )
-                                }
-                            } else {
-                                Text(
-                                    text = "🌱",
-                                    fontSize = 14.sp,
-                                    modifier = Modifier.rotate(-45f).alpha(0.3f)
-                                )
+                if (session != null) {
+                    val plantDrawable = getBloomDrawable(session, index)
+                    PlantPlot(
+                        plantResId = plantDrawable,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .offset(x = xPos, y = yPos)
+                            .clickable {
+                                showDialog = session
                             }
-                        }
-                    }
+                    )
                 }
+            }
+
+            // ✨ बॉटम डार्क ग्रेडिएंट शेड (लॉक स्टेट में फ़ेड इफ़ेक्ट)
+            if (!isExpanded) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    darkBg.copy(alpha = 0.5f),
+                                    darkBg.copy(alpha = 0.95f),
+                                    darkBg
+                                )
+                            )
+                        )
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // 4. VIEW MORE / SHOW LESS BUTTON
+        // 4. VIEW MORE / SHOW LESS BUTTON (प्रोग्रेसिव अनलॉक)
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
@@ -314,14 +279,12 @@ fun ForestScreen() {
             )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(30.dp))
     }
 
-    // 5. POP-UP DIALOG
+    // 5. POP-UP DIALOG (पौधे पर टैप करने पर विवरण)
     if (showDialog != null) {
         val isDialogWithered = showDialog!!.earnedTrees == 0
-        val isDialogMastered = !isDialogWithered &&
-                ((subjectTotalMinutes[showDialog!!.subject.trim().lowercase()] ?: 0) >= 1800)
 
         Dialog(onDismissRequest = { showDialog = null }) {
             Box(
@@ -334,50 +297,19 @@ fun ForestScreen() {
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (isDialogWithered) {
-                        Image(
-                            painter = painterResource(id = R.drawable.tree_withered),
-                            contentDescription = "Withered Tree",
-                            modifier = Modifier.requiredSize(140.dp)
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Withered Tree (Session Incomplete)",
-                            color = Color(0xFFEF4444),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    } else if (isDialogMastered) {
-                        val isSakura = showDialog!!.subject.contains("english", ignoreCase = true) ||
-                                showDialog!!.subject.contains("art", ignoreCase = true) ||
-                                showDialog!!.subject.contains("cherry", ignoreCase = true)
-
-                        val treeResId = if (isSakura) R.drawable.tree_sakura else R.drawable.tree_oak
-
-                        Image(
-                            painter = painterResource(id = treeResId),
-                            contentDescription = "Mastered Tree",
-                            modifier = Modifier.requiredSize(140.dp)
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        val treeName = if (isSakura) "✨ Magical Cherry Sakura (Mastered)" else "✨ Magical Classic Oak (Mastered)"
-                        Text(
-                            text = treeName,
-                            color = goldColor,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    } else {
-                        val plantInfo = getPlantIconAndName(showDialog!!.subject)
-                        Text(text = plantInfo.first, fontSize = 50.sp)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = plantInfo.second,
-                            color = goldColor,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    val bloomRes = if (isDialogWithered) R.drawable.tree_withered else getBloomDrawable(showDialog!!, 0)
+                    Image(
+                        painter = painterResource(id = bloomRes),
+                        contentDescription = "Garden Bloom",
+                        modifier = Modifier.requiredSize(120.dp)
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = if (isDialogWithered) "Withered Session" else "Blooming Flower",
+                        color = if (isDialogWithered) Color(0xFFEF4444) else goldColor,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
@@ -394,7 +326,7 @@ fun ForestScreen() {
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (isDialogWithered) "Session Cancelled / Incomplete" else "Focused for: ${showDialog!!.durationMinutes} Minutes",
+                        text = if (isDialogWithered) "Session Incomplete" else "Focused for: ${showDialog!!.durationMinutes} Minutes",
                         color = if (isDialogWithered) Color(0xFFF87171) else goldColor,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -408,6 +340,30 @@ fun ForestScreen() {
                     }
                 }
             }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// 🌸 Helper: सेशन के हिसाब से सही पौधा चुनना
+// -----------------------------------------------------------------------------
+private fun getBloomDrawable(session: FocusSession, index: Int): Int {
+    if (session.earnedTrees == 0) return R.drawable.tree_withered
+    val sub = session.subject.trim().lowercase()
+
+    return when {
+        sub.contains("lotus") || sub.contains("math") -> R.drawable.plant_lotus
+        sub.contains("cherry") || sub.contains("sakura") || sub.contains("english") || sub.contains("art") -> R.drawable.plant_cherry_blossom
+        sub.contains("paradise") || sub.contains("bird") || sub.contains("code") || sub.contains("science") -> R.drawable.plant_bird_of_paradise
+        sub.contains("iris") || sub.contains("blue") || sub.contains("history") -> R.drawable.plant_iris
+        else -> {
+            val blooms = listOf(
+                R.drawable.plant_lotus,
+                R.drawable.plant_cherry_blossom,
+                R.drawable.plant_bird_of_paradise,
+                R.drawable.plant_iris
+            )
+            blooms[Math.abs(session.subject.hashCode() + index) % blooms.size]
         }
     }
 }
@@ -427,7 +383,6 @@ fun parseSessionDateUniversal(rawDateStr: String): Date? {
         .replace(Regex("\\s+"), " ")
         .trim()
 
-    // Agar numeric timestamp ho (e.g. 1727334000000)
     clean.toLongOrNull()?.let { millis ->
         if (millis > 1000000000000L) return Date(millis)
     }
@@ -457,7 +412,6 @@ fun parseSessionDateUniversal(rawDateStr: String): Date? {
         } catch (_: Exception) {}
     }
 
-    // Fallback: yyyy-MM-dd regex
     val ymdMatch = Regex("(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})").find(clean)
     if (ymdMatch != null) {
         val (y, m, d) = ymdMatch.destructured
@@ -467,57 +421,14 @@ fun parseSessionDateUniversal(rawDateStr: String): Date? {
         }.time
     }
 
-    // Fallback: dd-MM-yyyy regex
     val dmyMatch = Regex("(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{4})").find(clean)
     if (dmyMatch != null) {
         val (d, m, y) = dmyMatch.destructured
         return Calendar.getInstance().apply {
-            set(y.toInt(), m.toInt() - 1, d.toInt(), 0, 0, 0)
+            set(d.toInt(), m.toInt() - 1, y.toInt(), 0, 0, 0)
             set(Calendar.MILLISECOND, 0)
         }.time
     }
 
     return null
-}
-
-private fun getPlantIconAndName(subjectName: String): Pair<String, String> {
-    val defaultMatch = PlantRegistry.defaultSubjects.find { it.name.equals(subjectName, ignoreCase = true) }
-    if (defaultMatch != null) {
-        val emoji = when (defaultMatch.tree.id) {
-            "cherry" -> "🌸"
-            "lemon" -> "🍋"
-            "apple" -> "🍎"
-            "coconut" -> "🌴"
-            "mango" -> "🥭"
-            "banyan" -> "🌳"
-            "bael" -> "🌿"
-            "kiwi" -> "🥝"
-            "walnut" -> "🌰"
-            "orange" -> "🍊"
-            "starfruit" -> "⭐"
-            "peach" -> "🍑"
-            "olive" -> "🫒"
-            "fig" -> "🪴"
-            "pomegranate" -> "🌱"
-            else -> "🌲"
-        }
-        return Pair(emoji, "${defaultMatch.tree.nameEn} (${defaultMatch.tree.nameHi})")
-    }
-
-    val vaultIndex = Math.abs(subjectName.hashCode()) % PlantRegistry.reservedTreeVault.size
-    val reservedTree = PlantRegistry.reservedTreeVault[vaultIndex]
-    val vaultEmoji = when (reservedTree.id) {
-        "banana" -> "🍌"
-        "guava" -> "🍈"
-        "papaya" -> "🥭"
-        "plum" -> "🫐"
-        "pear" -> "🍐"
-        "jackfruit" -> "🍈"
-        "cashew" -> "🥜"
-        "custard_apple" -> "🍏"
-        "apricot" -> "🍑"
-        "lychee" -> "🍓"
-        else -> "🌳"
-    }
-    return Pair(vaultEmoji, "${reservedTree.nameEn} (${reservedTree.nameHi})")
 }
