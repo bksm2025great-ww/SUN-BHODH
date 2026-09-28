@@ -37,27 +37,24 @@ fun AuthScreen(
     val boxBorderGolden = Color(0x33F3C669)
     val textMuted = Color(0xFFA0A0A5)
 
-    // Form State (Sirf Username)
-    var username by remember { mutableStateOf(userManager.getUserName().ifEmpty { "Vision" }) }
+    // Form State: बॉक्स शुरुआत में बिल्कुल खाली रहेगा ताकि कोई पुराना नाम पहले से न दिखे
+    var username by remember { mutableStateOf(userManager.getUserName()) }
     var errorMessage by remember { mutableStateOf("") }
 
     // 🔔 Android ka Asli Default Permission Popup Launcher
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { _ ->
-        // User chahe Allow kare ya Don't allow, bina kisi crash ke aage badhein
         onAuthComplete()
     }
 
     val completeSetupAndProceed = {
-        val cleanName = username.trim().ifEmpty { "Vision" }
+        val cleanName = username.trim().ifEmpty { "Amon User" }
         userManager.setUserName(cleanName)
-        // SharedPreferences ki safety taaki purana logic isAccountSetupDone par na atke
         userManager.setPassword("active")
         userManager.setBirthday("01/01/2000")
         userManager.setGuestUser(false)
 
-        // Android 13+ me notification permission ka default popup trigger karna
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
@@ -131,7 +128,8 @@ fun AuthScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        placeholder = { Text("Apna naam likhein (e.g. Vision)", color = textMuted) },
+                        // ✨ वाटरमार्क: टाइप करते ही अपने-आप हट जाएगा
+                        placeholder = { Text("Enter your name...", color = textMuted) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = goldColor,
                             unfocusedBorderColor = boxDarkGray,
