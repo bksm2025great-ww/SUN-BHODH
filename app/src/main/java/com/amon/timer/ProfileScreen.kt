@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.widget.Toast
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -23,6 +24,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -256,11 +260,10 @@ fun ProfileScreen() {
                             )
                         }
                     }
-                    Text(
-                        text = if (isThemeExpanded) "⌃" else "⌄",
-                        color = goldColor,
-                        fontSize = 19.sp,
-                        fontWeight = FontWeight.Bold
+                    // ✨ स्मूथ एनिमेटेड गोल्डन शेवरॉन
+                    ChevronIcon(
+                        isExpanded = isThemeExpanded,
+                        tint = goldColor
                     )
                 }
 
@@ -402,26 +405,33 @@ fun ProfileScreen() {
                 .padding(16.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                // Haptic Buzz Row
+                // 📳 Haptic Buzz Row (आइकन के साथ)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Haptic Buzz (Vibration)",
-                            color = textMain,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = "Session poora hone par halka vibrate karega",
-                            color = textMuted,
-                            fontSize = 11.5.sp,
-                            lineHeight = 16.sp
-                        )
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(13.dp)
+                    ) {
+                        Text(text = "📳", fontSize = 20.sp)
+                        Column {
+                            Text(
+                                text = "Haptic Buzz (Vibration)",
+                                color = textMain,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = "Session poora hone par halka vibrate karega",
+                                color = textMuted,
+                                fontSize = 11.5.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Switch(
@@ -438,26 +448,33 @@ fun ProfileScreen() {
 
                 Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
 
-                // Keep Screen Awake Row
+                // 💡 Keep Screen Awake Row (आइकन के साथ)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Keep Screen Awake (Always On)",
-                            color = textMain,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = "Padhte waqt screen band nahi hogi",
-                            color = textMuted,
-                            fontSize = 11.5.sp,
-                            lineHeight = 16.sp
-                        )
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(13.dp)
+                    ) {
+                        Text(text = "💡", fontSize = 20.sp)
+                        Column {
+                            Text(
+                                text = "Keep Screen Awake (Always On)",
+                                color = textMain,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = "Padhte waqt screen band nahi hogi",
+                                color = textMuted,
+                                fontSize = 11.5.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Switch(
@@ -612,11 +629,10 @@ fun ProfileScreen() {
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Medium
                         )
-                        Text(
-                            text = if (isUpdateExpanded) "⌃" else "⌄",
-                            color = goldColor,
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold
+                        // ✨ स्मूथ एनिमेटेड गोल्डन शेवरॉन
+                        ChevronIcon(
+                            isExpanded = isUpdateExpanded,
+                            tint = goldColor
                         )
                     }
                 }
@@ -786,7 +802,6 @@ fun ProfileScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(13.dp)
                 ) {
-                    // नया लक्ज़री गोल्डन पेपर प्लेन आइकन (20.sp साइज में टिल्टेड)
                     PaperAirplaneIcon(
                         tint = goldColor,
                         modifier = Modifier.rotate(-20f)
@@ -934,6 +949,42 @@ fun ProfileScreen() {
                 }
             }
         }
+    }
+}
+
+// ----------------- ✨ Lightweight Golden Rotating Chevron Component -----------------
+@Composable
+private fun ChevronIcon(
+    isExpanded: Boolean,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    val rotation by animateFloatAsState(
+        targetValue = if (isExpanded) 180f else 0f,
+        label = "chevron_rotation"
+    )
+    Canvas(
+        modifier = modifier
+            .size(16.dp)
+            .rotate(rotation)
+    ) {
+        val w = size.width
+        val h = size.height
+        val stroke = 2.5.dp.toPx()
+        val path = Path().apply {
+            moveTo(w * 0.18f, h * 0.38f)
+            lineTo(w * 0.50f, h * 0.68f)
+            lineTo(w * 0.82f, h * 0.38f)
+        }
+        drawPath(
+            path = path,
+            color = tint,
+            style = Stroke(
+                width = stroke,
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round
+            )
+        )
     }
 }
 
