@@ -96,30 +96,19 @@ fun ForestScreen() {
         else -> "You've grown $successfulTreesCount bloom${if (successfulTreesCount > 1) "s" else ""} in total, keep it up!"
     }
 
-    // पगडंडी के मोड़ों पर सभी स्लॉट्स के Coordinates (पहले 5 स्लॉट पेज 1 पर दिखेंगे)
+    // पगडंडी के वास्तविक घुमाव के अनुसार मोड़ों के स्लॉट्स (X, Y)
     val pathwaySlots = remember {
         listOf(
-            Pair(45.dp, 190.dp),  // Slot 1 (Gate ke paas)
-            Pair(215.dp, 280.dp), // Slot 2
-            Pair(40.dp, 400.dp),  // Slot 3
-            Pair(225.dp, 510.dp), // Slot 4
-            Pair(50.dp, 630.dp),  // Slot 5 (Page 1 end)
-            Pair(220.dp, 750.dp), // Slot 6 (Page 2 start)
-            Pair(45.dp, 880.dp),
-            Pair(225.dp, 1000.dp),
-            Pair(50.dp, 1130.dp),
-            Pair(220.dp, 1250.dp),
-            Pair(55.dp, 1380.dp),
-            Pair(215.dp, 1500.dp),
-            Pair(60.dp, 1630.dp),
-            Pair(210.dp, 1750.dp),
-            Pair(70.dp, 1880.dp),
-            Pair(205.dp, 2000.dp)
+            Pair(50.dp, 195.dp),  // Slot 1 (Gate ke paas, Left)
+            Pair(215.dp, 290.dp), // Slot 2 (Pahla Mod, Right)
+            Pair(65.dp, 430.dp),  // Slot 3 (Dusra Mod, Left)
+            Pair(210.dp, 560.dp), // Slot 4 (Teesra Mod, Right)
+            Pair(85.dp, 680.dp)   // Slot 5 (Chautha Mod, Left)
         )
     }
 
-    val visibleSlots = if (isExpanded) pathwaySlots else pathwaySlots.take(5)
-    val pathwayHeight = if (isExpanded) 2150.dp else 750.dp
+    // जब लॉक हो तो 420.dp तक दिखेगा, जब "View More" करेंगे तो पूरा 820.dp रास्ता खुलेगा
+    val currentPathwayHeight = if (isExpanded) 820.dp else 440.dp
 
     Column(
         modifier = Modifier
@@ -132,11 +121,11 @@ fun ForestScreen() {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(horizontal = 20.dp, vertical = 14.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(cardBg)
                 .border(1.dp, boxBorderGolden, RoundedCornerShape(20.dp))
-                .padding(20.dp)
+                .padding(18.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -147,10 +136,10 @@ fun ForestScreen() {
                     Text(
                         text = "Your Amon Garden",
                         color = goldColor,
-                        fontSize = 22.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = motivationSubtitle,
                         color = textMuted,
@@ -188,7 +177,7 @@ fun ForestScreen() {
                         .clip(RoundedCornerShape(50))
                         .background(if (isSelected) Color(0x33F3C669) else Color.Transparent)
                         .clickable { selectedTab = tab }
-                        .padding(vertical = 10.dp),
+                        .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -201,13 +190,13 @@ fun ForestScreen() {
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // 3. 2.5D GARDEN PATHWAY (With Dark Gradient Vignette)
+        // 3. 2.5D GARDEN PATHWAY (Exact Ratio - No Black Void)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(pathwayHeight)
+                .height(currentPathwayHeight)
                 .clipToBounds()
         ) {
             // बैकग्राउंड पगडंडी
@@ -216,13 +205,13 @@ fun ForestScreen() {
                 contentDescription = "Amon Garden Pathway",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(2150.dp),
+                    .height(820.dp),
                 contentScale = ContentScale.FillWidth,
                 alignment = Alignment.TopCenter
             )
 
-            // केवल पूर्ण हुए सेशन के पौधे और क्यारियां
-            visibleSlots.forEachIndexed { index, (xPos, yPos) ->
+            // केवल वही पौधे और क्यारियां दिखेंगी जहाँ सेशन पूरा हुआ है
+            pathwaySlots.forEachIndexed { index, (xPos, yPos) ->
                 val session = displaySessions.getOrNull(index)
 
                 if (session != null) {
@@ -239,19 +228,18 @@ fun ForestScreen() {
                 }
             }
 
-            // ✨ बॉटम डार्क ग्रेडिएंट शेड (लॉक स्टेट में फ़ेड इफ़ेक्ट)
+            // लॉक अवस्था में नीचे की खूबसूरत डार्क शेड
             if (!isExpanded) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp)
+                        .height(150.dp)
                         .align(Alignment.BottomCenter)
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    darkBg.copy(alpha = 0.5f),
-                                    darkBg.copy(alpha = 0.95f),
+                                    darkBg.copy(alpha = 0.6f),
                                     darkBg
                                 )
                             )
@@ -260,16 +248,16 @@ fun ForestScreen() {
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // 4. VIEW MORE / SHOW LESS BUTTON (प्रोग्रेसिव अनलॉक)
+        // 4. VIEW MORE / SHOW LESS BUTTON
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
                 .background(Color(0xFF18181B))
                 .border(1.dp, boxBorderGolden, RoundedCornerShape(50))
                 .clickable { isExpanded = !isExpanded }
-                .padding(horizontal = 24.dp, vertical = 12.dp)
+                .padding(horizontal = 22.dp, vertical = 10.dp)
         ) {
             Text(
                 text = if (isExpanded) "Show Less ⬆" else "View More History ➔",
@@ -279,10 +267,10 @@ fun ForestScreen() {
             )
         }
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(24.dp))
     }
 
-    // 5. POP-UP DIALOG (पौधे पर टैप करने पर विवरण)
+    // 5. POP-UP DIALOG (टैप करने पर विवरण)
     if (showDialog != null) {
         val isDialogWithered = showDialog!!.earnedTrees == 0
 
@@ -301,7 +289,7 @@ fun ForestScreen() {
                     Image(
                         painter = painterResource(id = bloomRes),
                         contentDescription = "Garden Bloom",
-                        modifier = Modifier.requiredSize(120.dp)
+                        modifier = Modifier.requiredSize(110.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
@@ -311,27 +299,27 @@ fun ForestScreen() {
                         fontWeight = FontWeight.Bold
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = showDialog!!.subject,
                         color = Color.White,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "Date: ${showDialog!!.date}",
                         color = textMuted,
-                        fontSize = 14.sp
+                        fontSize = 13.sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (isDialogWithered) "Session Incomplete" else "Focused for: ${showDialog!!.durationMinutes} Minutes",
                         color = if (isDialogWithered) Color(0xFFF87171) else goldColor,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
                     Button(
                         onClick = { showDialog = null },
                         colors = ButtonDefaults.buttonColors(containerColor = boxDarkGray)
@@ -345,7 +333,7 @@ fun ForestScreen() {
 }
 
 // -----------------------------------------------------------------------------
-// 🌸 Helper: सेशन के हिसाब से सही पौधा चुनना
+// 🌸 Helper: सही पौधा चुनना
 // -----------------------------------------------------------------------------
 private fun getBloomDrawable(session: FocusSession, index: Int): Int {
     if (session.earnedTrees == 0) return R.drawable.tree_withered
@@ -369,7 +357,7 @@ private fun getBloomDrawable(session: FocusSession, index: Int): Int {
 }
 
 // -----------------------------------------------------------------------------
-// 📅 Universal Smart Date Parser (Sheet + Local Compatible)
+// 📅 Universal Smart Date Parser
 // -----------------------------------------------------------------------------
 fun parseSessionDateUniversal(rawDateStr: String): Date? {
     if (rawDateStr.isBlank()) return null
@@ -425,7 +413,7 @@ fun parseSessionDateUniversal(rawDateStr: String): Date? {
     if (dmyMatch != null) {
         val (d, m, y) = dmyMatch.destructured
         return Calendar.getInstance().apply {
-            set(d.toInt(), m.toInt() - 1, y.toInt(), 0, 0, 0)
+            set(y.toInt(), m.toInt() - 1, d.toInt(), 0, 0, 0)
             set(Calendar.MILLISECOND, 0)
         }.time
     }
