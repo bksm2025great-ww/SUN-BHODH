@@ -96,18 +96,17 @@ fun ForestScreen() {
         else -> "You've grown $successfulTreesCount bloom${if (successfulTreesCount > 1) "s" else ""} in total, keep it up!"
     }
 
-    // पगडंडी के वास्तविक घुमाव के अनुसार मोड़ों के स्लॉट्स (X, Y)
+    // ✨ घास पर सेट किए गए स्लॉट्स (पगडंडी से बिल्कुल बाहर)
     val pathwaySlots = remember {
         listOf(
-            Pair(50.dp, 195.dp),  // Slot 1 (Gate ke paas, Left)
-            Pair(215.dp, 290.dp), // Slot 2 (Pahla Mod, Right)
-            Pair(65.dp, 430.dp),  // Slot 3 (Dusra Mod, Left)
-            Pair(210.dp, 560.dp), // Slot 4 (Teesra Mod, Right)
-            Pair(85.dp, 680.dp)   // Slot 5 (Chautha Mod, Left)
+            Pair(18.dp, 195.dp),  // Slot 1 (Gate ke paas, Left Grass)
+            Pair(245.dp, 290.dp), // Slot 2 (Pahla Mod, Right Grass)
+            Pair(20.dp, 430.dp),  // Slot 3 (Dusra Mod, Left Grass)
+            Pair(240.dp, 560.dp), // Slot 4 (Teesra Mod, Right Grass)
+            Pair(25.dp, 680.dp)   // Slot 5 (Chautha Mod, Left Grass)
         )
     }
 
-    // जब लॉक हो तो 420.dp तक दिखेगा, जब "View More" करेंगे तो पूरा 820.dp रास्ता खुलेगा
     val currentPathwayHeight = if (isExpanded) 820.dp else 440.dp
 
     Column(
@@ -192,14 +191,13 @@ fun ForestScreen() {
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // 3. 2.5D GARDEN PATHWAY (Exact Ratio - No Black Void)
+        // 3. 2.5D GARDEN PATHWAY
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(currentPathwayHeight)
                 .clipToBounds()
         ) {
-            // बैकग्राउंड पगडंडी
             Image(
                 painter = painterResource(id = R.drawable.bg_pathway_meadow),
                 contentDescription = "Amon Garden Pathway",
@@ -210,7 +208,6 @@ fun ForestScreen() {
                 alignment = Alignment.TopCenter
             )
 
-            // केवल वही पौधे और क्यारियां दिखेंगी जहाँ सेशन पूरा हुआ है
             pathwaySlots.forEachIndexed { index, (xPos, yPos) ->
                 val session = displaySessions.getOrNull(index)
 
@@ -228,7 +225,6 @@ fun ForestScreen() {
                 }
             }
 
-            // लॉक अवस्था में नीचे की खूबसूरत डार्क शेड
             if (!isExpanded) {
                 Box(
                     modifier = Modifier
@@ -270,7 +266,7 @@ fun ForestScreen() {
         Spacer(modifier = Modifier.height(24.dp))
     }
 
-    // 5. POP-UP DIALOG (टैप करने पर विवरण)
+    // 5. POP-UP DIALOG
     if (showDialog != null) {
         val isDialogWithered = showDialog!!.earnedTrees == 0
 
@@ -285,7 +281,7 @@ fun ForestScreen() {
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    val bloomRes = if (isDialogWithered) R.drawable.tree_withered else getBloomDrawable(showDialog!!, 0)
+                    val bloomRes = if (isDialogWithered) R.drawable.plant_withered else getBloomDrawable(showDialog!!, 0)
                     Image(
                         painter = painterResource(id = bloomRes),
                         contentDescription = "Garden Bloom",
@@ -336,7 +332,7 @@ fun ForestScreen() {
 // 🌸 Helper: सही पौधा चुनना
 // -----------------------------------------------------------------------------
 private fun getBloomDrawable(session: FocusSession, index: Int): Int {
-    if (session.earnedTrees == 0) return R.drawable.tree_withered
+    if (session.earnedTrees == 0) return R.drawable.plant_withered
     val sub = session.subject.trim().lowercase()
 
     return when {
@@ -413,7 +409,7 @@ fun parseSessionDateUniversal(rawDateStr: String): Date? {
     if (dmyMatch != null) {
         val (d, m, y) = dmyMatch.destructured
         return Calendar.getInstance().apply {
-            set(y.toInt(), m.toInt() - 1, d.toInt(), 0, 0, 0)
+            set(d.toInt(), m.toInt() - 1, y.toInt(), 0, 0, 0)
             set(Calendar.MILLISECOND, 0)
         }.time
     }
