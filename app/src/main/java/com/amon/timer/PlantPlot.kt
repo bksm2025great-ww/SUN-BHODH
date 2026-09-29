@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -32,15 +33,16 @@ fun PlantPlot(
                 .align(Alignment.BottomCenter)
         )
 
-        // 2. पौधा (मिट्टी के केंद्र में)
+        // 2. पौधा (मिट्टी के ठीक बीच में सही गहराई पर)
         if (plantResId != null) {
             Image(
                 painter = painterResource(id = plantResId),
                 contentDescription = "Active Plant",
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .wrapContentSize()
+                    .size(75.dp)
                     .align(Alignment.BottomCenter)
-                    .offset(y = (-14).dp)
+                    .offset(y = (-6).dp)
             )
         }
     }
