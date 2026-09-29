@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -46,13 +47,12 @@ fun AuthScreen(
     val boxBorderGolden = Color(0x44F3C669)
     val textMuted = Color(0xFFA0A0A8)
 
-    // Form States
-    var username by remember { 
-        mutableStateOf(
-            val saved = userManager.getUserName()
-            if (saved == "Guest" || saved == "Amon User") "" else saved
-        ) 
+    // Form States (सिंटैक्स पूरी तरह साफ़ और सही)
+    val savedName = remember { userManager.getUserName() }
+    val initialUsername = remember(savedName) {
+        if (savedName == "Guest" || savedName == "Amon User" || savedName == "Vision") "" else savedName
     }
+    var username by remember { mutableStateOf(initialUsername) }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
@@ -84,12 +84,11 @@ fun AuthScreen(
             errorMessage = "कृपया अपना यूज़रनेम दर्ज करें!"
         } else if (cleanName.length < 3) {
             errorMessage = "यूज़रनेम कम से कम 3 अक्षरों का होना चाहिए!"
-        } else if (cleanName.any { it in bannedChars }) {
+        } else if (cleanName.any { ch -> bannedChars.contains(ch) }) {
             errorMessage = "नाम में ये चिन्ह नहीं हो सकते: \\ / ? * : [ ]"
         } else if (cleanPass.length < 6) {
             errorMessage = "पासवर्ड कम से कम 6 अक्षरों का होना चाहिए!"
         } else {
-            // डेटा को लोकल फ़ोन मेमोरी में सुरक्षित सेव करना
             userManager.setUserName(cleanName)
             userManager.setPassword(cleanPass)
             userManager.setGuestUser(false)
@@ -263,10 +262,10 @@ fun AuthScreen(
                             )
                         }
 
-                        // 📐 Spacing Reduced to 10.dp for Tight, Symmetrical Look
+                        // 📐 Spacing Reduced to 10.dp
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // --- SECONDARY ACTION: COMPACT GUEST BUTTON (HALF WEIGHT) ---
+                        // --- SECONDARY ACTION: COMPACT GUEST BUTTON ---
                         Button(
                             onClick = { handleGuestLogin() },
                             modifier = Modifier
@@ -274,7 +273,7 @@ fun AuthScreen(
                                 .height(38.dp),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = boxDarkGray),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, boxBorderGolden),
+                            border = BorderStroke(1.dp, boxBorderGolden),
                             contentPadding = PaddingValues(0.dp)
                         ) {
                             Text(
