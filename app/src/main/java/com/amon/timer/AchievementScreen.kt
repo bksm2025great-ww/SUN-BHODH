@@ -1,5 +1,6 @@
 package com.amon.timer
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,7 +14,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -113,23 +116,24 @@ fun AchievementScreen(onBack: () -> Unit) {
             .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ----------------- 1. TOP BAR (BACK BUTTON & TITLE) -----------------
+        // ----------------- 1. TOP BAR (LUXURY GOLDEN-RING BACK BUTTON & TITLE) -----------------
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 4.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // ✨ नया लक्ज़री गोल्डन-रिंग बैक बटन
             Box(
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
-                    .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
-                    .border(1.dp, cardBorder, CircleShape)
+                    .background(if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9))
+                    .border(1.2.dp, goldColor.copy(alpha = 0.75f), CircleShape)
                     .clickable { onBack() },
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "←", color = textMain, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                BackArrowIcon(tint = goldColor)
             }
 
             Spacer(modifier = Modifier.width(14.dp))
@@ -519,6 +523,44 @@ fun AchievementScreen(onBack: () -> Unit) {
         }
 
         Spacer(modifier = Modifier.height(20.dp))
+    }
+}
+
+// ----------------- ✨ Lightweight Luxury Golden Back Arrow Component -----------------
+@Composable
+private fun BackArrowIcon(
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier.size(16.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 2.4.dp.toPx()
+
+        // 1. बीच की सीधी रेखा (Horizontal Stem)
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.18f, h * 0.5f),
+            end = Offset(w * 0.85f, h * 0.5f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        // 2. ऊपर का पंख (Top Diagonal Wing)
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.18f, h * 0.5f),
+            end = Offset(w * 0.52f, h * 0.18f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        // 3. नीचे का पंख (Bottom Diagonal Wing)
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.18f, h * 0.5f),
+            end = Offset(w * 0.52f, h * 0.82f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
     }
 }
 
