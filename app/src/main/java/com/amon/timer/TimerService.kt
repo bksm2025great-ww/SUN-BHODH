@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -17,22 +18,25 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class TimerService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var timerJob: Job? = null
 
-    // 🟢 असली टाइम और शुरू होने का टाइमस्टैम्प
+    // 🟢 असली टाइम और हार्डवेयर टिकर (चीट-प्रूफ)
     private var originalTimerSeconds = 0
-    private var sessionStartTimeMillis: Long = 0L
 
     companion object {
-        const val CHANNEL_ID = "amon_focus_timer_channel"
+        // नया चैनल नाम ताकि यह 'Silent' से निकलकर तुरंत ऊपर एक्टिव नोटिफ़िकेशन में आए
+        const val CHANNEL_ID = "amon_focus_active_v2"
         const val NOTIFICATION_ID = 1001
 
         const val ACTION_START = "com.amon.timer.START"
-        const val ACTION_PAUSE = "com.amon.timer.PAUSE"
+        const val ACTION_CANCEL = "com.amon.timer.CANCEL"
         const val ACTION_STOP = "com.amon.timer.STOP"
 
         const val EXTRA_SECONDS = "extra_seconds"
@@ -42,15 +46,24 @@ class TimerService : Service() {
         val isTimerRunning = mutableStateOf(false)
         val currentSubjectName = mutableStateOf("All")
 
-        // ⏱️ स्क्रीन ऑन होते ही रिंग और टाइमर को तुरंत री-सिंक करने के लिए टारगेट टाइम
-        var sessionEndTimeMillis: Long = 0L
+        // ⏱️ हार्डवेयर काउंटर का टारगेट समय (फ़ोन की दीवार घड़ी बदलने पर भी नहीं हिलेगा)
+        var sessionStartElapsedRealtime: Long = 0L
+            private set
+        var sessionTargetElapsedRealtime: Long = 0L
             private set
 
-        // 🔄 स्क्रीन खुलते ही 1 मिलीसेकंड में टाइम सिंक करने वाला जादुई फ़ंक्शन
+        // 🔄 स्क्रीन खुलते ही 1 मिलीसेकंड में टाइम सिंक करने वाला सुरक्षित फ़ंक्शन
         fun syncRemainingTime() {
-            if (isTimerRunning.value && sessionEndTimeMillis > 0L) {
-                val left = ((sessionEndTimeMillis - System.currentTimeMillis()) / 1000L).toInt().coerceAtLeast(0)
-                remainingSeconds.intValue = left
+            if (isTimerRunning.value) {
+                if (sessionTargetElapsedRealtime > 0L) {
+                    val leftMillis = sessionTargetElapsedRealtime - SystemClock.elapsedRealtime()
+                    val left = (leftMillis / 1000L).toInt().coerceAtLeast(0)
+                    remainingSeconds.intValue = left
+                } else if (sessionStartElapsedRealtime > 0L) {
+                    val elapsedMillis = SystemClock.elapsedRealtime() - sessionStartElapsedRealtime
+                    val elapsed = (elapsedMillis / 1000L).toInt().coerceAtLeast(0)
+                    remainingSeconds.intValue = elapsed
+                }
             }
         }
     }
@@ -69,8 +82,8 @@ class TimerService : Service() {
                 val subject = intent.getStringExtra(EXTRA_SUBJECT) ?: currentSubjectName.value
                 startTimer(secs, subject)
             }
-            ACTION_PAUSE, ACTION_STOP -> {
-                pauseTimer()
+            ACTION_CANCEL, ACTION_STOP -> {
+                cancelSessionGiveUp()
             }
         }
         return START_NOT_STICKY
@@ -78,22 +91,23 @@ class TimerService : Service() {
 
     private fun startTimer(seconds: Int, subject: String) {
         originalTimerSeconds = seconds
-        sessionStartTimeMillis = System.currentTimeMillis()
+        val nowElapsed = SystemClock.elapsedRealtime()
+        sessionStartElapsedRealtime = nowElapsed
         timerJob?.cancel()
         remainingSeconds.intValue = seconds
         currentSubjectName.value = subject
         isTimerRunning.value = true
 
         val isStopwatch = (seconds == 0)
-        val startTime = sessionStartTimeMillis
-        val endTime = if (isStopwatch) startTime else startTime + (seconds * 1000L)
-        sessionEndTimeMillis = endTime
+        val targetElapsed = if (isStopwatch) nowElapsed else nowElapsed + (seconds * 1000L)
+        sessionTargetElapsedRealtime = if (isStopwatch) 0L else targetElapsed
 
-        val referenceTime = if (isStopwatch) startTime else endTime
+        // नोटिफ़िकेशन में उलटी गिनती दिखाने के लिए दीवार घड़ी का संदर्भ
+        val referenceWallTime = if (isStopwatch) System.currentTimeMillis() else System.currentTimeMillis() + (seconds * 1000L)
 
-        // 🛡️ Samsung & Android 14+ सुरक्षा कवच: Foreground Service कभी क्रैश नहीं होगी
+        // 🛡️ Samsung और Android 14+ सुरक्षा कवच
         try {
-            val notification = buildNotification(seconds, subject, referenceTime, isStopwatch)
+            val notification = buildNotification(subject, referenceWallTime, isStopwatch)
             startForeground(NOTIFICATION_ID, notification)
         } catch (e: Exception) {
             Log.e("AmonTimer", "Safe startForeground catch: ${e.localizedMessage}")
@@ -103,7 +117,7 @@ class TimerService : Service() {
             if (isStopwatch) {
                 while (isActive) {
                     delay(1000L)
-                    val elapsed = ((System.currentTimeMillis() - startTime) / 1000L).toInt()
+                    val elapsed = ((SystemClock.elapsedRealtime() - sessionStartElapsedRealtime) / 1000L).toInt()
                     remainingSeconds.intValue = elapsed
 
                     if (elapsed >= 7200) { // 120 मिनट पर ऑटो-स्टॉप
@@ -114,7 +128,8 @@ class TimerService : Service() {
             } else {
                 while (isActive && remainingSeconds.intValue > 0) {
                     delay(1000L)
-                    val left = ((endTime - System.currentTimeMillis()) / 1000L).toInt().coerceAtLeast(0)
+                    val leftMillis = sessionTargetElapsedRealtime - SystemClock.elapsedRealtime()
+                    val left = (leftMillis / 1000L).toInt().coerceAtLeast(0)
                     remainingSeconds.intValue = left
                     if (left == 0) {
                         onTimerFinished()
@@ -125,25 +140,29 @@ class TimerService : Service() {
         }
     }
 
-    private fun pauseTimer() {
+    // ✕ Give Up दबाने पर: सीधे सूखा पौधा सेव होगा
+    private fun cancelSessionGiveUp() {
         if (isTimerRunning.value) {
-            saveSessionToDiary()
+            saveSessionToDiary(isCancelled = true)
         }
         timerJob?.cancel()
         isTimerRunning.value = false
-        sessionEndTimeMillis = 0L
+        sessionStartElapsedRealtime = 0L
+        sessionTargetElapsedRealtime = 0L
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } catch (_: Exception) {}
         stopSelf()
     }
 
+    // समय पूरा होने पर: सफल पौधा सेव होगा
     private fun onTimerFinished() {
         if (isTimerRunning.value) {
-            saveSessionToDiary()
+            saveSessionToDiary(isCancelled = false)
         }
         isTimerRunning.value = false
-        sessionEndTimeMillis = 0L
+        sessionStartElapsedRealtime = 0L
+        sessionTargetElapsedRealtime = 0L
         triggerGentleVibration()
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -152,12 +171,12 @@ class TimerService : Service() {
     }
 
     // 🟢 सुरक्षित डायरी व क्लाउड सेव
-    private fun saveSessionToDiary() {
-        if (sessionStartTimeMillis == 0L) return
+    private fun saveSessionToDiary(isCancelled: Boolean) {
+        if (sessionStartElapsedRealtime == 0L) return
 
         try {
-            // 1. बीता हुआ असली समय सेकंड में निकालना
-            val elapsedMillis = System.currentTimeMillis() - sessionStartTimeMillis
+            // 1. हार्डवेयर टिकर से असली बीता हुआ समय निकालना
+            val elapsedMillis = SystemClock.elapsedRealtime() - sessionStartElapsedRealtime
             val elapsedSeconds = (elapsedMillis / 1000L).toInt().coerceAtLeast(0)
 
             val completedSeconds = if (originalTimerSeconds > 0) {
@@ -166,22 +185,25 @@ class TimerService : Service() {
                 elapsedSeconds
             }
 
-            sessionStartTimeMillis = 0L
-
             val minutes = completedSeconds / 60
-            if (minutes < 1) return // 1 मिनट से कम पर सेव नहीं होगा
 
-            // 2. 🌲 नए स्लैब के हिसाब से पेड़ का नियम
-            val trees = when {
-                minutes >= 105 -> 4
-                minutes >= 75  -> 3
-                minutes >= 45  -> 2
-                minutes >= 15  -> 1
-                else -> 0
+            // 2. पेड़ का नियम: अगर कैंसिल हुआ तो 0 पेड़ (सूखा पौधा), वरना स्लैब के अनुसार
+            val trees = if (isCancelled) {
+                0 // कैंसिल / अधूरा सेशन = सूखा पौधा
+            } else {
+                when {
+                    minutes >= 105 -> 4
+                    minutes >= 75  -> 3
+                    minutes >= 45  -> 2
+                    minutes >= 15  -> 1
+                    else -> 0
+                }
             }
 
-            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
-            val currentDate = sdf.format(java.util.Date())
+            if (minutes < 1 && !isCancelled) return // 1 मिनट से कम बिना कैंसिल के सेव नहीं होगा
+
+            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+            val currentDate = sdf.format(Date())
 
             // 3. फ़ोन की लोकल डायरी में सुरक्षित सेव
             val session = FocusSession(
@@ -192,7 +214,7 @@ class TimerService : Service() {
             )
             FocusSessionManager.saveSession(this, session)
 
-            // 4. 🌐 Google Sheet में बैकअप
+            // 4. 🌐 Google Sheet / Cloud में बैकअप
             CloudSyncManager.syncSession(
                 context = this,
                 subject = currentSubjectName.value,
@@ -228,7 +250,7 @@ class TimerService : Service() {
         }
     }
 
-    private fun buildNotification(seconds: Int, subject: String, referenceTime: Long, isStopwatch: Boolean): Notification {
+    private fun buildNotification(subject: String, referenceTime: Long, isStopwatch: Boolean): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -239,20 +261,21 @@ class TimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val pauseIntent = Intent(this, TimerService::class.java).apply {
-            action = ACTION_PAUSE
+        // ✕ Give Up (सीधा कैंसिल करने वाला इंटेंट)
+        val cancelIntent = Intent(this, TimerService::class.java).apply {
+            action = ACTION_CANCEL
         }
-        val pausePendingIntent = PendingIntent.getService(
+        val cancelPendingIntent = PendingIntent.getService(
             this,
             1,
-            pauseIntent,
+            cancelIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val contentText = if (isStopwatch) "Stopwatch running in background" else "Timer running in background"
+        val contentText = if (isStopwatch) "Counting focus time..." else "Focus in progress • Tap to open"
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Focus Session: $subject")
+            .setContentTitle("Amon Focus • $subject")
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setOngoing(true)
@@ -260,9 +283,10 @@ class TimerService : Service() {
             .setUsesChronometer(true)
             .setChronometerCountDown(!isStopwatch)
             .setWhen(referenceTime)
-            .addAction(android.R.drawable.ic_media_pause, "Pause", pausePendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "✕ Give Up", cancelPendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setOnlyAlertOnce(true)
             .build()
     }
 
@@ -271,10 +295,12 @@ class TimerService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Amon Focus Timer",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT // साइलेंट से हटाकर एक्टिव में किया
             ).apply {
                 description = "Shows live focus countdown timer"
                 setShowBadge(false)
+                setSound(null, null) // नोटिफ़िकेशन बार-बार आवाज़ नहीं करेगा
+                enableVibration(false)
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
