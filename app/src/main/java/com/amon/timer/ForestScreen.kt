@@ -2,19 +2,19 @@ package com.amon.timer
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -32,28 +32,24 @@ import java.util.Locale
 @Composable
 fun ForestScreen() {
     val context = LocalContext.current
-    val scrollState = rememberScrollState()
 
-    // Colors (Luxe Gold Theme)
+    // कलर्स
     val goldColor = Color(0xFFF3C669)
-    val darkBg = Color(0xFF121214)
     val cardBg = Color(0xFF1E1E22)
     val boxDarkGray = Color(0xFF2A2A32)
-    val boxBorderGolden = Color(0x33F3C669)
     val textMuted = Color(0xFFA0A0A5)
 
-    // States
+    // स्टेट्स
     var selectedTab by remember { mutableStateOf("Today") }
     var showDialog by remember { mutableStateOf<FocusSession?>(null) }
     var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
-    var isExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(refreshTrigger, selectedTab) {
         allSessions = FocusSessionManager.getAllSessions(context)
     }
 
-    // 🟢 Smart Date Filter (Today, This Week, All Time)
+    // 🟢 स्मार्ट डेट फ़िल्टर (Today, This Week, All Time)
     val displaySessions = remember(allSessions, selectedTab) {
         val nowCal = Calendar.getInstance()
         val nowYear = nowCal.get(Calendar.YEAR)
@@ -89,184 +85,98 @@ fun ForestScreen() {
         }
     }
 
-    val successfulTreesCount = displaySessions.count { it.earnedTrees > 0 }
-    val motivationSubtitle = when (selectedTab) {
-        "Today" -> if (successfulTreesCount == 0) "No blooms grown today yet. Start focusing!" else "You've grown $successfulTreesCount bloom${if (successfulTreesCount > 1) "s" else ""} today, keep it up!"
-        "This Week" -> "You've grown $successfulTreesCount bloom${if (successfulTreesCount > 1) "s" else ""} this week, keep it up!"
-        else -> "You've grown $successfulTreesCount bloom${if (successfulTreesCount > 1) "s" else ""} in total, keep it up!"
-    }
-
-    // ✨ घास पर सेट किए गए स्लॉट्स (पगडंडी से बिल्कुल बाहर)
-    val pathwaySlots = remember {
-        listOf(
-            Pair(18.dp, 195.dp),  // Slot 1 (Gate ke paas, Left Grass)
-            Pair(245.dp, 290.dp), // Slot 2 (Pahla Mod, Right Grass)
-            Pair(20.dp, 430.dp),  // Slot 3 (Dusra Mod, Left Grass)
-            Pair(240.dp, 560.dp), // Slot 4 (Teesra Mod, Right Grass)
-            Pair(25.dp, 680.dp)   // Slot 5 (Chautha Mod, Left Grass)
-        )
-    }
-
-    val currentPathwayHeight = if (isExpanded) 820.dp else 440.dp
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(darkBg)
-            .verticalScroll(scrollState),
-        horizontalAlignment = Alignment.CenterHorizontally
+    Box(
+        modifier = Modifier.fillMaxSize()
     ) {
-        // 1. TOP MOTIVATION CARD
-        Box(
+        // 1. बैकग्राउंड (विंटेज बोर्ड + हरी मखमली घास)
+        Image(
+            painter = painterResource(id = R.drawable.bg_amon_garden),
+            contentDescription = "Amon Garden Background",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        // 2. स्क्रीन की सामग्री
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(cardBg)
-                .border(1.dp, boxBorderGolden, RoundedCornerShape(20.dp))
-                .padding(18.dp)
+                .fillMaxSize()
+                .padding(horizontal = 12.dp)
         ) {
+            // Amon Garden बोर्ड के नीचे आने के लिए स्पेस
+            Spacer(modifier = Modifier.height(115.dp))
+
+            // पारदर्शी कैप्सूल फ़िल्टर टैब्स (Today | This Week | All Time)
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Your Amon Garden",
-                        color = goldColor,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = motivationSubtitle,
-                        color = textMuted,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .clickable { refreshTrigger++ },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "🔄", fontSize = 18.sp)
-                }
-            }
-        }
-
-        // 2. CALENDAR TABS
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .clip(RoundedCornerShape(50))
-                .background(Color(0xFF18181B))
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            listOf("Today", "This Week", "All Time").forEach { tab ->
-                val isSelected = selectedTab == tab
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(50))
-                        .background(if (isSelected) Color(0x33F3C669) else Color.Transparent)
-                        .clickable { selectedTab = tab }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = tab,
-                        color = if (isSelected) goldColor else textMuted,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // 3. 2.5D GARDEN PATHWAY
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(currentPathwayHeight)
-                .clipToBounds()
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.bg_pathway_meadow),
-                contentDescription = "Amon Garden Pathway",
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(820.dp),
-                contentScale = ContentScale.FillWidth,
-                alignment = Alignment.TopCenter
-            )
-
-            pathwaySlots.forEachIndexed { index, (xPos, yPos) ->
-                val session = displaySessions.getOrNull(index)
-
-                if (session != null) {
-                    val plantDrawable = getBloomDrawable(session, index)
-                    PlantPlot(
-                        plantResId = plantDrawable,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .offset(x = xPos, y = yPos)
-                            .clickable {
-                                showDialog = session
-                            }
-                    )
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color.Black.copy(alpha = 0.45f)) // 50% ट्रांसपेरेंट लुक
+                        .padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    listOf("Today", "This Week", "All Time").forEach { tab ->
+                        val isSelected = selectedTab == tab
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (isSelected) Color(0xFFE2A84B) else Color.Transparent)
+                                .clickable { selectedTab = tab }
+                                .padding(horizontal = 14.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = tab,
+                                color = if (isSelected) Color(0xFF2C1604) else Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
                 }
             }
 
-            if (!isExpanded) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 3. सात-सात गमलों की स्क्रोल होने वाली ग्रिड
+            if (displaySessions.isEmpty()) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp)
-                        .align(Alignment.BottomCenter)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    darkBg.copy(alpha = 0.6f),
-                                    darkBg
-                                )
-                            )
+                        .fillMaxSize()
+                        .padding(bottom = 80.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No focus sessions yet.\nStart timer to grow plants!",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(7), // एक कतार में ठीक 7 गमले
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    contentPadding = PaddingValues(bottom = 32.dp)
+                ) {
+                    items(displaySessions) { session ->
+                        // गमला + शैडो कंपोनेंट
+                        GardenPotWithShadow(
+                            session = session,
+                            onClick = { showDialog = session }
                         )
-                )
+                    }
+                }
             }
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // 4. VIEW MORE / SHOW LESS BUTTON
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(Color(0xFF18181B))
-                .border(1.dp, boxBorderGolden, RoundedCornerShape(50))
-                .clickable { isExpanded = !isExpanded }
-                .padding(horizontal = 22.dp, vertical = 10.dp)
-        ) {
-            Text(
-                text = if (isExpanded) "Show Less ⬆" else "View More History ➔",
-                color = goldColor,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
     }
 
-    // 5. POP-UP DIALOG
+    // 4. पॉप-अप डायलॉग (जब गमले पर क्लिक करें)
     if (showDialog != null) {
         val isDialogWithered = showDialog!!.earnedTrees == 0
 
@@ -276,16 +186,15 @@ fun ForestScreen() {
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
                     .background(cardBg)
-                    .border(1.5.dp, goldColor, RoundedCornerShape(24.dp))
                     .padding(24.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    val bloomRes = if (isDialogWithered) R.drawable.plant_withered else getBloomDrawable(showDialog!!, 0)
+                    val bloomRes = if (isDialogWithered) R.drawable.plant_withered else R.drawable.pot_marigold_1
                     Image(
                         painter = painterResource(id = bloomRes),
                         contentDescription = "Garden Bloom",
-                        modifier = Modifier.requiredSize(110.dp)
+                        modifier = Modifier.size(100.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
@@ -329,31 +238,55 @@ fun ForestScreen() {
 }
 
 // -----------------------------------------------------------------------------
-// 🌸 Helper: सही पौधा चुनना
+// 🌱 शैडो और गमला दिखाने वाला सेल
 // -----------------------------------------------------------------------------
-private fun getBloomDrawable(session: FocusSession, index: Int): Int {
-    if (session.earnedTrees == 0) return R.drawable.plant_withered
-    val sub = session.subject.trim().lowercase()
+@Composable
+fun GardenPotWithShadow(
+    session: FocusSession,
+    onClick: () -> Unit
+) {
+    // अगर सेशन अधूरा रहा (earnedTrees == 0) तो सूखा पौधा, वरना गेंदा
+    val isWithered = session.earnedTrees == 0
+    val imageRes = if (isWithered) R.drawable.plant_withered else R.drawable.pot_marigold_1
 
-    return when {
-        sub.contains("lotus") || sub.contains("math") -> R.drawable.plant_lotus
-        sub.contains("cherry") || sub.contains("sakura") || sub.contains("english") || sub.contains("art") -> R.drawable.plant_cherry_blossom
-        sub.contains("paradise") || sub.contains("bird") || sub.contains("code") || sub.contains("science") -> R.drawable.plant_bird_of_paradise
-        sub.contains("iris") || sub.contains("blue") || sub.contains("history") -> R.drawable.plant_iris
-        else -> {
-            val blooms = listOf(
-                R.drawable.plant_lotus,
-                R.drawable.plant_cherry_blossom,
-                R.drawable.plant_bird_of_paradise,
-                R.drawable.plant_iris
-            )
-            blooms[Math.abs(session.subject.hashCode() + index) % blooms.size]
-        }
+    Box(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .fillMaxWidth()
+            .clickable { onClick() },
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        // लेयर 1: पौधे के नीचे की हल्की ओवल शैडो
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.65f)
+                .height(8.dp)
+                .offset(y = 2.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.25f),
+                            Color.Transparent
+                        ),
+                        center = Offset.Zero,
+                        radius = 180f
+                    ),
+                    shape = CircleShape
+                )
+        )
+
+        // लेयर 2: पौधे की साफ़ इमेज
+        Image(
+            painter = painterResource(id = imageRes),
+            contentDescription = if (isWithered) "Withered Plant" else "Marigold Pot",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Fit
+        )
     }
 }
 
 // -----------------------------------------------------------------------------
-// 📅 Universal Smart Date Parser
+// 📅 Universal Smart Date Parser (सुरक्षित रखा गया)
 // -----------------------------------------------------------------------------
 fun parseSessionDateUniversal(rawDateStr: String): Date? {
     if (rawDateStr.isBlank()) return null
