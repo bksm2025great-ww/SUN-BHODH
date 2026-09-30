@@ -97,7 +97,7 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🟢 1. HOME TAB (TIMER, SMART RANKED SUBJECTS & SOUND PILL)
+// 🟢 1. HOME TAB (TIMER, SMART RANKED SUBJECTS & MUSICAL ACCENT SOUND PILL)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
@@ -128,7 +128,7 @@ fun HomeTimerTab(
     var showSoundPanel by remember { mutableStateOf(false) }
     var selectedSound by rememberSaveable { mutableStateOf("Rain") }
 
-    // 🔒 Discipline Mode: Active timer ke dauran back press par popup
+    // 🔒 Strict Discipline Mode: Active timer के दौरान Back दबाने पर वार्निंग पॉपअप
     BackHandler(enabled = isRunning) {
         showGiveUpDialog = true
     }
@@ -151,9 +151,15 @@ fun HomeTimerTab(
         }
     }
 
-    val displayMinutes = totalSeconds / 60
+    // ⏱️ घंटे, मिनट और सेकंड (HH:MM:SS या MM:SS) का स्मार्ट फॉर्मूला
+    val hours = totalSeconds / 3600
+    val displayMinutes = (totalSeconds % 3600) / 60
     val displaySeconds = totalSeconds % 60
-    val timeFormatted = String.format("%02d:%02d", displayMinutes, displaySeconds)
+    val timeFormatted = if (hours > 0) {
+        String.format("%02d:%02d:%02d", hours, displayMinutes, displaySeconds)
+    } else {
+        String.format("%02d:%02d", displayMinutes, displaySeconds)
+    }
 
     val allSessions = remember(isRunning) { FocusSessionManager.getAllSessions(context) }
     val subjectMinutesMap = remember(allSessions) {
@@ -267,7 +273,7 @@ fun HomeTimerTab(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // ----------------- DYNAMIC SUBJECT RIBBON + SOUND PILL -----------------
+            // ----------------- DYNAMIC SUBJECT RIBBON + MUSICAL SOUND PILL -----------------
             if (!isRunning) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -291,7 +297,7 @@ fun HomeTimerTab(
                                         .background(goldColor)
                                         .clickable { showAddDialog = true }
                                         .padding(horizontal = 14.dp, vertical = 6.dp)
-                                ) {
+                                Strang) {
                                     Text(
                                         text = "+ Add",
                                         color = Color.Black,
@@ -349,7 +355,7 @@ fun HomeTimerTab(
                         }
                     }
 
-                    // Sound Button
+                    // 🎵 Option 3: Musical Accent Sound Button
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -360,17 +366,23 @@ fun HomeTimerTab(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
-                                .background(if (isSoundOn) goldColor.copy(alpha = 0.2f) else cardBg)
-                                .border(1.dp, goldColor, RoundedCornerShape(50))
+                                .background(if (isSoundOn) goldColor.copy(alpha = 0.25f) else cardBg)
+                                .border(1.2.dp, if (isSoundOn) glowYellow else goldColor.copy(alpha = 0.7f), RoundedCornerShape(50))
                                 .clickable { showSoundPanel = true }
-                                .padding(horizontal = 11.dp, vertical = 4.dp)
+                                .padding(horizontal = 12.dp, vertical = 5.dp)
                         ) {
-                            Text(
-                                text = if (isSoundOn) "🔊 Sound" else "🔈 Sound",
-                                color = goldColor,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(text = "🎵", fontSize = 11.sp)
+                                Text(
+                                    text = if (isSoundOn) "Sound: ON" else "Sound",
+                                    color = goldColor,
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
                         }
                     }
                 }
@@ -392,10 +404,10 @@ fun HomeTimerTab(
                 }
             }
 
-            // ----------------- TIMER RING (DYNAMIC DOUBLE-SIDED GLOW) -----------------
+            // ----------------- TIMER RING (+10 DP BIGGER: 258 DP) -----------------
             Box(
                 modifier = Modifier
-                    .size(248.dp)
+                    .size(258.dp) // ✨ 10 dp बड़ा किया गया
                     .padding(vertical = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -418,7 +430,7 @@ fun HomeTimerTab(
                         (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
                     }
 
-                    // ✨ 2. Wide Outer & Inner Glow (Inside-Outside Double Sided Soft Aura)
+                    // ✨ 2. Wide Outer Glow
                     drawArc(
                         color = goldColor.copy(alpha = 0.18f),
                         startAngle = -90f,
@@ -429,7 +441,7 @@ fun HomeTimerTab(
                         style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
                     )
 
-                    // ✨ 3. Mid Glow (Depth Layer)
+                    // ✨ 3. Mid Glow
                     drawArc(
                         color = goldColor.copy(alpha = 0.35f),
                         startAngle = -90f,
@@ -460,9 +472,10 @@ fun HomeTimerTab(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = timeFormatted,
-                        fontSize = 43.sp,
+                        fontSize = if (hours > 0) 36.sp else 43.sp, // घंटे होने पर फ़ॉन्ट सटीक बैठता है
                         fontWeight = FontWeight.Black,
-                        color = textMain
+                        color = textMain,
+                        letterSpacing = if (hours > 0) (-0.5).sp else 0.sp
                     )
                 }
             }
@@ -608,21 +621,21 @@ fun HomeTimerTab(
                 }
             } else {
                 Text(
-                    text = "Focus Mode Active • Stay Distraction-Free",
+                    text = "Strict Focus Active • Stay Distraction-Free",
                     color = goldColor,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            // ----------------- ACTION BUTTONS (PLANT WITH GOLDEN GLOW SHADOW) -----------------
+            // ----------------- ACTION BUTTONS -----------------
             if (!isRunning) {
+                // प्लांट शुरू करने का बटन
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(53.dp)
-                        // 🌟 Golden Glow Shadow Effect
                         .shadow(
                             elevation = 14.dp,
                             shape = RoundedCornerShape(50),
@@ -654,58 +667,26 @@ fun HomeTimerTab(
                     )
                 }
             } else {
-                // Timer Running: Cancel & Pause
-                Row(
+                // 🛑 Strict Mode: Pause हटा दिया गया, सिर्फ़ सिंगल 'Give Up' बटन
+                Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .height(53.dp)
+                        .padding(bottom = 4.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (isDark) Color(0xFF221616) else Color(0xFFFEE2E2))
+                        .border(1.4.dp, Color(0xFFEF4444).copy(alpha = 0.6f), RoundedCornerShape(50))
+                        .clickable {
+                            showGiveUpDialog = true
+                        }
                 ) {
-                    // Cancel Button
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(53.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(cardBg)
-                            .border(1.3.dp, goldColor.copy(alpha = 0.6f), RoundedCornerShape(50))
-                            .clickable {
-                                showGiveUpDialog = true
-                            }
-                    ) {
-                        Text(
-                            text = "Cancel",
-                            color = goldColor.copy(alpha = 0.85f),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    // Pause Button
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(53.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(cardBg)
-                            .border(1.4.dp, goldColor, RoundedCornerShape(50))
-                            .clickable {
-                                val intent = Intent(context, TimerService::class.java).apply {
-                                    action = TimerService.ACTION_PAUSE
-                                }
-                                context.startService(intent)
-                            }
-                    ) {
-                        Text(
-                            text = "Pause",
-                            color = goldColor,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
+                    Text(
+                        text = "Give Up 🥀",
+                        color = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
