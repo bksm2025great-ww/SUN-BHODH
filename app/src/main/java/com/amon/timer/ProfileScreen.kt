@@ -22,6 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -152,7 +155,7 @@ fun ProfileScreen() {
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .clickable { showEditNameDialog = true }
@@ -164,7 +167,8 @@ fun ProfileScreen() {
                             fontSize = 19.sp,
                             fontWeight = FontWeight.Black
                         )
-                        Text(text = "✏️", fontSize = 12.sp)
+                        // ✨ नया गोल्डन एडिट पेंसिल वेक्टर
+                        EditPencilIcon(tint = goldColor)
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -179,7 +183,7 @@ fun ProfileScreen() {
                             .padding(horizontal = 10.dp, vertical = 3.5.dp)
                     ) {
                         Text(
-                            text = "Level 1 • Focus Novice 🏆",
+                            text = "Level 1 • Focus Novice",
                             color = goldColor,
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
@@ -208,7 +212,8 @@ fun ProfileScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(13.dp)
                 ) {
-                    Text(text = "🏆", fontSize = 20.sp)
+                    // ✨ नया गोल्डन ट्रॉफी कप वेक्टर
+                    TrophyIcon(tint = goldColor)
                     Text(
                         text = "Achievements & Badges",
                         color = textMain,
@@ -244,7 +249,8 @@ fun ProfileScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        Text(text = "🎨", fontSize = 20.sp)
+                        // ✨ नया गोल्डन आर्टिस्ट पैलेट वेक्टर
+                        PaletteIcon(tint = goldColor)
                         Column {
                             Text(
                                 text = "Appearance & Themes",
@@ -260,7 +266,6 @@ fun ProfileScreen() {
                             )
                         }
                     }
-                    // ✨ स्मूथ एनिमेटेड गोल्डन शेवरॉन
                     ChevronIcon(
                         isExpanded = isThemeExpanded,
                         tint = goldColor
@@ -405,7 +410,7 @@ fun ProfileScreen() {
                 .padding(16.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                // 📳 Haptic Buzz Row (आइकन के साथ)
+                // 📳 Haptic Buzz Row (नया गोल्डन फोन वाइब्रेशन वेक्टर)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -416,7 +421,7 @@ fun ProfileScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        Text(text = "📳", fontSize = 20.sp)
+                        PhoneVibeIcon(tint = goldColor)
                         Column {
                             Text(
                                 text = "Haptic Buzz (Vibration)",
@@ -448,7 +453,7 @@ fun ProfileScreen() {
 
                 Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
 
-                // 💡 Keep Screen Awake Row (आइकन के साथ)
+                // 💡 Keep Screen Awake Row (नया गोल्डन फिलामेंट बल्ब वेक्टर)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -459,7 +464,7 @@ fun ProfileScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        Text(text = "💡", fontSize = 20.sp)
+                        LightbulbIcon(tint = goldColor)
                         Column {
                             Text(
                                 text = "Keep Screen Awake (Always On)",
@@ -491,7 +496,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 6. ACCOUNT & CLOUD SYNC -----------------
+        // ----------------- 6. ACCOUNT & CLOUD SYNC (नया गोल्डन क्लाउड वेक्टर) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -505,20 +510,28 @@ fun ProfileScreen() {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Account & Cloud Sync",
-                        color = textMain,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Text(
-                        text = "Google Sheets cloud backup aur streak synchronization",
-                        color = textMuted,
-                        fontSize = 11.5.sp,
-                        lineHeight = 16.sp
-                    )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(13.dp)
+                ) {
+                    // ✨ नया गोल्डन क्लाउड सिंक वेक्टर
+                    CloudSyncIcon(tint = goldColor)
+                    Column {
+                        Text(
+                            text = "Account & Cloud Sync",
+                            color = textMain,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Google Sheets cloud backup aur streak synchronization",
+                            color = textMuted,
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.width(10.dp))
                 Box(
@@ -558,7 +571,7 @@ fun ProfileScreen() {
                                 }
                             }
                         }
-                        .padding(horizontal = 13.dp, vertical = 7.dp)
+                        .padding(horizontal = 14.dp, vertical = 7.dp)
                 ) {
                     if (isSyncing) {
                         CircularProgressIndicator(
@@ -567,8 +580,9 @@ fun ProfileScreen() {
                             strokeWidth = 2.dp
                         )
                     } else {
+                        // ✨ सिर्फ़ साफ़ "Sync" (इमोजी और Now हटाया गया)
                         Text(
-                            text = "Sync Now 🔄",
+                            text = "Sync",
                             color = goldColor,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
@@ -578,7 +592,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 7. EXPANDABLE: APP UPDATES -----------------
+        // ----------------- 7. EXPANDABLE: APP UPDATES (3-धारियों वाला रॉकेट) -----------------
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
@@ -602,7 +616,8 @@ fun ProfileScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        Text(text = "🚀", fontSize = 20.sp)
+                        // ✨ नया 3-धारियों वाला गोल्डन रॉकेट वेक्टर
+                        RocketLaunchIcon(tint = goldColor)
                         Text(
                             text = "App Updates",
                             color = textMain,
@@ -629,7 +644,6 @@ fun ProfileScreen() {
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Medium
                         )
-                        // ✨ स्मूथ एनिमेटेड गोल्डन शेवरॉन
                         ChevronIcon(
                             isExpanded = isUpdateExpanded,
                             tint = goldColor
@@ -657,7 +671,7 @@ fun ProfileScreen() {
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Direct Download Button
+                        // Direct Download Button (इमोजी साफ़ किया गया)
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -700,7 +714,7 @@ fun ProfileScreen() {
                                 }
                             } else {
                                 Text(
-                                    text = "Download & Install Update 🚀",
+                                    text = "Download & Install Update",
                                     color = Color.White,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
@@ -728,7 +742,7 @@ fun ProfileScreen() {
                                 )
                             }
 
-                            // Check Button
+                            // Check Button (इमोजी साफ़ किया गया)
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -752,7 +766,7 @@ fun ProfileScreen() {
                                             }
                                         }
                                     }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
                                 if (isCheckingUpdate) {
                                     CircularProgressIndicator(
@@ -762,7 +776,7 @@ fun ProfileScreen() {
                                     )
                                 } else {
                                     Text(
-                                        text = "Check 🚀",
+                                        text = "Check",
                                         color = textMain,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
@@ -952,7 +966,316 @@ fun ProfileScreen() {
     }
 }
 
-// ----------------- ✨ Lightweight Golden Rotating Chevron Component -----------------
+// =============================================================================
+// ✨ LUXE GOLD PURE MATERIAL VECTOR COMPONENTS (ZERO DEPENDENCY / ZERO ERROR)
+// =============================================================================
+
+// 1. ✏️ Edit Pencil Vector (बारीक 45° झुकी हुई गोल्डन पेंसिल)
+@Composable
+private fun EditPencilIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(13.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.6.dp.toPx()
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.15f, h * 0.85f),
+            end = Offset(w * 0.75f, h * 0.25f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.60f, h * 0.10f),
+            end = Offset(w * 0.90f, h * 0.40f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.10f, h * 0.90f),
+            end = Offset(w * 0.25f, h * 0.75f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+// 2. 🏆 Trophy Cup Vector (क्लासिक ज्यामितीय गोल्डन कप)
+@Composable
+private fun TrophyIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.8.dp.toPx()
+
+        // कप का मुख्य कटोरा (Bowl)
+        val bowlPath = Path().apply {
+            moveTo(w * 0.25f, h * 0.15f)
+            lineTo(w * 0.75f, h * 0.15f)
+            lineTo(w * 0.72f, h * 0.52f)
+            cubicTo(w * 0.70f, h * 0.70f, w * 0.30f, h * 0.70f, w * 0.28f, h * 0.52f)
+            close()
+        }
+        drawPath(path = bowlPath, color = tint)
+
+        // बायाँ हैंडल (Left Handle)
+        val leftHandle = Path().apply {
+            moveTo(w * 0.26f, h * 0.22f)
+            cubicTo(w * 0.08f, h * 0.22f, w * 0.08f, h * 0.48f, w * 0.29f, h * 0.48f)
+        }
+        drawPath(path = leftHandle, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
+
+        // दायाँ हैंडल (Right Handle)
+        val rightHandle = Path().apply {
+            moveTo(w * 0.74f, h * 0.22f)
+            cubicTo(w * 0.92f, h * 0.22f, w * 0.92f, h * 0.48f, w * 0.71f, h * 0.48f)
+        }
+        drawPath(path = rightHandle, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
+
+        // कप का तना (Stem)
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.5f, h * 0.65f),
+            end = Offset(w * 0.5f, h * 0.82f),
+            strokeWidth = stroke * 1.4f,
+            cap = StrokeCap.Square
+        )
+
+        // कप का बेस (Pedestal)
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.28f, h * 0.84f),
+            end = Offset(w * 0.72f, h * 0.84f),
+            strokeWidth = stroke * 1.3f,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+// 3. 🎨 Artist Palette Vector (चार रंग-बिंदुओं वाला डिज़ाइनर पैलेट)
+@Composable
+private fun PaletteIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+
+        // पैलेट की मुख्य बॉडी
+        val palette = Path().apply {
+            moveTo(w * 0.5f, h * 0.1f)
+            cubicTo(w * 0.85f, h * 0.1f, w * 0.95f, h * 0.45f, w * 0.85f, h * 0.75f)
+            cubicTo(w * 0.78f, h * 0.92f, w * 0.55f, h * 0.88f, w * 0.45f, h * 0.80f)
+            cubicTo(w * 0.38f, h * 0.74f, w * 0.25f, h * 0.78f, w * 0.15f, h * 0.65f)
+            cubicTo(w * 0.05f, h * 0.50f, w * 0.15f, h * 0.1f, w * 0.5f, h * 0.1f)
+            close()
+        }
+        drawPath(path = palette, color = tint)
+
+        // पैलेट के अंदर 3 गोल रंग-बिंदु (कटआउट्स)
+        drawCircle(color = Color(0xFF18181D), radius = w * 0.065f, center = Offset(w * 0.40f, h * 0.30f))
+        drawCircle(color = Color(0xFF18181D), radius = w * 0.065f, center = Offset(w * 0.65f, h * 0.32f))
+        drawCircle(color = Color(0xFF18181D), radius = w * 0.065f, center = Offset(w * 0.72f, h * 0.55f))
+        // अँगूठे की ग्रिप (Thumb hole)
+        drawCircle(color = Color(0xFF18181D), radius = w * 0.08f, center = Offset(w * 0.30f, h * 0.55f))
+    }
+}
+
+// 4. 📳 Phone Vibration Waves Vector (कंपन तरंगों वाला फ़ोन)
+@Composable
+private fun PhoneVibeIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.6.dp.toPx()
+
+        // बीच का फ़ोन (Phone Body)
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(w * 0.30f, h * 0.12f),
+            size = Size(w * 0.40f, h * 0.76f),
+            cornerRadius = CornerRadius(w * 0.08f, w * 0.08f),
+            style = Stroke(width = stroke)
+        )
+        // फ़ोन का होम-डैश
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.44f, h * 0.78f),
+            end = Offset(w * 0.56f, h * 0.78f),
+            strokeWidth = stroke * 0.9f,
+            cap = StrokeCap.Round
+        )
+
+        // बायीं वाइब्रेशन वेव (Left Wave)
+        val leftWave = Path().apply {
+            moveTo(w * 0.16f, h * 0.28f)
+            cubicTo(w * 0.08f, h * 0.38f, w * 0.08f, h * 0.62f, w * 0.16f, h * 0.72f)
+        }
+        drawPath(path = leftWave, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
+
+        // दायीं वाइब्रेशन वेव (Right Wave)
+        val rightWave = Path().apply {
+            moveTo(w * 0.84f, h * 0.28f)
+            cubicTo(w * 0.92f, h * 0.38f, w * 0.92f, h * 0.62f, w * 0.84f, h * 0.72f)
+        }
+        drawPath(path = rightWave, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
+    }
+}
+
+// 5. 💡 Filament Lightbulb Vector (बारीक फिलामेंट वाला मॉडर्न बल्ब)
+@Composable
+private fun LightbulbIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.6.dp.toPx()
+
+        // बल्ब का काँच (Bulb Outline)
+        val bulb = Path().apply {
+            moveTo(w * 0.32f, h * 0.62f)
+            cubicTo(w * 0.12f, h * 0.50f, w * 0.15f, h * 0.15f, w * 0.50f, h * 0.12f)
+            cubicTo(w * 0.85f, h * 0.15f, w * 0.88f, h * 0.50f, w * 0.68f, h * 0.62f)
+            lineTo(w * 0.62f, h * 0.74f)
+            lineTo(w * 0.38f, h * 0.74f)
+            close()
+        }
+        drawPath(path = bulb, color = tint, style = Stroke(width = stroke, join = StrokeJoin.Round))
+
+        // अंदर का फिलामेंट (Filament)
+        val filament = Path().apply {
+            moveTo(w * 0.42f, h * 0.60f)
+            lineTo(w * 0.42f, h * 0.35f)
+            lineTo(w * 0.50f, h * 0.42f)
+            lineTo(w * 0.58f, h * 0.35f)
+            lineTo(w * 0.58f, h * 0.60f)
+        }
+        drawPath(path = filament, color = tint, style = Stroke(width = stroke * 0.85f, cap = StrokeCap.Round))
+
+        // बल्ब की चूड़ीदार बेस (Base Screws)
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.38f, h * 0.80f),
+            end = Offset(w * 0.62f, h * 0.80f),
+            strokeWidth = stroke * 1.1f,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.42f, h * 0.87f),
+            end = Offset(w * 0.58f, h * 0.87f),
+            strokeWidth = stroke * 1.1f,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+// 6. ☁️ Cloud Sync Vector (तीर के साथ गोल्डन क्लाउड)
+@Composable
+private fun CloudSyncIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+
+        // बादल की आकृति (Cloud Body)
+        val cloud = Path().apply {
+            moveTo(w * 0.22f, h * 0.75f)
+            lineTo(w * 0.78f, h * 0.75f)
+            cubicTo(w * 0.92f, h * 0.75f, w * 0.95f, h * 0.56f, w * 0.84f, h * 0.48f)
+            cubicTo(w * 0.85f, h * 0.32f, w * 0.72f, h * 0.24f, w * 0.58f, h * 0.28f)
+            cubicTo(w * 0.52f, h * 0.18f, w * 0.35f, h * 0.18f, w * 0.28f, h * 0.30f)
+            cubicTo(w * 0.15f, h * 0.33f, w * 0.08f, h * 0.46f, w * 0.12f, h * 0.60f)
+            cubicTo(w * 0.09f, h * 0.70f, w * 0.16f, h * 0.75f, w * 0.22f, h * 0.75f)
+            close()
+        }
+        drawPath(path = cloud, color = tint)
+
+        // बादल के बीच से निकलता हुआ सिंक तीर (कटआउट)
+        val stroke = 1.8.dp.toPx()
+        drawLine(
+            color = Color(0xFF18181D),
+            start = Offset(w * 0.5f, h * 0.70f),
+            end = Offset(w * 0.5f, h * 0.40f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        val arrowHead = Path().apply {
+            moveTo(w * 0.38f, h * 0.50f)
+            lineTo(w * 0.50f, h * 0.38f)
+            lineTo(w * 0.62f, h * 0.50f)
+        }
+        drawPath(path = arrowHead, color = Color(0xFF18181D), style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+}
+
+// 7. 🚀 Rocket Launch with 3 Speed Streak Lines (3-धारियों वाला रॉकेट)
+@Composable
+private fun RocketLaunchIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+
+        // रॉकेट की मुख्य बॉडी (45° पर ऊपर दाएँ की ओर झुकी हुई)
+        val rocket = Path().apply {
+            moveTo(w * 0.85f, h * 0.15f)
+            cubicTo(w * 0.68f, h * 0.16f, w * 0.45f, h * 0.30f, w * 0.40f, h * 0.50f)
+            lineTo(w * 0.32f, h * 0.56f)
+            lineTo(w * 0.44f, h * 0.68f)
+            lineTo(w * 0.50f, h * 0.60f)
+            cubicTo(w * 0.70f, h * 0.55f, w * 0.84f, h * 0.32f, w * 0.85f, h * 0.15f)
+            close()
+        }
+        drawPath(path = rocket, color = tint)
+
+        // बायाँ पंख (Fin)
+        val leftFin = Path().apply {
+            moveTo(w * 0.40f, h * 0.52f)
+            lineTo(w * 0.22f, h * 0.56f)
+            lineTo(w * 0.32f, h * 0.66f)
+            close()
+        }
+        drawPath(path = leftFin, color = tint)
+
+        // दायाँ पंख (Fin)
+        val rightFin = Path().apply {
+            moveTo(w * 0.52f, h * 0.40f)
+            lineTo(w * 0.56f, h * 0.22f)
+            lineTo(w * 0.66f, h * 0.32f)
+            close()
+        }
+        drawPath(path = rightFin, color = tint)
+
+        // बीच की गोल खिड़की (Porthole)
+        drawCircle(color = Color(0xFF18181D), radius = w * 0.055f, center = Offset(w * 0.62f, h * 0.38f))
+
+        // ✨ 3 खास गति की धारियाँ (Speed Streak Lines पीछे की ओर)
+        val stroke = 1.5.dp.toPx()
+        // धारी 1 (बीच वाली लंबी धारी)
+        drawLine(
+            color = tint.copy(alpha = 0.9f),
+            start = Offset(w * 0.32f, h * 0.72f),
+            end = Offset(w * 0.12f, h * 0.92f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        // धारी 2 (ऊपर वाली छोटी धारी)
+        drawLine(
+            color = tint.copy(alpha = 0.65f),
+            start = Offset(w * 0.40f, h * 0.76f),
+            end = Offset(w * 0.26f, h * 0.90f),
+            strokeWidth = stroke * 0.85f,
+            cap = StrokeCap.Round
+        )
+        // धारी 3 (नीचे वाली छोटी धारी)
+        drawLine(
+            color = tint.copy(alpha = 0.65f),
+            start = Offset(w * 0.26f, h * 0.64f),
+            end = Offset(w * 0.12f, h * 0.78f),
+            strokeWidth = stroke * 0.85f,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+// 8. ⌄ Smooth Golden Rotating Chevron
 @Composable
 private fun ChevronIcon(
     isExpanded: Boolean,
@@ -988,7 +1311,7 @@ private fun ChevronIcon(
     }
 }
 
-// ----------------- Lightweight Paper Airplane Vector Component -----------------
+// 9. ✈️ Lightweight Paper Airplane Vector
 @Composable
 private fun PaperAirplaneIcon(
     tint: Color,
