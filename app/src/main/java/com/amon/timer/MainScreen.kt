@@ -297,7 +297,7 @@ fun HomeTimerTab(
                                         .background(goldColor)
                                         .clickable { showAddDialog = true }
                                         .padding(horizontal = 14.dp, vertical = 6.dp)
-                                Strang) {
+                                ) {
                                     Text(
                                         text = "+ Add",
                                         color = Color.Black,
@@ -407,7 +407,7 @@ fun HomeTimerTab(
             // ----------------- TIMER RING (+10 DP BIGGER: 258 DP) -----------------
             Box(
                 modifier = Modifier
-                    .size(258.dp) // ✨ 10 dp बड़ा किया गया
+                    .size(258.dp)
                     .padding(vertical = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -472,7 +472,7 @@ fun HomeTimerTab(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = timeFormatted,
-                        fontSize = if (hours > 0) 36.sp else 43.sp, // घंटे होने पर फ़ॉन्ट सटीक बैठता है
+                        fontSize = if (hours > 0) 36.sp else 43.sp,
                         fontWeight = FontWeight.Black,
                         color = textMain,
                         letterSpacing = if (hours > 0) (-0.5).sp else 0.sp
@@ -630,7 +630,6 @@ fun HomeTimerTab(
 
             // ----------------- ACTION BUTTONS -----------------
             if (!isRunning) {
-                // प्लांट शुरू करने का बटन
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
