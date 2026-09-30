@@ -1,7 +1,10 @@
 package com.amon.timer
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -47,7 +50,7 @@ fun AuthScreen(
     val boxBorderGolden = Color(0x44F3C669)
     val textMuted = Color(0xFFA0A0A8)
 
-    // Form States (सिंटैक्स पूरी तरह साफ़ और सही)
+    // Form States
     val savedName = remember { userManager.getUserName() }
     val initialUsername = remember(savedName) {
         if (savedName == "Guest" || savedName == "Amon User" || savedName == "Vision") "" else savedName
@@ -56,7 +59,6 @@ fun AuthScreen(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
-    var showAdminDialog by remember { mutableStateOf(false) }
 
     // 🔔 Android Notification Permission Launcher
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -101,6 +103,27 @@ fun AuthScreen(
         userManager.setPassword("guest123")
         userManager.setGuestUser(true)
         proceedToApp()
+    }
+
+    // ✉️ सीधा Gmail खोलने वाला सपोर्ट फ़ंक्शन
+    val handleForgotPassword = {
+        val targetUser = username.trim().ifEmpty { "User" }
+        val emailSubject = Uri.encode("Amon Password Reset Request - $targetUser")
+        val emailBody = Uri.encode(
+            "Hello Admin,\n\n" +
+            "I forgot the password for my Amon Focus Timer account.\n\n" +
+            "Username: $targetUser\n\n" +
+            "Please help me recover or reset my password.\n\n" +
+            "Thank you!"
+        )
+        val mailtoUri = Uri.parse("mailto:bksm2025great@gmail.com?subject=$emailSubject&body=$emailBody")
+        val emailIntent = Intent(Intent.ACTION_SENDTO, mailtoUri)
+
+        try {
+            context.startActivity(emailIntent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Unable to open email app.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     Box(
@@ -262,7 +285,6 @@ fun AuthScreen(
                             )
                         }
 
-                        // 📐 Spacing Reduced to 10.dp
                         Spacer(modifier = Modifier.height(10.dp))
 
                         // --- SECONDARY ACTION: COMPACT GUEST BUTTON ---
@@ -286,13 +308,13 @@ fun AuthScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // --- ADMIN SUPPORT / FORGOT PASSWORD LINK ---
+                        // --- ADMIN SUPPORT / FORGOT PASSWORD LINK (DIRECT GMAIL) ---
                         Text(
                             text = "Forgot Password? Contact Admin",
                             color = textMuted,
                             fontSize = 12.sp,
                             textDecoration = TextDecoration.Underline,
-                            modifier = Modifier.clickable { showAdminDialog = true }
+                            modifier = Modifier.clickable { handleForgotPassword() }
                         )
                     }
                 }
@@ -335,30 +357,6 @@ fun AuthScreen(
                     textAlign = TextAlign.End
                 )
             }
-        }
-
-        // ----------------- ADMIN SUPPORT DIALOG -----------------
-        if (showAdminDialog) {
-            AlertDialog(
-                onDismissRequest = { showAdminDialog = false },
-                title = {
-                    Text(text = "Admin Support 🛡️", color = goldColor, fontWeight = FontWeight.Bold)
-                },
-                text = {
-                    Text(
-                        text = "अगर आप अपना पासवर्ड भूल गए हैं, तो कृपया एडमिन से संपर्क करें।\n\nएडमिन आपकी 'Users_List' शीट से पुष्टि करके आपका पासवर्ड रीसेट कर देंगे।",
-                        color = Color.White,
-                        fontSize = 14.sp
-                    )
-                },
-                confirmButton = {
-                    TextButton(onClick = { showAdminDialog = false }) {
-                        Text("ठीक है", color = goldColor, fontWeight = FontWeight.Bold)
-                    }
-                },
-                containerColor = cardBg,
-                shape = RoundedCornerShape(18.dp)
-            )
         }
     }
 }
