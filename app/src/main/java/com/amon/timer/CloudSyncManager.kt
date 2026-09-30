@@ -24,7 +24,55 @@ object CloudSyncManager {
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
     /**
-     * 1. पढ़ाई पूरी होने पर डेटा Google Sheet में भेजना (POST)
+     * ✨ 1. लॉगिन करते ही तुरंत Users_List में नाम और पासवर्ड दर्ज करना
+     */
+    fun registerUserOnCloud(context: Context) {
+        val sheetUrl = BuildConfig.GOOGLE_SHEET_URL
+        if (sheetUrl.isBlank()) {
+            Log.w(TAG, "Google Sheet URL set nahi hai!")
+            return
+        }
+
+        val userManager = UserManager(context)
+        val userName = userManager.getUserName().trim()
+        val password = userManager.getPassword().trim()
+
+        if (userName.isBlank() || userName.equals("Guest", ignoreCase = true)) {
+            return // Guest user ko Users_List me register nahi karna
+        }
+
+        val jsonPayload = JSONObject().apply {
+            put("action", "register")
+            put("userName", userName)
+            put("password", password)
+        }
+
+        val requestBody = jsonPayload.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url(sheetUrl)
+            .post(requestBody)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "User registration on cloud failed: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (response.isSuccessful) {
+                        Log.d(TAG, "User '$userName' safaltapoorvak Users_List me register ho gaya!")
+                    } else {
+                        Log.e(TAG, "Registration error code: ${response.code}")
+                    }
+                }
+            }
+        })
+    }
+
+    /**
+     * 🌿 2. पढ़ाई पूरी होने पर डेटा Google Sheet में भेजना (POST)
+     * अब यह सेशन के साथ-साथ पासवर्ड भी भेजेगा ताकि Users_List हमेशा अपडेट रहे!
      */
     fun syncSession(
         context: Context,
@@ -39,15 +87,18 @@ object CloudSyncManager {
             return
         }
 
-        // UserManager se live naam aur 6-digit permanent code lena
+        // UserManager se live naam aur password lena
         val userManager = UserManager(context)
         val userName = userManager.getUserName().ifEmpty { "Vision" }
+        val password = userManager.getPassword()
         val uniqueId = userManager.getSecretCode()
 
         val currentDateTime = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
 
         val jsonPayload = JSONObject().apply {
+            put("action", "save_sessions")
             put("userName", userName)
+            put("password", password) // 🔐 पासवर्ड अब साथ जाएगा!
             put("userId", uniqueId)
             put("tabName", "${userName}_$uniqueId")
             put("date", currentDateTime)
@@ -82,14 +133,12 @@ object CloudSyncManager {
     }
 
     /**
-     * 2. Google Sheet से डेटा वापस मंगाना (GET)
-     * सिर्फ इसी फोन के 6-digit code वाले टैब का डेटा लाएगा
+     * 📥 3. Google Sheet से डेटा वापस मंगाना (GET)
      */
     suspend fun fetchSessions(context: Context): List<FocusSession> = withContext(Dispatchers.IO) {
         val sheetUrl = BuildConfig.GOOGLE_SHEET_URL
         if (sheetUrl.isBlank()) return@withContext emptyList()
 
-        // UserManager se live naam aur 6-digit code maangna
         val userManager = UserManager(context)
         val userName = userManager.getUserName().ifEmpty { "Vision" }
         val uniqueId = userManager.getSecretCode()
