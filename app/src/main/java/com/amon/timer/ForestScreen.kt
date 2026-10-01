@@ -190,7 +190,7 @@ fun ForestScreen() {
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    val bloomRes = if (isDialogWithered) R.drawable.plant_withered else R.drawable.pot_marigold_1
+                    val bloomRes = if (isDialogWithered) R.drawable.pot_withered else R.drawable.pot_marigold_1
                     Image(
                         painter = painterResource(id = bloomRes),
                         contentDescription = "Garden Bloom",
@@ -247,7 +247,7 @@ fun GardenPotWithShadow(
 ) {
     // अगर सेशन अधूरा रहा (earnedTrees == 0) तो सूखा पौधा, वरना गेंदा
     val isWithered = session.earnedTrees == 0
-    val imageRes = if (isWithered) R.drawable.plant_withered else R.drawable.pot_marigold_1
+    val imageRes = if (isWithered) R.drawable.pot_withered else R.drawable.pot_marigold_1
 
     Box(
         modifier = Modifier
@@ -262,17 +262,17 @@ fun GardenPotWithShadow(
                 .fillMaxWidth(0.65f)
                 .height(8.dp)
                 .offset(y = 2.dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.25f),
-                            Color.Transparent
-                        ),
-                        center = Offset.Zero,
-                        radius = 180f
+            .background(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color.Black.copy(alpha = 0.25f),
+                        Color.Transparent
                     ),
-                    shape = CircleShape
-                )
+                    center = Offset.Zero,
+                    radius = 180f
+                ),
+                shape = CircleShape
+            )
         )
 
         // लेयर 2: पौधे की साफ़ इमेज
