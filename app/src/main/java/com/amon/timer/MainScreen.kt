@@ -53,10 +53,16 @@ fun MainScreen() {
 
     LaunchedEffect(Unit) {
         ThemeManager.loadTheme(context)
+        TimerService.syncRemainingTime()
     }
 
     val isDark = ThemeManager.isDarkTheme.value
     val isRunning = TimerService.isTimerRunning.value
+
+    // 🔙 बैक गेस्चर फिजिक्स: किसी भी टैब (Forest, Stats, Profile) से बैक स्वाइप करने पर पहले सीधे होम (टाइमर) पर आएगा
+    BackHandler(enabled = currentNavIndex != 0 && !isRunning) {
+        currentNavIndex = 0
+    }
 
     val bgColor = ThemeManager.getBackgroundColor()
     val cardBg = ThemeManager.getCardColor()
@@ -355,7 +361,7 @@ fun HomeTimerTab(
                         }
                     }
 
-                    // 🎵 Option 3: Musical Accent Sound Button
+                    // 🎵 Musical Accent Sound Button
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -404,7 +410,7 @@ fun HomeTimerTab(
                 }
             }
 
-            // ----------------- TIMER RING (+10 DP BIGGER: 258 DP) -----------------
+            // ----------------- TIMER RING (258 DP) -----------------
             Box(
                 modifier = Modifier
                     .size(258.dp)
@@ -415,7 +421,7 @@ fun HomeTimerTab(
                     val radius = size.minDimension / 2f - 10.dp.toPx()
                     val center = Offset(size.width / 2f, size.height / 2f)
 
-                    // 1. Background quiet base circle
+                    // 1. Background base circle
                     drawCircle(
                         color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
                         radius = radius,
@@ -430,7 +436,7 @@ fun HomeTimerTab(
                         (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
                     }
 
-                    // ✨ 2. Wide Outer Glow
+                    // ✨ 2. Outer Glow
                     drawArc(
                         color = goldColor.copy(alpha = 0.18f),
                         startAngle = -90f,
@@ -452,7 +458,7 @@ fun HomeTimerTab(
                         style = Stroke(width = 11.dp.toPx(), cap = StrokeCap.Round)
                     )
 
-                    // 🌟 4. Main Core Sharp Ring Line
+                    // 🌟 4. Main Core Ring Line
                     drawArc(
                         color = goldColor,
                         startAngle = -90f,
@@ -468,7 +474,8 @@ fun HomeTimerTab(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(text = "🌱", fontSize = 28.sp)
+                    // 🎯 शांत फ़ोकस सिंबल (पौधा हटाया गया)
+                    Text(text = "🎯", fontSize = 28.sp)
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = timeFormatted,
@@ -658,15 +665,16 @@ fun HomeTimerTab(
                         }
                         .padding(horizontal = 24.dp)
                 ) {
+                    // ✨ सुपर-क्लीन 'Start Focus 🎯' बटन (पेड़ हटाया गया)
                     Text(
-                        text = "Plant 🌳",
+                        text = "Start Focus 🎯",
                         color = Color.Black,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Black
                     )
                 }
             } else {
-                // 🛑 Strict Mode: Pause हटा दिया गया, सिर्फ़ सिंगल 'Give Up' बटन
+                // 🛑 साफ़-सुथरा 'Give Up' बटन (मुरझाया फूल हटाया गया)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -681,7 +689,7 @@ fun HomeTimerTab(
                         }
                 ) {
                     Text(
-                        text = "Give Up 🥀",
+                        text = "Give Up",
                         color = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
@@ -906,7 +914,6 @@ fun HomeTimerTab(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // New Subject Input Bar
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -968,7 +975,6 @@ fun HomeTimerTab(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Done Button
                         Button(
                             onClick = {
                                 showAddDialog = false
@@ -987,7 +993,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // ⚠️ DISCIPLINE WARNING POPUP (GIVE UP ON FOCUS)
+        // ⚠️ DISCIPLINE WARNING POPUP (सफ़ाई: पेड़ और विलाप हटाया गया)
         // =====================================================================
         if (showGiveUpDialog) {
             Dialog(onDismissRequest = { showGiveUpDialog = false }) {
@@ -1004,14 +1010,14 @@ fun HomeTimerTab(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "Give Up on Focus? ⚠️",
+                            text = "End Focus Session? ⚠️",
                             color = goldColor,
                             fontSize = 19.sp,
                             fontWeight = FontWeight.Black
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "Your plant is still growing. Leaving now will break your streak and your tree will wither (🥀) in your garden.\n\nAre you sure you want to quit?",
+                            text = "Focus session चालू है। अभी छोड़ने पर यह सत्र समाप्त और रद्द हो जाएगा।\n\nक्या आप सच में सत्र समाप्त करना चाहते हैं?",
                             color = textMain,
                             fontSize = 13.5.sp,
                             textAlign = TextAlign.Center,
@@ -1024,7 +1030,7 @@ fun HomeTimerTab(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Give Up
+                            // End Session Button
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -1045,14 +1051,14 @@ fun HomeTimerTab(
                                     }
                             ) {
                                 Text(
-                                    text = "Give Up 🥀",
+                                    text = "End Session",
                                     color = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
 
-                            // Keep Focusing
+                            // Keep Focusing Button
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -1065,7 +1071,7 @@ fun HomeTimerTab(
                                     }
                             ) {
                                 Text(
-                                    text = "Keep Focusing 🌿",
+                                    text = "Keep Focusing 🎯",
                                     color = Color.Black,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.ExtraBold
