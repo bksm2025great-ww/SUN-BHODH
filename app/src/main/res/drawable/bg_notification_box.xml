@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <!-- 70% डार्क हाफ़-ट्रांसपेरेंट बैकग्राउंड -->
+    <solid android:color="#B3121218" />
+
+    <!-- 16dp मुड़े हुए सॉफ्ट किनारे -->
+    <corners android:radius="16dp" />
+
+    <!-- हल्की एम्बर-गोल्डन ग्लास बॉर्डर -->
+    <stroke
+        android:width="1dp"
+        android:color="#40F59E0B" />
+</shape>
