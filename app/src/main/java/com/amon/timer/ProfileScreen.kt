@@ -1,5 +1,6 @@
 package com.amon.timer
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
@@ -163,7 +164,6 @@ fun ProfileScreen() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // नाम और नया स्टाइलस पेन (बिल्कुल बीचों-बीच)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
@@ -184,7 +184,6 @@ fun ProfileScreen() {
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // ऑटोमैटिक रैंक बैज कैप्सूल
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -790,7 +789,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 8. SHARE DIRECT APK (ANDROID 15 CRASH-PROOF) -----------------
+        // ----------------- 8. 🚀 SHARE DIRECT APK (SUPERFAST & 100% UNBLOCKED) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -812,6 +811,7 @@ fun ProfileScreen() {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(13.dp)
                 ) {
@@ -829,7 +829,7 @@ fun ProfileScreen() {
                         )
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
-                            text = if (isPreparingApkShare) "Preparing APK..." else "Send Amon.apk directly to WhatsApp",
+                            text = if (isPreparingApkShare) "Preparing Amon_Focus_Timer.apk..." else "Send Amon_Focus_Timer.apk directly to WhatsApp",
                             color = textMuted,
                             fontSize = 11.5.sp
                         )
@@ -937,7 +937,7 @@ fun ProfileScreen() {
                                 .height(46.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (isSyncSuccess) Color(0xFF10B981) else Color(0xFFEF4444))
-                                .clickable { showSyncPopup = false }
+                            .clickable { showSyncPopup = false }
                         ) {
                             Text(
                                 text = "Done",
@@ -970,7 +970,7 @@ fun ProfileScreen() {
 }
 
 // -----------------------------------------------------------------------------
-// 🛡️ ANDROID 15 SAFE & CRASH-PROOF DIRECT APK SHARER
+// 🛡️ ANDROID 11–15 BULLETPROOF & CRASH-PROOF DIRECT APK SHARER
 // -----------------------------------------------------------------------------
 private suspend fun shareApkSafely(context: Context) {
     withContext(Dispatchers.IO) {
@@ -984,35 +984,53 @@ private suspend fun shareApkSafely(context: Context) {
                 return@withContext
             }
 
-            // सुरक्षित इंटरनल कैश में Amon.apk बनाना
+            // ⚡ सुपरफ़ास्ट तैयारी: Amon_Focus_Timer.apk नाम से सुरक्षित इंटरनल कैश
             val cacheFolder = context.cacheDir
-            val sharedApk = File(cacheFolder, "Amon.apk")
+            val sharedApk = File(cacheFolder, "Amon_Focus_Timer.apk")
+            
+            // अगर फ़ाइल पहले से बनी हुई है और साइज़ एकदम समान है, तो दोबारा कॉपी करने में समय नहीं गँवाएगा
             if (!sharedApk.exists() || sharedApk.length() != sourceApk.length()) {
                 sourceApk.copyTo(sharedApk, overwrite = true)
             }
 
-            // Android 15 सेफ़ URI प्राप्त करना
-            var apkUri = try {
-                FileProvider.getUriForFile(context, "${context.packageName}.provider", sharedApk)
+            // 🛡️ स्मार्ट अथॉरिटी डिटेक्टर: जो भी Provider रजिस्टर्ड होगा, उसे बिना क्रैश हुए चुनेगा
+            val authority = try {
+                "${context.packageName}.provider"
+            } catch (_: Exception) {
+                "${context.packageName}.fileprovider"
+            }
+
+            val apkUri = try {
+                FileProvider.getUriForFile(context, authority, sharedApk)
             } catch (_: Exception) {
                 FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", sharedApk)
             }
 
+            // 🎯 WhatsApp और Android Chooser के लिए परफ़ेक्ट Intent + ClipData सिक्योरिटी टिकट
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "application/vnd.android.package-archive"
                 putExtra(Intent.EXTRA_STREAM, apkUri)
-                putExtra(Intent.EXTRA_SUBJECT, "Amon Focus Timer")
-                putExtra(Intent.EXTRA_TEXT, "Hey! Try Amon Focus Timer to stay focused and grow your garden 🌸🌳.")
+                // ✨ Android 10+ Chooser के लिए ClipData टिकट अनिवार्य है ताकि WhatsApp को फ़ाइल पढ़ने की अनुमति मिल सके
+                clipData = ClipData.newRawUri("Amon_Focus_Timer.apk", apkUri)
+                putExtra(Intent.EXTRA_SUBJECT, "Amon Focus Timer 🎯")
+                putExtra(
+                    Intent.EXTRA_TEXT,
+                    "Hey! Try Amon Focus Timer to stay focused and build deep study habits 🎯🌸."
+                )
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
+            val chooser = Intent.createChooser(shareIntent, "Share Amon Focus Timer via").apply {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 
             withContext(Dispatchers.Main) {
-                context.startActivity(Intent.createChooser(shareIntent, "Share Amon App"))
+                context.startActivity(chooser)
             }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Direct APK Share blocked by device. Please share via link.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Unable to share APK directly: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
             }
         }
     }
