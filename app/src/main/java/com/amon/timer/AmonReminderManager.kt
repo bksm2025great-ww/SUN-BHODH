@@ -14,67 +14,74 @@ import java.util.Calendar
 import kotlin.random.Random
 
 // =============================================================================
-// 📬 1. डाकिया (RECEIVER): जो समय होने पर रैंडम मैसेज ऊपर स्क्रीन पर दिखाएगा
+// 📬 1. डाकिया (RECEIVER): स्मार्ट चेक्स के साथ केवल शांत वक्त पर संदेश पहुँचाएगा
 // =============================================================================
 class AmonReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val reminderType = intent.getStringExtra("REMINDER_TYPE") ?: return
 
-        // 🎲 चारों पहर के लिए रैंडम मैसेज पूल
+        // 🛡️ चेक 1: अगर यूजर अभी Amon में पढ़ाई कर रहा है, तो कोई नोटिफिकेशन नहीं जाएगा
+        if (TimerService.isTimerRunning.value) {
+            Log.d("AmonReminder", "Active study session running. Notification suppressed.")
+            return
+        }
+
+        // 🛡️ चेक 2: रात 9:00 PM से सुबह 6:00 AM के बीच सख्त कर्फ्यू (पूर्ण सन्नाटा)
+        val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        if (currentHour >= 21 || currentHour < 6) {
+            Log.d("AmonReminder", "Curfew hours active (9 PM - 6 AM). Notification suppressed.")
+            return
+        }
+
+        // 🎲 25+ गंभीर और प्रेरक संदेशों की लाइब्रेरी (पहरो के अनुसार)
         val (title, message) = when (reminderType) {
             "MORNING" -> {
                 val morningPool = listOf(
-                    Pair(
-                        "🌅 Rise & Focus",
-                        "Small steps every morning build extraordinary things. Let’s begin."
-                    ),
-                    Pair(
-                        "☀️ Own the Morning",
-                        "A fresh day, a quiet mind. Start your first session and set the tone."
-                    )
+                    Pair("🌅 Dawn of Discipline", "The best way to predict your day is to create it. Start your morning focus block."),
+                    Pair("☀️ Morning Momentum", "Quiet morning hours compound into massive results. One deep session to start."),
+                    Pair("🎯 Set the Tone", "Small wins early in the day build unbreakable confidence. Step in."),
+                    Pair("🌄 Fresh Day, Clear Mind", "Clear away yesterday’s fatigue. Open Amon and commit to your first goal."),
+                    Pair("⚡ The Early Advantage", "Discipline is choosing between what you want now and what you want most.")
                 )
                 morningPool.random()
             }
+            "MIDDAY" -> {
+                val middayPool = listOf(
+                    Pair("🌤️ Midday Reset", "Take a deep breath and recalibrate your afternoon priorities."),
+                    Pair("🎯 Lock In", "Distractions are loud, but focus is powerful. Give 25 minutes of honest work."),
+                    Pair("📚 Maintain the Standard", "Great achievements are built on average afternoons handled with extraordinary discipline."),
+                    Pair("⏳ Reclaim Your Time", "A short, uninterrupted focus session can completely rescue a drifting afternoon."),
+                    Pair("💡 The Flow State", "Don’t count the hours—make the focused minutes count.")
+                )
+                middayPool.random()
+            }
             "AFTERNOON" -> {
                 val afternoonPool = listOf(
-                    Pair(
-                        "Your study timer misses you 👀📚",
-                        "A quick 20-minute focus block can completely reset your day. Step in!"
-                    ),
-                    Pair(
-                        "Your study timer misses you 👀📚",
-                        "Pause the noise, find your flow. Your quiet study space is waiting."
-                    ),
-                    Pair(
-                        "Your study timer misses you 👀📚",
-                        "Momentum is built in the middle of the day. One session changes everything."
-                    )
+                    Pair("⚡ Power Through", "The afternoon slump disappears the moment you begin. Start your timer."),
+                    Pair("🛡️ Guard Your Attention", "Your attention is your most valuable asset today. Invest it wisely."),
+                    Pair("🔥 Build Consistency", "You don't need endless hours, just dedicated blocks of genuine deep focus."),
+                    Pair("⏱️ Session in Sight", "Set your target subject and eliminate all background noise."),
+                    Pair("📈 Compound Effort", "Every 25-minute block is an investment in your mastery.")
                 )
                 afternoonPool.random()
             }
             "EVENING" -> {
                 val eveningPool = listOf(
-                    Pair(
-                        "🔥 One More Session",
-                        "Fall in love with the process and results will follow. Protect your study streak!"
-                    ),
-                    Pair(
-                        "⚡ Protect Your Streak",
-                        "Great days are built in the evening hours. Show up for yourself tonight."
-                    )
+                    Pair("🌆 Golden Hour Study", "The day isn't over yet. Put in the work that separates you from the crowd."),
+                    Pair("🔥 Protect Your Streak", "Show up for yourself this evening. Keep your study streak alive."),
+                    Pair("🏛️ Build the Habit", "Motivation gets you started; disciplined evening focus keeps you growing."),
+                    Pair("🎯 Finish What You Started", "Close out today's study goals before the evening winds down."),
+                    Pair("⚡ Unbroken Focus", "One clean evening session turns a good day into an exceptional one.")
                 )
                 eveningPool.random()
             }
-            "NIGHT" -> {
+            "NIGHT_WRAP" -> {
                 val nightPool = listOf(
-                    Pair(
-                        "🌙 Calm & Fulfilled",
-                        "Close your books with pride. Let tonight feel restful, peaceful, and well-earned."
-                    ),
-                    Pair(
-                        "✨ Finish the Day Strong",
-                        "Your goals are one session closer. Wrap up your study with pure satisfaction."
-                    )
+                    Pair("🌙 Final Sprint", "One final focused session to close the books with total satisfaction."),
+                    Pair("✨ Wrap Up the Day", "Earn your rest tonight with a calm, deliberate review of your goals."),
+                    Pair("🏆 Dignity of Effort", "Finish today with pride. Tomorrow builds on the discipline of tonight."),
+                    Pair("📖 Final Chapter of the Day", "A quick evening session seals in everything you learned today."),
+                    Pair("🌌 Close the Day Strong", "End your study routine with discipline, then rest without regret.")
                 )
                 nightPool.random()
             }
@@ -84,36 +91,40 @@ class AmonReminderReceiver : BroadcastReceiver() {
         // नोटिफिकेशन दिखाना
         AmonReminderManager.showNotification(context, title, message)
 
-        // अगले दिन के लिए सुरक्षित रूप से दोबारा शेड्यूल करना
+        // अगले दिन के लिए लचीले समय पर दोबारा शेड्यूल करना
         AmonReminderManager.scheduleAllReminders(context)
     }
 }
 
 // =============================================================================
-// ⏰ 2. मुंशी (MANAGER): सुरक्षित और नेचुरल टाइमिंग पर रिमाइंडर लगाने वाला सिस्टम
+// ⏰ 2. मुंशी (MANAGER): दिन में ठीक 5 लचीले स्लॉट और 9 PM कर्फ्यू
 // =============================================================================
 object AmonReminderManager {
     private const val CHANNEL_ID = "amon_daily_reminders"
     private const val CHANNEL_NAME = "Daily Study & Focus Reminders"
+    private const val SINGLE_NOTIFICATION_ID = 1001 // एकल ID: ट्रे में कभी नोटिफिकेशन्स का ढेर नहीं लगेगा
 
-    // चारों पहर के रिमाइंडर्स (प्राकृतिक और रैंडम समय के साथ)
     fun scheduleAllReminders(context: Context) {
         try {
-            // 🌅 सुबह: लगभग 6:00 से 6:40 AM के बीच कभी भी
-            val morningMinute = Random.nextInt(10, 45)
+            // 1. 🌅 सुबह: 6:25 AM से 7:45 AM के बीच (6-8 AM विंडो में लचीला)
+            val morningMinute = Random.nextInt(25, 55)
             scheduleSafeReminder(context, 6, morningMinute, "MORNING", 101)
 
-            // ⏳ दोपहर: लगभग 1:15 से 2:00 PM के बीच कभी भी
+            // 2. ☀️ दोपहर 1: 12:15 PM से 12:45 PM के बीच
+            val middayMinute = Random.nextInt(15, 45)
+            scheduleSafeReminder(context, 12, middayMinute, "MIDDAY", 102)
+
+            // 3. 🌤️ दोपहर 2: 3:15 PM से 3:50 PM के बीच
             val afternoonMinute = Random.nextInt(15, 50)
-            scheduleSafeReminder(context, 13, afternoonMinute, "AFTERNOON", 102)
+            scheduleSafeReminder(context, 15, afternoonMinute, "AFTERNOON", 103)
 
-            // 🔥 शाम: लगभग 5:10 से 5:45 PM के बीच कभी भी
+            // 4. 🌆 शाम: 6:10 PM से 6:45 PM के बीच
             val eveningMinute = Random.nextInt(10, 45)
-            scheduleSafeReminder(context, 17, eveningMinute, "EVENING", 103)
+            scheduleSafeReminder(context, 18, eveningMinute, "EVENING", 104)
 
-            // 🌙 रात: लगभग 9:15 से 9:50 PM के बीच कभी भी
-            val nightMinute = Random.nextInt(15, 50)
-            scheduleSafeReminder(context, 21, nightMinute, "NIGHT", 104)
+            // 5. 🌙 रात: 8:10 PM से 8:35 PM के बीच (सख्ती से 9:00 PM से पहले समाप्त)
+            val nightMinute = Random.nextInt(10, 35)
+            scheduleSafeReminder(context, 20, nightMinute, "NIGHT_WRAP", 105)
         } catch (e: Exception) {
             Log.e("AmonReminder", "Safe schedule error: ${e.localizedMessage}")
         }
@@ -152,7 +163,6 @@ object AmonReminderManager {
             }
         }
 
-        // 🛡️ सुरक्षित इन-एग्जैक्ट सिस्टम: यह किसी भी फोन पर बिना परमिशन के काम करता है और कभी क्रैश नहीं होता
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setAndAllowWhileIdle(
@@ -172,24 +182,21 @@ object AmonReminderManager {
         }
     }
 
-    // नोटिफिकेशन ट्रे में मैसेज दिखाना
     fun showNotification(context: Context, title: String, message: String) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // Android 8+ के लिए नोटिफिकेशन चैनल
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Daily discipline and reading reminders for Amon Timer"
+                description = "Daily discipline and focus reminders for Amon Timer"
                 enableVibration(true)
             }
             notificationManager.createNotificationChannel(channel)
         }
 
-        // नोटिफिकेशन पर क्लिक करने पर Amon Timer ऐप खुले
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -211,6 +218,7 @@ object AmonReminderManager {
             .setContentIntent(contentPendingIntent)
             .build()
 
-        notificationManager.notify((System.currentTimeMillis() % 10000).toInt(), notification)
+        // 🌟 सिंगल ID: नया नोटिफिकेशन आने पर पुराना रिप्लेस होगा, बार-बार ढेर नहीं लगेगा
+        notificationManager.notify(SINGLE_NOTIFICATION_ID, notification)
     }
 }
