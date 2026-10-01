@@ -120,13 +120,24 @@ fun ProfileScreen() {
     // 📂 Accordion State
     var activeExpandedCard by remember { mutableStateOf<String?>(null) }
 
-    // 🚀 In-App Update States
-    var isCheckingUpdate by remember { mutableStateOf(false) }
+    // 🚀 In-App Update States (ऑटोमैटिक बैकग्राउंड चेकर)
     var hasNewUpdate by remember { mutableStateOf(false) }
     var latestReleaseVersion by remember { mutableStateOf(currentAppVersion) }
     var apkDownloadUrl by remember { mutableStateOf("") }
     var isDownloading by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableIntStateOf(0) }
+
+    // 🤖 ऑटोमैटिक बैकग्राउंड चेकर: स्क्रीन खुलते ही अपने-आप नया वर्ज़न चेक करेगा
+    LaunchedEffect(Unit) {
+        try {
+            val updateInfo = updateManager.checkLatestUpdate()
+            if (updateInfo.hasUpdate) {
+                hasNewUpdate = true
+                latestReleaseVersion = updateInfo.latestVersion
+                apkDownloadUrl = updateInfo.downloadUrl
+            }
+        } catch (_: Exception) {}
+    }
 
     // 📦 APK डायरेक्ट शेयरिंग स्टेट
     var isPreparingApkShare by remember { mutableStateOf(false) }
@@ -595,14 +606,14 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 7. EXPANDABLE: APP UPDATES -----------------
+        // ----------------- 7. 🚀 AUTO-SENSING APP UPDATES (NO MANUAL CHECK BUTTON) -----------------
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
-                .border(1.dp, if (isUpdateExpanded) Color(0xFF10B981).copy(alpha = 0.6f) else cardBorder, RoundedCornerShape(16.dp))
+                .border(1.dp, if (hasNewUpdate) Color(0xFF10B981).copy(alpha = 0.8f) else cardBorder, RoundedCornerShape(16.dp))
                 .padding(16.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -619,17 +630,18 @@ fun ProfileScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        RocketLaunchIcon(tint = goldColor)
+                        RocketLaunchIcon(tint = if (hasNewUpdate) Color(0xFF10B981) else goldColor)
                         Text(
                             text = "App Updates",
                             color = textMain,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
+                        // 🟢 ऑटोमैटिक ग्रीन डॉट (नया वर्ज़न आते ही अपने-आप चमकेगा)
                         if (hasNewUpdate) {
                             Box(
                                 modifier = Modifier
-                                    .size(8.dp)
+                                    .size(9.dp)
                                     .clip(CircleShape)
                                     .background(Color(0xFF10B981))
                             )
@@ -641,14 +653,14 @@ fun ProfileScreen() {
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = if (hasNewUpdate) "Update Available" else currentAppVersion,
+                            text = if (hasNewUpdate) "Update Available" else "v$currentAppVersion",
                             color = if (hasNewUpdate) Color(0xFF10B981) else textMuted,
                             fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = if (hasNewUpdate) FontWeight.ExtraBold else FontWeight.Medium
                         )
                         ChevronIcon(
                             isExpanded = isUpdateExpanded,
-                            tint = goldColor
+                            tint = if (hasNewUpdate) Color(0xFF10B981) else goldColor
                         )
                     }
                 }
@@ -667,17 +679,17 @@ fun ProfileScreen() {
                         )
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
-                            text = "Includes notification permissions, design polish & stability fixes.",
+                            text = "Includes 0-180m magnetic slider, stats donut chart, and performance polish.",
                             color = textMuted,
                             fontSize = 11.5.sp
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(42.dp)
+                                .height(44.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(Color(0xFF10B981))
                                 .clickable(enabled = !isDownloading) {
@@ -715,14 +727,15 @@ fun ProfileScreen() {
                                 }
                             } else {
                                 Text(
-                                    text = "Download & Install Update",
+                                    text = "Download & Install Update 🚀",
                                     color = Color.White,
-                                    fontSize = 12.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         }
                     } else {
+                        // जब कोई नया अपडेट नहीं है (साफ़-सुथरा ऑटोमैटिक स्टेटस)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -730,58 +743,32 @@ fun ProfileScreen() {
                         ) {
                             Column {
                                 Text(
-                                    text = "✓ You are using the latest version",
+                                    text = "✓ Amon is up to date",
                                     color = Color(0xFF10B981),
                                     fontSize = 12.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Installed: $currentAppVersion  •  Amon is up to date",
+                                    text = "Installed Version: $currentAppVersion  •  Auto-sync active",
                                     color = textMuted,
                                     fontSize = 11.sp
                                 )
                             }
-
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(50))
-                                    .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
-                                    .border(1.dp, cardBorder, RoundedCornerShape(50))
-                                    .clickable(enabled = !isCheckingUpdate) {
-                                        coroutineScope.launch {
-                                            isCheckingUpdate = true
-                                            val updateInfo = updateManager.checkLatestUpdate()
-                                            isCheckingUpdate = false
-
-                                            if (updateInfo.hasUpdate) {
-                                                hasNewUpdate = true
-                                                latestReleaseVersion = updateInfo.latestVersion
-                                                apkDownloadUrl = updateInfo.downloadUrl
-                                                Toast.makeText(context, "New update found: ${updateInfo.latestVersion}!", Toast.LENGTH_SHORT).show()
-                                            } else {
-                                                hasNewUpdate = false
-                                                Toast.makeText(context, "Amon is up to date!", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    }
-                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                                    .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                                    .border(1.dp, Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape(50))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
                             ) {
-                                if (isCheckingUpdate) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(10.dp),
-                                        color = goldColor,
-                                        strokeWidth = 1.5.dp
-                                    )
-                                } else {
-                                    Text(
-                                        text = "Check",
-                                        color = textMain,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                                Text(
+                                    text = "Latest",
+                                    color = Color(0xFF10B981),
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -789,7 +776,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 8. 🚀 SHARE DIRECT APK (SUPERFAST & 100% UNBLOCKED) -----------------
+        // ----------------- 8. SHARE DIRECT APK -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -937,7 +924,7 @@ fun ProfileScreen() {
                                 .height(46.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (isSyncSuccess) Color(0xFF10B981) else Color(0xFFEF4444))
-                            .clickable { showSyncPopup = false }
+                                .clickable { showSyncPopup = false }
                         ) {
                             Text(
                                 text = "Done",
@@ -984,16 +971,13 @@ private suspend fun shareApkSafely(context: Context) {
                 return@withContext
             }
 
-            // ⚡ सुपरफ़ास्ट तैयारी: Amon_Focus_Timer.apk नाम से सुरक्षित इंटरनल कैश
             val cacheFolder = context.cacheDir
             val sharedApk = File(cacheFolder, "Amon_Focus_Timer.apk")
             
-            // अगर फ़ाइल पहले से बनी हुई है और साइज़ एकदम समान है, तो दोबारा कॉपी करने में समय नहीं गँवाएगा
             if (!sharedApk.exists() || sharedApk.length() != sourceApk.length()) {
                 sourceApk.copyTo(sharedApk, overwrite = true)
             }
 
-            // 🛡️ स्मार्ट अथॉरिटी डिटेक्टर: जो भी Provider रजिस्टर्ड होगा, उसे बिना क्रैश हुए चुनेगा
             val authority = try {
                 "${context.packageName}.provider"
             } catch (_: Exception) {
@@ -1006,11 +990,9 @@ private suspend fun shareApkSafely(context: Context) {
                 FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", sharedApk)
             }
 
-            // 🎯 WhatsApp और Android Chooser के लिए परफ़ेक्ट Intent + ClipData सिक्योरिटी टिकट
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "application/vnd.android.package-archive"
                 putExtra(Intent.EXTRA_STREAM, apkUri)
-                // ✨ Android 10+ Chooser के लिए ClipData टिकट अनिवार्य है ताकि WhatsApp को फ़ाइल पढ़ने की अनुमति मिल सके
                 clipData = ClipData.newRawUri("Amon_Focus_Timer.apk", apkUri)
                 putExtra(Intent.EXTRA_SUBJECT, "Amon Focus Timer 🎯")
                 putExtra(
@@ -1158,7 +1140,7 @@ private fun PaletteIcon(tint: Color, modifier: Modifier = Modifier) {
 
         drawCircle(color = Color(0xFF18181D), radius = w * 0.065f, center = Offset(w * 0.40f, h * 0.30f))
         drawCircle(color = Color(0xFF18181D), radius = w * 0.065f, center = Offset(w * 0.65f, h * 0.32f))
-        drawCircle(color = Color(0xFF18181D), radius = w * 0.065f, center = Offset(w * 0.72f, h * 0.55f))
+        drawCircle(color = Color(0xFF18181D), radius = w * 0.072f, center = Offset(w * 0.72f, h * 0.55f))
         drawCircle(color = Color(0xFF18181D), radius = w * 0.08f, center = Offset(w * 0.30f, h * 0.55f))
     }
 }
