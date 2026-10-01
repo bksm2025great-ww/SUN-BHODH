@@ -14,6 +14,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
+import android.widget.RemoteViews
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.app.NotificationCompat
@@ -31,7 +32,6 @@ class TimerService : Service() {
     private var originalTimerSeconds = 0
 
     companion object {
-        // नया चैनल नाम ताकि यह 'Silent' से निकलकर तुरंत ऊपर एक्टिव नोटिफ़िकेशन में आए
         const val CHANNEL_ID = "amon_focus_active_v2"
         const val NOTIFICATION_ID = 1001
 
@@ -46,7 +46,7 @@ class TimerService : Service() {
         val isTimerRunning = mutableStateOf(false)
         val currentSubjectName = mutableStateOf("All")
 
-        // ⏱️ हार्डवेयर काउंटर का टारगेट समय (फ़ोन की दीवार घड़ी बदलने पर भी नहीं हिलेगा)
+        // ⏱️ हार्डवेयर काउंटर का टारगेट समय
         var sessionStartElapsedRealtime: Long = 0L
             private set
         var sessionTargetElapsedRealtime: Long = 0L
@@ -102,12 +102,11 @@ class TimerService : Service() {
         val targetElapsed = if (isStopwatch) nowElapsed else nowElapsed + (seconds * 1000L)
         sessionTargetElapsedRealtime = if (isStopwatch) 0L else targetElapsed
 
-        // नोटिफ़िकेशन में उलटी गिनती दिखाने के लिए दीवार घड़ी का संदर्भ
-        val referenceWallTime = if (isStopwatch) System.currentTimeMillis() else System.currentTimeMillis() + (seconds * 1000L)
+        // Chronometer का सटीक हार्डवेयर बेस टाइम (दशमलव या गड़बड़ समय से बचाने के लिए)
+        val chronometerBase = if (isStopwatch) nowElapsed else targetElapsed
 
-        // 🛡️ Samsung और Android 14+ सुरक्षा कवच
         try {
-            val notification = buildNotification(subject, referenceWallTime, isStopwatch)
+            val notification = buildNotification(chronometerBase, isStopwatch)
             startForeground(NOTIFICATION_ID, notification)
         } catch (e: Exception) {
             Log.e("AmonTimer", "Safe startForeground catch: ${e.localizedMessage}")
@@ -175,7 +174,6 @@ class TimerService : Service() {
         if (sessionStartElapsedRealtime == 0L) return
 
         try {
-            // 1. हार्डवेयर टिकर से असली बीता हुआ समय निकालना
             val elapsedMillis = SystemClock.elapsedRealtime() - sessionStartElapsedRealtime
             val elapsedSeconds = (elapsedMillis / 1000L).toInt().coerceAtLeast(0)
 
@@ -187,9 +185,8 @@ class TimerService : Service() {
 
             val minutes = completedSeconds / 60
 
-            // 2. पेड़ का नियम: अगर कैंसिल हुआ तो 0 पेड़ (सूखा पौधा), वरना स्लैब के अनुसार
             val trees = if (isCancelled) {
-                0 // कैंसिल / अधूरा सेशन = सूखा पौधा
+                0
             } else {
                 when {
                     minutes >= 105 -> 4
@@ -200,12 +197,11 @@ class TimerService : Service() {
                 }
             }
 
-            if (minutes < 1 && !isCancelled) return // 1 मिनट से कम बिना कैंसिल के सेव नहीं होगा
+            if (minutes < 1 && !isCancelled) return
 
             val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
             val currentDate = sdf.format(Date())
 
-            // 3. फ़ोन की लोकल डायरी में सुरक्षित सेव
             val session = FocusSession(
                 date = currentDate,
                 subject = currentSubjectName.value,
@@ -214,7 +210,6 @@ class TimerService : Service() {
             )
             FocusSessionManager.saveSession(this, session)
 
-            // 4. 🌐 Google Sheet / Cloud में बैकअप
             CloudSyncManager.syncSession(
                 context = this,
                 subject = currentSubjectName.value,
@@ -250,7 +245,8 @@ class TimerService : Service() {
         }
     }
 
-    private fun buildNotification(subject: String, referenceTime: Long, isStopwatch: Boolean): Notification {
+    // 🌟 कस्टम हाफ़-ट्रांसपेरेंट बॉक्स नोटिफ़िकेशन बिल्डर
+    private fun buildNotification(chronometerBase: Long, isStopwatch: Boolean): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -272,18 +268,23 @@ class TimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val contentText = if (isStopwatch) "Counting focus time..." else "Focus in progress • Tap to open"
+        // 🎨 कस्टम लेआउट (notification_box.xml) लोड करना
+        val customLayout = RemoteViews(packageName, R.layout.notification_box).apply {
+            setChronometer(R.id.notif_timer, chronometerBase, null, true)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                setChronometerCountDown(R.id.notif_timer, !isStopwatch)
+            }
+            setOnClickPendingIntent(R.id.btn_notif_cancel, cancelPendingIntent)
+            setOnClickPendingIntent(R.id.notif_logo, openAppPendingIntent)
+        }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Amon Focus • $subject")
-            .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setOngoing(true)
             .setContentIntent(openAppPendingIntent)
-            .setUsesChronometer(true)
-            .setChronometerCountDown(!isStopwatch)
-            .setWhen(referenceTime)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "✕ Give Up", cancelPendingIntent)
+            .setCustomContentView(customLayout)
+            .setCustomBigContentView(customLayout)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOnlyAlertOnce(true)
@@ -295,11 +296,11 @@ class TimerService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Amon Focus Timer",
-                NotificationManager.IMPORTANCE_DEFAULT // साइलेंट से हटाकर एक्टिव में किया
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Shows live focus countdown timer"
                 setShowBadge(false)
-                setSound(null, null) // नोटिफ़िकेशन बार-बार आवाज़ नहीं करेगा
+                setSound(null, null)
                 enableVibration(false)
             }
             val manager = getSystemService(NotificationManager::class.java)
