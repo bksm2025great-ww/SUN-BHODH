@@ -361,7 +361,7 @@ fun HomeTimerTab(
                         }
                     }
 
-                    // 🎵 Sound Button: विजिबिलिटी अभी ऑफ रखी गई है (कोड भविष्य के लिए सुरक्षित है)
+                    // 🎵 Sound Button: विजिबिलिटी सुरक्षित रूप से बंद रखी गई है
                     val isSoundFeatureVisible = false
                     if (isSoundFeatureVisible) {
                         Row(
@@ -548,9 +548,24 @@ fun HomeTimerTab(
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
-            // ----------------- CUSTOM SLIDER -----------------
+            // ----------------- 🌟 NEW CUSTOM 5-MIN SLIDER (0 - 180 MIN) -----------------
             if (!isRunning) {
                 if (isCustomMode) {
+                    var dragAccumulator by remember { mutableFloatStateOf(0f) }
+
+                    val sliderDisplayTitle = remember(dialMinutes) {
+                        val mins = dialMinutes.toInt()
+                        when {
+                            mins == 0 -> "0 min (Stopwatch)"
+                            mins >= 60 -> {
+                                val h = mins / 60
+                                val m = mins % 60
+                                if (m > 0) "$mins min ($h h $m m)" else "$mins min ($h h)"
+                            }
+                            else -> "$mins min"
+                        }
+                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -564,18 +579,29 @@ fun HomeTimerTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .pointerInput(Unit) {
-                                    detectHorizontalDragGestures { _, dragAmount ->
-                                        val sensitivity = 0.25f
-                                        val newMins = (dialMinutes - (dragAmount * sensitivity)).coerceIn(0f, 120f)
-                                        dialMinutes = newMins
-                                        val secs = if (newMins == 0f) 0 else (newMins.toInt() * 60)
-                                        TimerService.remainingSeconds.intValue = secs
-                                        initialTotalSeconds = if (secs > 0) secs else 60
+                                    detectHorizontalDragGestures(
+                                        onDragEnd = { dragAccumulator = 0f },
+                                        onDragCancel = { dragAccumulator = 0f }
+                                    ) { _, dragAmount ->
+                                        // 🧲 5-मिनट का चुंबकीय स्टेप: हर ~18 पिक्सल ड्रैग पर 5 मिनट का स्नैप
+                                        val stepSensitivity = 18f
+                                        dragAccumulator -= dragAmount
+                                        if (abs(dragAccumulator) >= stepSensitivity) {
+                                            val steps = (dragAccumulator / stepSensitivity).toInt()
+                                            val nextMins = (dialMinutes + steps * 5f).coerceIn(0f, 180f)
+                                            if (nextMins != dialMinutes) {
+                                                dialMinutes = nextMins
+                                                val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
+                                                TimerService.remainingSeconds.intValue = secs
+                                                initialTotalSeconds = if (secs > 0) secs else 60
+                                            }
+                                            dragAccumulator -= steps * stepSensitivity
+                                        }
                                     }
                                 }
                         ) {
                             Text(
-                                text = if (dialMinutes == 0f) "0 min (Stopwatch)" else "${dialMinutes.toInt()} min",
+                                text = sliderDisplayTitle,
                                 color = textMain,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Black
@@ -585,35 +611,68 @@ fun HomeTimerTab(
                             Canvas(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(36.dp)
+                                    .height(40.dp)
                             ) {
                                 val canvasWidth = size.width
                                 val canvasHeight = size.height
+                                val centerX = canvasWidth / 2f
                                 val centerY = canvasHeight / 2f
 
-                                val totalTicks = 31
-                                val spacing = canvasWidth / (totalTicks - 1)
+                                // हर 5-मिनट टिक के बीच की दूरी
+                                val spacing = 22.dp.toPx()
 
-                                val normalizedValue = dialMinutes / 120f
-                                val centerIndex = (normalizedValue * (totalTicks - 1)).toInt()
+                                // 0 से 180 तक 5-5 मिनट के अंतराल की डंडियाँ
+                                for (m in 0..180 step 5) {
+                                    val x = centerX + ((m - dialMinutes) / 5f) * spacing
+                                    if (x >= -20f && x <= canvasWidth + 20f) {
+                                        val distFromCenter = abs(x - centerX)
+                                        val alpha = (1f - distFromCenter / (canvasWidth / 2f)).coerceIn(0f, 1f)
 
-                                for (i in 0 until totalTicks) {
-                                    val x = i * spacing
-                                    val distFromCenter = abs(i - centerIndex)
-                                    val isCenter = (i == centerIndex)
+                                        val isMajor30 = (m % 30 == 0)
+                                        val isMajor15 = (m % 15 == 0)
 
-                                    val tickHeight = if (isCenter) 24.dp.toPx() else max(6.dp.toPx(), 16.dp.toPx() - (distFromCenter * 0.7f))
-                                    val tickWidth = if (isCenter) 3.2.dp.toPx() else 1.5.dp.toPx()
-                                    val tickColor = if (isCenter) textMain else textMuted.copy(alpha = max(0.2f, 1.0f - distFromCenter * 0.07f))
+                                        // डंडियों की ऊँचाई और मोटाई
+                                        val tickHeight = when {
+                                            isMajor30 -> 22.dp.toPx()
+                                            isMajor15 -> 16.dp.toPx()
+                                            else -> 10.dp.toPx()
+                                        }
+                                        val tickWidth = when {
+                                            isMajor30 -> 2.4.dp.toPx()
+                                            isMajor15 -> 1.8.dp.toPx()
+                                            else -> 1.2.dp.toPx()
+                                        }
+                                        val tickColor = if (isMajor30 || isMajor15) {
+                                            textMain.copy(alpha = alpha * 0.9f)
+                                        } else {
+                                            textMuted.copy(alpha = alpha * 0.6f)
+                                        }
 
-                                    drawLine(
-                                        color = tickColor,
-                                        start = Offset(x, centerY - tickHeight / 2f),
-                                        end = Offset(x, centerY + tickHeight / 2f),
-                                        strokeWidth = tickWidth,
-                                        cap = StrokeCap.Round
-                                    )
+                                        drawLine(
+                                            color = tickColor,
+                                            start = Offset(x, centerY - tickHeight / 2f),
+                                            end = Offset(x, centerY + tickHeight / 2f),
+                                            strokeWidth = tickWidth,
+                                            cap = StrokeCap.Round
+                                        )
+                                    }
                                 }
+
+                                // 📍 फिक्स्ड सेंटर मेन स्टिक (Center Golden Needle)
+                                val needleHeight = 28.dp.toPx()
+                                drawLine(
+                                    color = goldColor,
+                                    start = Offset(centerX, centerY - needleHeight / 2f),
+                                    end = Offset(centerX, centerY + needleHeight / 2f),
+                                    strokeWidth = 3.4.dp.toPx(),
+                                    cap = StrokeCap.Round
+                                )
+                                // सुई के शीर्ष पर सूक्ष्म गोल्डन डॉट
+                                drawCircle(
+                                    color = glowYellow,
+                                    radius = 2.2.dp.toPx(),
+                                    center = Offset(centerX, centerY - needleHeight / 2f)
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(6.dp))
@@ -734,7 +793,6 @@ fun HomeTimerTab(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // ON/OFF Pill
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
