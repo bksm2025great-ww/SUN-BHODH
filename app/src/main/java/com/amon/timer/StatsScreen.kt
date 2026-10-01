@@ -131,7 +131,7 @@ fun StatsScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. SCREEN HEADER (18.sp साइज़)
+        // 1. SCREEN HEADER
         Text(
             text = "STATS & ANALYTICS",
             color = textMain,
@@ -141,7 +141,7 @@ fun StatsScreen() {
             modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
         )
 
-        // 2. TIME FILTER TABS (15.sp साइज़)
+        // 2. TIME FILTER TABS
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -172,7 +172,7 @@ fun StatsScreen() {
             }
         }
 
-        // 3. DATE SWITCHER (14.5.sp साइज़)
+        // 3. DATE SWITCHER
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -237,7 +237,6 @@ fun StatsScreen() {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 🌟 1 sp बढ़ाया गया: 11.5.sp
                     Text(
                         text = when (selectedTab) {
                             "Today" -> "STUDY BY SUBJECT"
@@ -268,7 +267,6 @@ fun StatsScreen() {
                             )
                         }
                     } else {
-                        // 🌟 1 sp बढ़ाया गया: 10.5.sp
                         Text(
                             text = "Tap bar to inspect ☝️",
                             color = textMuted.copy(alpha = 0.6f),
@@ -285,7 +283,8 @@ fun StatsScreen() {
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "🌱", fontSize = 24.sp)
+                            // 🎯 साफ़ फ़ोकस सिंबल (अंकुर हटाया गया)
+                            Text(text = "🎯", fontSize = 24.sp)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "No study sessions on this day",
@@ -438,11 +437,12 @@ fun StatsScreen() {
                     textMuted = textMuted,
                     accentColor = goldColor
                 )
+                // ✨ साफ़ 'Total Sessions' कार्ड (पेड़-पौधे पूरी तरह हटाए गए)
                 SummaryCard(
                     modifier = Modifier.weight(1f),
-                    title = "Sessions",
+                    title = "Total Sessions",
                     value = "${filteredSessions.size}",
-                    subtitle = "Trees Planted 🌳",
+                    subtitle = "Completed",
                     cardBg = cardBg,
                     cardBorder = cardBorder,
                     textMain = textMain,
@@ -533,7 +533,7 @@ data class BarItem(
     val minutes: Int
 )
 
-// 🔍 अचूक तारीख फ़िल्टर (Weekly: सोमवार से रविवार तक का सॉलिड घेरा)
+// 🔍 अचूक तारीख फ़िल्टर
 private fun filterSessionsByPeriod(
     sessions: List<FocusSession>,
     period: String,
@@ -694,7 +694,7 @@ private fun parseDateSafelyUniversal(dateStr: String): Date? {
         SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
         SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()),
-        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()),
+        SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()),
         SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
         SimpleDateFormat("d/M/yyyy", Locale.getDefault()),
         SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()),
@@ -722,7 +722,7 @@ private fun parseDateSafelyUniversal(dateStr: String): Date? {
     if (dmyMatch != null) {
         val (d, m, y) = dmyMatch.destructured
         return Calendar.getInstance().apply {
-            set(y.toInt(), m.toInt() - 1, d.toInt(), 12, 0, 0)
+            set(d.toInt(), m.toInt() - 1, y.toInt(), 12, 0, 0)
             set(Calendar.MILLISECOND, 0)
         }.time
     }
