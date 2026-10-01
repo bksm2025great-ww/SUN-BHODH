@@ -72,6 +72,24 @@ fun MainScreen() {
     val glassBorder = if (isDark) Color(0x33F3C669) else Color(0xFFCBD5E1)
     val glowYellow = if (ThemeManager.currentTheme.value == "Classic Yellow") Color(0xFFFDE68A) else Color(0xFFFFE082)
 
+    // 🌟 WHAT'S NEW: नए वर्शन पर सिर्फ़ पहली बार पॉपअप दिखेगा
+    val appPrefs = remember {
+        context.getSharedPreferences("amon_app_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    val currentVersion = remember {
+        try {
+            @Suppress("DEPRECATION")
+            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            pInfo.versionName ?: "1.1.0"
+        } catch (_: Exception) {
+            "1.1.0"
+        }
+    }
+    var showWhatsNew by remember {
+        val lastSeenVersion = appPrefs.getString("whats_new_seen_version", "")
+        mutableStateOf(lastSeenVersion != currentVersion)
+    }
+
     Scaffold(
         containerColor = bgColor,
         bottomBar = {
@@ -97,6 +115,22 @@ fun MainScreen() {
                 1 -> ForestScreen()
                 2 -> StatsScreen()
                 3 -> ProfileScreen()
+            }
+
+            // ✨ What's New Dialog Overlay
+            if (showWhatsNew && !isRunning) {
+                WhatsNewDialog(
+                    versionName = currentVersion,
+                    goldColor = goldColor,
+                    glowYellow = glowYellow,
+                    cardBg = cardBg,
+                    textMain = textMain,
+                    textMuted = textMuted,
+                    onDismiss = {
+                        appPrefs.edit().putString("whats_new_seen_version", currentVersion).apply()
+                        showWhatsNew = false
+                    }
+                )
             }
         }
     }
@@ -1088,7 +1122,6 @@ fun HomeTimerTab(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // End Session Button
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -1116,7 +1149,6 @@ fun HomeTimerTab(
                                 )
                             }
 
-                            // Keep Focusing Button
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -1144,7 +1176,174 @@ fun HomeTimerTab(
 }
 
 // =============================================================================
-// 🟢 2. CURVED BOTTOM BAR
+// ✨ 2. WHAT'S NEW DIALOG (VERSION UPDATE ANNOUNCEMENT)
+// =============================================================================
+@Composable
+fun WhatsNewDialog(
+    versionName: String,
+    goldColor: Color,
+    glowYellow: Color,
+    cardBg: Color,
+    textMain: Color,
+    textMuted: Color,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(cardBg)
+                .border(1.6.dp, goldColor, RoundedCornerShape(26.dp))
+                .padding(22.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // 🏷️ Version Badge (गोल्डन बैज)
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(goldColor.copy(alpha = 0.2f))
+                        .border(1.dp, goldColor, RoundedCornerShape(50))
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "Version $versionName",
+                        color = goldColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "What's New in Amon ✨",
+                    color = textMain,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center
+                )
+
+                Text(
+                    text = "Built for deeper focus & zero distractions",
+                    color = textMuted,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // 📋 Feature Highlights List
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    WhatsNewItem(
+                        icon = "🧲",
+                        title = "Magnetic 0–180m Slider",
+                        description = "Effortless 5-minute snap intervals with a precision center golden needle.",
+                        textMain = textMain,
+                        textMuted = textMuted
+                    )
+
+                    WhatsNewItem(
+                        icon = "🍩",
+                        title = "Subject Breakdown Chart",
+                        description = "Modern donut analytics in Stats to track your study balance across days, weeks & months.",
+                        textMain = textMain,
+                        textMuted = textMuted
+                    )
+
+                    WhatsNewItem(
+                        icon = "⏱️",
+                        title = "Clear Time Display",
+                        description = "Replaced confusing decimals with clean, readable hours & minutes (e.g. 1h 30m).",
+                        textMain = textMain,
+                        textMuted = textMuted
+                    )
+
+                    WhatsNewItem(
+                        icon = "🔔",
+                        title = "Smart Quiet Notifications",
+                        description = "Balanced daily motivation with auto-mute during active focus & strict 9 PM night curfew.",
+                        textMain = textMain,
+                        textMuted = textMuted
+                    )
+
+                    WhatsNewItem(
+                        icon = "✨",
+                        title = "Distraction-Free Experience",
+                        description = "Locked portrait mode to prevent distortion, cleaner UI, and background sound logic saved.",
+                        textMain = textMain,
+                        textMuted = textMuted
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                // 🎯 Got It Button
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(goldColor)
+                        .border(1.dp, glowYellow, RoundedCornerShape(50))
+                        .clickable { onDismiss() }
+                ) {
+                    Text(
+                        text = "Got It, Let's Focus 🎯",
+                        color = Color.Black,
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WhatsNewItem(
+    icon: String,
+    title: String,
+    description: String,
+    textMain: Color,
+    textMuted: Color
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(text = icon, fontSize = 20.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = textMain,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                color = textMuted,
+                fontSize = 11.5.sp,
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
+// =============================================================================
+// 🟢 3. CURVED BOTTOM BAR
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
