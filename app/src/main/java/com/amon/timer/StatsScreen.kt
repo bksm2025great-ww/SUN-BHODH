@@ -1,5 +1,6 @@
 package com.amon.timer
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -14,7 +16,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -96,12 +101,12 @@ fun StatsScreen() {
         selectedBarIndex = null
     }
 
-    // 🧮 Summary Cards Calculation
+    // 🧮 Summary Cards Calculation (स्मार्ट फ़ॉर्मूला: 0.1h हटाया गया)
     val totalMinutes = remember(filteredSessions) {
         filteredSessions.sumOf { it.durationMinutes }
     }
     val totalHoursStr = remember(totalMinutes) {
-        String.format(Locale.getDefault(), "%.1f h", totalMinutes / 60f)
+        formatMinutes(totalMinutes)
     }
     val dailyAvgStr = remember(totalMinutes, selectedTab, dateOffset) {
         val daysCount = when (selectedTab) {
@@ -113,14 +118,41 @@ fun StatsScreen() {
                 cal.getActualMaximum(Calendar.DAY_OF_MONTH)
             }
         }
-        val avgHours = (totalMinutes.toFloat() / daysCount) / 60f
-        String.format(Locale.getDefault(), "%.1f h", avgHours)
+        val avgMinutes = Math.round(totalMinutes.toFloat() / daysCount).toInt()
+        formatMinutes(avgMinutes)
     }
 
     // 🔥 Streak Calculation
     val streakText = remember(allSessions) {
         calculateStreak(allSessions)
     }
+
+    // 🥧 पाई/डोनट चार्ट डेटा: हर विषय के कुल मिनट और प्रतिशत
+    val subjectMinutesList = remember(filteredSessions) {
+        filteredSessions.groupBy { it.subject }
+            .map { (subject, sessions) ->
+                Pair(subject, sessions.sumOf { it.durationMinutes })
+            }
+            .filter { it.second > 0 }
+            .sortedByDescending { it.second }
+    }
+    val totalSubjectMinutes = remember(subjectMinutesList) {
+        subjectMinutesList.sumOf { it.second }
+    }
+
+    // 🎨 हर विषय के लिए 10 अनोखे, शानदार और प्रीमियम रंग
+    val subjectColors = listOf(
+        Color(0xFFF59E0B), // गोल्डन एम्बर
+        Color(0xFF38BDF8), // स्काई ब्लू
+        Color(0xFFA855F7), // रॉयल पर्पल
+        Color(0xFF10B981), // एमराल्ड ग्रीन
+        Color(0xFFF43F5E), // कोरल रोज़
+        Color(0xFF6366F1), // इंडिगो
+        Color(0xFFEC4899), // ब्राइट पिंक
+        Color(0xFF14B8A6), // टील
+        Color(0xFFEAB308), // क्लासिक येलो
+        Color(0xFF8B5CF6)  // वॉयलेट
+    )
 
     Column(
         modifier = Modifier
@@ -283,7 +315,6 @@ fun StatsScreen() {
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            // 🎯 साफ़ फ़ोकस सिंबल (अंकुर हटाया गया)
                             Text(text = "🎯", fontSize = 24.sp)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
@@ -428,7 +459,7 @@ fun StatsScreen() {
             ) {
                 SummaryCard(
                     modifier = Modifier.weight(1f),
-                    title = "Total Hours",
+                    title = "Total Time",
                     value = totalHoursStr,
                     subtitle = "Focus Time",
                     cardBg = cardBg,
@@ -437,7 +468,6 @@ fun StatsScreen() {
                     textMuted = textMuted,
                     accentColor = goldColor
                 )
-                // ✨ साफ़ 'Total Sessions' कार्ड (पेड़-पौधे पूरी तरह हटाए गए)
                 SummaryCard(
                     modifier = Modifier.weight(1f),
                     title = "Total Sessions",
@@ -477,6 +507,176 @@ fun StatsScreen() {
                     textMuted = textMuted,
                     accentColor = goldColor
                 )
+            }
+        }
+
+        // =====================================================================
+        // 📊 6. NEW: SUBJECT DISTRIBUTION DONUT CHART & BREAKDOWN LIST
+        // =====================================================================
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(cardBg)
+                .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // कार्ड का शीर्षक
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "SUBJECT BREAKDOWN 📊",
+                        color = textMuted,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Text(
+                        text = "By $selectedTab",
+                        color = goldColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                if (subjectMinutesList.isEmpty()) {
+                    // जब कोई पढ़ाई नहीं हुई हो
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(110.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = "📊", fontSize = 24.sp)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "No subject data for this period",
+                                color = textMuted,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                } else {
+                    // 🍩 मॉडर्न डोनट चार्ट
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(176.dp)
+                            .padding(8.dp)
+                    ) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val strokeWidth = 24.dp.toPx()
+                            val radius = (size.minDimension - strokeWidth) / 2f
+                            val center = Offset(size.width / 2f, size.height / 2f)
+
+                            var currentStartAngle = -90f
+                            subjectMinutesList.forEachIndexed { index, (_, mins) ->
+                                val sweepAngle = (mins.toFloat() / totalSubjectMinutes) * 360f
+                                val color = subjectColors[index % subjectColors.size]
+
+                                drawArc(
+                                    color = color,
+                                    startAngle = currentStartAngle,
+                                    sweepAngle = sweepAngle,
+                                    useCenter = false,
+                                    topLeft = Offset(center.x - radius, center.y - radius),
+                                    size = Size(radius * 2f, radius * 2f),
+                                    style = Stroke(width = strokeWidth)
+                                )
+                                currentStartAngle += sweepAngle
+                            }
+                        }
+
+                        // डोनट चार्ट के बीच में कुल समय
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(text = "🎯", fontSize = 18.sp)
+                            Text(
+                                text = formatMinutes(totalSubjectMinutes),
+                                color = textMain,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "Total Focus",
+                                color = textMuted,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // 📋 साफ़-सुथरी सब्जेक्ट और टाइम लिस्ट (नाम, रंग और घंटे)
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        subjectMinutesList.forEachIndexed { index, (subject, mins) ->
+                            val color = subjectColors[index % subjectColors.size]
+                            val percentage = Math.round((mins.toFloat() / totalSubjectMinutes) * 100)
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isDark) Color(0x18FFFFFF) else Color(0x0C000000))
+                                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                // बाएँ: रंगीन डॉट + सब्जेक्ट का नाम
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(9.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(color)
+                                    )
+                                    Text(
+                                        text = subject,
+                                        color = textMain,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                // दाएँ: कुल पढ़े गए घंटे/मिनट + प्रतिशत
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = formatMinutes(mins),
+                                        color = goldColor,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                    Text(
+                                        text = "($percentage%)",
+                                        color = textMuted,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -656,14 +856,16 @@ private fun generateChartBars(
     }
 }
 
+// ⏱️ स्मार्ट फ़ॉर्मैट: 60 मिनट से कम पर सिर्फ 'm', ऊपर जाने पर 'h' और 'm'
 private fun formatMinutes(minutes: Int): String {
+    if (minutes <= 0) return "0m"
     if (minutes < 60) return "${minutes}m"
     val h = minutes / 60
     val m = minutes % 60
     return if (m == 0) "${h}h" else "${h}h ${m}m"
 }
 
-// 🛡️ Bulletproof Universal Date Parser
+// 🛡 Bulletproof Universal Date Parser
 private fun parseDateSafelyUniversal(dateStr: String): Date? {
     if (dateStr.isBlank()) return null
 
