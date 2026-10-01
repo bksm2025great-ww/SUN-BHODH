@@ -14,7 +14,7 @@
     <!-- 3. Lock screen par timer ka notification dikhane ki permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- 4. ⏰ Thik tay samay (5:30 AM, 10:00 AM) par alarm jagane ki permission -->
+    <!-- 4. ⏰ Thik tay samay par alarm jagane ki permission -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <!-- 5. 📲 In-app update APK install karne ki permission -->
@@ -28,10 +28,11 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
-        <!-- Hamari main screen (MainActivity) -->
+        <!-- Hamari main screen (MainActivity) - 🔒 Portrait Mode Locked -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
