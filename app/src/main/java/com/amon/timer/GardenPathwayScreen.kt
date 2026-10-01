@@ -26,28 +26,28 @@ fun GardenPathwayScreen(
         )
 
         PlantPlot(
-            plantResId = R.drawable.plant_lotus,
+            plantResId = R.drawable.pot_marigold_1,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .offset(x = 50.dp, y = 180.dp)
         )
 
         PlantPlot(
-            plantResId = R.drawable.plant_cherry_blossom,
+            plantResId = R.drawable.pot_marigold_1,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .offset(x = 220.dp, y = 320.dp)
         )
 
         PlantPlot(
-            plantResId = R.drawable.plant_bird_of_paradise,
+            plantResId = R.drawable.pot_marigold_1,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .offset(x = 60.dp, y = 480.dp)
         )
 
         PlantPlot(
-            plantResId = R.drawable.plant_iris,
+            plantResId = R.drawable.pot_marigold_1,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .offset(x = 210.dp, y = 640.dp)
