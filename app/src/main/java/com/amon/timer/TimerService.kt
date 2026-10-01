@@ -28,9 +28,6 @@ class TimerService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var timerJob: Job? = null
 
-    // 🟢 असली टाइम और हार्डवेयर टिकर (चीट-प्रूफ)
-    private var originalTimerSeconds = 0
-
     companion object {
         const val CHANNEL_ID = "amon_focus_active_v2"
         const val NOTIFICATION_ID = 1001
@@ -45,6 +42,9 @@ class TimerService : Service() {
         val remainingSeconds = mutableIntStateOf(25 * 60)
         val isTimerRunning = mutableStateOf(false)
         val currentSubjectName = mutableStateOf("All")
+
+        // 🟢 शुरुआती समय की पक्की मेमोरी (25 मिनट या 0 स्टॉपवॉच)
+        var originalTimerSeconds: Int = 25 * 60
 
         // ⏱️ हार्डवेयर काउंटर का टारगेट समय
         var sessionStartElapsedRealtime: Long = 0L
@@ -102,7 +102,7 @@ class TimerService : Service() {
         val targetElapsed = if (isStopwatch) nowElapsed else nowElapsed + (seconds * 1000L)
         sessionTargetElapsedRealtime = if (isStopwatch) 0L else targetElapsed
 
-        // Chronometer का सटीक हार्डवेयर बेस टाइम (दशमलव या गड़बड़ समय से बचाने के लिए)
+        // Chronometer का सटीक हार्डवेयर बेस टाइम
         val chronometerBase = if (isStopwatch) nowElapsed else targetElapsed
 
         try {
@@ -139,7 +139,7 @@ class TimerService : Service() {
         }
     }
 
-    // ✕ Give Up दबाने पर: सीधे सूखा पौधा सेव होगा
+    // ✕ Give Up दबाने पर: टाइमर सही जगह रीसेट होगा
     private fun cancelSessionGiveUp() {
         if (isTimerRunning.value) {
             saveSessionToDiary(isCancelled = true)
@@ -148,6 +148,10 @@ class TimerService : Service() {
         isTimerRunning.value = false
         sessionStartElapsedRealtime = 0L
         sessionTargetElapsedRealtime = 0L
+
+        // 🔄 जादुई सुधार: टाइमर को तुरंत शुरुआती समय (25:00 या 00:00) पर रीसेट कर देना
+        remainingSeconds.intValue = originalTimerSeconds
+
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } catch (_: Exception) {}
@@ -257,7 +261,7 @@ class TimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // ✕ Give Up (सीधा कैंसिल करने वाला इंटेंट)
+        // ✕ Give Up इंटेंट
         val cancelIntent = Intent(this, TimerService::class.java).apply {
             action = ACTION_CANCEL
         }
