@@ -103,7 +103,7 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🟢 1. HOME TAB (TIMER, SMART RANKED SUBJECTS & MUSICAL ACCENT SOUND PILL)
+// 🟢 1. HOME TAB (TIMER & SMART RANKED SUBJECTS)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
@@ -279,7 +279,7 @@ fun HomeTimerTab(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // ----------------- DYNAMIC SUBJECT RIBBON + MUSICAL SOUND PILL -----------------
+            // ----------------- DYNAMIC SUBJECT RIBBON -----------------
             if (!isRunning) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -361,33 +361,36 @@ fun HomeTimerTab(
                         }
                     }
 
-                    // 🎵 Musical Accent Sound Button
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(end = 4.dp),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
+                    // 🎵 Sound Button: विजिबिलिटी अभी ऑफ रखी गई है (कोड भविष्य के लिए सुरक्षित है)
+                    val isSoundFeatureVisible = false
+                    if (isSoundFeatureVisible) {
+                        Row(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(if (isSoundOn) goldColor.copy(alpha = 0.25f) else cardBg)
-                                .border(1.2.dp, if (isSoundOn) glowYellow else goldColor.copy(alpha = 0.7f), RoundedCornerShape(50))
-                                .clickable { showSoundPanel = true }
-                                .padding(horizontal = 12.dp, vertical = 5.dp)
+                                .fillMaxWidth()
+                                .padding(end = 4.dp),
+                            horizontalArrangement = Arrangement.End
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isSoundOn) goldColor.copy(alpha = 0.25f) else cardBg)
+                                    .border(1.2.dp, if (isSoundOn) glowYellow else goldColor.copy(alpha = 0.7f), RoundedCornerShape(50))
+                                    .clickable { showSoundPanel = true }
+                                    .padding(horizontal = 12.dp, vertical = 5.dp)
                             ) {
-                                Text(text = "🎵", fontSize = 11.sp)
-                                Text(
-                                    text = if (isSoundOn) "Sound: ON" else "Sound",
-                                    color = goldColor,
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(text = "🎵", fontSize = 11.sp)
+                                    Text(
+                                        text = if (isSoundOn) "Sound: ON" else "Sound",
+                                        color = goldColor,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
                             }
                         }
                     }
@@ -474,7 +477,6 @@ fun HomeTimerTab(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    // 🎯 शांत फ़ोकस सिंबल (पौधा हटाया गया)
                     Text(text = "🎯", fontSize = 28.sp)
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
@@ -665,7 +667,6 @@ fun HomeTimerTab(
                         }
                         .padding(horizontal = 24.dp)
                 ) {
-                    // ✨ सुपर-क्लीन 'Start Focus 🎯' बटन (पेड़ हटाया गया)
                     Text(
                         text = "Start Focus 🎯",
                         color = Color.Black,
@@ -674,7 +675,6 @@ fun HomeTimerTab(
                     )
                 }
             } else {
-                // 🛑 साफ़-सुथरा 'Give Up' बटन (मुरझाया फूल हटाया गया)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -699,7 +699,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎧 SOUND OVERLAY PANEL
+        // 🎧 SOUND OVERLAY PANEL (कोड पूरी तरह सुरक्षित है)
         // =====================================================================
         if (showSoundPanel) {
             Box(
