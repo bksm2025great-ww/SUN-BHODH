@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -30,20 +31,27 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.FileProvider
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 @Composable
 fun ProfileScreen() {
     var showAchievementsScreen by remember { mutableStateOf(false) }
+
+    // 🔙 बैक गेस्चर: अचीवमेंट्स से वापस प्रोफ़ाइल पर लाएगा
+    BackHandler(enabled = showAchievementsScreen) {
+        showAchievementsScreen = false
+    }
 
     if (showAchievementsScreen) {
         AchievementScreen(onBack = { showAchievementsScreen = false })
@@ -61,6 +69,29 @@ fun ProfileScreen() {
 
     var currentUserName by remember { mutableStateOf(userManager.getUserName().ifEmpty { "Vision" }) }
     var showEditNameDialog by remember { mutableStateOf(false) }
+
+    // ⏱️ कुल पढ़ाई के घंटे निकालकर असली रैंक तय करना
+    val allSessions = remember { FocusSessionManager.getAllSessions(context) }
+    val totalFocusedHours = remember(allSessions) {
+        val totalMinutes = allSessions.sumOf { it.durationMinutes }
+        totalMinutes / 60
+    }
+
+    val currentRankTitle = remember(totalFocusedHours) {
+        when {
+            totalFocusedHours >= 1950 -> "Grandmaster of Eternity"
+            totalFocusedHours >= 1000 -> "Emperor of Amon"
+            totalFocusedHours >= 800  -> "Crown Sovereign"
+            totalFocusedHours >= 750  -> "Ace of Amon"
+            totalFocusedHours >= 500  -> "Platinum Master"
+            totalFocusedHours >= 350  -> "Vanguard Knight"
+            totalFocusedHours >= 250  -> "Elite Focus"
+            totalFocusedHours >= 100  -> "Century King"
+            totalFocusedHours >= 50   -> "Silver Master"
+            totalFocusedHours >= 10   -> "Bronze Scholar"
+            else                      -> "Focus Initiate"
+        }
+    }
 
     // 🟢 Theme Colors
     val isDark = ThemeManager.isDarkTheme.value
@@ -88,13 +119,16 @@ fun ProfileScreen() {
     // 📂 Accordion State
     var activeExpandedCard by remember { mutableStateOf<String?>(null) }
 
-    // 🚀 Smart In-App Update States
+    // 🚀 In-App Update States
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var hasNewUpdate by remember { mutableStateOf(false) }
     var latestReleaseVersion by remember { mutableStateOf(currentAppVersion) }
     var apkDownloadUrl by remember { mutableStateOf("") }
     var isDownloading by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableIntStateOf(0) }
+
+    // 📦 APK डायरेक्ट शेयरिंग स्टेट
+    var isPreparingApkShare by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -115,80 +149,56 @@ fun ProfileScreen() {
             modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
         )
 
-        // ----------------- 2. USER PROFILE CARD (AVATAR + NAME + RANK) -----------------
+        // ----------------- 2. CENTERED USER PROFILE CARD -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(20.dp))
-                .padding(vertical = 16.dp, horizontal = 16.dp)
+                .padding(vertical = 20.dp, horizontal = 16.dp)
         ) {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(15.dp)
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                // Amon गोल मैस्कॉट अवतार (गोल्डन रिंग)
+                // नाम और नया स्टाइलस पेन (बिल्कुल बीचों-बीच)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showEditNameDialog = true }
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = currentUserName,
+                        color = textMain,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    MagicStylusIcon(tint = goldColor)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // ऑटोमैटिक रैंक बैज कैप्सूल
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(60.dp)
-                        .clip(CircleShape)
-                        .background(if (isDark) Color(0xFF141418) else Color(0xFFF1F5F9))
-                        .border(2.dp, goldColor, CircleShape)
+                        .clip(RoundedCornerShape(50))
+                        .background(goldColor.copy(alpha = 0.18f))
+                        .border(1.2.dp, goldColor.copy(alpha = 0.6f), RoundedCornerShape(50))
+                        .padding(horizontal = 14.dp, vertical = 5.dp)
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_mascot_amon),
-                        contentDescription = "Amon Mascot",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
+                    Text(
+                        text = currentRankTitle,
+                        color = goldColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold
                     )
-                }
-
-                // नाम और लेवल/रैंक विवरण
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { showEditNameDialog = true }
-                            .padding(vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = currentUserName,
-                            color = textMain,
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                        // ✨ नया गोल्डन एडिट पेंसिल वेक्टर
-                        EditPencilIcon(tint = goldColor)
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // लेवल और रैंक बैज कैप्सूल
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(goldColor.copy(alpha = 0.18f))
-                            .border(1.dp, goldColor.copy(alpha = 0.5f), RoundedCornerShape(50))
-                            .padding(horizontal = 10.dp, vertical = 3.5.dp)
-                    ) {
-                        Text(
-                            text = "Level 1 • Focus Novice",
-                            color = goldColor,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
                 }
             }
         }
@@ -212,7 +222,6 @@ fun ProfileScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(13.dp)
                 ) {
-                    // ✨ नया गोल्डन ट्रॉफी कप वेक्टर
                     TrophyIcon(tint = goldColor)
                     Text(
                         text = "Achievements & Badges",
@@ -249,7 +258,6 @@ fun ProfileScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        // ✨ नया गोल्डन आर्टिस्ट पैलेट वेक्टर
                         PaletteIcon(tint = goldColor)
                         Column {
                             Text(
@@ -410,7 +418,6 @@ fun ProfileScreen() {
                 .padding(16.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                // 📳 Haptic Buzz Row (नया गोल्डन फोन वाइब्रेशन वेक्टर)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -453,7 +460,6 @@ fun ProfileScreen() {
 
                 Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
 
-                // 💡 Keep Screen Awake Row (नया गोल्डन फिलामेंट बल्ब वेक्टर)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -496,7 +502,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 6. ACCOUNT & CLOUD SYNC (नया गोल्डन क्लाउड वेक्टर) -----------------
+        // ----------------- 6. ACCOUNT & CLOUD SYNC -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -515,7 +521,6 @@ fun ProfileScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(13.dp)
                 ) {
-                    // ✨ नया गोल्डन क्लाउड सिंक वेक्टर
                     CloudSyncIcon(tint = goldColor)
                     Column {
                         Text(
@@ -580,7 +585,6 @@ fun ProfileScreen() {
                             strokeWidth = 2.dp
                         )
                     } else {
-                        // ✨ सिर्फ़ साफ़ "Sync" (इमोजी और Now हटाया गया)
                         Text(
                             text = "Sync",
                             color = goldColor,
@@ -592,7 +596,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 7. EXPANDABLE: APP UPDATES (3-धारियों वाला रॉकेट) -----------------
+        // ----------------- 7. EXPANDABLE: APP UPDATES -----------------
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
@@ -616,7 +620,6 @@ fun ProfileScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        // ✨ नया 3-धारियों वाला गोल्डन रॉकेट वेक्टर
                         RocketLaunchIcon(tint = goldColor)
                         Text(
                             text = "App Updates",
@@ -671,7 +674,6 @@ fun ProfileScreen() {
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Direct Download Button (इमोजी साफ़ किया गया)
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -742,7 +744,6 @@ fun ProfileScreen() {
                                 )
                             }
 
-                            // Check Button (इमोजी साफ़ किया गया)
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -789,21 +790,19 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 8. SHARE WITH FRIENDS (PAPER AIRPLANE ICON) -----------------
+        // ----------------- 8. SHARE DIRECT APK (ANDROID 15 CRASH-PROOF) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
-                .clickable {
-                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        val shareMessage = "Hey! Check out Amon Focus Timer to stay focused and build your garden 🌸🌳.\n\nDownload directly here:\nhttps://github.com/bksm2025great-ww/SUN-BHODH/releases/latest/download/Amon.apk"
-                        putExtra(Intent.EXTRA_SUBJECT, "Amon Focus Timer")
-                        putExtra(Intent.EXTRA_TEXT, shareMessage)
+                .clickable(enabled = !isPreparingApkShare) {
+                    coroutineScope.launch {
+                        isPreparingApkShare = true
+                        shareApkSafely(context)
+                        isPreparingApkShare = false
                     }
-                    context.startActivity(Intent.createChooser(shareIntent, "Share Amon with Friends"))
                 }
                 .padding(16.dp)
         ) {
@@ -830,13 +829,17 @@ fun ProfileScreen() {
                         )
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
-                            text = "Invite friends (Direct APK Download)",
+                            text = if (isPreparingApkShare) "Preparing APK..." else "Send Amon.apk directly to WhatsApp",
                             color = textMuted,
                             fontSize = 11.5.sp
                         )
                     }
                 }
-                Text(text = "➔", color = goldColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                if (isPreparingApkShare) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = goldColor, strokeWidth = 2.dp)
+                } else {
+                    Text(text = "➔", color = goldColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
@@ -966,50 +969,120 @@ fun ProfileScreen() {
     }
 }
 
-// =============================================================================
-// ✨ LUXE GOLD PURE MATERIAL VECTOR COMPONENTS (ZERO DEPENDENCY / ZERO ERROR)
-// =============================================================================
+// -----------------------------------------------------------------------------
+// 🛡️ ANDROID 15 SAFE & CRASH-PROOF DIRECT APK SHARER
+// -----------------------------------------------------------------------------
+private suspend fun shareApkSafely(context: Context) {
+    withContext(Dispatchers.IO) {
+        try {
+            val appInfo = context.applicationInfo
+            val sourceApk = File(appInfo.sourceDir)
+            if (!sourceApk.exists()) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "App file not found", Toast.LENGTH_SHORT).show()
+                }
+                return@withContext
+            }
 
-// 1. ✏️ Edit Pencil Vector (बारीक 45° झुकी हुई गोल्डन पेंसिल)
-@Composable
-private fun EditPencilIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(13.dp)) {
-        val w = size.width
-        val h = size.height
-        val stroke = 1.6.dp.toPx()
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.15f, h * 0.85f),
-            end = Offset(w * 0.75f, h * 0.25f),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.60f, h * 0.10f),
-            end = Offset(w * 0.90f, h * 0.40f),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.10f, h * 0.90f),
-            end = Offset(w * 0.25f, h * 0.75f),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
+            // सुरक्षित इंटरनल कैश में Amon.apk बनाना
+            val cacheFolder = context.cacheDir
+            val sharedApk = File(cacheFolder, "Amon.apk")
+            if (!sharedApk.exists() || sharedApk.length() != sourceApk.length()) {
+                sourceApk.copyTo(sharedApk, overwrite = true)
+            }
+
+            // Android 15 सेफ़ URI प्राप्त करना
+            var apkUri = try {
+                FileProvider.getUriForFile(context, "${context.packageName}.provider", sharedApk)
+            } catch (_: Exception) {
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", sharedApk)
+            }
+
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/vnd.android.package-archive"
+                putExtra(Intent.EXTRA_STREAM, apkUri)
+                putExtra(Intent.EXTRA_SUBJECT, "Amon Focus Timer")
+                putExtra(Intent.EXTRA_TEXT, "Hey! Try Amon Focus Timer to stay focused and grow your garden 🌸🌳.")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            withContext(Dispatchers.Main) {
+                context.startActivity(Intent.createChooser(shareIntent, "Share Amon App"))
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Direct APK Share blocked by device. Please share via link.", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 }
 
-// 2. 🏆 Trophy Cup Vector (क्लासिक ज्यामितीय गोल्डन कप)
+// =============================================================================
+// ✨ LUXE GOLD PURE MATERIAL VECTOR COMPONENTS (+5 DP SCALED)
+// =============================================================================
+
 @Composable
-private fun TrophyIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
+private fun MagicStylusIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(18.dp)) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
 
-        // कप का मुख्य कटोरा (Bowl)
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.22f, h * 0.78f),
+            end = Offset(w * 0.76f, h * 0.24f),
+            strokeWidth = stroke * 1.25f,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.12f, h * 0.88f),
+            end = Offset(w * 0.25f, h * 0.75f),
+            strokeWidth = stroke * 0.9f,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.70f, h * 0.20f),
+            end = Offset(w * 0.86f, h * 0.14f),
+            strokeWidth = stroke * 1.35f,
+            cap = StrokeCap.Round
+        )
+
+        val starCenter = Offset(w * 0.32f, h * 0.26f)
+        val starR = w * 0.12f
+        drawLine(
+            color = tint,
+            start = Offset(starCenter.x - starR, starCenter.y),
+            end = Offset(starCenter.x + starR, starCenter.y),
+            strokeWidth = 1.3.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = tint,
+            start = Offset(starCenter.x, starCenter.y - starR),
+            end = Offset(starCenter.x, starCenter.y + starR),
+            strokeWidth = 1.3.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+
+        val swoosh = Path().apply {
+            moveTo(w * 0.30f, h * 0.92f)
+            cubicTo(w * 0.50f, h * 0.86f, w * 0.65f, h * 0.96f, w * 0.84f, h * 0.88f)
+        }
+        drawPath(path = swoosh, color = tint.copy(alpha = 0.8f), style = Stroke(width = 1.3.dp.toPx(), cap = StrokeCap.Round))
+    }
+}
+
+@Composable
+private fun TrophyIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(25.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 2.0.dp.toPx()
+
         val bowlPath = Path().apply {
             moveTo(w * 0.25f, h * 0.15f)
             lineTo(w * 0.75f, h * 0.15f)
@@ -1019,21 +1092,18 @@ private fun TrophyIcon(tint: Color, modifier: Modifier = Modifier) {
         }
         drawPath(path = bowlPath, color = tint)
 
-        // बायाँ हैंडल (Left Handle)
         val leftHandle = Path().apply {
             moveTo(w * 0.26f, h * 0.22f)
             cubicTo(w * 0.08f, h * 0.22f, w * 0.08f, h * 0.48f, w * 0.29f, h * 0.48f)
         }
         drawPath(path = leftHandle, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
 
-        // दायाँ हैंडल (Right Handle)
         val rightHandle = Path().apply {
             moveTo(w * 0.74f, h * 0.22f)
             cubicTo(w * 0.92f, h * 0.22f, w * 0.92f, h * 0.48f, w * 0.71f, h * 0.48f)
         }
         drawPath(path = rightHandle, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
 
-        // कप का तना (Stem)
         drawLine(
             color = tint,
             start = Offset(w * 0.5f, h * 0.65f),
@@ -1042,7 +1112,6 @@ private fun TrophyIcon(tint: Color, modifier: Modifier = Modifier) {
             cap = StrokeCap.Square
         )
 
-        // कप का बेस (Pedestal)
         drawLine(
             color = tint,
             start = Offset(w * 0.28f, h * 0.84f),
@@ -1053,14 +1122,12 @@ private fun TrophyIcon(tint: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// 3. 🎨 Artist Palette Vector (चार रंग-बिंदुओं वाला डिज़ाइनर पैलेट)
 @Composable
 private fun PaletteIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
+    Canvas(modifier = modifier.size(25.dp)) {
         val w = size.width
         val h = size.height
 
-        // पैलेट की मुख्य बॉडी
         val palette = Path().apply {
             moveTo(w * 0.5f, h * 0.1f)
             cubicTo(w * 0.85f, h * 0.1f, w * 0.95f, h * 0.45f, w * 0.85f, h * 0.75f)
@@ -1071,24 +1138,20 @@ private fun PaletteIcon(tint: Color, modifier: Modifier = Modifier) {
         }
         drawPath(path = palette, color = tint)
 
-        // पैलेट के अंदर 3 गोल रंग-बिंदु (कटआउट्स)
         drawCircle(color = Color(0xFF18181D), radius = w * 0.065f, center = Offset(w * 0.40f, h * 0.30f))
         drawCircle(color = Color(0xFF18181D), radius = w * 0.065f, center = Offset(w * 0.65f, h * 0.32f))
         drawCircle(color = Color(0xFF18181D), radius = w * 0.065f, center = Offset(w * 0.72f, h * 0.55f))
-        // अँगूठे की ग्रिप (Thumb hole)
         drawCircle(color = Color(0xFF18181D), radius = w * 0.08f, center = Offset(w * 0.30f, h * 0.55f))
     }
 }
 
-// 4. 📳 Phone Vibration Waves Vector (कंपन तरंगों वाला फ़ोन)
 @Composable
 private fun PhoneVibeIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
+    Canvas(modifier = modifier.size(25.dp)) {
         val w = size.width
         val h = size.height
-        val stroke = 1.6.dp.toPx()
+        val stroke = 1.8.dp.toPx()
 
-        // बीच का फ़ोन (Phone Body)
         drawRoundRect(
             color = tint,
             topLeft = Offset(w * 0.30f, h * 0.12f),
@@ -1096,7 +1159,6 @@ private fun PhoneVibeIcon(tint: Color, modifier: Modifier = Modifier) {
             cornerRadius = CornerRadius(w * 0.08f, w * 0.08f),
             style = Stroke(width = stroke)
         )
-        // फ़ोन का होम-डैश
         drawLine(
             color = tint,
             start = Offset(w * 0.44f, h * 0.78f),
@@ -1105,14 +1167,12 @@ private fun PhoneVibeIcon(tint: Color, modifier: Modifier = Modifier) {
             cap = StrokeCap.Round
         )
 
-        // बायीं वाइब्रेशन वेव (Left Wave)
         val leftWave = Path().apply {
             moveTo(w * 0.16f, h * 0.28f)
             cubicTo(w * 0.08f, h * 0.38f, w * 0.08f, h * 0.62f, w * 0.16f, h * 0.72f)
         }
         drawPath(path = leftWave, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
 
-        // दायीं वाइब्रेशन वेव (Right Wave)
         val rightWave = Path().apply {
             moveTo(w * 0.84f, h * 0.28f)
             cubicTo(w * 0.92f, h * 0.38f, w * 0.92f, h * 0.62f, w * 0.84f, h * 0.72f)
@@ -1121,15 +1181,13 @@ private fun PhoneVibeIcon(tint: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// 5. 💡 Filament Lightbulb Vector (बारीक फिलामेंट वाला मॉडर्न बल्ब)
 @Composable
 private fun LightbulbIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
+    Canvas(modifier = modifier.size(25.dp)) {
         val w = size.width
         val h = size.height
-        val stroke = 1.6.dp.toPx()
+        val stroke = 1.8.dp.toPx()
 
-        // बल्ब का काँच (Bulb Outline)
         val bulb = Path().apply {
             moveTo(w * 0.32f, h * 0.62f)
             cubicTo(w * 0.12f, h * 0.50f, w * 0.15f, h * 0.15f, w * 0.50f, h * 0.12f)
@@ -1140,7 +1198,6 @@ private fun LightbulbIcon(tint: Color, modifier: Modifier = Modifier) {
         }
         drawPath(path = bulb, color = tint, style = Stroke(width = stroke, join = StrokeJoin.Round))
 
-        // अंदर का फिलामेंट (Filament)
         val filament = Path().apply {
             moveTo(w * 0.42f, h * 0.60f)
             lineTo(w * 0.42f, h * 0.35f)
@@ -1150,7 +1207,6 @@ private fun LightbulbIcon(tint: Color, modifier: Modifier = Modifier) {
         }
         drawPath(path = filament, color = tint, style = Stroke(width = stroke * 0.85f, cap = StrokeCap.Round))
 
-        // बल्ब की चूड़ीदार बेस (Base Screws)
         drawLine(
             color = tint,
             start = Offset(w * 0.38f, h * 0.80f),
@@ -1168,14 +1224,12 @@ private fun LightbulbIcon(tint: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// 6. ☁️ Cloud Sync Vector (तीर के साथ गोल्डन क्लाउड)
 @Composable
 private fun CloudSyncIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
+    Canvas(modifier = modifier.size(25.dp)) {
         val w = size.width
         val h = size.height
 
-        // बादल की आकृति (Cloud Body)
         val cloud = Path().apply {
             moveTo(w * 0.22f, h * 0.75f)
             lineTo(w * 0.78f, h * 0.75f)
@@ -1188,8 +1242,7 @@ private fun CloudSyncIcon(tint: Color, modifier: Modifier = Modifier) {
         }
         drawPath(path = cloud, color = tint)
 
-        // बादल के बीच से निकलता हुआ सिंक तीर (कटआउट)
-        val stroke = 1.8.dp.toPx()
+        val stroke = 2.0.dp.toPx()
         drawLine(
             color = Color(0xFF18181D),
             start = Offset(w * 0.5f, h * 0.70f),
@@ -1206,14 +1259,12 @@ private fun CloudSyncIcon(tint: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// 7. 🚀 Rocket Launch with 3 Speed Streak Lines (3-धारियों वाला रॉकेट)
 @Composable
 private fun RocketLaunchIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
+    Canvas(modifier = modifier.size(25.dp)) {
         val w = size.width
         val h = size.height
 
-        // रॉकेट की मुख्य बॉडी (45° पर ऊपर दाएँ की ओर झुकी हुई)
         val rocket = Path().apply {
             moveTo(w * 0.85f, h * 0.15f)
             cubicTo(w * 0.68f, h * 0.16f, w * 0.45f, h * 0.30f, w * 0.40f, h * 0.50f)
@@ -1225,7 +1276,6 @@ private fun RocketLaunchIcon(tint: Color, modifier: Modifier = Modifier) {
         }
         drawPath(path = rocket, color = tint)
 
-        // बायाँ पंख (Fin)
         val leftFin = Path().apply {
             moveTo(w * 0.40f, h * 0.52f)
             lineTo(w * 0.22f, h * 0.56f)
@@ -1234,7 +1284,6 @@ private fun RocketLaunchIcon(tint: Color, modifier: Modifier = Modifier) {
         }
         drawPath(path = leftFin, color = tint)
 
-        // दायाँ पंख (Fin)
         val rightFin = Path().apply {
             moveTo(w * 0.52f, h * 0.40f)
             lineTo(w * 0.56f, h * 0.22f)
@@ -1243,12 +1292,9 @@ private fun RocketLaunchIcon(tint: Color, modifier: Modifier = Modifier) {
         }
         drawPath(path = rightFin, color = tint)
 
-        // बीच की गोल खिड़की (Porthole)
         drawCircle(color = Color(0xFF18181D), radius = w * 0.055f, center = Offset(w * 0.62f, h * 0.38f))
 
-        // ✨ 3 खास गति की धारियाँ (Speed Streak Lines पीछे की ओर)
-        val stroke = 1.5.dp.toPx()
-        // धारी 1 (बीच वाली लंबी धारी)
+        val stroke = 1.7.dp.toPx()
         drawLine(
             color = tint.copy(alpha = 0.9f),
             start = Offset(w * 0.32f, h * 0.72f),
@@ -1256,7 +1302,6 @@ private fun RocketLaunchIcon(tint: Color, modifier: Modifier = Modifier) {
             strokeWidth = stroke,
             cap = StrokeCap.Round
         )
-        // धारी 2 (ऊपर वाली छोटी धारी)
         drawLine(
             color = tint.copy(alpha = 0.65f),
             start = Offset(w * 0.40f, h * 0.76f),
@@ -1264,7 +1309,6 @@ private fun RocketLaunchIcon(tint: Color, modifier: Modifier = Modifier) {
             strokeWidth = stroke * 0.85f,
             cap = StrokeCap.Round
         )
-        // धारी 3 (नीचे वाली छोटी धारी)
         drawLine(
             color = tint.copy(alpha = 0.65f),
             start = Offset(w * 0.26f, h * 0.64f),
@@ -1275,7 +1319,6 @@ private fun RocketLaunchIcon(tint: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// 8. ⌄ Smooth Golden Rotating Chevron
 @Composable
 private fun ChevronIcon(
     isExpanded: Boolean,
@@ -1288,12 +1331,12 @@ private fun ChevronIcon(
     )
     Canvas(
         modifier = modifier
-            .size(16.dp)
+            .size(21.dp)
             .rotate(rotation)
     ) {
         val w = size.width
         val h = size.height
-        val stroke = 2.5.dp.toPx()
+        val stroke = 2.6.dp.toPx()
         val path = Path().apply {
             moveTo(w * 0.18f, h * 0.38f)
             lineTo(w * 0.50f, h * 0.68f)
@@ -1311,13 +1354,12 @@ private fun ChevronIcon(
     }
 }
 
-// 9. ✈️ Lightweight Paper Airplane Vector
 @Composable
 private fun PaperAirplaneIcon(
     tint: Color,
     modifier: Modifier = Modifier
 ) {
-    Canvas(modifier = modifier.size(20.dp)) {
+    Canvas(modifier = modifier.size(25.dp)) {
         val scaleX = size.width / 24f
         val scaleY = size.height / 24f
         val path = Path().apply {
