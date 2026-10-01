@@ -1,6 +1,7 @@
 package com.amon.timer
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -38,7 +39,7 @@ import kotlinx.coroutines.delay
 // 📱 App ki 3 stages
 private enum class AppScreenState {
     SPLASH,  // 1.5 second ka Angel of Time intro
-    AUTH,    // Welcome + Login / Guest (sirf first time user ke liye)
+    AUTH,    // Welcome + Login / Guest (sirf first time ya missing password ke liye)
     MAIN     // Main Timer & Forest page
 }
 
@@ -47,7 +48,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ⚡ 120Hz Force Unlock: फ़ोन की स्क्रीन को उसके सबसे उच्चतम रिफ्रेश रेट (120Hz) पर लॉक करना
+        // ⚡ 120Hz Force Unlock: फ़ोन की स्क्रीन को उसके सबसे उच्चतम रिफ्रेश रेट पर लॉक करना
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val currentDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -83,10 +84,35 @@ class MainActivity : ComponentActivity() {
                     val userManager = remember { UserManager(this@MainActivity) }
                     var currentScreen by remember { mutableStateOf(AppScreenState.SPLASH) }
 
-                    // 1.5 second ka splash delay aur check
+                    // 1.5 second ka splash delay aur smart password verification
                     LaunchedEffect(Unit) {
                         delay(1500)
-                        currentScreen = if (userManager.isAccountSetupDone()) {
+
+                        // 🔑 स्मार्ट पासवर्ड चेक: क्या यूज़र के पास 6-अक्षरों का पासवर्ड मौजूद है?
+                        val hasValidPassword = try {
+                            val pass = userManager.getPassword()
+                            pass.isNotBlank() && pass.length >= 6
+                        } catch (_: Exception) {
+                            // सेफ़्टी बैकअप चेक (अगर getPassword सीधे उपलब्ध न हो)
+                            val prefs = this@MainActivity.getSharedPreferences("amon_user_prefs", Context.MODE_PRIVATE)
+                            val authVault = this@MainActivity.getSharedPreferences("amon_auth_vault", Context.MODE_PRIVATE)
+                            val p1 = prefs.getString("user_password", "") ?: ""
+                            val p2 = prefs.getString("password", "") ?: ""
+                            val p3 = authVault.getString("saved_pass", "") ?: ""
+                            (p1.length >= 6 || p2.length >= 6 || p3.length >= 6)
+                        }
+
+                        val isGuest = try {
+                            userManager.isGuestUser() || userManager.getUserName() == "Guest"
+                        } catch (_: Exception) {
+                            false
+                        }
+
+                        // 🎯 अचूक गेटवे नियम:
+                        // 1. अगर Guest है -> सीधे MAIN
+                        // 2. अगर यूज़रनेम और 6-अक्षरों का पासवर्ड दोनों मौजूद हैं -> सीधे MAIN
+                        // 3. अगर पासवर्ड नहीं है (पुराने यूज़र्स) या नया इंस्टॉल है -> सीधे AUTH (लॉगिन स्क्रीन)
+                        currentScreen = if (isGuest || (userManager.isAccountSetupDone() && hasValidPassword)) {
                             AppScreenState.MAIN
                         } else {
                             AppScreenState.AUTH
@@ -171,7 +197,6 @@ private fun NotificationPermissionDialog(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Purple Bell Icon Badge
                 Box(
                     modifier = Modifier
                         .size(60.dp)
@@ -183,7 +208,6 @@ private fun NotificationPermissionDialog(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Title
                 Text(
                     text = "Never miss a\nfocus session",
                     fontSize = 22.sp,
@@ -195,7 +219,6 @@ private fun NotificationPermissionDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Subtitle
                 Text(
                     text = "Enable notifications to unlock the\nfull timer experience:",
                     fontSize = 14.sp,
@@ -206,7 +229,6 @@ private fun NotificationPermissionDialog(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Bullet Points
                 Column(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -218,7 +240,6 @@ private fun NotificationPermissionDialog(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Primary Button: Allow Notifications
                 Button(
                     onClick = onAllowClick,
                     modifier = Modifier
@@ -239,7 +260,6 @@ private fun NotificationPermissionDialog(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Secondary Button: Maybe Later
                 TextButton(
                     onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth()
@@ -256,7 +276,6 @@ private fun NotificationPermissionDialog(
     }
 }
 
-// 🔹 Single Bullet Item Helper
 @Composable
 private fun NotificationBulletItem(text: String) {
     Row(
@@ -291,7 +310,6 @@ private fun SplashScreenContent() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // 1. Mukhya Logo: AMON
             Text(
                 text = "AMON",
                 color = Color(0xFFF5A524),
@@ -302,7 +320,6 @@ private fun SplashScreenContent() {
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // 2. Sub-title: Angel of Time - LOTM
             Text(
                 text = "Angel of Time - LOTM",
                 color = Color(0xFFCBD5E1),
@@ -314,7 +331,6 @@ private fun SplashScreenContent() {
 
             Spacer(modifier = Modifier.height(46.dp))
 
-            // 3. Classic font: STAY FOCUSED & GROW
             Text(
                 text = "S T A Y   F O C U S E D\n&\nG R O W",
                 color = Color(0xFF94A3B8),
