@@ -20,11 +20,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -41,7 +43,7 @@ import kotlin.math.*
 
 /**
  * 👑 AMON CENTRAL WATCH CONTAINER
- * तीनों घड़ियों को एक ही मॉड्यूलर हब में कंट्रोल करता है
+ * Teeno watches ko ek hi modular container me manage karta hai
  */
 @Composable
 fun TimerWatchesContainer(
@@ -343,7 +345,7 @@ private fun ClassicRingWatch(
 }
 
 // =============================================================================
-// 🎛 WATCH STYLE 2: ROTARY DIAL (100% साइलेंट & बिना क्राउन)
+// 🎛 WATCH STYLE 2: ROTARY DIAL (100% Silent & Simple)
 // =============================================================================
 @Composable
 private fun RotaryDialWatch(
@@ -547,7 +549,7 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: PURE 3D SPLIT-FLAP (स्क्रीनशॉट जैसा टॉल & दोनों स्वाइप एक्टिव)
+// 📜 WATCH STYLE 3: PURE 3D SPLIT-FLAP (Flawless 50-50 Split Alignment)
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
@@ -571,33 +573,34 @@ private fun RetroFlipClockWatch(
     var minDragAccumulator by remember { mutableFloatStateOf(0f) }
     var secDragAccumulator by remember { mutableFloatStateOf(0f) }
 
-    // 🌟 स्क्रीनशॉट जैसा टॉल और स्क्वायरिश साइज़ (250dp x 176dp)
+    // Screen fill karne ke liye tall, solid dimensions
     val animatedWidth by animateDpAsState(
-        targetValue = if (isRunning) 275.dp else 250.dp,
+        targetValue = if (isRunning) 265.dp else 245.dp,
         animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
         label = "FlipCardWidth"
     )
     val animatedHeight by animateDpAsState(
-        targetValue = if (isRunning) 195.dp else 176.dp,
+        targetValue = if (isRunning) 195.dp else 175.dp,
         animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
         label = "FlipCardHeight"
     )
 
-    val baseFontSize = if (isRunning) 112f else 100f
-    val minFontSize = if (minStr.length > 2) baseFontSize * 0.72f else baseFontSize
+    // Bada vintage font jo cards ko bharega
+    val baseFontSize = if (isRunning) 130f else 115f
+    val minFontSize = if (minStr.length > 2) baseFontSize * 0.70f else baseFontSize
     val secFontSize = baseFontSize
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = if (isRunning) 4.dp else 2.dp)
+            .padding(vertical = if (isRunning) 6.dp else 2.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(if (isRunning) 16.dp else 12.dp)
+            verticalArrangement = Arrangement.spacedBy(if (isRunning) 18.dp else 12.dp)
         ) {
-            // 👆 ऊपर वाला कार्ड (MINUTES): ऊपर/नीचे स्वाइप से मिनट बदलें (+1m / -1m)
+            // 👆 MINUTES CARD: Swipe Up/Down (+1m / -1m)
             Box(
                 modifier = Modifier.pointerInput(isRunning) {
                     if (!isRunning) {
@@ -633,7 +636,7 @@ private fun RetroFlipClockWatch(
                 )
             }
 
-            // ⏱️️ नीचे वाला कार्ड (SECONDS): ऊपर/नीचे स्वाइप से सेकंड्स बदलें (+5s / -5s)
+            // ⏱ SECONDS CARD: Swipe Up/Down (+5s / -5s)
             Box(
                 modifier = Modifier.pointerInput(isRunning) {
                     if (!isRunning) {
@@ -705,7 +708,7 @@ private fun RetroFlipClockWatch(
 }
 
 /**
- * 🎴 असली स्प्लिट-फ्लैप मैकेनिज्म (नो लेबल्स, 100% साफ़ और मैकेनिकल)
+ * 🎴 ASLI MECHANICAL SPLIT-FLAP COMPONENT (50-50 Split Engine)
  */
 @Composable
 private fun AuthenticSplitFlapCard(
@@ -735,14 +738,26 @@ private fun AuthenticSplitFlapCard(
     val isTopFolded = rotation >= 90f
     val seamGap = 2.dp
     val halfHeight = (cardHeight - seamGap) / 2
-    val cornerRadius = 24.dp
+    val cornerRadius = 22.dp
+
+    val topShape = RoundedCornerShape(
+        topStart = cornerRadius,
+        topEnd = cornerRadius,
+        bottomStart = 3.dp,
+        bottomEnd = 3.dp
+    )
+    val bottomShape = RoundedCornerShape(
+        topStart = 3.dp,
+        topEnd = 3.dp,
+        bottomStart = cornerRadius,
+        bottomEnd = cornerRadius
+    )
 
     Box(
-        modifier = Modifier
-            .size(width = cardWidth, height = cardHeight),
+        modifier = Modifier.size(width = cardWidth, height = cardHeight),
         contentAlignment = Alignment.Center
     ) {
-        // ----------------- स्थिर बैकग्राउंड पत्ते -----------------
+        // 1. Static Background Plates (Oopar current digit, Neeche previous digit)
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
@@ -753,7 +768,7 @@ private fun AuthenticSplitFlapCard(
                 plateHeight = halfHeight,
                 fullHeight = cardHeight,
                 fontSizeSp = fontSizeSp,
-                cornerRadius = cornerRadius
+                shape = topShape
             )
 
             HalfDigitPlate(
@@ -762,11 +777,11 @@ private fun AuthenticSplitFlapCard(
                 plateHeight = halfHeight,
                 fullHeight = cardHeight,
                 fontSizeSp = fontSizeSp,
-                cornerRadius = cornerRadius
+                shape = bottomShape
             )
         }
 
-        // ----------------- हवा में फ्लिप होने वाला पत्ता -----------------
+        // 2. 3D Flipping Plate (Hawa mein fold hota hua patta)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -784,11 +799,11 @@ private fun AuthenticSplitFlapCard(
                 plateHeight = halfHeight,
                 fullHeight = cardHeight,
                 fontSizeSp = fontSizeSp,
-                cornerRadius = cornerRadius
+                shape = if (isTopFolded) bottomShape else topShape
             )
         }
 
-        // ⚡ बीच की 2px बारीक स्प्लिट सीम-लाइन
+        // 3. Middle Seam Line (2dp mechanical gap)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -800,7 +815,8 @@ private fun AuthenticSplitFlapCard(
 }
 
 /**
- * ✂️ नंबर को सटीक 50-50 कट में रेंडर करने वाला इंजन (बिना फ़ॉन्ट काटे)
+ * ✂️ MATHEMATICALLY ACCURATE 50-50 HALF-DIGIT RENDERER
+ * Yeh number ko theek center se kaatta hai, zero font clipping ke saath
  */
 @Composable
 private fun HalfDigitPlate(
@@ -809,28 +825,23 @@ private fun HalfDigitPlate(
     plateHeight: Dp,
     fullHeight: Dp,
     fontSizeSp: Float,
-    cornerRadius: Dp
+    shape: Shape
 ) {
-    val plateShape = if (isTop) {
-        RoundedCornerShape(topStart = cornerRadius, topEnd = cornerRadius, bottomStart = 4.dp, bottomEnd = 4.dp)
-    } else {
-        RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = cornerRadius, bottomEnd = cornerRadius)
-    }
-
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(plateHeight)
-            .clip(plateShape)
+            .clip(shape)
             .background(Color(0xFF1C1C21))
-            .border(1.2.dp, Color(0x22FFFFFF), plateShape),
-        contentAlignment = Alignment.TopCenter
+            .border(1.2.dp, Color(0x22FFFFFF), shape),
+        contentAlignment = if (isTop) Alignment.TopCenter else Alignment.BottomCenter
     ) {
+        // requiredHeight clamping ko todkar text ko theek horizontal center par rakhta hai
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(fullHeight)
-                .offset(y = if (isTop) 0.dp else -plateHeight),
+                .requiredHeight(fullHeight)
+                .align(if (isTop) Alignment.TopCenter else Alignment.BottomCenter),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -839,14 +850,20 @@ private fun HalfDigitPlate(
                 fontWeight = FontWeight.Black,
                 fontFamily = FontFamily.SansSerif,
                 color = Color(0xFFF1F5F9),
-                letterSpacing = (-2).sp
+                letterSpacing = (-2).sp,
+                style = TextStyle(
+                    platformStyle = PlatformTextStyle(
+                        includeFontPadding = false
+                    ),
+                    lineHeight = fontSizeSp.sp
+                )
             )
         }
     }
 }
 
 // =============================================================================
-// 🌟 1:1 स्मूथ कस्टम स्लाइडर (सफ़ेद सुई + हार्डवेयर शैडो)
+// 🌟 1:1 Smooth Custom Slider (White Stick + Hardware Shadow)
 // =============================================================================
 @Composable
 private fun CustomHorizontalSlider(
@@ -988,3 +1005,4 @@ private fun CustomHorizontalSlider(
         }
     }
 }
+p
