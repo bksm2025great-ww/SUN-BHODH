@@ -30,12 +30,12 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -549,7 +549,7 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: PURE 3D SPLIT-FLAP (Flawless 50-50 Split Alignment)
+// 📜 WATCH STYLE 3: PURE 3D SPLIT-FLAP (Real Mechanical Split-Flap Clock)
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
@@ -585,9 +585,9 @@ private fun RetroFlipClockWatch(
         label = "FlipCardHeight"
     )
 
-    // Bada vintage font jo cards ko bharega
-    val baseFontSize = if (isRunning) 130f else 115f
-    val minFontSize = if (minStr.length > 2) baseFontSize * 0.70f else baseFontSize
+    // Bada vintage font jo ek single card ko poori tarah bharega
+    val baseFontSize = if (isRunning) 115f else 105f
+    val minFontSize = if (minStr.length > 2) baseFontSize * 0.72f else baseFontSize
     val secFontSize = baseFontSize
 
     Column(
@@ -708,7 +708,7 @@ private fun RetroFlipClockWatch(
 }
 
 /**
- * 🎴 ASLI MECHANICAL SPLIT-FLAP COMPONENT (50-50 Split Engine)
+ * 🎴 ASLI MECHANICAL SPLIT-FLAP COMPONENT (Top & Bottom Half Alignment Engine)
  */
 @Composable
 private fun AuthenticSplitFlapCard(
@@ -757,53 +757,60 @@ private fun AuthenticSplitFlapCard(
         modifier = Modifier.size(width = cardWidth, height = cardHeight),
         contentAlignment = Alignment.Center
     ) {
-        // 1. Static Background Plates (Oopar current digit, Neeche previous digit)
+        // 1. Static Background Plates (Dono milkar ek complete number banate hain)
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            HalfDigitPlate(
+            // Upar background: Next number ka top half (flap girte hi peeche dikhega)
+            SplitFlapHalfPlate(
                 digit = currentDigit,
                 isTop = true,
-                plateHeight = halfHeight,
-                fullHeight = cardHeight,
+                cardWidth = cardWidth,
+                cardHeight = cardHeight,
+                halfHeight = halfHeight,
                 fontSizeSp = fontSizeSp,
                 shape = topShape
             )
 
-            HalfDigitPlate(
-                digit = previousDigit,
+            // Neeche background: Flip hote waqt purana bottom half, idle mein current bottom half
+            SplitFlapHalfPlate(
+                digit = if (flipAnim.isRunning) previousDigit else currentDigit,
                 isTop = false,
-                plateHeight = halfHeight,
-                fullHeight = cardHeight,
+                cardWidth = cardWidth,
+                cardHeight = cardHeight,
+                halfHeight = halfHeight,
                 fontSizeSp = fontSizeSp,
                 shape = bottomShape
             )
         }
 
-        // 2. 3D Flipping Plate (Hawa mein fold hota hua patta)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(halfHeight)
-                .align(if (isTopFolded) Alignment.BottomCenter else Alignment.TopCenter)
-                .graphicsLayer {
-                    rotationX = if (isTopFolded) (180f - rotation) else -rotation
-                    cameraDistance = 18 * density
-                    transformOrigin = if (isTopFolded) TransformOrigin(0.5f, 0f) else TransformOrigin(0.5f, 1f)
-                }
-        ) {
-            HalfDigitPlate(
-                digit = if (isTopFolded) currentDigit else previousDigit,
-                isTop = !isTopFolded,
-                plateHeight = halfHeight,
-                fullHeight = cardHeight,
-                fontSizeSp = fontSizeSp,
-                shape = if (isTopFolded) bottomShape else topShape
-            )
+        // 2. 3D Flipping Flap (Hawa mein fold hota hua aadha patta)
+        if (flipAnim.isRunning) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(halfHeight)
+                    .align(if (isTopFolded) Alignment.BottomCenter else Alignment.TopCenter)
+                    .graphicsLayer {
+                        rotationX = if (isTopFolded) (180f - rotation) else -rotation
+                        cameraDistance = 18 * density
+                        transformOrigin = if (isTopFolded) TransformOrigin(0.5f, 0f) else TransformOrigin(0.5f, 1f)
+                    }
+            ) {
+                SplitFlapHalfPlate(
+                    digit = if (isTopFolded) currentDigit else previousDigit,
+                    isTop = !isTopFolded,
+                    cardWidth = cardWidth,
+                    cardHeight = cardHeight,
+                    halfHeight = halfHeight,
+                    fontSizeSp = fontSizeSp,
+                    shape = if (isTopFolded) bottomShape else topShape
+                )
+            }
         }
 
-        // 3. Middle Seam Line (2dp mechanical gap)
+        // 3. Middle Seam Line (2dp mechanical slit)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -815,49 +822,52 @@ private fun AuthenticSplitFlapCard(
 }
 
 /**
- * ✂️ MATHEMATICALLY ACCURATE 50-50 HALF-DIGIT RENDERER
- * Yeh number ko theek center se kaatta hai, zero font clipping ke saath
+ * ✂️ MATHEMATICAL 50-50 HALF-PLATE RENDERER
+ * Yeh ek poore number ko theek center se kaat kar upar ya neeche render karta hai
  */
 @Composable
-private fun HalfDigitPlate(
+private fun SplitFlapHalfPlate(
     digit: String,
     isTop: Boolean,
-    plateHeight: Dp,
-    fullHeight: Dp,
+    cardWidth: Dp,
+    cardHeight: Dp,
+    halfHeight: Dp,
     fontSizeSp: Float,
     shape: Shape
 ) {
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(plateHeight)
+            .size(width = cardWidth, height = halfHeight)
             .clip(shape)
-            .background(Color(0xFF1C1C21))
-            .border(1.2.dp, Color(0x22FFFFFF), shape),
-        contentAlignment = if (isTop) Alignment.TopCenter else Alignment.BottomCenter
+            .background(Color(0xFF16161B))
+            .border(1.2.dp, Color(0x22FFFFFF), shape)
     ) {
-        // requiredHeight clamping ko todkar text ko theek horizontal center par rakhta hai
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .requiredHeight(fullHeight)
-                .align(if (isTop) Alignment.TopCenter else Alignment.BottomCenter),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = digit,
-                fontSize = fontSizeSp.sp,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.SansSerif,
-                color = Color(0xFFF1F5F9),
-                letterSpacing = (-2).sp,
-                style = TextStyle(
-                    platformStyle = PlatformTextStyle(
-                        includeFontPadding = false
-                    ),
-                    lineHeight = fontSizeSp.sp
+        Layout(
+            content = {
+                Text(
+                    text = digit,
+                    fontSize = fontSizeSp.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.SansSerif,
+                    color = Color(0xFFF1F5F9),
+                    letterSpacing = (-2).sp
                 )
-            )
+            }
+        ) { measurables, _ ->
+            val textPlaceable = measurables.first().measure(Constraints())
+            val parentWidthPx = cardWidth.roundToPx()
+            val cardHeightPx = cardHeight.roundToPx()
+            val halfHeightPx = halfHeight.roundToPx()
+
+            val centerX = (parentWidthPx - textPlaceable.width) / 2
+            val centerY = (cardHeightPx - textPlaceable.height) / 2
+
+            // isTop true hai toh top half dikhega, false hai toh theek wahi se bottom half shuru hoga
+            val posY = if (isTop) centerY else centerY - halfHeightPx
+
+            layout(parentWidthPx, halfHeightPx) {
+                textPlaceable.place(centerX, posY)
+            }
         }
     }
 }
