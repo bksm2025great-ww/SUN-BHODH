@@ -73,7 +73,6 @@ class UpdateManager(private val context: Context) {
                 requestMethod = "GET"
                 connectTimeout = 10000
                 readTimeout = 10000
-                // GitHub के लिए ज़रूरी पहचान (User-Agent) और हेडर
                 setRequestProperty("User-Agent", "Amon-App")
                 setRequestProperty("Accept", "application/vnd.github.v3+json")
             }
@@ -94,7 +93,6 @@ class UpdateManager(private val context: Context) {
                     for (i in 0 until assets.length()) {
                         val asset = assets.getJSONObject(i)
                         val name = asset.optString("name", "")
-                        // केवल असली .apk फ़ाइल को ढूँढना (zip को छोड़ देना)
                         if (name.endsWith(".apk")) {
                             apkDownloadUrl = asset.optString("browser_download_url", htmlUrl)
                             break
@@ -102,6 +100,7 @@ class UpdateManager(private val context: Context) {
                     }
                 }
 
+                // 🛡️ गणितीय रूप से सिर्फ़ बड़े वर्ज़न पर ही ट्रू होगा
                 val isNewer = isVersionNewer(tagName, activeVersion)
 
                 updateInfo = AppUpdateInfo(
@@ -187,18 +186,28 @@ class UpdateManager(private val context: Context) {
         }
     }
 
-    // 🔢 वर्ज़न तुलना (जैसे v1.0.3 बड़ा है v1.0.2 से)
+    // 🔢 100% बुलेटप्रूफ़ वर्ज़न तुलना (Strict Mathematical Version Checker)
     private fun isVersionNewer(latest: String, current: String): Boolean {
         return try {
-            val cleanLatest = latest.replace("v", "").replace("V", "").trim().split(".")
-            val cleanCurrent = current.replace("v", "").replace("V", "").trim().split(".")
+            fun parseNumbers(ver: String): List<Int> {
+                val clean = ver.trim().removePrefix("v").removePrefix("V")
+                // एक्स्ट्रा सफ़िक्स (जैसे -build, -beta) हटाकर सिर्फ़ मुख्य वर्ज़न रखना
+                val base = clean.split("-")[0].split("+")[0]
+                return base.split(".")
+                    .mapNotNull { part -> part.filter { it.isDigit() }.toIntOrNull() }
+            }
 
-            val maxLength = maxOf(cleanLatest.size, cleanCurrent.size)
+            val latestParts = parseNumbers(latest)
+            val currentParts = parseNumbers(current)
+
+            if (latestParts.isEmpty() || currentParts.isEmpty()) return false
+
+            val maxLength = maxOf(latestParts.size, currentParts.size)
             for (i in 0 until maxLength) {
-                val latestPart = cleanLatest.getOrNull(i)?.toIntOrNull() ?: 0
-                val currentPart = cleanCurrent.getOrNull(i)?.toIntOrNull() ?: 0
-                if (latestPart > currentPart) return true
-                if (latestPart < currentPart) return false
+                val l = latestParts.getOrNull(i) ?: 0
+                val c = currentParts.getOrNull(i) ?: 0
+                if (l > c) return true
+                if (l < c) return false
             }
             false
         } catch (_: Exception) {
