@@ -27,7 +27,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -66,7 +65,6 @@ fun TimerWatchesContainer(
         context.getSharedPreferences("amon_watch_prefs", Context.MODE_PRIVATE)
     }
 
-    // 0: Classic Ring, 1: Rotary Dial, 2: Retro Flip Clock
     var selectedWatchStyle by rememberSaveable {
         mutableIntStateOf(watchPrefs.getInt("selected_watch_style", 0))
     }
@@ -333,7 +331,6 @@ private fun ClassicRingWatch(
                 }
             }
 
-            // 🌟 1:1 मक्खन जैसा स्मूथ कस्टम स्लाइडर (व्हाइट स्टिक + एंड्रॉइड शैडो)
             if (isCustomMode) {
                 Spacer(modifier = Modifier.height(12.dp))
                 CustomHorizontalSlider(
@@ -559,7 +556,7 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: PURE AMOLED 3D RETRO FLIP DESK CLOCK
+// 📜 WATCH STYLE 3: PURE AMOLED 3D RETRO FLIP DESK CLOCK (दुरुस्त & साफ़ नंबर)
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
@@ -590,12 +587,12 @@ private fun RetroFlipClockWatch(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            MechanicalFlipCard(
+            CleanMechanicalFlipCard(
                 digit = minStr,
                 tagLabel = if (isRunning) "MINUTES" else "SET TIME"
             )
 
-            MechanicalFlipCard(
+            CleanMechanicalFlipCard(
                 digit = secStr,
                 tagLabel = if (isRunning) "SECONDS" else "A M O N"
             )
@@ -636,136 +633,76 @@ private fun RetroFlipClockWatch(
 }
 
 /**
- * 🎴 3D SPLIT-FLAP MECHANICAL CARD COMPONENT
+ * 🎴 CLEAN MECHANICAL FLIP CARD COMPONENT (साफ़, बिना कटे और बोल्ड नंबर)
  */
 @Composable
-private fun MechanicalFlipCard(
+private fun CleanMechanicalFlipCard(
     digit: String,
     tagLabel: String
 ) {
     var previousDigit by remember { mutableStateOf(digit) }
     var currentDigit by remember { mutableStateOf(digit) }
 
-    val flipProgress = remember { Animatable(0f) }
+    val flipAnim = remember { Animatable(0f) }
 
     LaunchedEffect(digit) {
         if (digit != currentDigit) {
             previousDigit = currentDigit
             currentDigit = digit
-            flipProgress.snapTo(0f)
-            flipProgress.animateTo(
+            flipAnim.snapTo(0f)
+            flipAnim.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)
             )
         }
     }
 
-    val rotation = flipProgress.value * 180f
-    val isTopHalfFolded = rotation >= 90f
-
-    val cardPlateColor = Color(0xFF18181D)
-    val cardTextColor = Color(0xFFF1F5F9)
+    val rotation = flipAnim.value * 180f
+    val displayDigit = if (rotation >= 90f) currentDigit else previousDigit
 
     Box(
         modifier = Modifier
             .size(width = 240.dp, height = 118.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .background(Color.Black)
-            .border(1.2.dp, Color(0x22FFFFFF), RoundedCornerShape(22.dp)),
+            .graphicsLayer {
+                rotationX = if (flipAnim.isRunning) -rotation else 0f
+                cameraDistance = 16 * density
+            }
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFF18181D))
+            .border(1.4.dp, Color(0x22FFFFFF), RoundedCornerShape(20.dp)),
         contentAlignment = Alignment.Center
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .background(cardPlateColor)
-                    .padding(horizontal = 14.dp, vertical = 4.dp),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = tagLabel,
-                        color = Color(0xFF64748B),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                }
-                Text(
-                    text = if (isTopHalfFolded) currentDigit else previousDigit,
-                    fontSize = 78.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.SansSerif,
-                    color = cardTextColor,
-                    letterSpacing = (-2).sp,
-                    modifier = Modifier.offset(y = 28.dp)
-                )
-            }
+        // 1. शीर्ष टैग लेबल
+        Text(
+            text = tagLabel,
+            color = Color(0xFF64748B),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 14.dp, top = 8.dp)
+        )
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .background(Color.Black)
-            )
+        // 2. मुख्य स्पष्ट बोल्ड नंबर (परफेक्ट सेंटर, 0% डिस्टॉर्शन)
+        Text(
+            text = displayDigit,
+            fontSize = 72.sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.SansSerif,
+            color = Color(0xFFF1F5F9),
+            letterSpacing = (-1.5).sp,
+            modifier = Modifier.align(Alignment.Center)
+        )
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .background(cardPlateColor)
-                    .padding(horizontal = 14.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                Text(
-                    text = if (isTopHalfFolded) currentDigit else previousDigit,
-                    fontSize = 78.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.SansSerif,
-                    color = cardTextColor,
-                    letterSpacing = (-2).sp,
-                    modifier = Modifier.offset(y = (-28).dp)
-                )
-            }
-        }
-
+        // 3. बीच की हॉरिजॉन्टल असली स्प्लिट सीम-लाइन (Center Split Slit)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(59.dp)
-                .align(if (isTopHalfFolded) Alignment.BottomCenter else Alignment.TopCenter)
-                .graphicsLayer {
-                    rotationX = if (isTopHalfFolded) (180f - rotation) else -rotation
-                    cameraDistance = 18 * density
-                    transformOrigin = if (isTopHalfFolded) {
-                        TransformOrigin(0.5f, 0f)
-                    } else {
-                        TransformOrigin(0.5f, 1f)
-                    }
-                }
-                .background(cardPlateColor)
-                .border(
-                    width = 0.8.dp,
-                    color = Color(0x1AFFFFFF),
-                    shape = if (isTopHalfFolded) RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)
-                    else RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
-                ),
-            contentAlignment = if (isTopHalfFolded) Alignment.TopCenter else Alignment.BottomCenter
-        ) {
-            Text(
-                text = if (isTopHalfFolded) currentDigit else previousDigit,
-                fontSize = 78.sp,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.SansSerif,
-                color = cardTextColor,
-                letterSpacing = (-2).sp,
-                modifier = Modifier.offset(y = if (isTopHalfFolded) (-28).dp else 28.dp)
-            )
-        }
+                .height(2.dp)
+                .background(Color.Black.copy(alpha = 0.85f))
+                .align(Alignment.Center)
+        )
     }
 }
 
@@ -816,7 +753,6 @@ private fun CustomHorizontalSlider(
             )
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 🚀 स्लाइडर ट्रैक कंटेनर: 1:1 बिना अटकाव वाला ड्रैग
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -832,10 +768,7 @@ private fun CustomHorizontalSlider(
                             },
                             onDragCancel = {}
                         ) { change, dragAmount ->
-                            // 1. Gesture Consume: ताकि ऊपर वाली स्क्रीन का स्वाइप बीच में न लड़े
                             change.consume()
-
-                            // 2. 1:1 स्मूथ मोशन: उंगली की दिशा में बिल्कुल सटीक बहाव
                             val deltaMinutes = (-dragAmount / spacing) * 5f
                             rawMinutes = (rawMinutes + deltaMinutes).coerceIn(0f, 180f)
 
@@ -846,7 +779,6 @@ private fun CustomHorizontalSlider(
                         }
                     }
             ) {
-                // 📏 डंडियों वाला कैनवास
                 Canvas(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -893,7 +825,6 @@ private fun CustomHorizontalSlider(
                     }
                 }
 
-                // 📍 केंद्र की वाइट स्टिक + डिफ़ॉल्ट एंड्रॉइड हार्डवेयर शैडो (0% Lag, Zero Heating)
                 Box(
                     modifier = Modifier
                         .width(3.2.dp)
@@ -919,7 +850,7 @@ private fun CustomHorizontalSlider(
     }
 }
 
-// 📳 ULTRA-SUBTLE FEATHER-LIGHT HAPTIC TICK (केवल 30, 60, 90, 120, 150, 180 पर)
+// 📳 ULTRA-SUBTLE FEATHER-LIGHT HAPTIC TICK
 private fun triggerSuperSubtleTick(context: Context) {
     try {
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
