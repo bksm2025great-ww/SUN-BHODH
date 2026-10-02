@@ -13,12 +13,12 @@ import java.util.*
 
 /**
  * 🛡️ AMON VAULT ENGINE
- * सेशंस को सेफ़ JSON फ़ाइल में पैक करने और रीस्टोर करने का मुख्य टूल
+ * FocusSession मॉडल के अनुसार 100% सही और क्रैश-प्रूफ़ बैकअप टूल
  */
 object BackupManager {
 
     /**
-     * 📤 1. बैकअप फ़ाइल बनाना और सीधे Share / Drive मेनू खोलना
+     * 📤 1. बैकअप फ़ाइल बनाना और Share / Drive मेनू खोलना
      */
     fun exportBackup(context: Context, userName: String = "Traveler"): Boolean {
         return try {
@@ -26,7 +26,6 @@ object BackupManager {
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault()).format(Date())
             val fileName = "Amon_Vault_${userName}_$timeStamp.json"
 
-            // सारा डेटा एक सुरक्षित JSON ऑब्जेक्ट में पैक करना
             val rootObj = JSONObject().apply {
                 put("app", "Amon Focus Tracker")
                 put("version", "1.1.0")
@@ -36,22 +35,21 @@ object BackupManager {
                 val sessionsArray = JSONArray()
                 sessions.forEach { s ->
                     val sObj = JSONObject().apply {
+                        put("id", s.id)
                         put("date", s.date)
                         put("subject", s.subject)
                         put("durationMinutes", s.durationMinutes)
-                        put("status", s.status)
+                        put("earnedTrees", s.earnedTrees)
                     }
                     sessionsArray.put(sObj)
                 }
                 put("sessions", sessionsArray)
             }
 
-            // फ़ाइल को फ़ोन के सेफ़ कैश में लिखना
             val cacheFolder = File(context.cacheDir, "backups").apply { mkdirs() }
             val backupFile = File(cacheFolder, fileName)
             FileOutputStream(backupFile).use { it.write(rootObj.toString(2).toByteArray()) }
 
-            // Android का शेयर मेनू खोलना (Drive, WhatsApp, Files)
             val uri: Uri = FileProvider.getUriForFile(
                 context,
                 "${context.packageName}.fileprovider",
@@ -79,7 +77,7 @@ object BackupManager {
     }
 
     /**
-     * 📥 2. बैकअप फ़ाइल खोलकर डेटा नए फ़ोन में रीस्टोर करना
+     * 📥 2. बैकअप फ़ाइल से डेटा रीस्टोर करना
      */
     fun importBackup(context: Context, fileUri: Uri): Pair<Boolean, String> {
         return try {
@@ -98,27 +96,19 @@ object BackupManager {
                 val item = sessionsArray.getJSONObject(i)
                 restoredSessions.add(
                     FocusSession(
+                        id = item.optLong("id", System.currentTimeMillis()),
                         date = item.optString("date", ""),
                         subject = item.optString("subject", "General Study"),
                         durationMinutes = item.optInt("durationMinutes", 0),
-                        earnedTrees = 0, // ट्री फ़ीचर आने तक शांत 0 रहेगा
-                        status = item.optString("status", "Completed")
+                        earnedTrees = item.optInt("earnedTrees", 0)
                     )
                 )
             }
 
-            // मौजूदा सेशंस के साथ सुरक्षित तरीक़े से जोड़ना (Duplicate Session Guard)
-            val existingSessions = FocusSessionManager.getAllSessions(context)
-            val existingDateKeys = existingSessions.map { "${it.date}_${it.subject}_${it.durationMinutes}" }.toSet()
+            // CloudSyncManager / FocusSessionManager का वही फ़ंक्शन जो प्रोफ़ाइल में इस्तेमाल होता है
+            val (restoredTrees, restoredMinutes) = FocusSessionManager.restoreSessions(context, restoredSessions)
 
-            val uniqueNewSessions = restoredSessions.filter { 
-                "${it.date}_${it.subject}_${it.durationMinutes}" !in existingDateKeys 
-            }
-
-            val mergedList = existingSessions + uniqueNewSessions
-            FocusSessionManager.saveAllSessions(context, mergedList)
-
-            Pair(true, "Successfully restored ${uniqueNewSessions.size} sessions!")
+            Pair(true, "Successfully restored! $restoredMinutes mins & $restoredTrees trees recovered.")
         } catch (e: Exception) {
             e.printStackTrace()
             Pair(false, "Error restoring file: ${e.localizedMessage}")
@@ -135,11 +125,11 @@ object BackupManager {
             val fileName = "Amon_Study_Report_${userName}_$timeStamp.csv"
 
             val sb = java.lang.StringBuilder()
-            sb.append("Date & Time,Subject,Duration (Mins),Status\n")
+            sb.append("Date & Time,Subject,Duration (Mins),Trees Earned\n")
 
             sessions.forEach { s ->
                 val safeSubject = s.subject.replace(",", " ")
-                sb.append("${s.date},$safeSubject,${s.durationMinutes},${s.status}\n")
+                sb.append("${s.date},$safeSubject,${s.durationMinutes},${s.earnedTrees}\n")
             }
 
             val cacheFolder = File(context.cacheDir, "reports").apply { mkdirs() }
