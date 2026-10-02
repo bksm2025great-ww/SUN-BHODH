@@ -1,6 +1,8 @@
 package com.amon.timer
 
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
@@ -54,7 +56,7 @@ fun MainScreen() {
     val isDark = ThemeManager.isDarkTheme.value
     val isRunning = TimerService.isTimerRunning.value
 
-    // 🔙 बैक गेस्चर फिजिक्स: किसी भी टैब से बैक स्वाइप करने पर पहले होम (टाइमर) पर आएगा
+    // 🔙 बैक गेस्चर: किसी भी टैब से बैक करने पर होम (टाइमर) पर लौटेगा
     BackHandler(enabled = currentNavIndex != 0 && !isRunning) {
         currentNavIndex = 0
     }
@@ -67,9 +69,8 @@ fun MainScreen() {
     val glassBorder = if (isDark) Color(0x33F3C669) else Color(0xFFCBD5E1)
     val glowYellow = if (ThemeManager.currentTheme.value == "Classic Yellow") Color(0xFFFDE68A) else Color(0xFFFFE082)
 
-    // 🌟 WHAT'S NEW: नए वर्शन पर सिर्फ़ पहली बार पॉपअप दिखेगा
     val appPrefs = remember {
-        context.getSharedPreferences("amon_app_prefs", android.content.Context.MODE_PRIVATE)
+        context.getSharedPreferences("amon_app_prefs", Context.MODE_PRIVATE)
     }
     val currentVersion = remember {
         try {
@@ -112,7 +113,6 @@ fun MainScreen() {
                 3 -> ProfileScreen()
             }
 
-            // ✨ What's New Dialog Overlay
             if (showWhatsNew && !isRunning) {
                 WhatsNewDialog(
                     versionName = currentVersion,
@@ -136,7 +136,7 @@ fun MainScreen() {
 // =============================================================================
 @Composable
 fun HomeTimerTab(
-    context: android.content.Context,
+    context: Context,
     goldColor: Color,
     glowYellow: Color,
     cardBg: Color,
@@ -153,17 +153,36 @@ fun HomeTimerTab(
     var newSubjectInput by remember { mutableStateOf("") }
 
     val subjectPrefs = remember {
-        context.getSharedPreferences("amon_subject_prefs", android.content.Context.MODE_PRIVATE)
+        context.getSharedPreferences("amon_subject_prefs", Context.MODE_PRIVATE)
     }
     var hiddenSubjects by remember {
         mutableStateOf(subjectPrefs.getStringSet("hidden_subjects", emptySet())?.toSet() ?: emptySet())
+    }
+
+    // ⌚ वर्तमान में चुनी गई घड़ी की शैली ट्रैक करना (0: Ring, 1: Rotary, 2: Flip)
+    val watchPrefs = remember {
+        context.getSharedPreferences("amon_watch_prefs", Context.MODE_PRIVATE)
+    }
+    var selectedWatchStyle by remember {
+        mutableIntStateOf(watchPrefs.getInt("selected_watch_style", 0))
+    }
+
+    DisposableEffect(Unit) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "selected_watch_style") {
+                selectedWatchStyle = watchPrefs.getInt("selected_watch_style", 0)
+            }
+        }
+        watchPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            watchPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
     }
 
     var isSoundOn by rememberSaveable { mutableStateOf(false) }
     var showSoundPanel by remember { mutableStateOf(false) }
     var selectedSound by rememberSaveable { mutableStateOf("Rain") }
 
-    // 🔒 Strict Discipline Mode: Active timer के दौरान Back दबाने पर वार्निंग पॉपअप
     BackHandler(enabled = isRunning) {
         showGiveUpDialog = true
     }
@@ -372,9 +391,7 @@ fun HomeTimerTab(
                                             if (isSelected) glowYellow else glassBorder,
                                             RoundedCornerShape(50)
                                         )
-                                        .clickable {
-                                            selectedSubjectName = subj
-                                        }
+                                        .clickable { selectedSubjectName = subj }
                                         .padding(horizontal = 14.dp, vertical = 6.dp)
                                 ) {
                                     Text(
@@ -389,24 +406,33 @@ fun HomeTimerTab(
                     }
                 }
             } else {
-                Box(
-                    contentAlignment = Alignment.Center,
+                // 🌟 मिनिमल और क्लासी सब्जेक्ट पिल (पीला बॉर्डर और 🎯 हटाकर साफ़ हरा डॉट)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
-                        .background(cardBg)
-                        .border(1.2.dp, goldColor, RoundedCornerShape(50))
-                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                        .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                        .border(1.dp, glassBorder, RoundedCornerShape(50))
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.5.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF22C55E))
+                    )
                     Text(
-                        text = "🎯 $selectedSubjectName",
-                        color = goldColor,
+                        text = selectedSubjectName,
+                        color = textMain,
                         fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
                     )
                 }
             }
 
-            // ----------------- 🕰️ CENTRAL WATCH CONTAINER (3 STYLES) -----------------
+            // ----------------- 🕰️ CENTRAL WATCH CONTAINER -----------------
             TimerWatchesContainer(
                 dialMinutes = dialMinutes,
                 onDialMinutesChange = { nextMins ->
@@ -428,66 +454,149 @@ fun HomeTimerTab(
                 textMuted = textMuted,
                 isDark = isDark,
                 timeFormatted = timeFormatted,
-                hours = hours
+                hours = hours,
+                onTogglePlayPause = {
+                    if (isRunning) {
+                        // ⏸️ स्क्रीन टैप पर पॉज़: सर्विस रोकी जाएगी बिना सेकंड्स रीसेट किए
+                        val intent = Intent(context, TimerService::class.java).apply {
+                            action = TimerService.ACTION_STOP
+                        }
+                        context.startService(intent)
+                    } else {
+                        // ▶️ दोबारा टैप पर उसी सेकंड से रिज़्यूम
+                        val intent = Intent(context, TimerService::class.java)
+                        initialTotalSeconds = if (totalSeconds > 0) totalSeconds else (dialMinutes.toInt() * 60)
+                        intent.action = TimerService.ACTION_START
+                        intent.putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
+                        intent.putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(intent)
+                        } else {
+                            context.startService(intent)
+                        }
+                    }
+                }
             )
 
             // ----------------- ACTION BUTTONS -----------------
-            if (!isRunning) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(53.dp)
-                        .shadow(
-                            elevation = 14.dp,
-                            shape = RoundedCornerShape(50),
-                            spotColor = goldColor,
-                            ambientColor = goldColor
-                        )
-                        .clip(RoundedCornerShape(50))
-                        .background(goldColor)
-                        .border(1.dp, glowYellow, RoundedCornerShape(50))
-                        .clickable {
-                            val intent = Intent(context, TimerService::class.java)
-                            initialTotalSeconds = if (totalSeconds > 0) totalSeconds else (dialMinutes.toInt() * 60)
-                            intent.action = TimerService.ACTION_START
-                            intent.putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
-                            intent.putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                context.startForegroundService(intent)
-                            } else {
-                                context.startService(intent)
+            val isFlipClock = (selectedWatchStyle == 2)
+
+            if (isFlipClock) {
+                // 🌟 फ्लिप क्लॉक स्पेशल: मिनिमल गोल Play (▶) और Stop (⏹) बटन
+                if (!isRunning) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(62.dp)
+                            .shadow(
+                                elevation = 14.dp,
+                                shape = CircleShape,
+                                spotColor = goldColor,
+                                ambientColor = goldColor
+                            )
+                            .clip(CircleShape)
+                            .background(goldColor)
+                            .border(1.2.dp, glowYellow, CircleShape)
+                            .clickable {
+                                val intent = Intent(context, TimerService::class.java)
+                                initialTotalSeconds = if (totalSeconds > 0) totalSeconds else (dialMinutes.toInt() * 60)
+                                intent.action = TimerService.ACTION_START
+                                intent.putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
+                                intent.putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    context.startForegroundService(intent)
+                                } else {
+                                    context.startService(intent)
+                                }
                             }
-                        }
-                        .padding(horizontal = 24.dp)
-                ) {
-                    Text(
-                        text = "Start Focus 🎯",
-                        color = Color.Black,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black
-                    )
+                    ) {
+                        Text(
+                            text = "▶",
+                            color = Color.Black,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.offset(x = 2.dp)
+                        )
+                    }
+                } else {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(CircleShape)
+                            .background(if (isDark) Color(0xFF241616) else Color(0xFFFEE2E2))
+                            .border(1.4.dp, Color(0xFFEF4444).copy(alpha = 0.7f), CircleShape)
+                            .clickable {
+                                showGiveUpDialog = true
+                            }
+                    ) {
+                        Text(
+                            text = "⏹",
+                            color = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             } else {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(53.dp)
-                        .padding(bottom = 4.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(if (isDark) Color(0xFF221616) else Color(0xFFFEE2E2))
-                        .border(1.4.dp, Color(0xFFEF4444).copy(alpha = 0.6f), RoundedCornerShape(50))
-                        .clickable {
-                            showGiveUpDialog = true
-                        }
-                ) {
-                    Text(
-                        text = "Give Up",
-                        color = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                // ⏱️ क्लासिक रिंग और रोटरी डायल के लिए मानक चौड़ा बटन
+                if (!isRunning) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(53.dp)
+                            .shadow(
+                                elevation = 14.dp,
+                                shape = RoundedCornerShape(50),
+                                spotColor = goldColor,
+                                ambientColor = goldColor
+                            )
+                            .clip(RoundedCornerShape(50))
+                            .background(goldColor)
+                            .border(1.dp, glowYellow, RoundedCornerShape(50))
+                            .clickable {
+                                val intent = Intent(context, TimerService::class.java)
+                                initialTotalSeconds = if (totalSeconds > 0) totalSeconds else (dialMinutes.toInt() * 60)
+                                intent.action = TimerService.ACTION_START
+                                intent.putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
+                                intent.putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    context.startForegroundService(intent)
+                                } else {
+                                    context.startService(intent)
+                                }
+                            }
+                            .padding(horizontal = 24.dp)
+                    ) {
+                        Text(
+                            text = "Start Focus 🎯",
+                            color = Color.Black,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                } else {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(53.dp)
+                            .padding(bottom = 4.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (isDark) Color(0xFF221616) else Color(0xFFFEE2E2))
+                            .border(1.4.dp, Color(0xFFEF4444).copy(alpha = 0.6f), RoundedCornerShape(50))
+                            .clickable {
+                                showGiveUpDialog = true
+                            }
+                    ) {
+                        Text(
+                            text = "Give Up",
+                            color = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
@@ -786,7 +895,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // ⚠️ DISCIPLINE WARNING POPUP
+        // ⚠️ DISCIPLINE WARNING POPUP (100% ENGLISH TRANSLATION)
         // =====================================================================
         if (showGiveUpDialog) {
             Dialog(onDismissRequest = { showGiveUpDialog = false }) {
@@ -810,7 +919,7 @@ fun HomeTimerTab(
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "Focus session चालू है। अभी छोड़ने पर यह सत्र समाप्त और रद्द हो जाएगा।\n\nक्या आप सच में सत्र समाप्त करना चाहते हैं?",
+                            text = "A focus session is currently in progress. Giving up now will forfeit this session.\n\nAre you sure you want to end your focus?",
                             color = textMain,
                             fontSize = 13.5.sp,
                             textAlign = TextAlign.Center,
@@ -946,15 +1055,23 @@ fun WhatsNewDialog(
                     WhatsNewItem(
                         icon = "👑",
                         title = "3 Luxury Watch Styles",
-                        description = "Swipe between Classic Ring, Rotary Dial (haptic 5m snap), and Retro Desk Flip Clock.",
+                        description = "Swipe between Classic Ring, Rotary Dial, and Retro Desk Flip Clock.",
                         textMain = textMain,
                         textMuted = textMuted
                     )
 
                     WhatsNewItem(
-                        icon = "🧲",
-                        title = "Rotary 0–180m Dial",
-                        description = "Smooth circular touch with subtle haptic vibration ticks every 5 minutes.",
+                        icon = "🎛️",
+                        title = "Silent Rotary 0–180m Dial",
+                        description = "Smooth circular touch with zero noise and a clean minimal display.",
+                        textMain = textMain,
+                        textMuted = textMuted
+                    )
+
+                    WhatsNewItem(
+                        icon = "📜",
+                        title = "3D Split-Flap Desk Clock",
+                        description = "Authentic mechanical flip simulation with tap-to-type input and minimal Play/Stop controls.",
                         textMain = textMain,
                         textMuted = textMuted
                     )
@@ -963,14 +1080,6 @@ fun WhatsNewDialog(
                         icon = "🍩",
                         title = "Subject Breakdown Chart",
                         description = "Modern donut analytics in Stats to track your study balance across days, weeks & months.",
-                        textMain = textMain,
-                        textMuted = textMuted
-                    )
-
-                    WhatsNewItem(
-                        icon = "⏱️",
-                        title = "Clear Time Display",
-                        description = "Replaced confusing decimals with clean, readable hours & minutes (e.g. 1h 30m).",
                         textMain = textMain,
                         textMuted = textMuted
                     )
@@ -1192,7 +1301,7 @@ private fun calculateStreakDays(sessions: List<FocusSession>): Int {
     val dayMinutesMap = mutableMapOf<String, Int>()
     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     val formats = listOf(
-        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDataFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
         SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
