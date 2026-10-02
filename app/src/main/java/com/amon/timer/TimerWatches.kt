@@ -1004,5 +1004,3 @@ private fun CustomHorizontalSlider(
             )
         }
     }
-}
-p
