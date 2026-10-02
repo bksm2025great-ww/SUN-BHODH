@@ -6,6 +6,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,13 +22,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,7 +40,7 @@ import kotlin.math.*
 
 /**
  * 👑 AMON CENTRAL WATCH CONTAINER
- * तीनों घड़ियों को एक ही जगह कंट्रोल करने वाला मॉड्यूलर हब
+ * तीनों घड़ियों को एक ही मॉड्यूलर हब में कंट्रोल करता है
  */
 @Composable
 fun TimerWatchesContainer(
@@ -168,15 +173,14 @@ fun TimerWatchesContainer(
                 2 -> RetroFlipClockWatch(
                     dialMinutes = dialMinutes,
                     onDialMinutesChange = onDialMinutesChange,
+                    totalSeconds = totalSeconds,
                     isRunning = isRunning,
                     goldColor = goldColor,
                     glowYellow = glowYellow,
                     cardBg = cardBg,
                     glassBorder = glassBorder,
                     textMain = textMain,
-                    textMuted = textMuted,
-                    timeFormatted = timeFormatted,
-                    hours = hours
+                    textMuted = textMuted
                 )
             }
         }
@@ -329,13 +333,13 @@ private fun ClassicRingWatch(
                 }
             }
 
+            // 🌟 1:1 मक्खन जैसा स्मूथ कस्टम स्लाइडर (व्हाइट स्टिक + एंड्रॉइड शैडो)
             if (isCustomMode) {
                 Spacer(modifier = Modifier.height(12.dp))
                 CustomHorizontalSlider(
                     dialMinutes = dialMinutes,
                     onDialMinutesChange = onDialMinutesChange,
                     goldColor = goldColor,
-                    glowYellow = glowYellow,
                     cardBg = cardBg,
                     textMain = textMain,
                     textMuted = textMuted
@@ -346,7 +350,7 @@ private fun ClassicRingWatch(
 }
 
 // =============================================================================
-// 🎛️ WATCH STYLE 2: ROTARY DIAL (0 - 180M + HAPTIC SNAP + ZERO DISTRACTION)
+// 🎛️️ WATCH STYLE 2: ROTARY DIAL (30M MILESTONE ULTRA-SUBTLE HAPTIC TICK)
 // =============================================================================
 @Composable
 private fun RotaryDialWatch(
@@ -393,7 +397,9 @@ private fun RotaryDialWatch(
                                 val snappedMins = (round(computedMins / 5f) * 5f).coerceIn(0f, 180f)
 
                                 if (snappedMins != dialMinutes) {
-                                    triggerLightHapticTick(context)
+                                    if (snappedMins > 0f && snappedMins.toInt() % 30 == 0) {
+                                        triggerSuperSubtleTick(context)
+                                    }
                                     onDialMinutesChange(snappedMins)
                                 }
                             }
@@ -536,7 +542,6 @@ private fun RotaryDialWatch(
                             .background(if (isSelected) goldColor else cardBg)
                             .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
                             .clickable {
-                                triggerLightHapticTick(context)
                                 onDialMinutesChange(mins)
                             }
                     ) {
@@ -554,54 +559,50 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: RETRO DESK FLIP CLOCK
+// 📜 WATCH STYLE 3: PURE AMOLED 3D RETRO FLIP DESK CLOCK
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
     dialMinutes: Float,
     onDialMinutesChange: (Float) -> Unit,
+    totalSeconds: Int,
     isRunning: Boolean,
     goldColor: Color,
     glowYellow: Color,
     cardBg: Color,
     glassBorder: Color,
     textMain: Color,
-    textMuted: Color,
-    timeFormatted: String,
-    hours: Int
+    textMuted: Color
 ) {
+    val mins = totalSeconds / 60
+    val secs = totalSeconds % 60
+
+    val minStr = String.format("%02d", mins)
+    val secStr = String.format("%02d", secs)
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(vertical = 14.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = if (isRunning) 8.dp else 4.dp)
     ) {
-        val parts = timeFormatted.split(":")
-        val mainLeft = if (hours > 0) parts[0] else parts[0]
-        val mainRight = if (hours > 0) parts[1] else parts[1]
-        val suffixSec = if (hours > 0 && parts.size > 2) parts[2] else null
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            FlipCardBlock(numberStr = mainLeft, cardBg = cardBg, glassBorder = glassBorder, textMain = textMain)
-            Text(text = ":", fontSize = 42.sp, fontWeight = FontWeight.Black, color = goldColor)
-            FlipCardBlock(numberStr = mainRight, cardBg = cardBg, glassBorder = glassBorder, textMain = textMain)
-            if (suffixSec != null) {
-                Text(text = ":", fontSize = 42.sp, fontWeight = FontWeight.Black, color = goldColor)
-                FlipCardBlock(numberStr = suffixSec, cardBg = cardBg, glassBorder = glassBorder, textMain = textMain)
-            }
+            MechanicalFlipCard(
+                digit = minStr,
+                tagLabel = if (isRunning) "MINUTES" else "SET TIME"
+            )
+
+            MechanicalFlipCard(
+                digit = secStr,
+                tagLabel = if (isRunning) "SECONDS" else "A M O N"
+            )
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
-        Text(
-            text = "Desk Flip Mode • Table Stand",
-            color = textMuted,
-            fontSize = 11.5.sp,
-            fontWeight = FontWeight.Medium
-        )
-
         if (!isRunning) {
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -609,21 +610,21 @@ private fun RetroFlipClockWatch(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                listOf(25f, 45f, 60f).forEach { mins ->
-                    val isSelected = dialMinutes == mins
+                listOf(25f, 45f, 60f).forEach { m ->
+                    val isSelected = dialMinutes == m
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .weight(1f)
                             .height(38.dp)
                             .clip(RoundedCornerShape(50))
-                            .background(if (isSelected) goldColor else cardBg)
-                            .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                            .clickable { onDialMinutesChange(mins) }
+                            .background(if (isSelected) goldColor else Color(0xFF18181C))
+                            .border(1.dp, if (isSelected) glowYellow else Color(0x33FFFFFF), RoundedCornerShape(50))
+                            .clickable { onDialMinutesChange(m) }
                     ) {
                         Text(
-                            text = "${mins.toInt()}m",
-                            color = if (isSelected) Color.White else textMain,
+                            text = "${m.toInt()}m",
+                            color = if (isSelected) Color.Black else Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -634,49 +635,153 @@ private fun RetroFlipClockWatch(
     }
 }
 
+/**
+ * 🎴 3D SPLIT-FLAP MECHANICAL CARD COMPONENT
+ */
 @Composable
-private fun FlipCardBlock(
-    numberStr: String,
-    cardBg: Color,
-    glassBorder: Color,
-    textMain: Color
+private fun MechanicalFlipCard(
+    digit: String,
+    tagLabel: String
 ) {
+    var previousDigit by remember { mutableStateOf(digit) }
+    var currentDigit by remember { mutableStateOf(digit) }
+
+    val flipProgress = remember { Animatable(0f) }
+
+    LaunchedEffect(digit) {
+        if (digit != currentDigit) {
+            previousDigit = currentDigit
+            currentDigit = digit
+            flipProgress.snapTo(0f)
+            flipProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+            )
+        }
+    }
+
+    val rotation = flipProgress.value * 180f
+    val isTopHalfFolded = rotation >= 90f
+
+    val cardPlateColor = Color(0xFF18181D)
+    val cardTextColor = Color(0xFFF1F5F9)
+
     Box(
-        contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(width = 86.dp, height = 110.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(cardBg)
-            .border(1.4.dp, glassBorder, RoundedCornerShape(16.dp))
+            .size(width = 240.dp, height = 118.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .background(Color.Black)
+            .border(1.2.dp, Color(0x22FFFFFF), RoundedCornerShape(22.dp)),
+        contentAlignment = Alignment.Center
     ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(cardPlateColor)
+                    .padding(horizontal = 14.dp, vertical = 4.dp),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = tagLabel,
+                        color = Color(0xFF64748B),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                }
+                Text(
+                    text = if (isTopHalfFolded) currentDigit else previousDigit,
+                    fontSize = 78.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.SansSerif,
+                    color = cardTextColor,
+                    letterSpacing = (-2).sp,
+                    modifier = Modifier.offset(y = 28.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(Color.Black)
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(cardPlateColor)
+                    .padding(horizontal = 14.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Text(
+                    text = if (isTopHalfFolded) currentDigit else previousDigit,
+                    fontSize = 78.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.SansSerif,
+                    color = cardTextColor,
+                    letterSpacing = (-2).sp,
+                    modifier = Modifier.offset(y = (-28).dp)
+                )
+            }
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(1.dp)
-                .background(Color(0x33FFFFFF))
-        )
-        Text(
-            text = numberStr,
-            fontSize = 54.sp,
-            fontWeight = FontWeight.Black,
-            color = textMain,
-            letterSpacing = (-1).sp
-        )
+                .height(59.dp)
+                .align(if (isTopHalfFolded) Alignment.BottomCenter else Alignment.TopCenter)
+                .graphicsLayer {
+                    rotationX = if (isTopHalfFolded) (180f - rotation) else -rotation
+                    cameraDistance = 18 * density
+                    transformOrigin = if (isTopHalfFolded) {
+                        TransformOrigin(0.5f, 0f)
+                    } else {
+                        TransformOrigin(0.5f, 1f)
+                    }
+                }
+                .background(cardPlateColor)
+                .border(
+                    width = 0.8.dp,
+                    color = Color(0x1AFFFFFF),
+                    shape = if (isTopHalfFolded) RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)
+                    else RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
+                ),
+            contentAlignment = if (isTopHalfFolded) Alignment.TopCenter else Alignment.BottomCenter
+        ) {
+            Text(
+                text = if (isTopHalfFolded) currentDigit else previousDigit,
+                fontSize = 78.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.SansSerif,
+                color = cardTextColor,
+                letterSpacing = (-2).sp,
+                modifier = Modifier.offset(y = if (isTopHalfFolded) (-28).dp else 28.dp)
+            )
+        }
     }
 }
 
-// ----------------- CUSTOM SLIDER HELPER -----------------
+// =============================================================================
+// 🌟 1:1 मक्खन जैसा स्मूथ कस्टम स्लाइडर (व्हाइट स्टिक + एंड्रॉइड हार्डवेयर शैडो)
+// =============================================================================
 @Composable
 private fun CustomHorizontalSlider(
     dialMinutes: Float,
     onDialMinutesChange: (Float) -> Unit,
     goldColor: Color,
-    glowYellow: Color,
     cardBg: Color,
     textMain: Color,
     textMuted: Color
 ) {
-    var dragAccumulator by remember { mutableFloatStateOf(0f) }
+    var rawMinutes by remember(dialMinutes) { mutableFloatStateOf(dialMinutes) }
 
     val sliderDisplayTitle = remember(dialMinutes) {
         val mins = dialMinutes.toInt()
@@ -701,25 +806,7 @@ private fun CustomHorizontalSlider(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = { dragAccumulator = 0f },
-                        onDragCancel = { dragAccumulator = 0f }
-                    ) { _, dragAmount ->
-                        val stepSensitivity = 18f
-                        dragAccumulator -= dragAmount
-                        if (abs(dragAccumulator) >= stepSensitivity) {
-                            val steps = (dragAccumulator / stepSensitivity).toInt()
-                            val nextMins = (dialMinutes + steps * 5f).coerceIn(0f, 180f)
-                            if (nextMins != dialMinutes) {
-                                onDialMinutesChange(nextMins)
-                            }
-                            dragAccumulator -= steps * stepSensitivity
-                        }
-                    }
-                }
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text(
                 text = sliderDisplayTitle,
@@ -729,63 +816,95 @@ private fun CustomHorizontalSlider(
             )
             Spacer(modifier = Modifier.height(10.dp))
 
-            Canvas(
+            // 🚀 स्लाइडर ट्रैक कंटेनर: 1:1 बिना अटकाव वाला ड्रैग
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(40.dp)
+                    .height(44.dp)
+                    .pointerInput(Unit) {
+                        val spacing = 22.dp.toPx()
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                val finalSnapped = (round(rawMinutes / 5f) * 5f).coerceIn(0f, 180f)
+                                rawMinutes = finalSnapped
+                                onDialMinutesChange(finalSnapped)
+                            },
+                            onDragCancel = {}
+                        ) { change, dragAmount ->
+                            // 1. Gesture Consume: ताकि ऊपर वाली स्क्रीन का स्वाइप बीच में न लड़े
+                            change.consume()
+
+                            // 2. 1:1 स्मूथ मोशन: उंगली की दिशा में बिल्कुल सटीक बहाव
+                            val deltaMinutes = (-dragAmount / spacing) * 5f
+                            rawMinutes = (rawMinutes + deltaMinutes).coerceIn(0f, 180f)
+
+                            val currentSnapped = (round(rawMinutes / 5f) * 5f).coerceIn(0f, 180f)
+                            if (currentSnapped != dialMinutes) {
+                                onDialMinutesChange(currentSnapped)
+                            }
+                        }
+                    }
             ) {
-                val canvasWidth = size.width
-                val canvasHeight = size.height
-                val centerX = canvasWidth / 2f
-                val centerY = canvasHeight / 2f
-                val spacing = 22.dp.toPx()
+                // 📏 डंडियों वाला कैनवास
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                ) {
+                    val canvasWidth = size.width
+                    val canvasHeight = size.height
+                    val centerX = canvasWidth / 2f
+                    val centerY = canvasHeight / 2f
+                    val spacing = 22.dp.toPx()
 
-                for (m in 0..180 step 5) {
-                    val x = centerX + ((m - dialMinutes) / 5f) * spacing
-                    if (x >= -20f && x <= canvasWidth + 20f) {
-                        val distFromCenter = abs(x - centerX)
-                        val alpha = (1f - distFromCenter / (canvasWidth / 2f)).coerceIn(0f, 1f)
-                        val isMajor30 = (m % 30 == 0)
-                        val isMajor15 = (m % 15 == 0)
+                    for (m in 0..180 step 5) {
+                        val x = centerX + ((m - rawMinutes) / 5f) * spacing
+                        if (x >= -20f && x <= canvasWidth + 20f) {
+                            val distFromCenter = abs(x - centerX)
+                            val alpha = (1f - distFromCenter / (canvasWidth / 2f)).coerceIn(0f, 1f)
+                            val isMajor30 = (m % 30 == 0)
+                            val isMajor15 = (m % 15 == 0)
 
-                        val tickHeight = when {
-                            isMajor30 -> 22.dp.toPx()
-                            isMajor15 -> 16.dp.toPx()
-                            else -> 10.dp.toPx()
-                        }
-                        val tickWidth = when {
-                            isMajor30 -> 2.4.dp.toPx()
-                            isMajor15 -> 1.8.dp.toPx()
-                            else -> 1.2.dp.toPx()
-                        }
-                        val tickColor = if (isMajor30 || isMajor15) {
-                            textMain.copy(alpha = alpha * 0.9f)
-                        } else {
-                            textMuted.copy(alpha = alpha * 0.6f)
-                        }
+                            val tickHeight = when {
+                                isMajor30 -> 22.dp.toPx()
+                                isMajor15 -> 16.dp.toPx()
+                                else -> 10.dp.toPx()
+                            }
+                            val tickWidth = when {
+                                isMajor30 -> 2.4.dp.toPx()
+                                isMajor15 -> 1.8.dp.toPx()
+                                else -> 1.2.dp.toPx()
+                            }
+                            val tickColor = if (isMajor30 || isMajor15) {
+                                textMain.copy(alpha = alpha * 0.9f)
+                            } else {
+                                textMuted.copy(alpha = alpha * 0.6f)
+                            }
 
-                        drawLine(
-                            color = tickColor,
-                            start = Offset(x, centerY - tickHeight / 2f),
-                            end = Offset(x, centerY + tickHeight / 2f),
-                            strokeWidth = tickWidth,
-                            cap = StrokeCap.Round
-                        )
+                            drawLine(
+                                color = tickColor,
+                                start = Offset(x, centerY - tickHeight / 2f),
+                                end = Offset(x, centerY + tickHeight / 2f),
+                                strokeWidth = tickWidth,
+                                cap = StrokeCap.Round
+                            )
+                        }
                     }
                 }
 
-                val needleHeight = 28.dp.toPx()
-                drawLine(
-                    color = goldColor,
-                    start = Offset(centerX, centerY - needleHeight / 2f),
-                    end = Offset(centerX, centerY + needleHeight / 2f),
-                    strokeWidth = 3.4.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-                drawCircle(
-                    color = glowYellow,
-                    radius = 2.2.dp.toPx(),
-                    center = Offset(centerX, centerY - needleHeight / 2f)
+                // 📍 केंद्र की वाइट स्टिक + डिफ़ॉल्ट एंड्रॉइड हार्डवेयर शैडो (0% Lag, Zero Heating)
+                Box(
+                    modifier = Modifier
+                        .width(3.2.dp)
+                        .height(28.dp)
+                        .shadow(
+                            elevation = 8.dp,
+                            shape = RoundedCornerShape(2.dp),
+                            spotColor = Color.White,
+                            ambientColor = Color.White
+                        )
+                        .background(Color.White, RoundedCornerShape(2.dp))
                 )
             }
 
@@ -800,8 +919,8 @@ private fun CustomHorizontalSlider(
     }
 }
 
-// 📳 HAPTIC BUZZ HELPER
-private fun triggerLightHapticTick(context: Context) {
+// 📳 ULTRA-SUBTLE FEATHER-LIGHT HAPTIC TICK (केवल 30, 60, 90, 120, 150, 180 पर)
+private fun triggerSuperSubtleTick(context: Context) {
     try {
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
@@ -809,14 +928,21 @@ private fun triggerLightHapticTick(context: Context) {
         } else {
             @Suppress("DEPRECATION")
             context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-        }
+        } ?: return
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && vibrator.areAllPrimitivesSupported(VibrationEffect.Composition.PRIMITIVE_LOW_TICK)) {
+            val effect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_LOW_TICK, 0.25f)
+                .compose()
+            vibrator.vibrate(effect)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vibrator.hasAmplitudeControl()) {
+            val effect = VibrationEffect.createOneShot(4L, 15)
+            vibrator.vibrate(effect)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
         } else {
             @Suppress("DEPRECATION")
-            vibrator?.vibrate(10L)
+            vibrator.vibrate(4L)
         }
     } catch (_: Exception) {}
 }
-
