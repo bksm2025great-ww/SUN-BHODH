@@ -43,7 +43,7 @@ import kotlin.math.*
 
 /**
  * 👑 AMON CENTRAL WATCH CONTAINER
- * Teeno watches ko ek hi modular container me manage karta hai
+ * तीनों घड़ियों को एक ही मॉड्यूलर हब में कंट्रोल करता है
  */
 @Composable
 fun TimerWatchesContainer(
@@ -268,8 +268,9 @@ private fun ClassicRingWatch(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(text = "🎯", fontSize = 28.sp)
-                Spacer(modifier = Modifier.height(2.dp))
+                // ✨ शुद्ध गूगल मटेरियल वेक्टर आइकॉन (कोई इमोजी नहीं)
+                FocusTargetIcon(tint = goldColor, modifier = Modifier.size(26.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = timeFormatted,
                     fontSize = if (hours > 0) 36.sp else 43.sp,
@@ -573,7 +574,6 @@ private fun RetroFlipClockWatch(
     var minDragAccumulator by remember { mutableFloatStateOf(0f) }
     var secDragAccumulator by remember { mutableFloatStateOf(0f) }
 
-    // Screen fill karne ke liye tall, solid dimensions
     val animatedWidth by animateDpAsState(
         targetValue = if (isRunning) 265.dp else 245.dp,
         animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
@@ -585,7 +585,6 @@ private fun RetroFlipClockWatch(
         label = "FlipCardHeight"
     )
 
-    // Bada vintage font jo ek single card ko poori tarah bharega
     val baseFontSize = if (isRunning) 115f else 105f
     val minFontSize = if (minStr.length > 2) baseFontSize * 0.72f else baseFontSize
     val secFontSize = baseFontSize
@@ -757,12 +756,10 @@ private fun AuthenticSplitFlapCard(
         modifier = Modifier.size(width = cardWidth, height = cardHeight),
         contentAlignment = Alignment.Center
     ) {
-        // 1. Static Background Plates (Dono milkar ek complete number banate hain)
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Upar background: Next number ka top half (flap girte hi peeche dikhega)
             SplitFlapHalfPlate(
                 digit = currentDigit,
                 isTop = true,
@@ -773,7 +770,6 @@ private fun AuthenticSplitFlapCard(
                 shape = topShape
             )
 
-            // Neeche background: Flip hote waqt purana bottom half, idle mein current bottom half
             SplitFlapHalfPlate(
                 digit = if (flipAnim.isRunning) previousDigit else currentDigit,
                 isTop = false,
@@ -785,7 +781,6 @@ private fun AuthenticSplitFlapCard(
             )
         }
 
-        // 2. 3D Flipping Flap (Hawa mein fold hota hua aadha patta)
         if (flipAnim.isRunning) {
             Box(
                 modifier = Modifier
@@ -810,7 +805,6 @@ private fun AuthenticSplitFlapCard(
             }
         }
 
-        // 3. Middle Seam Line (2dp mechanical slit)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -823,7 +817,6 @@ private fun AuthenticSplitFlapCard(
 
 /**
  * ✂️ MATHEMATICAL 50-50 HALF-PLATE RENDERER
- * Yeh ek poore number ko theek center se kaat kar upar ya neeche render karta hai
  */
 @Composable
 private fun SplitFlapHalfPlate(
@@ -861,8 +854,6 @@ private fun SplitFlapHalfPlate(
 
             val centerX = (parentWidthPx - textPlaceable.width) / 2
             val centerY = (cardHeightPx - textPlaceable.height) / 2
-
-            // isTop true hai toh top half dikhega, false hai toh theek wahi se bottom half shuru hoga
             val posY = if (isTop) centerY else centerY - halfHeightPx
 
             layout(parentWidthPx, halfHeightPx) {
@@ -1013,5 +1004,72 @@ private fun CustomHorizontalSlider(
                 fontWeight = FontWeight.Bold
             )
         }
+    }
+}
+
+// =============================================================================
+// ✨ LUXE GOLD MATERIAL VECTOR ICON (100% PURE TARGET VECTOR - NO EMOJI)
+// =============================================================================
+@Composable
+private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(26.dp)) {
+        val w = size.width
+        val h = size.height
+        val center = Offset(w / 2f, h / 2f)
+        val stroke = 1.8.dp.toPx()
+
+        // 1. बाहरी रिंग (Outer Ring)
+        drawCircle(
+            color = tint.copy(alpha = 0.5f),
+            radius = w * 0.44f,
+            center = center,
+            style = Stroke(width = stroke)
+        )
+
+        // 2. आंतरिक रिंग (Inner Focus Ring)
+        drawCircle(
+            color = tint,
+            radius = w * 0.26f,
+            center = center,
+            style = Stroke(width = stroke * 1.15f)
+        )
+
+        // 3. केंद्र बिंदु (Bullseye Center Dot)
+        drawCircle(
+            color = tint,
+            radius = w * 0.10f,
+            center = center
+        )
+
+        // 4. 4 दिशाओं के सटीक क्रॉसहेयर कट्स (Precision Crosshairs)
+        val crossLen = w * 0.10f
+        drawLine(
+            color = tint,
+            start = Offset(center.x, center.y - w * 0.44f),
+            end = Offset(center.x, center.y - w * 0.44f + crossLen),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = tint,
+            start = Offset(center.x, center.y + w * 0.44f - crossLen),
+            end = Offset(center.x, center.y + w * 0.44f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = tint,
+            start = Offset(center.x - w * 0.44f, center.y),
+            end = Offset(center.x - w * 0.44f + crossLen, center.y),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = tint,
+            start = Offset(center.x + w * 0.44f - crossLen, center.y),
+            end = Offset(center.x + w * 0.44f, center.y),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
     }
 }
