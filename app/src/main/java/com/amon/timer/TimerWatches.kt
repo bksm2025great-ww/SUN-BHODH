@@ -1,10 +1,7 @@
 package com.amon.timer
 
 import android.content.Context
-import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
+import android.view.HapticFeedbackConstants
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -13,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,17 +20,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.*
@@ -94,7 +96,6 @@ fun TimerWatchesContainer(
                 }
             }
     ) {
-        // ----------------- 3-DOT INDICATOR ( •  ●  • ) -----------------
         if (!isRunning) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -117,7 +118,6 @@ fun TimerWatchesContainer(
             }
         }
 
-        // ----------------- 3 WATCH BODIES -----------------
         AnimatedContent(
             targetState = selectedWatchStyle,
             transitionSpec = {
@@ -177,7 +177,6 @@ fun TimerWatchesContainer(
                     glowYellow = glowYellow,
                     cardBg = cardBg,
                     glassBorder = glassBorder,
-                    textMain = textMain,
                     textMuted = textMuted
                 )
             }
@@ -288,8 +287,7 @@ private fun ClassicRingWatch(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val presets = listOf(25f, 45f, 60f)
-                presets.forEach { mins ->
+                listOf(25f, 45f, 60f).forEach { mins ->
                     val isSelected = !isCustomMode && dialMinutes == mins
                     Box(
                         contentAlignment = Alignment.Center,
@@ -299,9 +297,7 @@ private fun ClassicRingWatch(
                             .clip(RoundedCornerShape(50))
                             .background(if (isSelected) goldColor else cardBg)
                             .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                            .clickable {
-                                onDialMinutesChange(mins)
-                            }
+                            .clickable { onDialMinutesChange(mins) }
                     ) {
                         Text(
                             text = "${mins.toInt()}m",
@@ -347,7 +343,7 @@ private fun ClassicRingWatch(
 }
 
 // =============================================================================
-// 🎛️️ WATCH STYLE 2: ROTARY DIAL (30M MILESTONE ULTRA-SUBTLE HAPTIC TICK)
+// 🎛 WATCH STYLE 2: ROTARY DIAL (पूरी तरह शांत, बिना हैप्टिक और बिना क्राउन लोगो)
 // =============================================================================
 @Composable
 private fun RotaryDialWatch(
@@ -366,7 +362,6 @@ private fun RotaryDialWatch(
     timeFormatted: String,
     hours: Int
 ) {
-    val context = LocalContext.current
     var centerOffset by remember { mutableStateOf(Offset.Zero) }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -394,9 +389,6 @@ private fun RotaryDialWatch(
                                 val snappedMins = (round(computedMins / 5f) * 5f).coerceIn(0f, 180f)
 
                                 if (snappedMins != dialMinutes) {
-                                    if (snappedMins > 0f && snappedMins.toInt() % 30 == 0) {
-                                        triggerSuperSubtleTick(context)
-                                    }
                                     onDialMinutesChange(snappedMins)
                                 }
                             }
@@ -499,8 +491,6 @@ private fun RotaryDialWatch(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(text = "👑", fontSize = 26.sp)
-                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = timeFormatted,
                     fontSize = if (hours > 0) 36.sp else 43.sp,
@@ -509,6 +499,7 @@ private fun RotaryDialWatch(
                     letterSpacing = if (hours > 0) (-0.5).sp else 0.sp
                 )
                 if (!isRunning) {
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "Rotate Dial",
                         fontSize = 10.sp,
@@ -556,7 +547,7 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: PURE AMOLED 3D RETRO FLIP DESK CLOCK (दुरुस्त & साफ़ नंबर)
+// 📜 WATCH STYLE 3: PURE 3D SPLIT-FLAP DESK CLOCK (ऑटो-ज़ूम फोकस मोड)
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
@@ -568,33 +559,84 @@ private fun RetroFlipClockWatch(
     glowYellow: Color,
     cardBg: Color,
     glassBorder: Color,
-    textMain: Color,
     textMuted: Color
 ) {
+    val view = LocalView.current
     val mins = totalSeconds / 60
     val secs = totalSeconds % 60
 
     val minStr = String.format("%02d", mins)
     val secStr = String.format("%02d", secs)
 
+    var verticalDragAccumulator by remember { mutableFloatStateOf(0f) }
+
+    // 🌟 फोकस मोड में स्क्रीन भरने के लिए स्मूथ डायनामिक साइज़िंग
+    val animatedWidth by animateDpAsState(
+        targetValue = if (isRunning) 295.dp else 230.dp,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "FlipCardWidth"
+    )
+    val animatedHeight by animateDpAsState(
+        targetValue = if (isRunning) 154.dp else 118.dp,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "FlipCardHeight"
+    )
+    val animatedFontSize by animateFloatAsState(
+        targetValue = if (isRunning) 100f else 72f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "FlipCardFontSize"
+    )
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = if (isRunning) 8.dp else 4.dp)
+            .padding(vertical = if (isRunning) 6.dp else 2.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(if (isRunning) 16.dp else 12.dp)
         ) {
-            CleanMechanicalFlipCard(
-                digit = minStr,
-                tagLabel = if (isRunning) "MINUTES" else "SET TIME"
-            )
+            // 👆 MINUTES CARD (स्वाइप से टाइम सेट करें)
+            Box(
+                modifier = Modifier.pointerInput(isRunning) {
+                    if (!isRunning) {
+                        detectVerticalDragGestures(
+                            onDragEnd = { verticalDragAccumulator = 0f },
+                            onDragCancel = { verticalDragAccumulator = 0f }
+                        ) { change, dragAmount ->
+                            change.consume()
+                            verticalDragAccumulator -= dragAmount
+                            val stepThreshold = 35f
+                            if (abs(verticalDragAccumulator) >= stepThreshold) {
+                                val deltaSteps = (verticalDragAccumulator / stepThreshold).toInt()
+                                val nextMins = (dialMinutes + deltaSteps * 5f).coerceIn(0f, 180f)
+                                if (nextMins != dialMinutes) {
+                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                    onDialMinutesChange(nextMins)
+                                }
+                                verticalDragAccumulator -= deltaSteps * stepThreshold
+                            }
+                        }
+                    }
+                }
+            ) {
+                AuthenticSplitFlapCard(
+                    digit = minStr,
+                    tagLabel = if (isRunning) "MINUTES" else "SWIPE TO SET",
+                    cardWidth = animatedWidth,
+                    cardHeight = animatedHeight,
+                    fontSizeSp = animatedFontSize
+                )
+            }
 
-            CleanMechanicalFlipCard(
+            // ⏱️ SECONDS CARD
+            AuthenticSplitFlapCard(
                 digit = secStr,
-                tagLabel = if (isRunning) "SECONDS" else "A M O N"
+                tagLabel = if (isRunning) "SECONDS" else "A M O N",
+                cardWidth = animatedWidth,
+                cardHeight = animatedHeight,
+                fontSizeSp = animatedFontSize
             )
         }
 
@@ -617,7 +659,10 @@ private fun RetroFlipClockWatch(
                             .clip(RoundedCornerShape(50))
                             .background(if (isSelected) goldColor else Color(0xFF18181C))
                             .border(1.dp, if (isSelected) glowYellow else Color(0x33FFFFFF), RoundedCornerShape(50))
-                            .clickable { onDialMinutesChange(m) }
+                            .clickable {
+                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                onDialMinutesChange(m)
+                            }
                     ) {
                         Text(
                             text = "${m.toInt()}m",
@@ -633,12 +678,15 @@ private fun RetroFlipClockWatch(
 }
 
 /**
- * 🎴 CLEAN MECHANICAL FLIP CARD COMPONENT (साफ़, बिना कटे और बोल्ड नंबर)
+ * 🎴 असली स्प्लिट-फ्लैप मैकेनिज्म (नंबर अनुपात के अनुसार फिटेड)
  */
 @Composable
-private fun CleanMechanicalFlipCard(
+private fun AuthenticSplitFlapCard(
     digit: String,
-    tagLabel: String
+    tagLabel: String,
+    cardWidth: Dp,
+    cardHeight: Dp,
+    fontSizeSp: Float
 ) {
     var previousDigit by remember { mutableStateOf(digit) }
     var currentDigit by remember { mutableStateOf(digit) }
@@ -652,27 +700,63 @@ private fun CleanMechanicalFlipCard(
             flipAnim.snapTo(0f)
             flipAnim.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)
+                animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing)
             )
         }
     }
 
     val rotation = flipAnim.value * 180f
-    val displayDigit = if (rotation >= 90f) currentDigit else previousDigit
+    val isTopFolded = rotation >= 90f
+    val halfHeight = cardHeight / 2 - 1.dp
 
     Box(
         modifier = Modifier
-            .size(width = 240.dp, height = 118.dp)
-            .graphicsLayer {
-                rotationX = if (flipAnim.isRunning) -rotation else 0f
-                cameraDistance = 16 * density
-            }
+            .size(width = cardWidth, height = cardHeight)
             .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFF18181D))
-            .border(1.4.dp, Color(0x22FFFFFF), RoundedCornerShape(20.dp)),
+            .background(Color(0xFF0F0F12))
+            .border(1.2.dp, Color(0x22FFFFFF), RoundedCornerShape(20.dp)),
         contentAlignment = Alignment.Center
     ) {
-        // 1. शीर्ष टैग लेबल
+        Column(modifier = Modifier.fillMaxSize()) {
+            HalfDigitPlate(
+                digit = currentDigit,
+                isTop = true,
+                plateHeight = halfHeight,
+                fullHeight = cardHeight,
+                fontSizeSp = fontSizeSp
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            HalfDigitPlate(
+                digit = previousDigit,
+                isTop = false,
+                plateHeight = halfHeight,
+                fullHeight = cardHeight,
+                fontSizeSp = fontSizeSp
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(halfHeight)
+                .align(if (isTopFolded) Alignment.BottomCenter else Alignment.TopCenter)
+                .graphicsLayer {
+                    rotationX = if (isTopFolded) (180f - rotation) else -rotation
+                    cameraDistance = 18 * density
+                    transformOrigin = if (isTopFolded) TransformOrigin(0.5f, 0f) else TransformOrigin(0.5f, 1f)
+                }
+        ) {
+            HalfDigitPlate(
+                digit = if (isTopFolded) currentDigit else previousDigit,
+                isTop = !isTopFolded,
+                plateHeight = halfHeight,
+                fullHeight = cardHeight,
+                fontSizeSp = fontSizeSp
+            )
+        }
+
         Text(
             text = tagLabel,
             color = Color(0xFF64748B),
@@ -681,33 +765,59 @@ private fun CleanMechanicalFlipCard(
             letterSpacing = 1.2.sp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 14.dp, top = 8.dp)
+                .padding(start = 14.dp, top = 6.dp)
         )
 
-        // 2. मुख्य स्पष्ट बोल्ड नंबर (परफेक्ट सेंटर, 0% डिस्टॉर्शन)
-        Text(
-            text = displayDigit,
-            fontSize = 72.sp,
-            fontWeight = FontWeight.Black,
-            fontFamily = FontFamily.SansSerif,
-            color = Color(0xFFF1F5F9),
-            letterSpacing = (-1.5).sp,
-            modifier = Modifier.align(Alignment.Center)
-        )
-
-        // 3. बीच की हॉरिजॉन्टल असली स्प्लिट सीम-लाइन (Center Split Slit)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(2.dp)
-                .background(Color.Black.copy(alpha = 0.85f))
+                .background(Color.Black)
                 .align(Alignment.Center)
         )
     }
 }
 
+/**
+ * ✂️ नंबर को बिना काटे आधा-आधा प्रदर्शित करने वाला रेंडरर
+ */
+@Composable
+private fun HalfDigitPlate(
+    digit: String,
+    isTop: Boolean,
+    plateHeight: Dp,
+    fullHeight: Dp,
+    fontSizeSp: Float
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(plateHeight)
+            .clipToBounds()
+            .background(Color(0xFF18181D)),
+        contentAlignment = if (isTop) Alignment.TopCenter else Alignment.BottomCenter
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(fullHeight)
+                .offset(y = if (isTop) 0.dp else (-plateHeight)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = digit,
+                fontSize = fontSizeSp.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.SansSerif,
+                color = Color(0xFFF1F5F9),
+                letterSpacing = (-1.5).sp
+            )
+        }
+    }
+}
+
 // =============================================================================
-// 🌟 1:1 मक्खन जैसा स्मूथ कस्टम स्लाइडर (व्हाइट स्टिक + एंड्रॉइड हार्डवेयर शैडो)
+// 🌟 1:1 स्मूथ कस्टम स्लाइडर (सफ़ेद सुई + हार्डवेयर शैडो)
 // =============================================================================
 @Composable
 private fun CustomHorizontalSlider(
@@ -848,32 +958,4 @@ private fun CustomHorizontalSlider(
             )
         }
     }
-}
-
-// 📳 ULTRA-SUBTLE FEATHER-LIGHT HAPTIC TICK
-private fun triggerSuperSubtleTick(context: Context) {
-    try {
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            vm?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-        } ?: return
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && vibrator.areAllPrimitivesSupported(VibrationEffect.Composition.PRIMITIVE_LOW_TICK)) {
-            val effect = VibrationEffect.startComposition()
-                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_LOW_TICK, 0.25f)
-                .compose()
-            vibrator.vibrate(effect)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vibrator.hasAmplitudeControl()) {
-            val effect = VibrationEffect.createOneShot(4L, 15)
-            vibrator.vibrate(effect)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(4L)
-        }
-    } catch (_: Exception) {}
 }
