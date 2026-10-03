@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
@@ -41,6 +42,15 @@ class TimerService : Service() {
         const val EXTRA_SECONDS = "extra_seconds"
         const val EXTRA_SUBJECT = "extra_subject"
 
+        private const val PREFS_SESSION = "amon_session_lock_prefs"
+        private const val KEY_IS_ACTIVE = "key_is_active"
+        private const val KEY_IS_PAUSED = "key_is_paused"
+        private const val KEY_REMAINING = "key_remaining"
+        private const val KEY_ORIGINAL = "key_original"
+        private const val KEY_SUBJECT = "key_subject"
+        private const val KEY_TARGET_ELAPSED = "key_target_elapsed"
+        private const val KEY_START_ELAPSED = "key_start_elapsed"
+
         val remainingSeconds = mutableIntStateOf(25 * 60)
         val isTimerRunning = mutableStateOf(false)
         val isTimerPaused = mutableStateOf(false)
@@ -53,7 +63,37 @@ class TimerService : Service() {
         var sessionTargetElapsedRealtime: Long = 0L
             private set
 
-        fun syncRemainingTime() {
+        // 🔄 स्क्रीन खुलते ही या रीसेंट्स से ऐप दोबारा खोलने पर टाइम और पॉज़ स्टेट रिस्टोर करना
+        fun syncRemainingTime(context: Context? = null) {
+            if (context != null) {
+                val prefs = context.getSharedPreferences(PREFS_SESSION, Context.MODE_PRIVATE)
+                val wasActive = prefs.getBoolean(KEY_IS_ACTIVE, false)
+                val wasPaused = prefs.getBoolean(KEY_IS_PAUSED, false)
+
+                if (wasActive && !isTimerRunning.value && !isTimerPaused.value) {
+                    originalTimerSeconds = prefs.getInt(KEY_ORIGINAL, 25 * 60)
+                    currentSubjectName.value = prefs.getString(KEY_SUBJECT, "All") ?: "All"
+
+                    if (wasPaused) {
+                        isTimerPaused.value = true
+                        remainingSeconds.intValue = prefs.getInt(KEY_REMAINING, originalTimerSeconds)
+                    } else {
+                        val targetTime = prefs.getLong(KEY_TARGET_ELAPSED, 0L)
+                        sessionTargetElapsedRealtime = targetTime
+                        sessionStartElapsedRealtime = prefs.getLong(KEY_START_ELAPSED, 0L)
+
+                        val leftMillis = targetTime - SystemClock.elapsedRealtime()
+                        val left = (leftMillis / 1000L).toInt().coerceAtLeast(0)
+                        if (left > 0) {
+                            remainingSeconds.intValue = left
+                            isTimerRunning.value = true
+                        } else {
+                            clearPersistedState(context)
+                        }
+                    }
+                }
+            }
+
             if (isTimerRunning.value && !isTimerPaused.value) {
                 if (sessionTargetElapsedRealtime > 0L) {
                     val leftMillis = sessionTargetElapsedRealtime - SystemClock.elapsedRealtime()
@@ -65,6 +105,24 @@ class TimerService : Service() {
                     remainingSeconds.intValue = elapsed
                 }
             }
+        }
+
+        private fun persistSessionState(context: Context, isRunning: Boolean, isPaused: Boolean) {
+            val prefs = context.getSharedPreferences(PREFS_SESSION, Context.MODE_PRIVATE)
+            prefs.edit()
+                .putBoolean(KEY_IS_ACTIVE, isRunning || isPaused)
+                .putBoolean(KEY_IS_PAUSED, isPaused)
+                .putInt(KEY_REMAINING, remainingSeconds.intValue)
+                .putInt(KEY_ORIGINAL, originalTimerSeconds)
+                .putString(KEY_SUBJECT, currentSubjectName.value)
+                .putLong(KEY_TARGET_ELAPSED, sessionTargetElapsedRealtime)
+                .putLong(KEY_START_ELAPSED, sessionStartElapsedRealtime)
+                .apply()
+        }
+
+        private fun clearPersistedState(context: Context) {
+            val prefs = context.getSharedPreferences(PREFS_SESSION, Context.MODE_PRIVATE)
+            prefs.edit().clear().apply()
         }
     }
 
@@ -111,6 +169,8 @@ class TimerService : Service() {
         val targetElapsed = if (isStopwatch) nowElapsed else nowElapsed + (seconds * 1000L)
         sessionTargetElapsedRealtime = if (isStopwatch) 0L else targetElapsed
 
+        persistSessionState(this, isRunning = true, isPaused = false)
+
         val chronometerBase = if (isStopwatch) nowElapsed else targetElapsed
 
         try {
@@ -153,6 +213,8 @@ class TimerService : Service() {
         isTimerRunning.value = false
         isTimerPaused.value = true
 
+        persistSessionState(this, isRunning = false, isPaused = true)
+
         val isStopwatch = (originalTimerSeconds == 0)
         val chronometerBase = if (isStopwatch) sessionStartElapsedRealtime else sessionTargetElapsedRealtime
 
@@ -182,7 +244,8 @@ class TimerService : Service() {
         sessionStartElapsedRealtime = 0L
         sessionTargetElapsedRealtime = 0L
 
-        // स्टॉप पर टाइमर सीधे शुरुआती सेट समय (25 मिनट या 00:00) पर रीसेट
+        clearPersistedState(this)
+
         remainingSeconds.intValue = originalTimerSeconds
 
         try {
@@ -199,6 +262,9 @@ class TimerService : Service() {
         isTimerPaused.value = false
         sessionStartElapsedRealtime = 0L
         sessionTargetElapsedRealtime = 0L
+
+        clearPersistedState(this)
+
         triggerGentleVibration()
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)
