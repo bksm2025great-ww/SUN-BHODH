@@ -35,26 +35,26 @@ class TimerService : Service() {
         const val ACTION_START = "com.amon.timer.START"
         const val ACTION_CANCEL = "com.amon.timer.CANCEL"
         const val ACTION_STOP = "com.amon.timer.STOP"
+        const val ACTION_PAUSE = "com.amon.timer.PAUSE"
+        const val ACTION_RESUME = "com.amon.timer.RESUME"
 
         const val EXTRA_SECONDS = "extra_seconds"
         const val EXTRA_SUBJECT = "extra_subject"
 
         val remainingSeconds = mutableIntStateOf(25 * 60)
         val isTimerRunning = mutableStateOf(false)
+        val isTimerPaused = mutableStateOf(false)
         val currentSubjectName = mutableStateOf("All")
 
-        // 🟢 शुरुआती समय की पक्की मेमोरी (25 मिनट या 0 स्टॉपवॉच)
         var originalTimerSeconds: Int = 25 * 60
 
-        // ⏱️ हार्डवेयर काउंटर का टारगेट समय
         var sessionStartElapsedRealtime: Long = 0L
             private set
         var sessionTargetElapsedRealtime: Long = 0L
             private set
 
-        // 🔄 स्क्रीन खुलते ही 1 मिलीसेकंड में टाइम सिंक करने वाला सुरक्षित फ़ंक्शन
         fun syncRemainingTime() {
-            if (isTimerRunning.value) {
+            if (isTimerRunning.value && !isTimerPaused.value) {
                 if (sessionTargetElapsedRealtime > 0L) {
                     val leftMillis = sessionTargetElapsedRealtime - SystemClock.elapsedRealtime()
                     val left = (leftMillis / 1000L).toInt().coerceAtLeast(0)
@@ -80,7 +80,13 @@ class TimerService : Service() {
             ACTION_START -> {
                 val secs = intent.getIntExtra(EXTRA_SECONDS, remainingSeconds.intValue)
                 val subject = intent.getStringExtra(EXTRA_SUBJECT) ?: currentSubjectName.value
-                startTimer(secs, subject)
+                startTimer(secs, subject, isResume = false)
+            }
+            ACTION_PAUSE -> {
+                pauseTimer()
+            }
+            ACTION_RESUME -> {
+                resumeTimer()
             }
             ACTION_CANCEL, ACTION_STOP -> {
                 cancelSessionGiveUp()
@@ -89,24 +95,26 @@ class TimerService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun startTimer(seconds: Int, subject: String) {
-        originalTimerSeconds = seconds
+    private fun startTimer(seconds: Int, subject: String, isResume: Boolean = false) {
+        if (!isResume) {
+            originalTimerSeconds = seconds
+        }
         val nowElapsed = SystemClock.elapsedRealtime()
         sessionStartElapsedRealtime = nowElapsed
         timerJob?.cancel()
         remainingSeconds.intValue = seconds
         currentSubjectName.value = subject
         isTimerRunning.value = true
+        isTimerPaused.value = false
 
-        val isStopwatch = (seconds == 0)
+        val isStopwatch = (originalTimerSeconds == 0)
         val targetElapsed = if (isStopwatch) nowElapsed else nowElapsed + (seconds * 1000L)
         sessionTargetElapsedRealtime = if (isStopwatch) 0L else targetElapsed
 
-        // Chronometer का सटीक हार्डवेयर बेस टाइम
         val chronometerBase = if (isStopwatch) nowElapsed else targetElapsed
 
         try {
-            val notification = buildNotification(chronometerBase, isStopwatch)
+            val notification = buildNotification(chronometerBase, isStopwatch, isPaused = false)
             startForeground(NOTIFICATION_ID, notification)
         } catch (e: Exception) {
             Log.e("AmonTimer", "Safe startForeground catch: ${e.localizedMessage}")
@@ -119,7 +127,7 @@ class TimerService : Service() {
                     val elapsed = ((SystemClock.elapsedRealtime() - sessionStartElapsedRealtime) / 1000L).toInt()
                     remainingSeconds.intValue = elapsed
 
-                    if (elapsed >= 7200) { // 120 मिनट पर ऑटो-स्टॉप
+                    if (elapsed >= 7200) {
                         onTimerFinished()
                         break
                     }
@@ -139,17 +147,41 @@ class TimerService : Service() {
         }
     }
 
-    // ✕ Give Up दबाने पर: टाइमर सही जगह रीसेट होगा
+    private fun pauseTimer() {
+        if (!isTimerRunning.value || isTimerPaused.value) return
+        timerJob?.cancel()
+        isTimerRunning.value = false
+        isTimerPaused.value = true
+
+        val isStopwatch = (originalTimerSeconds == 0)
+        val chronometerBase = if (isStopwatch) sessionStartElapsedRealtime else sessionTargetElapsedRealtime
+
+        try {
+            val notification = buildNotification(chronometerBase, isStopwatch, isPaused = true)
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.notify(NOTIFICATION_ID, notification)
+        } catch (e: Exception) {
+            Log.e("AmonTimer", "Safe pause notification catch: ${e.localizedMessage}")
+        }
+    }
+
+    private fun resumeTimer() {
+        if (isTimerRunning.value) return
+        val currentSecs = remainingSeconds.intValue
+        val subject = currentSubjectName.value
+        startTimer(currentSecs, subject, isResume = true)
+    }
+
     private fun cancelSessionGiveUp() {
-        if (isTimerRunning.value) {
+        if (isTimerRunning.value || isTimerPaused.value) {
             saveSessionToDiary(isCancelled = true)
         }
         timerJob?.cancel()
         isTimerRunning.value = false
+        isTimerPaused.value = false
         sessionStartElapsedRealtime = 0L
         sessionTargetElapsedRealtime = 0L
 
-        // 🔄 जादुई सुधार: टाइमर को तुरंत शुरुआती समय (25:00 या 00:00) पर रीसेट कर देना
         remainingSeconds.intValue = originalTimerSeconds
 
         try {
@@ -158,12 +190,12 @@ class TimerService : Service() {
         stopSelf()
     }
 
-    // समय पूरा होने पर: सफल पौधा सेव होगा
     private fun onTimerFinished() {
-        if (isTimerRunning.value) {
+        if (isTimerRunning.value || isTimerPaused.value) {
             saveSessionToDiary(isCancelled = false)
         }
         isTimerRunning.value = false
+        isTimerPaused.value = false
         sessionStartElapsedRealtime = 0L
         sessionTargetElapsedRealtime = 0L
         triggerGentleVibration()
@@ -173,18 +205,12 @@ class TimerService : Service() {
         stopSelf()
     }
 
-    // 🟢 सुरक्षित डायरी व क्लाउड सेव
     private fun saveSessionToDiary(isCancelled: Boolean) {
-        if (sessionStartElapsedRealtime == 0L) return
-
         try {
-            val elapsedMillis = SystemClock.elapsedRealtime() - sessionStartElapsedRealtime
-            val elapsedSeconds = (elapsedMillis / 1000L).toInt().coerceAtLeast(0)
-
             val completedSeconds = if (originalTimerSeconds > 0) {
-                minOf(elapsedSeconds, originalTimerSeconds)
+                (originalTimerSeconds - remainingSeconds.intValue).coerceAtLeast(0)
             } else {
-                elapsedSeconds
+                remainingSeconds.intValue
             }
 
             val minutes = completedSeconds / 60
@@ -249,8 +275,7 @@ class TimerService : Service() {
         }
     }
 
-    // 🌟 कस्टम हाफ़-ट्रांसपेरेंट बॉक्स नोटिफ़िकेशन बिल्डर
-    private fun buildNotification(chronometerBase: Long, isStopwatch: Boolean): Notification {
+    private fun buildNotification(chronometerBase: Long, isStopwatch: Boolean, isPaused: Boolean): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -261,7 +286,6 @@ class TimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // ✕ Give Up इंटेंट
         val cancelIntent = Intent(this, TimerService::class.java).apply {
             action = ACTION_CANCEL
         }
@@ -272,9 +296,8 @@ class TimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // 🎨 कस्टम लेआउट (notification_box.xml) लोड करना
         val customLayout = RemoteViews(packageName, R.layout.notification_box).apply {
-            setChronometer(R.id.notif_timer, chronometerBase, null, true)
+            setChronometer(R.id.notif_timer, chronometerBase, null, !isPaused)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 setChronometerCountDown(R.id.notif_timer, !isStopwatch)
             }
