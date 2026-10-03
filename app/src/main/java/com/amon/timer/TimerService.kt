@@ -182,6 +182,7 @@ class TimerService : Service() {
         sessionStartElapsedRealtime = 0L
         sessionTargetElapsedRealtime = 0L
 
+        // स्टॉप पर टाइमर सीधे शुरुआती सेट समय (25 मिनट या 00:00) पर रीसेट
         remainingSeconds.intValue = originalTimerSeconds
 
         try {
