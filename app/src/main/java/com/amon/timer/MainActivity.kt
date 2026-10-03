@@ -1,7 +1,6 @@
 package com.amon.timer
 
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -36,11 +35,10 @@ import androidx.core.content.ContextCompat
 import com.amon.timer.ui.theme.AmonTheme
 import kotlinx.coroutines.delay
 
-// 📱 App ki 3 stages
+// 📱 App की 2 मुख्य स्टेज (Splash ➔ Direct Main)
 private enum class AppScreenState {
     SPLASH,  // 1.5 second ka Angel of Time intro
-    AUTH,    // Welcome + Login / Guest (sirf first time ya missing password ke liye)
-    MAIN     // Main Timer & Forest page
+    MAIN     // Main Timer, Forest, Stats & Profile
 }
 
 // 🟢 START: [MAIN_ACTIVITY_ENTRY]
@@ -81,42 +79,12 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = Color(0xFF0F0F12)
                 ) {
-                    val userManager = remember { UserManager(this@MainActivity) }
                     var currentScreen by remember { mutableStateOf(AppScreenState.SPLASH) }
 
-                    // 1.5 second ka splash delay aur smart password verification
+                    // ⚡ 1.5 second ka splash delay aur seedhe MainScreen par entry
                     LaunchedEffect(Unit) {
                         delay(1500)
-
-                        // 🔑 स्मार्ट पासवर्ड चेक: क्या यूज़र के पास 6-अक्षरों का पासवर्ड मौजूद है?
-                        val hasValidPassword = try {
-                            val pass = userManager.getPassword()
-                            pass.isNotBlank() && pass.length >= 6
-                        } catch (_: Exception) {
-                            // सेफ़्टी बैकअप चेक (अगर getPassword सीधे उपलब्ध न हो)
-                            val prefs = this@MainActivity.getSharedPreferences("amon_user_prefs", Context.MODE_PRIVATE)
-                            val authVault = this@MainActivity.getSharedPreferences("amon_auth_vault", Context.MODE_PRIVATE)
-                            val p1 = prefs.getString("user_password", "") ?: ""
-                            val p2 = prefs.getString("password", "") ?: ""
-                            val p3 = authVault.getString("saved_pass", "") ?: ""
-                            (p1.length >= 6 || p2.length >= 6 || p3.length >= 6)
-                        }
-
-                        val isGuest = try {
-                            userManager.isGuestUser() || userManager.getUserName() == "Guest"
-                        } catch (_: Exception) {
-                            false
-                        }
-
-                        // 🎯 अचूक गेटवे नियम:
-                        // 1. अगर Guest है -> सीधे MAIN
-                        // 2. अगर यूज़रनेम और 6-अक्षरों का पासवर्ड दोनों मौजूद हैं -> सीधे MAIN
-                        // 3. अगर पासवर्ड नहीं है (पुराने यूज़र्स) या नया इंस्टॉल है -> सीधे AUTH (लॉगिन स्क्रीन)
-                        currentScreen = if (isGuest || (userManager.isAccountSetupDone() && hasValidPassword)) {
-                            AppScreenState.MAIN
-                        } else {
-                            AppScreenState.AUTH
-                        }
+                        currentScreen = AppScreenState.MAIN
                     }
 
                     // Smooth transition animation
@@ -129,15 +97,8 @@ class MainActivity : ComponentActivity() {
                             AppScreenState.SPLASH -> {
                                 SplashScreenContent()
                             }
-                            AppScreenState.AUTH -> {
-                                AuthScreen(
-                                    onAuthComplete = {
-                                        currentScreen = AppScreenState.MAIN
-                                    }
-                                )
-                            }
                             AppScreenState.MAIN -> {
-                                // 1. Piche main timer screen chalu rahegi
+                                // 1. मुख्य टाइमर स्क्रीन (MainScreen)
                                 MainScreen()
 
                                 // 2. Android 13+ Notification Permission Dialog
