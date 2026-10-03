@@ -2,13 +2,14 @@ package com.amon.timer
 
 import android.content.Context
 import org.json.JSONArray
+import java.util.Locale
 
 object SubjectManager {
     private const val PREFS_NAME = "amon_subjects_prefs"
     private const val KEY_SUBJECTS = "user_subjects_list"
 
-    // डिफ़ॉल्ट विषय जो पहली बार ऐप खोलने पर दिखेंगे
-    private val DEFAULT_SUBJECTS = listOf("Math", "Hindi", "English")
+    // 🌟 अब कोई जबरन डिफ़ॉल्ट विषय नहीं रहेगा (शुरुआत में सिर्फ + Add और All दिखेंगे)
+    private val DEFAULT_SUBJECTS = emptyList<String>()
 
     // फ़ोन की मेमोरी से सेव किए हुए विषय निकालना
     fun getUserSubjects(context: Context): List<String> {
@@ -23,29 +24,34 @@ object SubjectManager {
             for (i in 0 until jsonArray.length()) {
                 list.add(jsonArray.getString(i))
             }
-            if (list.isEmpty()) DEFAULT_SUBJECTS else list
+            list
         } catch (e: Exception) {
             DEFAULT_SUBJECTS
         }
     }
 
-    // नया विषय जोड़ने के लिए
+    // नया विषय जोड़ने के लिए (पहला अक्षर हमेशा ऑटो-कैपिटल होगा)
     fun addSubject(context: Context, newSubject: String): Boolean {
         val trimmed = newSubject.trim()
         if (trimmed.isEmpty() || trimmed.equals("All", ignoreCase = true)) return false
 
+        // 🔤 पहला अक्षर ऑटोमैटिक कैपिटल (Titlecase)
+        val formattedSubject = trimmed.replaceFirstChar {
+            if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+        }
+
         val currentList = getUserSubjects(context).toMutableList()
         // अगर पहले से लिस्ट में है तो दोबारा नहीं जोड़ेंगे
-        if (currentList.any { it.equals(trimmed, ignoreCase = true) }) {
+        if (currentList.any { it.equals(formattedSubject, ignoreCase = true) }) {
             return false
         }
 
-        currentList.add(trimmed)
+        currentList.add(formattedSubject)
         saveList(context, currentList)
         return true
     }
 
-    // विषय को पट्टी से हटाने के लिए
+    // विषय को लिस्ट से हटाने के लिए
     fun removeSubject(context: Context, subjectToRemove: String): Boolean {
         val currentList = getUserSubjects(context).toMutableList()
         val removed = currentList.removeAll { it.equals(subjectToRemove, ignoreCase = true) }
