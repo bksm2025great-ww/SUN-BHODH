@@ -69,7 +69,7 @@ fun ProfileScreen() {
     val updateManager = remember { UpdateManager(context) }
     val currentAppVersion = remember { updateManager.currentVersion }
 
-    // ✏️ Smart Name State: अगर नाम खाली है तो Placeholder दिखाएगा
+    // ✏️ Smart Name State: अगर नाम खाली है तो Placeholder बॉक्स दिखाएगा
     var currentUserName by remember { mutableStateOf(userManager.getUserName().trim()) }
     val hasCustomName = currentUserName.isNotEmpty()
     var showEditNameDialog by remember { mutableStateOf(false) }
@@ -119,7 +119,7 @@ fun ProfileScreen() {
     val goldColor = ThemeManager.getAccentColor()
     val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
 
-    // ⚙️ User Preferences Persistent State (हमेशा याद रखने वाली मेमोरी)
+    // ⚙️️ User Preferences Persistent State (हमेशा याद रखने वाली मेमोरी)
     val prefs = remember { context.getSharedPreferences("amon_user_preferences", Context.MODE_PRIVATE) }
     var isVibrationEnabled by remember {
         mutableStateOf(prefs.getBoolean("pref_vibration", true))
@@ -275,7 +275,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 4. EXPANDABLE: APPEARANCE & THEMES (CLEAN - NO CHEVRON) -----------------
+        // ----------------- 4. EXPANDABLE: APPEARANCE & THEMES -----------------
         val isThemeExpanded = activeExpandedCard == "theme"
         Box(
             modifier = Modifier
@@ -360,7 +360,7 @@ fun ProfileScreen() {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
                         text = "ACCENT COLOR",
@@ -369,66 +369,47 @@ fun ProfileScreen() {
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.sp
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 🎨 SCREENSHOT STYLE: 5 MODERN COLOR TILES (COLOR PILLS)
+                    val accentThemes = listOf(
+                        Pair("Luxe Gold", Color(0xFFF3C669)),
+                        Pair("Classic Yellow", Color(0xFFF5A524)),
+                        Pair("Neon Rose", Color(0xFFFF66CC)),
+                        Pair("Electric Violet", Color(0xFFBF00FF)),
+                        Pair("Blaze Orange", Color(0xFFFF3800))
+                    )
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val isYellow = currentAccent == "Classic Yellow"
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isYellow) (if (isDark) Color(0x33F5A524) else Color(0x22D97706)) else Color(0x11FFFFFF))
-                                .border(
-                                    width = if (isYellow) 1.5.dp else 1.dp,
-                                    color = if (isYellow) Color(0xFFF5A524) else cardBorder,
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .clickable { ThemeManager.saveTheme(context, "Classic Yellow") }
-                                .padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(Color(0xFFF5A524)))
-                                Text(
-                                    text = "Classic Yellow",
-                                    color = if (isYellow) textMain else textMuted,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
+                        accentThemes.forEach { (name, color) ->
+                            val isSelected = currentAccent == name
+                            val checkmarkColor = if (name == "Classic Yellow" || name == "Luxe Gold") Color(0xFF18181B) else Color.White
 
-                        val isGold = currentAccent == "Luxe Gold"
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isGold) (if (isDark) Color(0x33F3C669) else Color(0x22D97706)) else Color(0x11FFFFFF))
-                                .border(
-                                    width = if (isGold) 1.5.dp else 1.dp,
-                                    color = if (isGold) Color(0xFFF3C669) else cardBorder,
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .clickable { ThemeManager.saveTheme(context, "Luxe Gold") }
-                                .padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(color)
+                                    .border(
+                                        width = if (isSelected) 2.2.dp else 0.dp,
+                                        color = if (isSelected) (if (isDark) Color.White else Color(0xFF1E293B)) else Color.Transparent,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable { ThemeManager.saveTheme(context, name) },
+                                contentAlignment = Alignment.Center
                             ) {
-                                Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(Color(0xFFF3C669)))
-                                Text(
-                                    text = "Luxe Gold",
-                                    color = if (isGold) textMain else textMuted,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                if (isSelected) {
+                                    Text(
+                                        text = "✓",
+                                        color = checkmarkColor,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
                             }
                         }
                     }
@@ -536,7 +517,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 6. APP UPDATES (PHOTO 2 ROCKET + GRADIENT FLAME) -----------------
+        // ----------------- 6. APP UPDATES (PHOTO 2 ROCKET + FIRE GRADIENT) -----------------
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
@@ -987,7 +968,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 8. SHARE DIRECT APK (EXACT CLEAN SUBTEXT) -----------------
+        // ----------------- 8. SHARE DIRECT APK -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1039,7 +1020,7 @@ fun ProfileScreen() {
         Spacer(modifier = Modifier.height(18.dp))
     }
 
-    // ✏️ EDIT NAME DIALOG
+    // ✏️️ EDIT NAME DIALOG
     if (showEditNameDialog) {
         var editInput by remember { mutableStateOf(currentUserName) }
         AlertDialog(
@@ -1166,7 +1147,6 @@ fun ProfileScreen() {
 // ✨ 100% PURE VECTOR ICONS (PHOTO 2 ROCKET WITH REAL FIRE GRADIENT)
 // =============================================================================
 
-// 🚀 PHOTO 2 HIGH-SPEED ROCKET WITH PERMANENT RED-ORANGE-YELLOW FIRE GRADIENT
 @Composable
 private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(25.dp)) {
@@ -1177,38 +1157,32 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
         // 🔥 असली आग का ग्रेडिएंट (हमेशा Yellow -> Orange -> Red रहेगा)
         val flameBrush = Brush.linearGradient(
             colors = listOf(
-                Color(0xFFFFEB3B), // Bright Yellow (इंजन के पास)
-                Color(0xFFFF9800), // Vivid Orange (बीच में)
-                Color(0xFFE53935)  // Fiery Red (लपटों के छोर पर)
+                Color(0xFFFFEB3B), // Bright Yellow
+                Color(0xFFFF9800), // Vivid Orange
+                Color(0xFFE53935)  // Fiery Red
             ),
             start = Offset(w * 0.40f, h * 0.60f),
             end = Offset(w * 0.05f, h * 0.95f)
         )
 
-        // 1. आग की 3 तेज़ लपटें (3 Powerful Thrust Tongues)
+        // 1. आग की 3 तेज़ लपटें
         val flamePath = Path().apply {
             moveTo(w * 0.35f, h * 0.57f)
-            // बायीं लपट
             cubicTo(w * 0.28f, h * 0.64f, w * 0.20f, h * 0.74f, w * 0.15f, h * 0.84f)
             lineTo(w * 0.24f, h * 0.72f)
-            // बीच की सबसे लंबी लपट
             cubicTo(w * 0.18f, h * 0.82f, w * 0.10f, h * 0.92f, w * 0.04f, h * 0.98f)
             lineTo(w * 0.27f, h * 0.78f)
-            // दायीं लपट
             cubicTo(w * 0.24f, h * 0.88f, w * 0.22f, h * 0.92f, w * 0.20f, h * 0.96f)
             cubicTo(w * 0.30f, h * 0.82f, w * 0.36f, h * 0.74f, w * 0.44f, h * 0.66f)
             close()
         }
         drawPath(path = flamePath, brush = flameBrush)
 
-        // 2. रॉकेट की मुख्य बॉडी (थीम के रंग में - Luxe Gold / Theme Accent)
+        // 2. रॉकेट की मुख्य बॉडी
         val bodyPath = Path().apply {
-            moveTo(w * 0.92f, h * 0.08f) // आगे की नोक
-            // दायाँ घुमाव
+            moveTo(w * 0.92f, h * 0.08f)
             cubicTo(w * 0.88f, h * 0.28f, w * 0.74f, h * 0.50f, w * 0.52f, h * 0.64f)
-            // निचला नोज़ल बेस
             lineTo(w * 0.36f, h * 0.48f)
-            // बायाँ घुमाव
             cubicTo(w * 0.50f, h * 0.26f, w * 0.72f, h * 0.12f, w * 0.92f, h * 0.08f)
             close()
         }
@@ -1218,7 +1192,7 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
             style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
 
-        // 3. बायाँ पंख (Left Wing - Photo 2)
+        // 3. बायाँ पंख
         val leftFin = Path().apply {
             moveTo(w * 0.48f, h * 0.32f)
             cubicTo(w * 0.30f, h * 0.32f, w * 0.18f, h * 0.42f, w * 0.14f, h * 0.56f)
@@ -1230,7 +1204,7 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
             style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
 
-        // 4. दायाँ पंख (Right Wing - Photo 2)
+        // 4. दायाँ पंख
         val rightFin = Path().apply {
             moveTo(w * 0.68f, h * 0.52f)
             cubicTo(w * 0.68f, h * 0.70f, w * 0.58f, h * 0.82f, w * 0.44f, h * 0.86f)
@@ -1242,7 +1216,7 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
             style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
 
-        // 5. गोल खिड़की (Porthole - Photo 2)
+        // 5. गोल खिड़की
         drawCircle(
             color = tint,
             radius = w * 0.08f,
@@ -1250,7 +1224,7 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
             style = Stroke(width = stroke * 0.9f)
         )
 
-        // 6. इंजन नोज़ल रिंग (Separator Line)
+        // 6. इंजन नोज़ल रिंग
         drawLine(
             color = tint,
             start = Offset(w * 0.41f, h * 0.53f),
@@ -1520,7 +1494,6 @@ private fun OutlinedCloudSyncIcon(tint: Color, modifier: Modifier = Modifier) {
         }
         drawPath(cloud, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
 
-        // Center sync arrow
         val arrow = Path().apply {
             moveTo(w * 0.42f, h * 0.50f)
             lineTo(w * 0.50f, h * 0.42f)
@@ -1531,7 +1504,6 @@ private fun OutlinedCloudSyncIcon(tint: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// ✈️ WHATSAPP/TELEGRAM-STYLE HOLLOW OUTLINE PAPER AIRPLANE
 @Composable
 private fun OutlinedPaperAirplaneIcon(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(23.dp)) {
@@ -1552,7 +1524,6 @@ private fun OutlinedPaperAirplaneIcon(tint: Color, modifier: Modifier = Modifier
             style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
 
-        // Middle folding crease line
         drawLine(
             color = tint,
             start = Offset(w * 0.32f, h * 0.48f),
