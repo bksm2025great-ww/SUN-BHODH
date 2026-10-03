@@ -10,17 +10,19 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -35,10 +37,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import kotlin.math.*
 
 /**
@@ -63,7 +68,7 @@ fun TimerWatchesContainer(
     isDark: Boolean,
     timeFormatted: String,
     hours: Int,
-    onTogglePlayPause: () -> Unit = {} // 👈 बस यह लाइन जोड़नी है
+    onTogglePlayPause: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val watchPrefs = remember {
@@ -99,28 +104,27 @@ fun TimerWatchesContainer(
                 }
             }
     ) {
+        // 🎛️ 1. लंबा लक्ज़री वॉच सिलेक्टर बॉक्स (3 डॉट्स की जगह)
         if (!isRunning) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 6.dp)
-            ) {
-                listOf(0, 1, 2).forEach { index ->
-                    val isSelected = selectedWatchStyle == index
-                    Box(
-                        modifier = Modifier
-                            .size(if (isSelected) 8.dp else 6.dp)
-                            .clip(CircleShape)
-                            .background(if (isSelected) goldColor else glassBorder)
-                            .clickable {
-                                selectedWatchStyle = index
-                                watchPrefs.edit().putInt("selected_watch_style", index).apply()
-                            }
-                    )
-                }
-            }
+            WatchStyleSelectorBox(
+                selectedIndex = selectedWatchStyle,
+                onStyleSelected = { index ->
+                    selectedWatchStyle = index
+                    watchPrefs.edit().putInt("selected_watch_style", index).apply()
+                },
+                cardBg = cardBg,
+                glassBorder = glassBorder,
+                goldColor = goldColor,
+                textMain = textMain,
+                textMuted = textMuted,
+                isDark = isDark,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
+            )
         }
 
+        // 🕰️ 2. वॉच ट्रांज़िशन
         AnimatedContent(
             targetState = selectedWatchStyle,
             transitionSpec = {
@@ -180,10 +184,199 @@ fun TimerWatchesContainer(
                     glowYellow = glowYellow,
                     cardBg = cardBg,
                     glassBorder = glassBorder,
-                    textMuted = textMuted
+                    textMain = textMain,
+                    textMuted = textMuted,
+                    isDark = isDark
                 )
             }
         }
+    }
+}
+
+// =============================================================================
+// 🎛️ WATCH SELECTOR BOX (CANVAS ICONS + WHITE GLOSS SHADOW)
+// =============================================================================
+@Composable
+private fun WatchStyleSelectorBox(
+    selectedIndex: Int,
+    onStyleSelected: (Int) -> Unit,
+    cardBg: Color,
+    glassBorder: Color,
+    goldColor: Color,
+    textMain: Color,
+    textMuted: Color,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(cardBg)
+            .border(1.dp, glassBorder, RoundedCornerShape(16.dp))
+            .padding(horizontal = 6.dp, vertical = 5.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val styles = listOf(
+                "Classic" to 0,
+                "Rotary" to 1,
+                "Desk Flip" to 2
+            )
+
+            styles.forEach { (name, index) ->
+                val isSelected = selectedIndex == index
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .then(
+                            if (isSelected) {
+                                Modifier
+                                    .shadow(
+                                        elevation = 8.dp,
+                                        shape = RoundedCornerShape(12.dp),
+                                        spotColor = Color.White.copy(alpha = 0.55f),
+                                        ambientColor = Color.White.copy(alpha = 0.35f)
+                                    )
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isDark) Color(0xFF1E1E26) else Color(0xFFFFFFFF))
+                                    .border(1.2.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+                            } else {
+                                Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) { onStyleSelected(index) }
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        when (index) {
+                            0 -> MinimalLuxeRingIcon(
+                                isSelected = isSelected,
+                                tint = if (isSelected) goldColor else textMuted
+                            )
+                            1 -> VintageTechRotaryIcon(
+                                isSelected = isSelected,
+                                tint = if (isSelected) goldColor else textMuted
+                            )
+                            2 -> VintageTechFlipIcon(
+                                isSelected = isSelected,
+                                tint = if (isSelected) goldColor else textMuted
+                            )
+                        }
+
+                        Text(
+                            text = name,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                            color = if (isSelected) (if (isDark) Color.White else Color(0xFF0F172A)) else textMuted
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// =============================================================================
+// 🎨 PURE CANVAS VECTOR ICONS (NO PNG, NO EMOJIS)
+// =============================================================================
+@Composable
+private fun MinimalLuxeRingIcon(isSelected: Boolean, tint: Color) {
+    Canvas(modifier = Modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+        val center = Offset(w / 2f, h / 2f)
+        val stroke = 1.6.dp.toPx()
+        val r = w * 0.44f
+
+        drawCircle(color = tint, radius = r, center = center, style = Stroke(width = stroke))
+
+        val tickLen = w * 0.10f
+        drawLine(tint, Offset(center.x, center.y - r), Offset(center.x, center.y - r + tickLen), stroke)
+        drawLine(tint, Offset(center.x, center.y + r - tickLen), Offset(center.x, center.y + r), stroke)
+        drawLine(tint, Offset(center.x - r, center.y), Offset(center.x - r + tickLen, center.y), stroke)
+        drawLine(tint, Offset(center.x + r - tickLen, center.y), Offset(center.x + r, center.y), stroke)
+
+        drawLine(tint, center, Offset(center.x - w * 0.14f, center.y - h * 0.14f), stroke * 1.1f, StrokeCap.Round)
+        drawLine(tint, center, Offset(center.x + w * 0.20f, center.y - h * 0.08f), stroke * 0.9f, StrokeCap.Round)
+        drawCircle(tint, radius = 1.3.dp.toPx(), center = center)
+    }
+}
+
+@Composable
+private fun VintageTechRotaryIcon(isSelected: Boolean, tint: Color) {
+    Canvas(modifier = Modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+        val center = Offset(w / 2f, h / 2f)
+        val stroke = 1.4.dp.toPx()
+
+        drawCircle(color = tint, radius = w * 0.45f, center = center, style = Stroke(width = stroke))
+        drawCircle(color = tint, radius = w * 0.16f, center = center, style = Stroke(width = stroke * 0.9f))
+
+        val holeRadius = w * 0.052f
+        val orbitRadius = w * 0.31f
+        for (i in 0 until 8) {
+            val angle = Math.toRadians((i * 40.0) - 140.0)
+            val hx = center.x + (orbitRadius * cos(angle)).toFloat()
+            val hy = center.y + (orbitRadius * sin(angle)).toFloat()
+            drawCircle(color = tint, radius = holeRadius, center = Offset(hx, hy), style = Stroke(width = 1.1.dp.toPx()))
+        }
+
+        val stopAngle = Math.toRadians(55.0)
+        val sx1 = center.x + (w * 0.22f * cos(stopAngle)).toFloat()
+        val sy1 = center.y + (w * 0.22f * sin(stopAngle)).toFloat()
+        val sx2 = center.x + (w * 0.45f * cos(stopAngle)).toFloat()
+        val sy2 = center.y + (w * 0.45f * sin(stopAngle)).toFloat()
+        drawLine(tint, Offset(sx1, sy1), Offset(sx2, sy2), stroke * 1.4f, StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun VintageTechFlipIcon(isSelected: Boolean, tint: Color) {
+    Canvas(modifier = Modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.3.dp.toPx()
+        val cardWidth = w * 0.38f
+        val cardHeight = h * 0.68f
+        val topY = h * 0.16f
+
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(w * 0.10f, topY),
+            size = Size(cardWidth, cardHeight),
+            cornerRadius = CornerRadius(2.5.dp.toPx(), 2.5.dp.toPx()),
+            style = Stroke(width = stroke)
+        )
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(w * 0.52f, topY),
+            size = Size(cardWidth, cardHeight),
+            cornerRadius = CornerRadius(2.5.dp.toPx(), 2.5.dp.toPx()),
+            style = Stroke(width = stroke)
+        )
+
+        val midY = topY + (cardHeight / 2f)
+        drawLine(tint, Offset(w * 0.08f, midY), Offset(w * 0.48f, midY), stroke * 0.9f)
+        drawLine(tint, Offset(w * 0.52f, midY), Offset(w * 0.92f, midY), stroke * 0.9f)
+
+        drawCircle(tint, radius = 1.4.dp.toPx(), center = Offset(w * 0.05f, midY))
+        drawCircle(tint, radius = 1.4.dp.toPx(), center = Offset(w * 0.95f, midY))
     }
 }
 
@@ -269,7 +462,6 @@ private fun ClassicRingWatch(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // ✨ शुद्ध गूगल मटेरियल वेक्टर आइकॉन (कोई इमोजी नहीं)
                 FocusTargetIcon(tint = goldColor, modifier = Modifier.size(26.dp))
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -347,7 +539,7 @@ private fun ClassicRingWatch(
 }
 
 // =============================================================================
-// 🎛 WATCH STYLE 2: ROTARY DIAL (100% Silent & Simple)
+// 🎛 WATCH STYLE 2: ROTARY DIAL (Silent & Smooth)
 // =============================================================================
 @Composable
 private fun RotaryDialWatch(
@@ -451,21 +643,9 @@ private fun RotaryDialWatch(
                     val knobX = center.x + radius * cos(knobAngleRad)
                     val knobY = center.y + radius * sin(knobAngleRad)
 
-                    drawCircle(
-                        color = goldColor.copy(alpha = 0.3f),
-                        radius = 16.dp.toPx(),
-                        center = Offset(knobX, knobY)
-                    )
-                    drawCircle(
-                        color = goldColor,
-                        radius = 10.dp.toPx(),
-                        center = Offset(knobX, knobY)
-                    )
-                    drawCircle(
-                        color = Color.White,
-                        radius = 3.5.dp.toPx(),
-                        center = Offset(knobX, knobY)
-                    )
+                    drawCircle(color = goldColor.copy(alpha = 0.3f), radius = 16.dp.toPx(), center = Offset(knobX, knobY))
+                    drawCircle(color = goldColor, radius = 10.dp.toPx(), center = Offset(knobX, knobY))
+                    drawCircle(color = Color.White, radius = 3.5.dp.toPx(), center = Offset(knobX, knobY))
                 } else {
                     val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
                     val sweep = (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
@@ -533,9 +713,7 @@ private fun RotaryDialWatch(
                             .clip(RoundedCornerShape(50))
                             .background(if (isSelected) goldColor else cardBg)
                             .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                            .clickable {
-                                onDialMinutesChange(mins)
-                            }
+                            .clickable { onDialMinutesChange(mins) }
                     ) {
                         Text(
                             text = "${mins.toInt()}m",
@@ -551,7 +729,7 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: PURE 3D SPLIT-FLAP (Real Mechanical Split-Flap Clock)
+// 📜 WATCH STYLE 3: RETRO FLIP CLOCK (TAP-TO-TYPE SYSTEM)
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
@@ -563,17 +741,16 @@ private fun RetroFlipClockWatch(
     glowYellow: Color,
     cardBg: Color,
     glassBorder: Color,
-    textMuted: Color
+    textMain: Color,
+    textMuted: Color,
+    isDark: Boolean
 ) {
-    val view = LocalView.current
     val mins = totalSeconds / 60
     val secs = totalSeconds % 60
-
     val minStr = String.format("%02d", mins)
     val secStr = String.format("%02d", secs)
 
-    var minDragAccumulator by remember { mutableFloatStateOf(0f) }
-    var secDragAccumulator by remember { mutableFloatStateOf(0f) }
+    var showTimeInputDialog by remember { mutableStateOf(false) }
 
     val animatedWidth by animateDpAsState(
         targetValue = if (isRunning) 265.dp else 245.dp,
@@ -598,76 +775,30 @@ private fun RetroFlipClockWatch(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(if (isRunning) 18.dp else 12.dp)
+            verticalArrangement = Arrangement.spacedBy(if (isRunning) 18.dp else 12.dp),
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = !isRunning
+            ) {
+                showTimeInputDialog = true
+            }
         ) {
-            // 👆 MINUTES CARD: Swipe Up/Down (+1m / -1m)
-            Box(
-                modifier = Modifier.pointerInput(isRunning) {
-                    if (!isRunning) {
-                        detectVerticalDragGestures(
-                            onDragEnd = { minDragAccumulator = 0f },
-                            onDragCancel = { minDragAccumulator = 0f }
-                        ) { change, dragAmount ->
-                            change.consume()
-                            minDragAccumulator -= dragAmount
-                            val stepThreshold = 30f
-                            if (abs(minDragAccumulator) >= stepThreshold) {
-                                val deltaSteps = (minDragAccumulator / stepThreshold).toInt()
-                                val currentTotalSecs = (dialMinutes * 60f).roundToInt()
-                                val currentMins = currentTotalSecs / 60
-                                val currentSecs = currentTotalSecs % 60
-                                val nextMins = (currentMins + deltaSteps).coerceIn(0, 180)
-                                val nextTotalSecs = nextMins * 60 + currentSecs
-                                if (nextTotalSecs != currentTotalSecs) {
-                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                    onDialMinutesChange(nextTotalSecs / 60f)
-                                }
-                                minDragAccumulator -= deltaSteps * stepThreshold
-                            }
-                        }
-                    }
-                }
-            ) {
-                AuthenticSplitFlapCard(
-                    digit = minStr,
-                    cardWidth = animatedWidth,
-                    cardHeight = animatedHeight,
-                    fontSizeSp = minFontSize
-                )
-            }
+            // 👆 MINUTES CARD
+            AuthenticSplitFlapCard(
+                digit = minStr,
+                cardWidth = animatedWidth,
+                cardHeight = animatedHeight,
+                fontSizeSp = minFontSize
+            )
 
-            // ⏱ SECONDS CARD: Swipe Up/Down (+5s / -5s)
-            Box(
-                modifier = Modifier.pointerInput(isRunning) {
-                    if (!isRunning) {
-                        detectVerticalDragGestures(
-                            onDragEnd = { secDragAccumulator = 0f },
-                            onDragCancel = { secDragAccumulator = 0f }
-                        ) { change, dragAmount ->
-                            change.consume()
-                            secDragAccumulator -= dragAmount
-                            val stepThreshold = 25f
-                            if (abs(secDragAccumulator) >= stepThreshold) {
-                                val deltaSteps = (secDragAccumulator / stepThreshold).toInt()
-                                val currentTotalSecs = (dialMinutes * 60f).roundToInt()
-                                val nextTotalSecs = (currentTotalSecs + deltaSteps * 5).coerceIn(0, 180 * 60)
-                                if (nextTotalSecs != currentTotalSecs) {
-                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                    onDialMinutesChange(nextTotalSecs / 60f)
-                                }
-                                secDragAccumulator -= deltaSteps * stepThreshold
-                            }
-                        }
-                    }
-                }
-            ) {
-                AuthenticSplitFlapCard(
-                    digit = secStr,
-                    cardWidth = animatedWidth,
-                    cardHeight = animatedHeight,
-                    fontSizeSp = secFontSize
-                )
-            }
+            // ⏱ SECONDS CARD
+            AuthenticSplitFlapCard(
+                digit = secStr,
+                cardWidth = animatedWidth,
+                cardHeight = animatedHeight,
+                fontSizeSp = secFontSize
+            )
         }
 
         if (!isRunning) {
@@ -675,8 +806,8 @@ private fun RetroFlipClockWatch(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 listOf(25f, 45f, 60f).forEach { m ->
@@ -687,19 +818,151 @@ private fun RetroFlipClockWatch(
                             .weight(1f)
                             .height(38.dp)
                             .clip(RoundedCornerShape(50))
-                            .background(if (isSelected) goldColor else Color(0xFF18181C))
-                            .border(1.dp, if (isSelected) glowYellow else Color(0x33FFFFFF), RoundedCornerShape(50))
-                            .clickable {
-                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                onDialMinutesChange(m)
-                            }
+                            .background(if (isSelected) goldColor else cardBg)
+                            .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                            .clickable { onDialMinutesChange(m) }
                     ) {
                         Text(
                             text = "${m.toInt()}m",
-                            color = if (isSelected) Color.Black else Color.White,
+                            color = if (isSelected) Color.White else textMain,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
+                    }
+                }
+
+                // ⌨️ TAP TO TYPE BUTTON
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .weight(1.15f)
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(cardBg)
+                        .border(1.dp, goldColor, RoundedCornerShape(50))
+                        .clickable { showTimeInputDialog = true }
+                ) {
+                    Text(
+                        text = "Custom ⌨️",
+                        color = goldColor,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+    }
+
+    // ⌨️ TAP-TO-TYPE CUSTOM TIME DIALOG
+    if (showTimeInputDialog) {
+        var inputMins by remember { mutableStateOf((dialMinutes.toInt()).toString()) }
+
+        Dialog(onDismissRequest = { showTimeInputDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(cardBg)
+                    .border(1.5.dp, goldColor, RoundedCornerShape(24.dp))
+                    .padding(22.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Set Flip Clock Time 📜",
+                        color = goldColor,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Enter minutes (1 - 180 min)",
+                        color = textMuted,
+                        fontSize = 12.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    OutlinedTextField(
+                        value = inputMins,
+                        onValueChange = { inputMins = it.filter { char -> char.isDigit() } },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = LocalTextStyle.current.copy(
+                            textAlign = TextAlign.Center,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Black,
+                            color = textMain
+                        ),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = goldColor,
+                            unfocusedBorderColor = glassBorder,
+                            focusedTextColor = textMain,
+                            unfocusedTextColor = textMain,
+                            cursorColor = goldColor
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(68.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Preset Quick Chips inside Dialog
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(15, 25, 45, 60, 90).forEach { preset ->
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isDark) Color(0xFF222228) else Color(0xFFF1F5F9))
+                                    .border(1.dp, glassBorder, RoundedCornerShape(8.dp))
+                                    .clickable { inputMins = preset.toString() }
+                                    .padding(vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "${preset}m",
+                                    color = textMain,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        TextButton(
+                            onClick = { showTimeInputDialog = false },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancel", color = textMuted, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                val entered = inputMins.toIntOrNull()?.coerceIn(1, 180)
+                                if (entered != null) {
+                                    onDialMinutesChange(entered.toFloat())
+                                }
+                                showTimeInputDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Set Time 🎯", color = Color.Black, fontWeight = FontWeight.Black)
+                        }
                     }
                 }
             }
@@ -865,7 +1128,7 @@ private fun SplitFlapHalfPlate(
 }
 
 // =============================================================================
-// 🌟 1:1 Smooth Custom Slider (White Stick + Hardware Shadow)
+// 🌟 CUSTOM HORIZONTAL SLIDER (White Stick + Hardware Shadow)
 // =============================================================================
 @Composable
 private fun CustomHorizontalSlider(
@@ -1009,7 +1272,7 @@ private fun CustomHorizontalSlider(
 }
 
 // =============================================================================
-// ✨ LUXE GOLD MATERIAL VECTOR ICON (100% PURE TARGET VECTOR - NO EMOJI)
+// ✨ LUXE GOLD MATERIAL VECTOR ICON (TARGET VECTOR)
 // =============================================================================
 @Composable
 private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
@@ -1019,7 +1282,6 @@ private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
         val center = Offset(w / 2f, h / 2f)
         val stroke = 1.8.dp.toPx()
 
-        // 1. बाहरी रिंग (Outer Ring)
         drawCircle(
             color = tint.copy(alpha = 0.5f),
             radius = w * 0.44f,
@@ -1027,7 +1289,6 @@ private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
             style = Stroke(width = stroke)
         )
 
-        // 2. आंतरिक रिंग (Inner Focus Ring)
         drawCircle(
             color = tint,
             radius = w * 0.26f,
@@ -1035,42 +1296,16 @@ private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
             style = Stroke(width = stroke * 1.15f)
         )
 
-        // 3. केंद्र बिंदु (Bullseye Center Dot)
         drawCircle(
             color = tint,
             radius = w * 0.10f,
             center = center
         )
 
-        // 4. 4 दिशाओं के सटीक क्रॉसहेयर कट्स (Precision Crosshairs)
         val crossLen = w * 0.10f
-        drawLine(
-            color = tint,
-            start = Offset(center.x, center.y - w * 0.44f),
-            end = Offset(center.x, center.y - w * 0.44f + crossLen),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = tint,
-            start = Offset(center.x, center.y + w * 0.44f - crossLen),
-            end = Offset(center.x, center.y + w * 0.44f),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = tint,
-            start = Offset(center.x - w * 0.44f, center.y),
-            end = Offset(center.x - w * 0.44f + crossLen, center.y),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = tint,
-            start = Offset(center.x + w * 0.44f - crossLen, center.y),
-            end = Offset(center.x + w * 0.44f, center.y),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
+        drawLine(tint, Offset(center.x, center.y - w * 0.44f), Offset(center.x, center.y - w * 0.44f + crossLen), stroke, StrokeCap.Round)
+        drawLine(tint, Offset(center.x, center.y + w * 0.44f - crossLen), Offset(center.x, center.y + w * 0.44f), stroke, StrokeCap.Round)
+        drawLine(tint, Offset(center.x - w * 0.44f, center.y), Offset(center.x - w * 0.44f + crossLen, center.y), stroke, StrokeCap.Round)
+        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f, center.y), stroke, StrokeCap.Round)
     }
 }
