@@ -52,11 +52,15 @@ fun MainScreen() {
 
     LaunchedEffect(Unit) {
         ThemeManager.loadTheme(context)
-        TimerService.syncRemainingTime()
+        TimerService.syncRemainingTime(context)
     }
 
     val isDark = ThemeManager.isDarkTheme.value
     val isRunning = TimerService.isTimerRunning.value
+    val isPaused = TimerService.isTimerPaused.value
+
+    // 🔒 मास्टर फ़ोकस लॉक: चाहे चल रहा हो या पॉज़ हो, ऐप फ़ोकस मोड में लॉक रहेगी
+    val isFocusActive = isRunning || isPaused
 
     val bgColor = ThemeManager.getBackgroundColor()
     val cardBg = ThemeManager.getCardColor()
@@ -84,14 +88,15 @@ fun MainScreen() {
     }
 
     // 🔙 बैक गेस्चर
-    BackHandler(enabled = currentNavIndex != 0 && !isRunning) {
+    BackHandler(enabled = currentNavIndex != 0 && !isFocusActive) {
         currentNavIndex = 0
     }
 
     Scaffold(
         containerColor = bgColor,
         bottomBar = {
-            if (!isRunning) {
+            // 🛡️ पॉज़ होने पर भी नीचे के चारों टैब किसी हाल में नहीं दिखेंगे!
+            if (!isFocusActive) {
                 AmonCurvedBottomBar(
                     selectedIndex = currentNavIndex,
                     onTabSelected = { newIndex -> currentNavIndex = newIndex },
@@ -109,13 +114,13 @@ fun MainScreen() {
                 .padding(paddingValues)
         ) {
             when (currentNavIndex) {
-                0 -> HomeTimerTab(context, goldColor, glowYellow, cardBg, glassBorder, textMuted, textMain, isDark, isRunning)
+                0 -> HomeTimerTab(context, goldColor, glowYellow, cardBg, glassBorder, textMuted, textMain, isDark, isRunning, isPaused, isFocusActive)
                 1 -> ForestScreen()
                 2 -> StatsScreen()
                 3 -> ProfileScreen()
             }
 
-            if (showWhatsNew && !isRunning) {
+            if (showWhatsNew && !isFocusActive) {
                 WhatsNewDialog(
                     versionName = currentVersion,
                     goldColor = goldColor,
@@ -146,7 +151,9 @@ fun HomeTimerTab(
     textMuted: Color,
     textMain: Color,
     isDark: Boolean,
-    isRunning: Boolean
+    isRunning: Boolean,
+    isPaused: Boolean,
+    isFocusActive: Boolean
 ) {
     var userSubjects by remember { mutableStateOf(listOf<String>()) }
     var selectedSubjectName by rememberSaveable { mutableStateOf("All") }
@@ -154,15 +161,10 @@ fun HomeTimerTab(
     var showGiveUpDialog by remember { mutableStateOf(false) }
     var newSubjectInput by remember { mutableStateOf("") }
 
-    // ⏸️ स्थानीय पॉज़ स्थिति
-    var isPaused by rememberSaveable { mutableStateOf(false) }
-    val isFocusActive = isRunning || isPaused
-
     val subjectPrefs = remember {
         context.getSharedPreferences("amon_subject_prefs", Context.MODE_PRIVATE)
     }
 
-    // 🌟 शुरुआत में डिफ़ॉल्ट सब्जेक्ट्स स्क्रीन पर न दिखें (केवल + Add और All दिखें)
     var hiddenSubjects by remember {
         val saved = subjectPrefs.getStringSet("hidden_subjects", null)
         if (saved == null) {
@@ -197,6 +199,7 @@ fun HomeTimerTab(
     var showSoundPanel by remember { mutableStateOf(false) }
     var selectedSound by rememberSaveable { mutableStateOf("Rain") }
 
+    // 🔒 फ़ोकस के दौरान सिस्टम बैक दबाने पर सीधे अलर्ट आएगा, बाहर नहीं फेंकेगा
     BackHandler(enabled = isFocusActive) {
         showGiveUpDialog = true
     }
@@ -212,8 +215,8 @@ fun HomeTimerTab(
     val totalSeconds = TimerService.remainingSeconds.intValue
 
     var streakDays by remember { mutableIntStateOf(0) }
-    LaunchedEffect(isRunning) {
-        if (!isRunning) {
+    LaunchedEffect(isFocusActive) {
+        if (!isFocusActive) {
             val sessions = FocusSessionManager.getAllSessions(context)
             streakDays = calculateStreakDays(sessions)
         }
@@ -228,7 +231,7 @@ fun HomeTimerTab(
         String.format("%02d:%02d", displayMinutes, displaySeconds)
     }
 
-    val allSessions = remember(isRunning) { FocusSessionManager.getAllSessions(context) }
+    val allSessions = remember(isFocusActive) { FocusSessionManager.getAllSessions(context) }
     val subjectMinutesMap = remember(allSessions) {
         allSessions.groupBy { it.subject }
             .mapValues { entry -> entry.value.sumOf { it.durationMinutes } }
@@ -395,7 +398,7 @@ fun HomeTimerTab(
                                 }
                             }
 
-                            // 3. केवल वे सब्जेक्ट्स जो सेलेक्ट हैं (अनसेलेक्टेड स्क्रीन पर नहीं दिखेंगे)
+                            // 3. केवल वे सब्जेक्ट्स जो सेलेक्ट हैं
                             items(activeSortedSubjects) { subj ->
                                 val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
                                 Box(
@@ -476,7 +479,7 @@ fun HomeTimerTab(
 
             // ----------------- ACTION CONTROLS (SLEEK PLAYER & MUSIC-STYLE PAIR) -----------------
             if (!isFocusActive) {
-                // 🎯 बाहर का स्लीक प्ले बटन (ऊपर-नीचे से दबा हुआ - 44dp)
+                // 🎯 बाहर का स्लीक प्ले बटन (44dp)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -502,7 +505,6 @@ fun HomeTimerTab(
                             } else {
                                 context.startService(intent)
                             }
-                            isPaused = false
                         }
                 ) {
                     Row(
@@ -525,7 +527,7 @@ fun HomeTimerTab(
                     }
                 }
             } else {
-                // 🎧 फ़ोकस मोड में म्यूजिक प्लेयर जोड़ी (Pause/Play + Stop) - कोई लाल रंग नहीं!
+                // 🎧 फ़ोकस मोड में म्यूजिक प्लेयर जोड़ी (Pause/Play + Stop)
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -545,22 +547,14 @@ fun HomeTimerTab(
                                 .clickable {
                                     if (isRunning) {
                                         val intent = Intent(context, TimerService::class.java).apply {
-                                            action = "com.amon.timer.PAUSE"
+                                            action = TimerService.ACTION_PAUSE
                                         }
                                         context.startService(intent)
-                                        isPaused = true
                                     } else {
                                         val intent = Intent(context, TimerService::class.java).apply {
-                                            action = "com.amon.timer.RESUME"
-                                            putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
-                                            putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                            action = TimerService.ACTION_RESUME
                                         }
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                            context.startForegroundService(intent)
-                                        } else {
-                                            context.startService(intent)
-                                        }
-                                        isPaused = false
+                                        context.startService(intent)
                                     }
                                 }
                         ) {
@@ -731,7 +725,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎨 POPUP DIALOG (MANAGE SUBJECTS - SELECT/UNSELECT GRID 100% RESTORED)
+        // 🎨 POPUP DIALOG (MANAGE SUBJECTS - 3x3 TOGGLE GRID)
         // =====================================================================
         if (showAddDialog) {
             Dialog(onDismissRequest = {
@@ -764,7 +758,6 @@ fun HomeTimerTab(
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 🌟 3-3 ग्रिड: सेलेक्ट और अनसेलेक्ट (टॉगल) सिस्टम
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -831,7 +824,7 @@ fun HomeTimerTab(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 🔤 नया सब्जेक्ट बॉक्स: पहला अक्षर अपने-आप बड़ा (Titlecase)
+                        // 🔤 नया सब्जेक्ट बॉक्स (Auto Capitalize)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -918,7 +911,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // ⚠️ DISCIPLINE WARNING POPUP (MINIMAL SILVER BORDER - NO RED BUTTON)
+        // ⚠️ DISCIPLINE WARNING POPUP (END SESSION)
         // =====================================================================
         if (showGiveUpDialog) {
             Dialog(onDismissRequest = { showGiveUpDialog = false }) {
@@ -955,7 +948,7 @@ fun HomeTimerTab(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // शांत न्यूट्रल एंड सेशन बटन (कोई लाल रंग नहीं)
+                            // शांत न्यूट्रल एंड सेशन बटन
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -966,7 +959,6 @@ fun HomeTimerTab(
                                     .border(1.dp, glassBorder, RoundedCornerShape(50))
                                     .clickable {
                                         showGiveUpDialog = false
-                                        isPaused = false
                                         val intent = Intent(context, TimerService::class.java).apply {
                                             action = TimerService.ACTION_STOP
                                         }
