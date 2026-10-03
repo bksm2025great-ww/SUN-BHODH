@@ -56,10 +56,10 @@
             android:enabled="true"
             android:exported="false" />
 
-        <!-- 📁 In-app APK install ke liye FileProvider -->
+        <!-- 📁 Android 14/15 Certified FileProvider (Share APK & Export Backup) -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.provider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
