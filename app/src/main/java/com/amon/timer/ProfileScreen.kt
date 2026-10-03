@@ -225,282 +225,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 3. 🛡️️ AMON VAULT (BACKUP & RESTORE) CARD -----------------
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(cardBg)
-                .border(1.2.dp, goldColor.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
-                .padding(18.dp)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                // Header Row
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    ShieldSecurityIcon(tint = goldColor, modifier = Modifier.size(28.dp))
-                    Column {
-                        Text(
-                            text = "Amon Vault (Backup & Restore)",
-                            color = textMain,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Keep your focus history safe & portable",
-                            color = textMuted,
-                            fontSize = 11.5.sp
-                        )
-                    }
-                }
-
-                // Primary Action Buttons: Export & Import
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // 📤 EXPORT BUTTON
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
-                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-                            .clickable {
-                                BackupManager.exportBackup(context, currentUserName)
-                            }
-                            .padding(vertical = 11.dp, horizontal = 10.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            UploadBackupIcon(tint = goldColor)
-                            Column {
-                                Text(
-                                    text = "Export Backup",
-                                    color = textMain,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Save to Drive / Share",
-                                    color = textMuted,
-                                    fontSize = 10.5.sp
-                                )
-                            }
-                        }
-                    }
-
-                    // 📥 IMPORT BUTTON
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
-                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-                            .clickable {
-                                backupFilePicker.launch("*/*")
-                            }
-                            .padding(vertical = 11.dp, horizontal = 10.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            RestoreBackupIcon(tint = goldColor)
-                            Column {
-                                Text(
-                                    text = "Import Backup",
-                                    color = textMain,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Restore from file",
-                                    color = textMuted,
-                                    fontSize = 10.5.sp
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 📊 EXCEL / CSV EXPORT BUTTON
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
-                        .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-                        .clickable {
-                            BackupManager.exportCsvReport(context, currentUserName)
-                        }
-                        .padding(vertical = 12.dp, horizontal = 14.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        TableGridIcon(tint = goldColor)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Export Study Report (CSV / Excel)",
-                            color = textMain,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(cardBorder.copy(alpha = 0.4f))
-                )
-
-                // 📋 WHAT'S BACKED UP CHECKLIST
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text(
-                        text = "WHAT'S BACKED UP",
-                        color = goldColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.8.sp
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        CheckCircleIcon(tint = goldColor)
-                        Text(
-                            text = "Study sessions & total hours",
-                            color = textMuted,
-                            fontSize = 12.sp
-                        )
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        CheckCircleIcon(tint = goldColor)
-                        Text(
-                            text = "Custom subjects & theme settings",
-                            color = textMuted,
-                            fontSize = 12.sp
-                        )
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        CheckCircleIcon(tint = goldColor)
-                        Text(
-                            text = "Daily streak & milestones",
-                            color = textMuted,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-
-                // ☁️ GOOGLE SHEET CLOUD SYNC
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isDark) Color(0x11FFFFFF) else Color(0x08000000))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        CloudSyncIcon(tint = goldColor, modifier = Modifier.size(22.dp))
-                        Column {
-                            Text(
-                                text = "Google Sheet Cloud Sync",
-                                color = textMain,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Google Sheets cloud backup & synchronization",
-                                color = textMuted,
-                                fontSize = 10.5.sp
-                            )
-                        }
-                    }
-
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(if (isDark) Color(0x33F5A524) else Color(0x22D97706))
-                            .border(1.dp, goldColor, RoundedCornerShape(50))
-                            .clickable(enabled = !isSyncing) {
-                                coroutineScope.launch {
-                                    isSyncing = true
-                                    delay(600)
-                                    try {
-                                        val isOnline = checkInternetConnectionSafely(context)
-                                        if (!isOnline) {
-                                            isSyncSuccess = false
-                                            syncPopupTitle = "No Connection"
-                                            syncPopupMessage = "No Internet Connection. Please check your network."
-                                        } else {
-                                            val cloudSessions = CloudSyncManager.fetchSessions(context)
-                                            val (restoredTrees, restoredMinutes) = FocusSessionManager.restoreSessions(context, cloudSessions)
-                                            isSyncSuccess = true
-                                            syncPopupTitle = "Sync Successful!"
-                                            if (restoredTrees > 0 || restoredMinutes > 0) {
-                                                syncPopupMessage = "Data Synced! $restoredMinutes mins restored from Google Sheet."
-                                            } else {
-                                                syncPopupMessage = "Everything is up to date! All your progress is safely backed up."
-                                            }
-                                        }
-                                    } catch (_: Exception) {
-                                        isSyncSuccess = true
-                                        syncPopupTitle = "Sync Successful!"
-                                        syncPopupMessage = "Everything is up to date! All your progress is safely backed up."
-                                    } finally {
-                                        isSyncing = false
-                                        showSyncPopup = true
-                                    }
-                                }
-                            }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        if (isSyncing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(10.dp),
-                                color = goldColor,
-                                strokeWidth = 1.5.dp
-                            )
-                        } else {
-                            Text(
-                                text = "Sync Now",
-                                color = goldColor,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // ----------------- 4. ACHIEVEMENTS & BADGES -----------------
+        // ----------------- 3. ACHIEVEMENTS & BADGES -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -531,7 +256,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 5. EXPANDABLE: APPEARANCE & THEMES -----------------
+        // ----------------- 4. EXPANDABLE: APPEARANCE & THEMES -----------------
         val isThemeExpanded = activeExpandedCard == "theme"
         Box(
             modifier = Modifier
@@ -701,7 +426,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 6. PREFERENCES & CONTROLS -----------------
+        // ----------------- 5. PREFERENCES & CONTROLS -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -795,7 +520,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 7. AUTO-SENSING APP UPDATES -----------------
+        // ----------------- 6. AUTO-SENSING APP UPDATES -----------------
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
@@ -954,6 +679,312 @@ fun ProfileScreen() {
                                     text = "Latest",
                                     color = Color(0xFF10B981),
                                     fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ----------------- 7. 🛡️ AMON VAULT (BACKUP & RESTORE) - EXPANDABLE -----------------
+        val isVaultExpanded = activeExpandedCard == "vault"
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(cardBg)
+                .border(
+                    width = 1.dp,
+                    color = if (isVaultExpanded) goldColor.copy(alpha = 0.7f) else cardBorder,
+                    shape = RoundedCornerShape(16.dp)
+                )
+                .padding(16.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Header Row (Clickable Accordion)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            activeExpandedCard = if (isVaultExpanded) null else "vault"
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(13.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        ShieldSecurityIcon(tint = goldColor, modifier = Modifier.size(26.dp))
+                        Column {
+                            Text(
+                                text = "Amon Vault (Backup & Restore)",
+                                color = textMain,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Keep your focus history safe & portable",
+                                color = textMuted,
+                                fontSize = 11.5.sp
+                            )
+                        }
+                    }
+                    ChevronIcon(
+                        isExpanded = isVaultExpanded,
+                        tint = goldColor
+                    )
+                }
+
+                // Expanded Content
+                if (isVaultExpanded) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Primary Action Buttons: Export & Import
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // 📤 EXPORT BUTTON
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
+                                .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                                .clickable {
+                                    val success = BackupManager.exportBackup(context, currentUserName)
+                                    if (!success) {
+                                        Toast.makeText(context, "Could not open share menu.", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                                .padding(vertical = 11.dp, horizontal = 10.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                UploadBackupIcon(tint = goldColor)
+                                Column {
+                                    Text(
+                                        text = "Export Backup",
+                                        color = textMain,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Save to Drive / Share",
+                                        color = textMuted,
+                                        fontSize = 10.5.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        // 📥 IMPORT BUTTON
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
+                                .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                                .clickable {
+                                    backupFilePicker.launch("*/*")
+                                }
+                                .padding(vertical = 11.dp, horizontal = 10.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                RestoreBackupIcon(tint = goldColor)
+                                Column {
+                                    Text(
+                                        text = "Import Backup",
+                                        color = textMain,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Restore from file",
+                                        color = textMuted,
+                                        fontSize = 10.5.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 📊 EXCEL / CSV EXPORT BUTTON
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
+                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                            .clickable {
+                                val success = BackupManager.exportCsvReport(context, currentUserName)
+                                if (!success) {
+                                    Toast.makeText(context, "Could not open share menu.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(vertical = 12.dp, horizontal = 14.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            TableGridIcon(tint = goldColor)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Export Study Report (CSV / Excel)",
+                                color = textMain,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.4f)))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // 📋 WHAT'S BACKED UP CHECKLIST
+                    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text(
+                            text = "WHAT'S BACKED UP",
+                            color = goldColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.8.sp
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CheckCircleIcon(tint = goldColor)
+                            Text(
+                                text = "Study sessions & total hours",
+                                color = textMuted,
+                                fontSize = 12.sp
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CheckCircleIcon(tint = goldColor)
+                            Text(
+                                text = "Custom subjects & theme settings",
+                                color = textMuted,
+                                fontSize = 12.sp
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CheckCircleIcon(tint = goldColor)
+                            Text(
+                                text = "Daily streak & milestones",
+                                color = textMuted,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // ☁️ GOOGLE SHEET CLOUD SYNC
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isDark) Color(0x11FFFFFF) else Color(0x08000000))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            CloudSyncIcon(tint = goldColor, modifier = Modifier.size(22.dp))
+                            Column {
+                                Text(
+                                    text = "Google Sheet Cloud Sync",
+                                    color = textMain,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Google Sheets cloud backup & sync",
+                                    color = textMuted,
+                                    fontSize = 10.5.sp
+                                )
+                            }
+                        }
+
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isDark) Color(0x33F5A524) else Color(0x22D97706))
+                                .border(1.dp, goldColor, RoundedCornerShape(50))
+                                .clickable(enabled = !isSyncing) {
+                                    coroutineScope.launch {
+                                        isSyncing = true
+                                        delay(600)
+                                        try {
+                                            val isOnline = checkInternetConnectionSafely(context)
+                                            if (!isOnline) {
+                                                isSyncSuccess = false
+                                                syncPopupTitle = "No Connection"
+                                                syncPopupMessage = "No Internet Connection. Please check your network."
+                                            } else {
+                                                val cloudSessions = CloudSyncManager.fetchSessions(context)
+                                                val (restoredTrees, restoredMinutes) = FocusSessionManager.restoreSessions(context, cloudSessions)
+                                                isSyncSuccess = true
+                                                syncPopupTitle = "Sync Successful!"
+                                                if (restoredTrees > 0 || restoredMinutes > 0) {
+                                                    syncPopupMessage = "Data Synced! $restoredMinutes mins restored from Google Sheet."
+                                                } else {
+                                                    syncPopupMessage = "Everything is up to date! All your progress is safely backed up."
+                                                }
+                                            }
+                                        } catch (_: Exception) {
+                                            isSyncSuccess = true
+                                            syncPopupTitle = "Sync Successful!"
+                                            syncPopupMessage = "Everything is up to date! All your progress is safely backed up."
+                                        } finally {
+                                            isSyncing = false
+                                            showSyncPopup = true
+                                        }
+                                    }
+                                }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            if (isSyncing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(10.dp),
+                                    color = goldColor,
+                                    strokeWidth = 1.5.dp
+                                )
+                            } else {
+                                Text(
+                                    text = "Sync Now",
+                                    color = goldColor,
+                                    fontSize = 11.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -1431,7 +1462,7 @@ private fun LightbulbIcon(tint: Color, modifier: Modifier = Modifier) {
             lineTo(w * 0.58f, h * 0.35f)
             lineTo(w * 0.58f, h * 0.60f)
         }
-        drawPath(path = filament, color = tint, style = Stroke(width = stroke * 0.85f, cap = StrokeCap.Round))
+        drawPath(filament, color = tint, style = Stroke(width = stroke * 0.85f, cap = StrokeCap.Round))
 
         drawLine(
             color = tint,
@@ -1611,6 +1642,7 @@ private fun checkInternetConnectionSafely(context: Context): Boolean {
         true
     }
 }
+
 private fun shareApkSafely(context: Context) {
     try {
         val appInfo = context.applicationInfo
