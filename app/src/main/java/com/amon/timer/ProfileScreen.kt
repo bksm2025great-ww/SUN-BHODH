@@ -1611,3 +1611,33 @@ private fun checkInternetConnectionSafely(context: Context): Boolean {
         true
     }
 }
+private fun shareApkSafely(context: Context) {
+    try {
+        val appInfo = context.applicationInfo
+        val originalApk = File(appInfo.sourceDir)
+        val shareFolder = File(context.cacheDir, "shared_apk").apply { mkdirs() }
+        val destApk = File(shareFolder, "Amon_Focus_Timer.apk")
+        originalApk.copyTo(destApk, overwrite = true)
+
+        val uri: Uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            destApk
+        )
+
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/vnd.android.package-archive"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, "Amon Focus Timer APK")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        val chooser = Intent.createChooser(shareIntent, "Share Amon APK via...").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(chooser)
+    } catch (e: Exception) {
+        Toast.makeText(context, "Error preparing APK: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+    }
+}
