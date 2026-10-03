@@ -10,9 +10,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,7 +24,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -42,10 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
@@ -195,7 +190,7 @@ fun ProfileScreen() {
                         .clickable { showEditNameDialog = true }
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
-                    MagicStylusIcon(tint = goldColor)
+                    OutlinedPencilIcon(tint = goldColor)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = currentUserName,
@@ -225,7 +220,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 3. ACHIEVEMENTS & BADGES -----------------
+        // ----------------- 3. ACHIEVEMENTS & BADGES (CLEAN - NO ARROW) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -238,25 +233,19 @@ fun ProfileScreen() {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(13.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(13.dp)
-                ) {
-                    TrophyIcon(tint = goldColor)
-                    Text(
-                        text = "Achievements & Badges",
-                        color = textMain,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Text(text = "➔", color = goldColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                OutlinedTrophyIcon(tint = goldColor)
+                Text(
+                    text = "Achievements & Badges",
+                    color = textMain,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
 
-        // ----------------- 4. EXPANDABLE: APPEARANCE & THEMES -----------------
+        // ----------------- 4. EXPANDABLE: APPEARANCE & THEMES (CLEAN - NO CHEVRON) -----------------
         val isThemeExpanded = activeExpandedCard == "theme"
         Box(
             modifier = Modifier
@@ -274,32 +263,23 @@ fun ProfileScreen() {
                             activeExpandedCard = if (isThemeExpanded) null else "theme"
                         },
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(13.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(13.dp)
-                    ) {
-                        PaletteIcon(tint = goldColor)
-                        Column {
-                            Text(
-                                text = "Appearance & Themes",
-                                color = textMain,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(3.dp))
-                            Text(
-                                text = "$currentMode • $currentAccent",
-                                color = textMuted,
-                                fontSize = 11.5.sp
-                            )
-                        }
+                    OutlinedPaletteIcon(tint = goldColor)
+                    Column {
+                        Text(
+                            text = "Appearance & Themes",
+                            color = textMain,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "$currentMode • $currentAccent",
+                            color = textMuted,
+                            fontSize = 11.5.sp
+                        )
                     }
-                    ChevronIcon(
-                        isExpanded = isThemeExpanded,
-                        tint = goldColor
-                    )
                 }
 
                 if (isThemeExpanded) {
@@ -446,7 +426,7 @@ fun ProfileScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        PhoneVibeIcon(tint = goldColor)
+                        OutlinedPhoneVibeIcon(tint = goldColor)
                         Column {
                             Text(
                                 text = "Haptic Buzz (Vibration)",
@@ -488,7 +468,7 @@ fun ProfileScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        LightbulbIcon(tint = goldColor)
+                        OutlinedLightbulbIcon(tint = goldColor)
                         Column {
                             Text(
                                 text = "Keep Screen Awake (Always On)",
@@ -520,7 +500,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 6. AUTO-SENSING APP UPDATES -----------------
+        // ----------------- 6. AUTO-SENSING APP UPDATES (CLEAN - NO CHEVRON) -----------------
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
@@ -544,7 +524,7 @@ fun ProfileScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        RocketLaunchIcon(tint = if (hasNewUpdate) Color(0xFF10B981) else goldColor)
+                        OutlinedRocketIcon(tint = if (hasNewUpdate) Color(0xFF10B981) else goldColor)
                         Text(
                             text = "App Updates",
                             color = textMain,
@@ -561,21 +541,12 @@ fun ProfileScreen() {
                         }
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = if (hasNewUpdate) "Update Available" else "v$currentAppVersion",
-                            color = if (hasNewUpdate) Color(0xFF10B981) else textMuted,
-                            fontSize = 11.5.sp,
-                            fontWeight = if (hasNewUpdate) FontWeight.ExtraBold else FontWeight.Medium
-                        )
-                        ChevronIcon(
-                            isExpanded = isUpdateExpanded,
-                            tint = if (hasNewUpdate) Color(0xFF10B981) else goldColor
-                        )
-                    }
+                    Text(
+                        text = if (hasNewUpdate) "Update Available" else "v$currentAppVersion",
+                        color = if (hasNewUpdate) Color(0xFF10B981) else textMuted,
+                        fontSize = 11.5.sp,
+                        fontWeight = if (hasNewUpdate) FontWeight.ExtraBold else FontWeight.Medium
+                    )
                 }
 
                 if (isUpdateExpanded) {
@@ -655,14 +626,14 @@ fun ProfileScreen() {
                         ) {
                             Column {
                                 Text(
-                                    text = "✓ Amon is up to date",
+                                    text = "Amon is up to date",
                                     color = Color(0xFF10B981),
                                     fontSize = 12.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Installed Version: $currentAppVersion  •  Auto-sync active",
+                                    text = "Installed Version: $currentAppVersion • Auto-sync active",
                                     color = textMuted,
                                     fontSize = 11.sp
                                 )
@@ -688,7 +659,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 7. 🛡️ AMON VAULT (BACKUP & RESTORE) - EXPANDABLE -----------------
+        // ----------------- 7. AMON VAULT (CLEAN - NO CHEVRON) -----------------
         val isVaultExpanded = activeExpandedCard == "vault"
         Box(
             modifier = Modifier
@@ -703,7 +674,6 @@ fun ProfileScreen() {
                 .padding(16.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Header Row (Clickable Accordion)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -711,42 +681,30 @@ fun ProfileScreen() {
                             activeExpandedCard = if (isVaultExpanded) null else "vault"
                         },
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(13.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(13.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        ShieldSecurityIcon(tint = goldColor, modifier = Modifier.size(26.dp))
-                        Column {
-                            Text(
-                                text = "Amon Vault (Backup & Restore)",
-                                color = textMain,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Keep your focus history safe & portable",
-                                color = textMuted,
-                                fontSize = 11.5.sp
-                            )
-                        }
+                    OutlinedShieldIcon(tint = goldColor, modifier = Modifier.size(24.dp))
+                    Column {
+                        Text(
+                            text = "Amon Vault (Backup & Restore)",
+                            color = textMain,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Keep your focus history safe & portable",
+                            color = textMuted,
+                            fontSize = 11.5.sp
+                        )
                     }
-                    ChevronIcon(
-                        isExpanded = isVaultExpanded,
-                        tint = goldColor
-                    )
                 }
 
-                // Expanded Content
                 if (isVaultExpanded) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Primary Action Buttons: Export & Import
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -770,7 +728,7 @@ fun ProfileScreen() {
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                UploadBackupIcon(tint = goldColor)
+                                OutlinedUploadIcon(tint = goldColor)
                                 Column {
                                     Text(
                                         text = "Export Backup",
@@ -803,7 +761,7 @@ fun ProfileScreen() {
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                RestoreBackupIcon(tint = goldColor)
+                                OutlinedDownloadIcon(tint = goldColor)
                                 Column {
                                     Text(
                                         text = "Import Backup",
@@ -843,7 +801,7 @@ fun ProfileScreen() {
                             horizontalArrangement = Arrangement.Center,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            TableGridIcon(tint = goldColor)
+                            OutlinedTableGridIcon(tint = goldColor)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Export Study Report (CSV / Excel)",
@@ -858,7 +816,6 @@ fun ProfileScreen() {
                     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.4f)))
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // 📋 WHAT'S BACKED UP CHECKLIST
                     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Text(
                             text = "WHAT'S BACKED UP",
@@ -871,7 +828,7 @@ fun ProfileScreen() {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            CheckCircleIcon(tint = goldColor)
+                            OutlinedCheckCircleIcon(tint = goldColor)
                             Text(
                                 text = "Study sessions & total hours",
                                 color = textMuted,
@@ -882,7 +839,7 @@ fun ProfileScreen() {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            CheckCircleIcon(tint = goldColor)
+                            OutlinedCheckCircleIcon(tint = goldColor)
                             Text(
                                 text = "Custom subjects & theme settings",
                                 color = textMuted,
@@ -893,7 +850,7 @@ fun ProfileScreen() {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            CheckCircleIcon(tint = goldColor)
+                            OutlinedCheckCircleIcon(tint = goldColor)
                             Text(
                                 text = "Daily streak & milestones",
                                 color = textMuted,
@@ -919,7 +876,7 @@ fun ProfileScreen() {
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            CloudSyncIcon(tint = goldColor, modifier = Modifier.size(22.dp))
+                            OutlinedCloudSyncIcon(tint = goldColor, modifier = Modifier.size(24.dp))
                             Column {
                                 Text(
                                     text = "Google Sheet Cloud Sync",
@@ -994,7 +951,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 8. SHARE DIRECT APK -----------------
+        // ----------------- 8. SHARE DIRECT APK (CLEAN - OUTLINED PLANE & NO ARROW) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1020,10 +977,7 @@ fun ProfileScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(13.dp)
                 ) {
-                    PaperAirplaneIcon(
-                        tint = goldColor,
-                        modifier = Modifier.rotate(-20f)
-                    )
+                    OutlinedPaperAirplaneIcon(tint = goldColor)
 
                     Column {
                         Text(
@@ -1042,8 +996,6 @@ fun ProfileScreen() {
                 }
                 if (isPreparingApkShare) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), color = goldColor, strokeWidth = 2.dp)
-                } else {
-                    Text(text = "➔", color = goldColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1163,9 +1115,9 @@ fun ProfileScreen() {
                         .border(3.dp, if (isDark) Color(0xFF1C1C24) else Color.White, CircleShape)
                 ) {
                     Text(
-                        text = if (isSyncSuccess) "✓" else "✕",
+                        text = if (isSyncSuccess) "OK" else "!",
                         color = Color.White,
-                        fontSize = 22.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Black
                     )
                 }
@@ -1175,81 +1127,243 @@ fun ProfileScreen() {
 }
 
 // =============================================================================
-// ✨ LUXE GOLD MATERIAL VECTOR ICONS (100% PURE ANDROID VECTORS - NO EMOJIS)
+// ✨ 100% PURE WHATSAPP-STYLE OUTLINED VECTOR ICONS (HOLLOW LINE-ART, NO EMOJIS)
 // =============================================================================
 
 @Composable
-private fun ShieldSecurityIcon(tint: Color, modifier: Modifier = Modifier) {
+private fun OutlinedPencilIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(19.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.8.dp.toPx()
+
+        val body = Path().apply {
+            moveTo(w * 0.22f, h * 0.78f)
+            lineTo(w * 0.72f, h * 0.28f)
+            lineTo(w * 0.86f, h * 0.42f)
+            lineTo(w * 0.36f, h * 0.92f)
+            lineTo(w * 0.12f, h * 0.98f)
+            close()
+        }
+        drawPath(body, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.26f, h * 0.74f),
+            end = Offset(w * 0.40f, h * 0.88f),
+            strokeWidth = stroke * 0.85f,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+@Composable
+private fun OutlinedTrophyIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(23.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.8.dp.toPx()
+
+        val cup = Path().apply {
+            moveTo(w * 0.26f, h * 0.18f)
+            lineTo(w * 0.74f, h * 0.18f)
+            lineTo(w * 0.70f, h * 0.50f)
+            cubicTo(w * 0.68f, h * 0.68f, w * 0.32f, h * 0.68f, w * 0.30f, h * 0.50f)
+            close()
+        }
+        drawPath(cup, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+        val leftHandle = Path().apply {
+            moveTo(w * 0.26f, h * 0.24f)
+            cubicTo(w * 0.10f, h * 0.24f, w * 0.10f, h * 0.46f, w * 0.29f, h * 0.46f)
+        }
+        drawPath(leftHandle, color = tint, style = Stroke(width = stroke * 0.9f, cap = StrokeCap.Round))
+
+        val rightHandle = Path().apply {
+            moveTo(w * 0.74f, h * 0.24f)
+            cubicTo(w * 0.90f, h * 0.24f, w * 0.90f, h * 0.46f, w * 0.71f, h * 0.46f)
+        }
+        drawPath(rightHandle, color = tint, style = Stroke(width = stroke * 0.9f, cap = StrokeCap.Round))
+
+        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.64f), end = Offset(w * 0.5f, h * 0.82f), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(color = tint, start = Offset(w * 0.30f, h * 0.82f), end = Offset(w * 0.70f, h * 0.82f), strokeWidth = stroke, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun OutlinedPaletteIcon(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(24.dp)) {
         val w = size.width
         val h = size.height
-        val stroke = 2.0.dp.toPx()
-        val path = Path().apply {
+        val stroke = 1.8.dp.toPx()
+
+        val palette = Path().apply {
             moveTo(w * 0.5f, h * 0.12f)
-            lineTo(w * 0.85f, h * 0.25f)
-            cubicTo(w * 0.85f, h * 0.60f, w * 0.5f, h * 0.88f, w * 0.5f, h * 0.88f)
-            cubicTo(w * 0.5f, h * 0.88f, w * 0.15f, h * 0.60f, w * 0.15f, h * 0.25f)
+            cubicTo(w * 0.82f, h * 0.12f, w * 0.92f, h * 0.42f, w * 0.84f, h * 0.70f)
+            cubicTo(w * 0.78f, h * 0.88f, w * 0.58f, h * 0.84f, w * 0.48f, h * 0.76f)
+            cubicTo(w * 0.40f, h * 0.70f, w * 0.28f, h * 0.74f, w * 0.18f, h * 0.62f)
+            cubicTo(w * 0.08f, h * 0.48f, w * 0.16f, h * 0.12f, w * 0.5f, h * 0.12f)
             close()
         }
-        drawPath(path = path, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(palette, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+        val spotRadius = w * 0.045f
+        drawCircle(color = tint, radius = spotRadius, center = Offset(w * 0.38f, h * 0.32f), style = Stroke(width = stroke * 0.75f))
+        drawCircle(color = tint, radius = spotRadius, center = Offset(w * 0.62f, h * 0.30f), style = Stroke(width = stroke * 0.75f))
+        drawCircle(color = tint, radius = spotRadius, center = Offset(w * 0.72f, h * 0.52f), style = Stroke(width = stroke * 0.75f))
     }
 }
 
 @Composable
-private fun UploadBackupIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
+private fun OutlinedPhoneVibeIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(24.dp)) {
         val w = size.width
         val h = size.height
-        val stroke = 2.0.dp.toPx()
-        val tray = Path().apply {
-            moveTo(w * 0.2f, h * 0.65f)
-            lineTo(w * 0.2f, h * 0.82f)
-            lineTo(w * 0.8f, h * 0.82f)
-            lineTo(w * 0.8f, h * 0.65f)
-        }
-        drawPath(tray, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.65f), end = Offset(w * 0.5f, h * 0.22f), strokeWidth = stroke, cap = StrokeCap.Round)
-        val head = Path().apply {
-            moveTo(w * 0.32f, h * 0.38f)
-            lineTo(w * 0.5f, h * 0.20f)
-            lineTo(w * 0.68f, h * 0.38f)
-        }
-        drawPath(head, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
-    }
-}
+        val stroke = 1.8.dp.toPx()
 
-@Composable
-private fun RestoreBackupIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
-        val w = size.width
-        val h = size.height
-        val stroke = 2.0.dp.toPx()
-        drawArc(
+        drawRoundRect(
             color = tint,
-            startAngle = -45f,
-            sweepAngle = 290f,
-            useCenter = false,
-            style = Stroke(width = stroke, cap = StrokeCap.Round),
-            topLeft = Offset(w * 0.18f, h * 0.18f),
-            size = Size(w * 0.64f, h * 0.64f)
+            topLeft = Offset(w * 0.30f, h * 0.14f),
+            size = Size(w * 0.40f, h * 0.72f),
+            cornerRadius = CornerRadius(w * 0.08f, w * 0.08f),
+            style = Stroke(width = stroke)
         )
-        val arrow = Path().apply {
-            moveTo(w * 0.38f, h * 0.12f)
-            lineTo(w * 0.22f, h * 0.24f)
-            lineTo(w * 0.38f, h * 0.36f)
+        drawLine(color = tint, start = Offset(w * 0.44f, h * 0.76f), end = Offset(w * 0.56f, h * 0.76f), strokeWidth = stroke * 0.8f, cap = StrokeCap.Round)
+
+        val leftWave = Path().apply {
+            moveTo(w * 0.16f, h * 0.32f)
+            cubicTo(w * 0.08f, h * 0.42f, w * 0.08f, h * 0.58f, w * 0.16f, h * 0.68f)
         }
-        drawPath(arrow, color = tint, style = Stroke(width = stroke * 0.9f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.5f), end = Offset(w * 0.5f, h * 0.35f), strokeWidth = stroke * 0.9f, cap = StrokeCap.Round)
-        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.5f), end = Offset(w * 0.64f, h * 0.5f), strokeWidth = stroke * 0.9f, cap = StrokeCap.Round)
+        drawPath(leftWave, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
+
+        val rightWave = Path().apply {
+            moveTo(w * 0.84f, h * 0.32f)
+            cubicTo(w * 0.92f, h * 0.42f, w * 0.92f, h * 0.58f, w * 0.84f, h * 0.68f)
+        }
+        drawPath(rightWave, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
     }
 }
 
 @Composable
-private fun TableGridIcon(tint: Color, modifier: Modifier = Modifier) {
+private fun OutlinedLightbulbIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.8.dp.toPx()
+
+        val bulb = Path().apply {
+            moveTo(w * 0.32f, h * 0.64f)
+            cubicTo(w * 0.12f, h * 0.50f, w * 0.16f, h * 0.16f, w * 0.50f, h * 0.14f)
+            cubicTo(w * 0.84f, h * 0.16f, w * 0.88f, h * 0.50f, w * 0.68f, h * 0.64f)
+            lineTo(w * 0.62f, h * 0.74f)
+            lineTo(w * 0.38f, h * 0.74f)
+            close()
+        }
+        drawPath(bulb, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+        drawLine(color = tint, start = Offset(w * 0.38f, h * 0.82f), end = Offset(w * 0.62f, h * 0.82f), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(color = tint, start = Offset(w * 0.42f, h * 0.89f), end = Offset(w * 0.58f, h * 0.89f), strokeWidth = stroke, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.8.dp.toPx()
+
+        val rocket = Path().apply {
+            moveTo(w * 0.84f, h * 0.16f)
+            cubicTo(w * 0.68f, h * 0.18f, w * 0.46f, h * 0.32f, w * 0.42f, h * 0.50f)
+            lineTo(w * 0.32f, h * 0.58f)
+            lineTo(w * 0.42f, h * 0.68f)
+            lineTo(w * 0.50f, h * 0.58f)
+            cubicTo(w * 0.68f, h * 0.54f, w * 0.82f, h * 0.32f, w * 0.84f, h * 0.16f)
+            close()
+        }
+        drawPath(rocket, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+        drawCircle(color = tint, radius = w * 0.045f, center = Offset(w * 0.62f, h * 0.38f), style = Stroke(width = stroke * 0.8f))
+        drawLine(color = tint, start = Offset(w * 0.34f, h * 0.72f), end = Offset(w * 0.18f, h * 0.88f), strokeWidth = stroke, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
+private fun OutlinedShieldIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.8.dp.toPx()
+
+        val shield = Path().apply {
+            moveTo(w * 0.5f, h * 0.14f)
+            lineTo(w * 0.84f, h * 0.26f)
+            cubicTo(w * 0.84f, h * 0.60f, w * 0.5f, h * 0.86f, w * 0.5f, h * 0.86f)
+            cubicTo(w * 0.5f, h * 0.86f, w * 0.16f, h * 0.60f, w * 0.16f, h * 0.26f)
+            close()
+        }
+        drawPath(shield, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+}
+
+@Composable
+private fun OutlinedUploadIcon(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(20.dp)) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
+
+        val tray = Path().apply {
+            moveTo(w * 0.2f, h * 0.68f)
+            lineTo(w * 0.2f, h * 0.82f)
+            lineTo(w * 0.8f, h * 0.82f)
+            lineTo(w * 0.8f, h * 0.68f)
+        }
+        drawPath(tray, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.66f), end = Offset(w * 0.5f, h * 0.24f), strokeWidth = stroke, cap = StrokeCap.Round)
+        val arrow = Path().apply {
+            moveTo(w * 0.32f, h * 0.40f)
+            lineTo(w * 0.5f, h * 0.22f)
+            lineTo(w * 0.68f, h * 0.40f)
+        }
+        drawPath(arrow, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+}
+
+@Composable
+private fun OutlinedDownloadIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.8.dp.toPx()
+
+        val tray = Path().apply {
+            moveTo(w * 0.2f, h * 0.68f)
+            lineTo(w * 0.2f, h * 0.82f)
+            lineTo(w * 0.8f, h * 0.82f)
+            lineTo(w * 0.8f, h * 0.68f)
+        }
+        drawPath(tray, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.24f), end = Offset(w * 0.5f, h * 0.66f), strokeWidth = stroke, cap = StrokeCap.Round)
+        val arrow = Path().apply {
+            moveTo(w * 0.32f, h * 0.50f)
+            lineTo(w * 0.5f, h * 0.68f)
+            lineTo(w * 0.68f, h * 0.50f)
+        }
+        drawPath(arrow, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+}
+
+@Composable
+private fun OutlinedTableGridIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.7.dp.toPx()
+
         drawRoundRect(
             color = tint,
             topLeft = Offset(w * 0.15f, h * 0.15f),
@@ -1257,18 +1371,18 @@ private fun TableGridIcon(tint: Color, modifier: Modifier = Modifier) {
             cornerRadius = CornerRadius(w * 0.1f, w * 0.1f),
             style = Stroke(width = stroke)
         )
-        drawLine(color = tint, start = Offset(w * 0.15f, h * 0.42f), end = Offset(w * 0.85f, h * 0.42f), strokeWidth = stroke)
-        drawLine(color = tint, start = Offset(w * 0.15f, h * 0.68f), end = Offset(w * 0.85f, h * 0.68f), strokeWidth = stroke * 0.8f)
-        drawLine(color = tint, start = Offset(w * 0.45f, h * 0.15f), end = Offset(w * 0.45f, h * 0.85f), strokeWidth = stroke * 0.8f)
+        drawLine(color = tint, start = Offset(w * 0.15f, h * 0.44f), end = Offset(w * 0.85f, h * 0.44f), strokeWidth = stroke)
+        drawLine(color = tint, start = Offset(w * 0.50f, h * 0.15f), end = Offset(w * 0.50f, h * 0.85f), strokeWidth = stroke * 0.85f)
     }
 }
 
 @Composable
-private fun CheckCircleIcon(tint: Color, modifier: Modifier = Modifier) {
+private fun OutlinedCheckCircleIcon(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(16.dp)) {
         val w = size.width
         val h = size.height
         val stroke = 1.6.dp.toPx()
+
         drawCircle(color = tint, radius = w * 0.42f, center = Offset(w * 0.5f, h * 0.5f), style = Stroke(width = stroke))
         val check = Path().apply {
             moveTo(w * 0.32f, h * 0.52f)
@@ -1280,355 +1394,64 @@ private fun CheckCircleIcon(tint: Color, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun MagicStylusIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(18.dp)) {
+private fun OutlinedCloudSyncIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(24.dp)) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
-
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.22f, h * 0.78f),
-            end = Offset(w * 0.76f, h * 0.24f),
-            strokeWidth = stroke * 1.25f,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.12f, h * 0.88f),
-            end = Offset(w * 0.25f, h * 0.75f),
-            strokeWidth = stroke * 0.9f,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.70f, h * 0.20f),
-            end = Offset(w * 0.86f, h * 0.14f),
-            strokeWidth = stroke * 1.35f,
-            cap = StrokeCap.Round
-        )
-
-        val starCenter = Offset(w * 0.32f, h * 0.26f)
-        val starR = w * 0.12f
-        drawLine(
-            color = tint,
-            start = Offset(starCenter.x - starR, starCenter.y),
-            end = Offset(starCenter.x + starR, starCenter.y),
-            strokeWidth = 1.3.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = tint,
-            start = Offset(starCenter.x, starCenter.y - starR),
-            end = Offset(starCenter.x, starCenter.y + starR),
-            strokeWidth = 1.3.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-
-        val swoosh = Path().apply {
-            moveTo(w * 0.30f, h * 0.92f)
-            cubicTo(w * 0.50f, h * 0.86f, w * 0.65f, h * 0.96f, w * 0.84f, h * 0.88f)
-        }
-        drawPath(path = swoosh, color = tint.copy(alpha = 0.8f), style = Stroke(width = 1.3.dp.toPx(), cap = StrokeCap.Round))
-    }
-}
-
-@Composable
-private fun TrophyIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(25.dp)) {
-        val w = size.width
-        val h = size.height
-        val stroke = 2.0.dp.toPx()
-
-        val bowlPath = Path().apply {
-            moveTo(w * 0.25f, h * 0.15f)
-            lineTo(w * 0.75f, h * 0.15f)
-            lineTo(w * 0.72f, h * 0.52f)
-            cubicTo(w * 0.70f, h * 0.70f, w * 0.30f, h * 0.70f, w * 0.28f, h * 0.52f)
-            close()
-        }
-        drawPath(path = bowlPath, color = tint)
-
-        val leftHandle = Path().apply {
-            moveTo(w * 0.26f, h * 0.22f)
-            cubicTo(w * 0.08f, h * 0.22f, w * 0.08f, h * 0.48f, w * 0.29f, h * 0.48f)
-        }
-        drawPath(path = leftHandle, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
-
-        val rightHandle = Path().apply {
-            moveTo(w * 0.74f, h * 0.22f)
-            cubicTo(w * 0.92f, h * 0.22f, w * 0.92f, h * 0.48f, w * 0.71f, h * 0.48f)
-        }
-        drawPath(path = rightHandle, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
-
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.5f, h * 0.65f),
-            end = Offset(w * 0.5f, h * 0.82f),
-            strokeWidth = stroke * 1.4f,
-            cap = StrokeCap.Square
-        )
-
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.28f, h * 0.84f),
-            end = Offset(w * 0.72f, h * 0.84f),
-            strokeWidth = stroke * 1.3f,
-            cap = StrokeCap.Round
-        )
-    }
-}
-
-@Composable
-private fun PaletteIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(25.dp)) {
-        val w = size.width
-        val h = size.height
-
-        val palette = Path().apply {
-            moveTo(w * 0.5f, h * 0.1f)
-            cubicTo(w * 0.85f, h * 0.1f, w * 0.95f, h * 0.45f, w * 0.85f, h * 0.75f)
-            cubicTo(w * 0.78f, h * 0.92f, w * 0.55f, h * 0.88f, w * 0.45f, h * 0.80f)
-            cubicTo(w * 0.38f, h * 0.74f, w * 0.25f, h * 0.78f, w * 0.15f, h * 0.65f)
-            cubicTo(w * 0.05f, h * 0.50f, w * 0.15f, h * 0.1f, w * 0.5f, h * 0.1f)
-            close()
-        }
-        drawPath(path = palette, color = tint)
-
-        drawCircle(color = Color(0xFF18181D), radius = w * 0.065f, center = Offset(w * 0.40f, h * 0.30f))
-        drawCircle(color = Color(0xFF18181D), radius = w * 0.065f, center = Offset(w * 0.65f, h * 0.32f))
-        drawCircle(color = Color(0xFF18181D), radius = w * 0.072f, center = Offset(w * 0.72f, h * 0.55f))
-        drawCircle(color = Color(0xFF18181D), radius = w * 0.08f, center = Offset(w * 0.30f, h * 0.55f))
-    }
-}
-
-@Composable
-private fun PhoneVibeIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(25.dp)) {
-        val w = size.width
-        val h = size.height
-        val stroke = 1.8.dp.toPx()
-
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(w * 0.30f, h * 0.12f),
-            size = Size(w * 0.40f, h * 0.76f),
-            cornerRadius = CornerRadius(w * 0.08f, w * 0.08f),
-            style = Stroke(width = stroke)
-        )
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.44f, h * 0.78f),
-            end = Offset(w * 0.56f, h * 0.78f),
-            strokeWidth = stroke * 0.9f,
-            cap = StrokeCap.Round
-        )
-
-        val leftWave = Path().apply {
-            moveTo(w * 0.16f, h * 0.28f)
-            cubicTo(w * 0.08f, h * 0.38f, w * 0.08f, h * 0.62f, w * 0.16f, h * 0.72f)
-        }
-        drawPath(path = leftWave, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
-
-        val rightWave = Path().apply {
-            moveTo(w * 0.84f, h * 0.28f)
-            cubicTo(w * 0.92f, h * 0.38f, w * 0.92f, h * 0.62f, w * 0.84f, h * 0.72f)
-        }
-        drawPath(path = rightWave, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round))
-    }
-}
-
-@Composable
-private fun LightbulbIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(25.dp)) {
-        val w = size.width
-        val h = size.height
-        val stroke = 1.8.dp.toPx()
-
-        val bulb = Path().apply {
-            moveTo(w * 0.32f, h * 0.62f)
-            cubicTo(w * 0.12f, h * 0.50f, w * 0.15f, h * 0.15f, w * 0.50f, h * 0.12f)
-            cubicTo(w * 0.85f, h * 0.15f, w * 0.88f, h * 0.50f, w * 0.68f, h * 0.62f)
-            lineTo(w * 0.62f, h * 0.74f)
-            lineTo(w * 0.38f, h * 0.74f)
-            close()
-        }
-        drawPath(path = bulb, color = tint, style = Stroke(width = stroke, join = StrokeJoin.Round))
-
-        val filament = Path().apply {
-            moveTo(w * 0.42f, h * 0.60f)
-            lineTo(w * 0.42f, h * 0.35f)
-            lineTo(w * 0.50f, h * 0.42f)
-            lineTo(w * 0.58f, h * 0.35f)
-            lineTo(w * 0.58f, h * 0.60f)
-        }
-        drawPath(filament, color = tint, style = Stroke(width = stroke * 0.85f, cap = StrokeCap.Round))
-
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.38f, h * 0.80f),
-            end = Offset(w * 0.62f, h * 0.80f),
-            strokeWidth = stroke * 1.1f,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.42f, h * 0.87f),
-            end = Offset(w * 0.58f, h * 0.87f),
-            strokeWidth = stroke * 1.1f,
-            cap = StrokeCap.Round
-        )
-    }
-}
-
-@Composable
-private fun CloudSyncIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(25.dp)) {
-        val w = size.width
-        val h = size.height
 
         val cloud = Path().apply {
-            moveTo(w * 0.22f, h * 0.75f)
-            lineTo(w * 0.78f, h * 0.75f)
-            cubicTo(w * 0.92f, h * 0.75f, w * 0.95f, h * 0.56f, w * 0.84f, h * 0.48f)
-            cubicTo(w * 0.85f, h * 0.32f, w * 0.72f, h * 0.24f, w * 0.58f, h * 0.28f)
+            moveTo(w * 0.22f, h * 0.74f)
+            lineTo(w * 0.78f, h * 0.74f)
+            cubicTo(w * 0.92f, h * 0.74f, w * 0.94f, h * 0.56f, w * 0.84f, h * 0.48f)
+            cubicTo(w * 0.84f, h * 0.32f, w * 0.72f, h * 0.24f, w * 0.58f, h * 0.28f)
             cubicTo(w * 0.52f, h * 0.18f, w * 0.35f, h * 0.18f, w * 0.28f, h * 0.30f)
             cubicTo(w * 0.15f, h * 0.33f, w * 0.08f, h * 0.46f, w * 0.12f, h * 0.60f)
-            cubicTo(w * 0.09f, h * 0.70f, w * 0.16f, h * 0.75f, w * 0.22f, h * 0.75f)
+            cubicTo(w * 0.09f, h * 0.70f, w * 0.16f, h * 0.74f, w * 0.22f, h * 0.74f)
             close()
         }
-        drawPath(path = cloud, color = tint)
+        drawPath(cloud, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
 
-        val stroke = 2.0.dp.toPx()
-        drawLine(
-            color = Color(0xFF18181D),
-            start = Offset(w * 0.5f, h * 0.70f),
-            end = Offset(w * 0.5f, h * 0.40f),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-        val arrowHead = Path().apply {
-            moveTo(w * 0.38f, h * 0.50f)
-            lineTo(w * 0.50f, h * 0.38f)
-            lineTo(w * 0.62f, h * 0.50f)
+        // Center sync arrow
+        val arrow = Path().apply {
+            moveTo(w * 0.42f, h * 0.50f)
+            lineTo(w * 0.50f, h * 0.42f)
+            lineTo(w * 0.58f, h * 0.50f)
         }
-        drawPath(path = arrowHead, color = Color(0xFF18181D), style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(arrow, color = tint, style = Stroke(width = stroke * 0.9f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawLine(color = tint, start = Offset(w * 0.50f, h * 0.62f), end = Offset(w * 0.50f, h * 0.44f), strokeWidth = stroke * 0.9f, cap = StrokeCap.Round)
     }
 }
 
+// ✈️ WHATSAPP/TELEGRAM-STYLE HOLLOW OUTLINE PAPER AIRPLANE
 @Composable
-private fun RocketLaunchIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(25.dp)) {
+private fun OutlinedPaperAirplaneIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(23.dp)) {
         val w = size.width
         val h = size.height
+        val stroke = 1.8.dp.toPx()
 
-        val rocket = Path().apply {
-            moveTo(w * 0.85f, h * 0.15f)
-            cubicTo(w * 0.68f, h * 0.16f, w * 0.45f, h * 0.30f, w * 0.40f, h * 0.50f)
-            lineTo(w * 0.32f, h * 0.56f)
-            lineTo(w * 0.44f, h * 0.68f)
-            lineTo(w * 0.50f, h * 0.60f)
-            cubicTo(w * 0.70f, h * 0.55f, w * 0.84f, h * 0.32f, w * 0.85f, h * 0.15f)
+        val planeOutline = Path().apply {
+            moveTo(w * 0.15f, h * 0.86f)
+            lineTo(w * 0.88f, h * 0.50f)
+            lineTo(w * 0.15f, h * 0.14f)
+            lineTo(w * 0.32f, h * 0.48f)
             close()
-        }
-        drawPath(path = rocket, color = tint)
-
-        val leftFin = Path().apply {
-            moveTo(w * 0.40f, h * 0.52f)
-            lineTo(w * 0.22f, h * 0.56f)
-            lineTo(w * 0.32f, h * 0.66f)
-            close()
-        }
-        drawPath(path = leftFin, color = tint)
-
-        val rightFin = Path().apply {
-            moveTo(w * 0.52f, h * 0.40f)
-            lineTo(w * 0.56f, h * 0.22f)
-            lineTo(w * 0.66f, h * 0.32f)
-            close()
-        }
-        drawPath(path = rightFin, color = tint)
-
-        drawCircle(color = Color(0xFF18181D), radius = w * 0.055f, center = Offset(w * 0.62f, h * 0.38f))
-
-        val stroke = 1.7.dp.toPx()
-        drawLine(
-            color = tint.copy(alpha = 0.9f),
-            start = Offset(w * 0.32f, h * 0.72f),
-            end = Offset(w * 0.12f, h * 0.92f),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = tint.copy(alpha = 0.65f),
-            start = Offset(w * 0.40f, h * 0.76f),
-            end = Offset(w * 0.26f, h * 0.90f),
-            strokeWidth = stroke * 0.85f,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = tint.copy(alpha = 0.65f),
-            start = Offset(w * 0.26f, h * 0.64f),
-            end = Offset(w * 0.12f, h * 0.78f),
-            strokeWidth = stroke * 0.85f,
-            cap = StrokeCap.Round
-        )
-    }
-}
-
-@Composable
-private fun ChevronIcon(
-    isExpanded: Boolean,
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    val rotation by animateFloatAsState(
-        targetValue = if (isExpanded) 180f else 0f,
-        label = "chevron_rotation"
-    )
-    Canvas(
-        modifier = modifier
-            .size(21.dp)
-            .rotate(rotation)
-    ) {
-        val w = size.width
-        val h = size.height
-        val stroke = 2.6.dp.toPx()
-        val path = Path().apply {
-            moveTo(w * 0.18f, h * 0.38f)
-            lineTo(w * 0.50f, h * 0.68f)
-            lineTo(w * 0.82f, h * 0.38f)
         }
         drawPath(
-            path = path,
+            path = planeOutline,
             color = tint,
-            style = Stroke(
-                width = stroke,
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round
-            )
+            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
-    }
-}
 
-@Composable
-private fun PaperAirplaneIcon(
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    Canvas(modifier = modifier.size(25.dp)) {
-        val scaleX = size.width / 24f
-        val scaleY = size.height / 24f
-        val path = Path().apply {
-            moveTo(2.01f * scaleX, 21f * scaleY)
-            lineTo(23f * scaleX, 12f * scaleY)
-            lineTo(2.01f * scaleX, 3f * scaleY)
-            lineTo(2f * scaleX, 10f * scaleY)
-            lineTo(17f * scaleX, 12f * scaleY)
-            lineTo(2f * scaleX, 14f * scaleY)
-            close()
-        }
-        drawPath(path = path, color = tint)
+        // Middle folding crease line
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.32f, h * 0.48f),
+            end = Offset(w * 0.88f, h * 0.50f),
+            strokeWidth = stroke * 0.85f,
+            cap = StrokeCap.Round
+        )
     }
 }
 
