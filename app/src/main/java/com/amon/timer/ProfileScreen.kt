@@ -1,11 +1,13 @@
 package com.amon.timer
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -27,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -66,7 +69,9 @@ fun ProfileScreen() {
     val updateManager = remember { UpdateManager(context) }
     val currentAppVersion = remember { updateManager.currentVersion }
 
-    var currentUserName by remember { mutableStateOf(userManager.getUserName().ifEmpty { "Vision" }) }
+    // ✏️ Smart Name State: अगर नाम खाली है तो Placeholder दिखाएगा
+    var currentUserName by remember { mutableStateOf(userManager.getUserName().trim()) }
+    val hasCustomName = currentUserName.isNotEmpty()
     var showEditNameDialog by remember { mutableStateOf(false) }
 
     // 📥 सुरक्षित फ़ाइल पिकर: बैकअप JSON फ़ाइल चुनने के लिए
@@ -114,9 +119,25 @@ fun ProfileScreen() {
     val goldColor = ThemeManager.getAccentColor()
     val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
 
-    // User Preferences State
-    var isVibrationEnabled by remember { mutableStateOf(true) }
-    var isKeepScreenAwake by remember { mutableStateOf(false) }
+    // ⚙️ User Preferences Persistent State (हमेशा याद रखने वाली मेमोरी)
+    val prefs = remember { context.getSharedPreferences("amon_user_preferences", Context.MODE_PRIVATE) }
+    var isVibrationEnabled by remember {
+        mutableStateOf(prefs.getBoolean("pref_vibration", true))
+    }
+    var isKeepScreenAwake by remember {
+        mutableStateOf(prefs.getBoolean("pref_keep_screen_awake", false))
+    }
+
+    // 💡 असली Keep Screen Awake कंट्रोलर (स्क्रीन बंद होने से रोकता है)
+    DisposableEffect(isKeepScreenAwake) {
+        val activity = context as? Activity
+        if (isKeepScreenAwake) {
+            activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose { }
+    }
 
     // 🔄 Sync State & Dialog
     var isSyncing by remember { mutableStateOf(false) }
@@ -168,7 +189,7 @@ fun ProfileScreen() {
             modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
         )
 
-        // ----------------- 2. USER PROFILE CARD -----------------
+        // ----------------- 2. USER PROFILE CARD (SMART NAME BOX) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -186,17 +207,26 @@ fun ProfileScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(10.dp))
+                        .then(
+                            if (!hasCustomName) {
+                                Modifier
+                                    .background(goldColor.copy(alpha = 0.08f))
+                                    .border(1.dp, goldColor.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                            } else {
+                                Modifier
+                            }
+                        )
                         .clickable { showEditNameDialog = true }
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     OutlinedPencilIcon(tint = goldColor)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = currentUserName,
-                        color = textMain,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black
+                        text = if (hasCustomName) currentUserName else "Tap to add name",
+                        color = if (hasCustomName) textMain else textMuted,
+                        fontSize = if (hasCustomName) 20.sp else 16.sp,
+                        fontWeight = if (hasCustomName) FontWeight.Black else FontWeight.SemiBold
                     )
                 }
 
@@ -406,7 +436,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 5. PREFERENCES & CONTROLS -----------------
+        // ----------------- 5. PREFERENCES & CONTROLS (REAL KEEP-AWAKE FIX) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -446,7 +476,10 @@ fun ProfileScreen() {
                     Spacer(modifier = Modifier.width(10.dp))
                     Switch(
                         checked = isVibrationEnabled,
-                        onCheckedChange = { isVibrationEnabled = it },
+                        onCheckedChange = { enabled ->
+                            isVibrationEnabled = enabled
+                            prefs.edit().putBoolean("pref_vibration", enabled).apply()
+                        },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.Black,
                             checkedTrackColor = goldColor,
@@ -488,7 +521,10 @@ fun ProfileScreen() {
                     Spacer(modifier = Modifier.width(10.dp))
                     Switch(
                         checked = isKeepScreenAwake,
-                        onCheckedChange = { isKeepScreenAwake = it },
+                        onCheckedChange = { enabled ->
+                            isKeepScreenAwake = enabled
+                            prefs.edit().putBoolean("pref_keep_screen_awake", enabled).apply()
+                        },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.Black,
                             checkedTrackColor = goldColor,
@@ -500,7 +536,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 6. AUTO-SENSING APP UPDATES (CLEAN - NO CHEVRON) -----------------
+        // ----------------- 6. APP UPDATES (PHOTO 2 ROCKET + GRADIENT FLAME) -----------------
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
@@ -659,7 +695,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 7. AMON VAULT (CLEAN - NO CHEVRON) -----------------
+        // ----------------- 7. AMON VAULT (BACKUP & RESTORE) -----------------
         val isVaultExpanded = activeExpandedCard == "vault"
         Box(
             modifier = Modifier
@@ -951,7 +987,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 8. SHARE DIRECT APK (CLEAN - OUTLINED PLANE & NO ARROW) -----------------
+        // ----------------- 8. SHARE DIRECT APK (EXACT CLEAN SUBTEXT) -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -988,7 +1024,7 @@ fun ProfileScreen() {
                         )
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
-                            text = if (isPreparingApkShare) "Preparing Amon_Focus_Timer.apk..." else "Send Amon_Focus_Timer.apk directly to WhatsApp",
+                            text = if (isPreparingApkShare) "Preparing Amon_Focus_Timer.apk..." else "Share the app with your friends",
                             color = textMuted,
                             fontSize = 11.5.sp
                         )
@@ -1015,6 +1051,7 @@ fun ProfileScreen() {
                 OutlinedTextField(
                     value = editInput,
                     onValueChange = { editInput = it },
+                    placeholder = { Text("Enter your name", color = textMuted) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = textMain,
@@ -1028,11 +1065,10 @@ fun ProfileScreen() {
             confirmButton = {
                 Button(
                     onClick = {
-                        if (editInput.trim().isNotEmpty()) {
-                            userManager.setUserName(editInput.trim())
-                            currentUserName = editInput.trim()
-                            showEditNameDialog = false
-                        }
+                        val trimmed = editInput.trim()
+                        userManager.setUserName(trimmed)
+                        currentUserName = trimmed
+                        showEditNameDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = goldColor)
                 ) {
@@ -1127,8 +1163,103 @@ fun ProfileScreen() {
 }
 
 // =============================================================================
-// ✨ 100% PURE WHATSAPP-STYLE OUTLINED VECTOR ICONS (HOLLOW LINE-ART, NO EMOJIS)
+// ✨ 100% PURE VECTOR ICONS (PHOTO 2 ROCKET WITH REAL FIRE GRADIENT)
 // =============================================================================
+
+// 🚀 PHOTO 2 HIGH-SPEED ROCKET WITH PERMANENT RED-ORANGE-YELLOW FIRE GRADIENT
+@Composable
+private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(25.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.8.dp.toPx()
+
+        // 🔥 असली आग का ग्रेडिएंट (हमेशा Yellow -> Orange -> Red रहेगा)
+        val flameBrush = Brush.linearGradient(
+            colors = listOf(
+                Color(0xFFFFEB3B), // Bright Yellow (इंजन के पास)
+                Color(0xFFFF9800), // Vivid Orange (बीच में)
+                Color(0xFFE53935)  // Fiery Red (लपटों के छोर पर)
+            ),
+            start = Offset(w * 0.40f, h * 0.60f),
+            end = Offset(w * 0.05f, h * 0.95f)
+        )
+
+        // 1. आग की 3 तेज़ लपटें (3 Powerful Thrust Tongues)
+        val flamePath = Path().apply {
+            moveTo(w * 0.35f, h * 0.57f)
+            // बायीं लपट
+            cubicTo(w * 0.28f, h * 0.64f, w * 0.20f, h * 0.74f, w * 0.15f, h * 0.84f)
+            lineTo(w * 0.24f, h * 0.72f)
+            // बीच की सबसे लंबी लपट
+            cubicTo(w * 0.18f, h * 0.82f, w * 0.10f, h * 0.92f, w * 0.04f, h * 0.98f)
+            lineTo(w * 0.27f, h * 0.78f)
+            // दायीं लपट
+            cubicTo(w * 0.24f, h * 0.88f, w * 0.22f, h * 0.92f, w * 0.20f, h * 0.96f)
+            cubicTo(w * 0.30f, h * 0.82f, w * 0.36f, h * 0.74f, w * 0.44f, h * 0.66f)
+            close()
+        }
+        drawPath(path = flamePath, brush = flameBrush)
+
+        // 2. रॉकेट की मुख्य बॉडी (थीम के रंग में - Luxe Gold / Theme Accent)
+        val bodyPath = Path().apply {
+            moveTo(w * 0.92f, h * 0.08f) // आगे की नोक
+            // दायाँ घुमाव
+            cubicTo(w * 0.88f, h * 0.28f, w * 0.74f, h * 0.50f, w * 0.52f, h * 0.64f)
+            // निचला नोज़ल बेस
+            lineTo(w * 0.36f, h * 0.48f)
+            // बायाँ घुमाव
+            cubicTo(w * 0.50f, h * 0.26f, w * 0.72f, h * 0.12f, w * 0.92f, h * 0.08f)
+            close()
+        }
+        drawPath(
+            path = bodyPath,
+            color = tint,
+            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
+
+        // 3. बायाँ पंख (Left Wing - Photo 2)
+        val leftFin = Path().apply {
+            moveTo(w * 0.48f, h * 0.32f)
+            cubicTo(w * 0.30f, h * 0.32f, w * 0.18f, h * 0.42f, w * 0.14f, h * 0.56f)
+            cubicTo(w * 0.26f, h * 0.54f, w * 0.34f, h * 0.50f, w * 0.38f, h * 0.48f)
+        }
+        drawPath(
+            path = leftFin,
+            color = tint,
+            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
+
+        // 4. दायाँ पंख (Right Wing - Photo 2)
+        val rightFin = Path().apply {
+            moveTo(w * 0.68f, h * 0.52f)
+            cubicTo(w * 0.68f, h * 0.70f, w * 0.58f, h * 0.82f, w * 0.44f, h * 0.86f)
+            cubicTo(w * 0.46f, h * 0.74f, w * 0.50f, h * 0.66f, w * 0.52f, h * 0.64f)
+        }
+        drawPath(
+            path = rightFin,
+            color = tint,
+            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
+
+        // 5. गोल खिड़की (Porthole - Photo 2)
+        drawCircle(
+            color = tint,
+            radius = w * 0.08f,
+            center = Offset(w * 0.66f, h * 0.34f),
+            style = Stroke(width = stroke * 0.9f)
+        )
+
+        // 6. इंजन नोज़ल रिंग (Separator Line)
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.41f, h * 0.53f),
+            end = Offset(w * 0.47f, h * 0.59f),
+            strokeWidth = stroke * 0.9f,
+            cap = StrokeCap.Round
+        )
+    }
+}
 
 @Composable
 private fun OutlinedPencilIcon(tint: Color, modifier: Modifier = Modifier) {
@@ -1263,29 +1394,6 @@ private fun OutlinedLightbulbIcon(tint: Color, modifier: Modifier = Modifier) {
 
         drawLine(color = tint, start = Offset(w * 0.38f, h * 0.82f), end = Offset(w * 0.62f, h * 0.82f), strokeWidth = stroke, cap = StrokeCap.Round)
         drawLine(color = tint, start = Offset(w * 0.42f, h * 0.89f), end = Offset(w * 0.58f, h * 0.89f), strokeWidth = stroke, cap = StrokeCap.Round)
-    }
-}
-
-@Composable
-private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val w = size.width
-        val h = size.height
-        val stroke = 1.8.dp.toPx()
-
-        val rocket = Path().apply {
-            moveTo(w * 0.84f, h * 0.16f)
-            cubicTo(w * 0.68f, h * 0.18f, w * 0.46f, h * 0.32f, w * 0.42f, h * 0.50f)
-            lineTo(w * 0.32f, h * 0.58f)
-            lineTo(w * 0.42f, h * 0.68f)
-            lineTo(w * 0.50f, h * 0.58f)
-            cubicTo(w * 0.68f, h * 0.54f, w * 0.82f, h * 0.32f, w * 0.84f, h * 0.16f)
-            close()
-        }
-        drawPath(rocket, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
-
-        drawCircle(color = tint, radius = w * 0.045f, center = Offset(w * 0.62f, h * 0.38f), style = Stroke(width = stroke * 0.8f))
-        drawLine(color = tint, start = Offset(w * 0.34f, h * 0.72f), end = Offset(w * 0.18f, h * 0.88f), strokeWidth = stroke, cap = StrokeCap.Round)
     }
 }
 
