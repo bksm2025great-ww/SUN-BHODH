@@ -62,7 +62,8 @@ fun TimerWatchesContainer(
     textMuted: Color,
     isDark: Boolean,
     timeFormatted: String,
-    hours: Int
+    hours: Int,
+    onTogglePlayPause: () -> Unit = {} // 👈 बस यह लाइन जोड़नी है
 ) {
     val context = LocalContext.current
     val watchPrefs = remember {
