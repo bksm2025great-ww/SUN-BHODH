@@ -104,7 +104,7 @@ fun TimerWatchesContainer(
                 }
             }
     ) {
-        // 🎛️ 1. लंबा लक्ज़री वॉच सिलेक्टर बॉक्स (3 डॉट्स की जगह)
+        // 🎛️ स्लीक वॉच सिलेक्टर बॉक्स (ऊपर-नीचे से 2dp और साइडों से 4dp छोटा)
         if (!isRunning) {
             WatchStyleSelectorBox(
                 selectedIndex = selectedWatchStyle,
@@ -115,16 +115,16 @@ fun TimerWatchesContainer(
                 cardBg = cardBg,
                 glassBorder = glassBorder,
                 goldColor = goldColor,
-                textMain = textMain,
                 textMuted = textMuted,
                 isDark = isDark,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 6.dp)
                     .padding(bottom = 12.dp)
             )
         }
 
-        // 🕰️ 2. वॉच ट्रांज़िशन
+        // 🕰️ वॉच स्टाइल स्विचिंग
         AnimatedContent(
             targetState = selectedWatchStyle,
             transitionSpec = {
@@ -194,7 +194,7 @@ fun TimerWatchesContainer(
 }
 
 // =============================================================================
-// 🎛️ WATCH SELECTOR BOX (CANVAS ICONS + WHITE GLOSS SHADOW)
+// 🎛️ WATCH SELECTOR BOX (HEIGHT: 48dp, GAP: 2dp, FONT: 11sp)
 // =============================================================================
 @Composable
 private fun WatchStyleSelectorBox(
@@ -203,7 +203,6 @@ private fun WatchStyleSelectorBox(
     cardBg: Color,
     glassBorder: Color,
     goldColor: Color,
-    textMain: Color,
     textMuted: Color,
     isDark: Boolean,
     modifier: Modifier = Modifier
@@ -211,11 +210,11 @@ private fun WatchStyleSelectorBox(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .height(48.dp)
+            .clip(RoundedCornerShape(14.dp))
             .background(cardBg)
-            .border(1.dp, glassBorder, RoundedCornerShape(16.dp))
-            .padding(horizontal = 6.dp, vertical = 5.dp),
+            .border(1.dp, glassBorder, RoundedCornerShape(14.dp))
+            .padding(horizontal = 4.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -240,17 +239,17 @@ private fun WatchStyleSelectorBox(
                             if (isSelected) {
                                 Modifier
                                     .shadow(
-                                        elevation = 8.dp,
-                                        shape = RoundedCornerShape(12.dp),
+                                        elevation = 6.dp,
+                                        shape = RoundedCornerShape(10.dp),
                                         spotColor = Color.White.copy(alpha = 0.55f),
                                         ambientColor = Color.White.copy(alpha = 0.35f)
                                     )
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(RoundedCornerShape(10.dp))
                                     .background(if (isDark) Color(0xFF1E1E26) else Color(0xFFFFFFFF))
-                                    .border(1.2.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+                                    .border(1.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
                             } else {
                                 Modifier
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(RoundedCornerShape(10.dp))
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null
@@ -261,19 +260,17 @@ private fun WatchStyleSelectorBox(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier.padding(horizontal = 2.dp)
                     ) {
                         when (index) {
                             0 -> MinimalLuxeRingIcon(
-                                isSelected = isSelected,
                                 tint = if (isSelected) goldColor else textMuted
                             )
                             1 -> VintageTechRotaryIcon(
-                                isSelected = isSelected,
                                 tint = if (isSelected) goldColor else textMuted
                             )
                             2 -> VintageTechFlipIcon(
-                                isSelected = isSelected,
                                 tint = if (isSelected) goldColor else textMuted
                             )
                         }
@@ -282,7 +279,8 @@ private fun WatchStyleSelectorBox(
                             text = name,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
-                            color = if (isSelected) (if (isDark) Color.White else Color(0xFF0F172A)) else textMuted
+                            color = if (isSelected) (if (isDark) Color.White else Color(0xFF0F172A)) else textMuted,
+                            letterSpacing = (-0.2).sp
                         )
                     }
                 }
@@ -292,15 +290,15 @@ private fun WatchStyleSelectorBox(
 }
 
 // =============================================================================
-// 🎨 PURE CANVAS VECTOR ICONS (NO PNG, NO EMOJIS)
+// 🎨 PURE CANVAS VECTOR ICONS (SIZE: 18dp × 18dp)
 // =============================================================================
 @Composable
-private fun MinimalLuxeRingIcon(isSelected: Boolean, tint: Color) {
-    Canvas(modifier = Modifier.size(20.dp)) {
+private fun MinimalLuxeRingIcon(tint: Color) {
+    Canvas(modifier = Modifier.size(18.dp)) {
         val w = size.width
         val h = size.height
         val center = Offset(w / 2f, h / 2f)
-        val stroke = 1.6.dp.toPx()
+        val stroke = 1.4.dp.toPx()
         val r = w * 0.44f
 
         drawCircle(color = tint, radius = r, center = center, style = Stroke(width = stroke))
@@ -313,17 +311,17 @@ private fun MinimalLuxeRingIcon(isSelected: Boolean, tint: Color) {
 
         drawLine(tint, center, Offset(center.x - w * 0.14f, center.y - h * 0.14f), stroke * 1.1f, StrokeCap.Round)
         drawLine(tint, center, Offset(center.x + w * 0.20f, center.y - h * 0.08f), stroke * 0.9f, StrokeCap.Round)
-        drawCircle(tint, radius = 1.3.dp.toPx(), center = center)
+        drawCircle(tint, radius = 1.2.dp.toPx(), center = center)
     }
 }
 
 @Composable
-private fun VintageTechRotaryIcon(isSelected: Boolean, tint: Color) {
-    Canvas(modifier = Modifier.size(20.dp)) {
+private fun VintageTechRotaryIcon(tint: Color) {
+    Canvas(modifier = Modifier.size(18.dp)) {
         val w = size.width
         val h = size.height
         val center = Offset(w / 2f, h / 2f)
-        val stroke = 1.4.dp.toPx()
+        val stroke = 1.3.dp.toPx()
 
         drawCircle(color = tint, radius = w * 0.45f, center = center, style = Stroke(width = stroke))
         drawCircle(color = tint, radius = w * 0.16f, center = center, style = Stroke(width = stroke * 0.9f))
@@ -334,7 +332,7 @@ private fun VintageTechRotaryIcon(isSelected: Boolean, tint: Color) {
             val angle = Math.toRadians((i * 40.0) - 140.0)
             val hx = center.x + (orbitRadius * cos(angle)).toFloat()
             val hy = center.y + (orbitRadius * sin(angle)).toFloat()
-            drawCircle(color = tint, radius = holeRadius, center = Offset(hx, hy), style = Stroke(width = 1.1.dp.toPx()))
+            drawCircle(color = tint, radius = holeRadius, center = Offset(hx, hy), style = Stroke(width = 1.0.dp.toPx()))
         }
 
         val stopAngle = Math.toRadians(55.0)
@@ -342,16 +340,16 @@ private fun VintageTechRotaryIcon(isSelected: Boolean, tint: Color) {
         val sy1 = center.y + (w * 0.22f * sin(stopAngle)).toFloat()
         val sx2 = center.x + (w * 0.45f * cos(stopAngle)).toFloat()
         val sy2 = center.y + (w * 0.45f * sin(stopAngle)).toFloat()
-        drawLine(tint, Offset(sx1, sy1), Offset(sx2, sy2), stroke * 1.4f, StrokeCap.Round)
+        drawLine(tint, Offset(sx1, sy1), Offset(sx2, sy2), stroke * 1.3f, StrokeCap.Round)
     }
 }
 
 @Composable
-private fun VintageTechFlipIcon(isSelected: Boolean, tint: Color) {
-    Canvas(modifier = Modifier.size(20.dp)) {
+private fun VintageTechFlipIcon(tint: Color) {
+    Canvas(modifier = Modifier.size(18.dp)) {
         val w = size.width
         val h = size.height
-        val stroke = 1.3.dp.toPx()
+        val stroke = 1.2.dp.toPx()
         val cardWidth = w * 0.38f
         val cardHeight = h * 0.68f
         val topY = h * 0.16f
@@ -360,14 +358,14 @@ private fun VintageTechFlipIcon(isSelected: Boolean, tint: Color) {
             color = tint,
             topLeft = Offset(w * 0.10f, topY),
             size = Size(cardWidth, cardHeight),
-            cornerRadius = CornerRadius(2.5.dp.toPx(), 2.5.dp.toPx()),
+            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()),
             style = Stroke(width = stroke)
         )
         drawRoundRect(
             color = tint,
             topLeft = Offset(w * 0.52f, topY),
             size = Size(cardWidth, cardHeight),
-            cornerRadius = CornerRadius(2.5.dp.toPx(), 2.5.dp.toPx()),
+            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()),
             style = Stroke(width = stroke)
         )
 
@@ -375,8 +373,8 @@ private fun VintageTechFlipIcon(isSelected: Boolean, tint: Color) {
         drawLine(tint, Offset(w * 0.08f, midY), Offset(w * 0.48f, midY), stroke * 0.9f)
         drawLine(tint, Offset(w * 0.52f, midY), Offset(w * 0.92f, midY), stroke * 0.9f)
 
-        drawCircle(tint, radius = 1.4.dp.toPx(), center = Offset(w * 0.05f, midY))
-        drawCircle(tint, radius = 1.4.dp.toPx(), center = Offset(w * 0.95f, midY))
+        drawCircle(tint, radius = 1.3.dp.toPx(), center = Offset(w * 0.05f, midY))
+        drawCircle(tint, radius = 1.3.dp.toPx(), center = Offset(w * 0.95f, midY))
     }
 }
 
@@ -539,7 +537,7 @@ private fun ClassicRingWatch(
 }
 
 // =============================================================================
-// 🎛 WATCH STYLE 2: ROTARY DIAL (Silent & Smooth)
+// 🎛 WATCH STYLE 2: ROTARY DIAL
 // =============================================================================
 @Composable
 private fun RotaryDialWatch(
@@ -729,7 +727,7 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: RETRO FLIP CLOCK (TAP-TO-TYPE SYSTEM)
+// 📜 WATCH STYLE 3: RETRO FLIP CLOCK
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
@@ -784,7 +782,6 @@ private fun RetroFlipClockWatch(
                 showTimeInputDialog = true
             }
         ) {
-            // 👆 MINUTES CARD
             AuthenticSplitFlapCard(
                 digit = minStr,
                 cardWidth = animatedWidth,
@@ -792,7 +789,6 @@ private fun RetroFlipClockWatch(
                 fontSizeSp = minFontSize
             )
 
-            // ⏱ SECONDS CARD
             AuthenticSplitFlapCard(
                 digit = secStr,
                 cardWidth = animatedWidth,
@@ -831,7 +827,6 @@ private fun RetroFlipClockWatch(
                     }
                 }
 
-                // ⌨️ TAP TO TYPE BUTTON
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -853,7 +848,6 @@ private fun RetroFlipClockWatch(
         }
     }
 
-    // ⌨️ TAP-TO-TYPE CUSTOM TIME DIALOG
     if (showTimeInputDialog) {
         var inputMins by remember { mutableStateOf((dialMinutes.toInt()).toString()) }
 
@@ -910,7 +904,6 @@ private fun RetroFlipClockWatch(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Preset Quick Chips inside Dialog
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -971,7 +964,7 @@ private fun RetroFlipClockWatch(
 }
 
 /**
- * 🎴 ASLI MECHANICAL SPLIT-FLAP COMPONENT (Top & Bottom Half Alignment Engine)
+ * 🎴 ASLI MECHANICAL SPLIT-FLAP COMPONENT
  */
 @Composable
 private fun AuthenticSplitFlapCard(
@@ -1128,7 +1121,7 @@ private fun SplitFlapHalfPlate(
 }
 
 // =============================================================================
-// 🌟 CUSTOM HORIZONTAL SLIDER (White Stick + Hardware Shadow)
+// 🌟 CUSTOM HORIZONTAL SLIDER (REDUCED VERTICAL PADDING: 14dp)
 // =============================================================================
 @Composable
 private fun CustomHorizontalSlider(
@@ -1154,13 +1147,14 @@ private fun CustomHorizontalSlider(
         }
     }
 
+    // 📦 ऊपर और नीचे से 2-2 dp कम किया गया पैडिंग (16dp -> 14dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(cardBg)
             .border(1.4.dp, goldColor, RoundedCornerShape(16.dp))
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -1172,7 +1166,7 @@ private fun CustomHorizontalSlider(
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Black
             )
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Box(
                 contentAlignment = Alignment.Center,
@@ -1260,7 +1254,7 @@ private fun CustomHorizontalSlider(
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(5.dp))
             Text(
                 text = "Focus >",
                 color = textMuted,
