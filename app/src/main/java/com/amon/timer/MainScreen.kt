@@ -83,7 +83,7 @@ fun MainScreen() {
         mutableStateOf(lastSeenVersion != currentVersion)
     }
 
-    // 🔙 बैक गेस्चर: किसी भी टैब से बैक करने पर होम (टाइमर) पर लौटेगा
+    // 🔙 बैक गेस्चर
     BackHandler(enabled = currentNavIndex != 0 && !isRunning) {
         currentNavIndex = 0
     }
@@ -134,7 +134,7 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🟢 1. HOME TAB (TIMER, SMART SUBJECTS & MUSIC-PLAYER CONTROLS)
+// 🟢 1. HOME TAB (TIMER, DYNAMIC SUBJECTS & MUSIC-PLAYER CONTROLS)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
@@ -154,18 +154,26 @@ fun HomeTimerTab(
     var showGiveUpDialog by remember { mutableStateOf(false) }
     var newSubjectInput by remember { mutableStateOf("") }
 
-    // ⏸️ स्थानीय पॉज़ स्थिति (स्क्रीन पर बने रहने के लिए)
+    // ⏸️ स्थानीय पॉज़ स्थिति
     var isPaused by rememberSaveable { mutableStateOf(false) }
     val isFocusActive = isRunning || isPaused
 
     val subjectPrefs = remember {
         context.getSharedPreferences("amon_subject_prefs", Context.MODE_PRIVATE)
     }
+
+    // 🌟 शुरुआत में डिफ़ॉल्ट सब्जेक्ट्स स्क्रीन पर न दिखें (केवल + Add और All दिखें)
     var hiddenSubjects by remember {
-        mutableStateOf(subjectPrefs.getStringSet("hidden_subjects", emptySet())?.toSet() ?: emptySet())
+        val saved = subjectPrefs.getStringSet("hidden_subjects", null)
+        if (saved == null) {
+            val initialHidden = SubjectManager.getUserSubjects(context).toSet()
+            subjectPrefs.edit().putStringSet("hidden_subjects", initialHidden).apply()
+            mutableStateOf(initialHidden)
+        } else {
+            mutableStateOf(saved)
+        }
     }
 
-    // ⌚ वर्तमान में चुनी गई घड़ी की शैली ट्रैक करना
     val watchPrefs = remember {
         context.getSharedPreferences("amon_watch_prefs", Context.MODE_PRIVATE)
     }
@@ -194,7 +202,6 @@ fun HomeTimerTab(
     }
 
     LaunchedEffect(Unit) {
-        // पुराने डिफ़ॉल्ट सब्जेक्ट्स हटाकर केवल यूज़र द्वारा जोड़े गए नए सब्जेक्ट्स रखेंगे
         userSubjects = SubjectManager.getUserSubjects(context)
     }
 
@@ -332,7 +339,7 @@ fun HomeTimerTab(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // ----------------- DYNAMIC SUBJECT RIBBON (+ ADD & ALL ONLY) -----------------
+            // ----------------- DYNAMIC SUBJECT RIBBON -----------------
             if (!isFocusActive) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -348,7 +355,7 @@ fun HomeTimerTab(
                             verticalAlignment = Alignment.CenterVertically,
                             contentPadding = PaddingValues(horizontal = 2.dp)
                         ) {
-                            // 1. + Add Box
+                            // 1. + Add Button
                             item {
                                 Box(
                                     contentAlignment = Alignment.Center,
@@ -367,7 +374,7 @@ fun HomeTimerTab(
                                 }
                             }
 
-                            // 2. All Box
+                            // 2. All Button
                             item {
                                 val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
                                 Box(
@@ -388,7 +395,7 @@ fun HomeTimerTab(
                                 }
                             }
 
-                            // 3. User Added Custom Subjects Only
+                            // 3. केवल वे सब्जेक्ट्स जो सेलेक्ट हैं (अनसेलेक्टेड स्क्रीन पर नहीं दिखेंगे)
                             items(activeSortedSubjects) { subj ->
                                 val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
                                 Box(
@@ -416,7 +423,7 @@ fun HomeTimerTab(
                     }
                 }
             } else {
-                // फ़ोकस स्क्रीन पर क्लासी एक्टिव सब्जेक्ट पिल
+                // फ़ोकस स्क्रीन पर एक्टिव सब्जेक्ट पिल
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -442,7 +449,7 @@ fun HomeTimerTab(
                 }
             }
 
-            // ----------------- 🕰️ CENTRAL WATCH CONTAINER -----------------
+            // ----------------- 🕰 CENTRAL WATCH CONTAINER -----------------
             TimerWatchesContainer(
                 dialMinutes = dialMinutes,
                 onDialMinutesChange = { nextMins ->
@@ -537,16 +544,14 @@ fun HomeTimerTab(
                                 .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
                                 .clickable {
                                     if (isRunning) {
-                                        // पॉज़ करना: सर्विस रोकेंगे पर टाइम यहीं फ्रीज़ रहेगा
                                         val intent = Intent(context, TimerService::class.java).apply {
-                                            action = TimerService.ACTION_STOP
+                                            action = "com.amon.timer.PAUSE"
                                         }
                                         context.startService(intent)
                                         isPaused = true
                                     } else {
-                                        // रिज़्यूम करना: बचे हुए सेकंड्स से आगे बढ़ेगा
                                         val intent = Intent(context, TimerService::class.java).apply {
-                                            action = TimerService.ACTION_START
+                                            action = "com.amon.timer.RESUME"
                                             putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
                                             putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
                                         }
@@ -560,13 +565,11 @@ fun HomeTimerTab(
                                 }
                         ) {
                             if (isRunning) {
-                                // ⏸️ पॉज़ आइकॉन (2 खड़ी पट्टियाँ)
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Box(modifier = Modifier.width(3.2.dp).height(16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
                                     Box(modifier = Modifier.width(3.2.dp).height(16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
                                 }
                             } else {
-                                // ▶ प्ले आइकॉन
                                 Text(
                                     text = "▶",
                                     color = textMain,
@@ -577,7 +580,7 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // 2. स्टॉप बटन (■ Square) - शांत न्यूट्रल शेड
+                        // 2. स्टॉप बटन (■ Square)
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -598,7 +601,7 @@ fun HomeTimerTab(
                         }
                     }
 
-                    // 💤 पॉज़ होने पर शांत और हल्का PAUSED टेक्स्ट
+                    // 💤 हल्का PAUSED टेक्स्ट
                     if (isPaused) {
                         Text(
                             text = "PAUSED",
@@ -728,7 +731,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎨 POPUP DIALOG (MANAGE SUBJECTS - AUTO CAPITALIZE 1ST LETTER)
+        // 🎨 POPUP DIALOG (MANAGE SUBJECTS - SELECT/UNSELECT GRID 100% RESTORED)
         // =====================================================================
         if (showAddDialog) {
             Dialog(onDismissRequest = {
@@ -740,7 +743,7 @@ fun HomeTimerTab(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(24.dp))
                         .background(cardBg)
-                        .border(1.2.dp, glassBorder, RoundedCornerShape(24.dp))
+                        .border(1.5.dp, goldColor, RoundedCornerShape(24.dp))
                         .padding(20.dp)
                 ) {
                     Column(
@@ -748,20 +751,87 @@ fun HomeTimerTab(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "Add New Subject",
-                            color = textMain,
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Black
+                            text = "Manage Subjects",
+                            color = goldColor,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Type subject name below",
+                            text = "Tap to Show (Gold) or Hide (Plain)",
                             color = textMuted,
-                            fontSize = 12.5.sp
+                            fontSize = 13.sp
                         )
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        // 🌟 3-3 ग्रिड: सेलेक्ट और अनसेलेक्ट (टॉगल) सिस्टम
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 180.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            userSubjects.chunked(3).forEach { rowItems ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowItems.forEach { subj ->
+                                        val isHidden = subj in hiddenSubjects
+                                        val chipBg = if (!isHidden) {
+                                            goldColor.copy(alpha = 0.22f)
+                                        } else {
+                                            if (isDark) Color(0xFF222228) else Color(0xFFF1F5F9)
+                                        }
 
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(chipBg)
+                                                .border(
+                                                    1.2.dp,
+                                                    if (!isHidden) goldColor else glassBorder,
+                                                    RoundedCornerShape(12.dp)
+                                                )
+                                                .clickable {
+                                                    val newHidden = if (isHidden) {
+                                                        hiddenSubjects - subj
+                                                    } else {
+                                                        hiddenSubjects + subj
+                                                    }
+                                                    hiddenSubjects = newHidden
+                                                    subjectPrefs.edit()
+                                                        .putStringSet("hidden_subjects", newHidden)
+                                                        .apply()
+
+                                                    if (!isHidden && selectedSubjectName.equals(subj, ignoreCase = true)) {
+                                                        selectedSubjectName = "All"
+                                                    }
+                                                }
+                                                .padding(vertical = 10.dp, horizontal = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (!isHidden) "● $subj" else "○ $subj",
+                                                color = if (!isHidden) goldColor else (if (isDark) textMuted else Color(0xFF475569)),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                    repeat(3 - rowItems.size) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // 🔤 नया सब्जेक्ट बॉक्स: पहला अक्षर अपने-आप बड़ा (Titlecase)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -774,13 +844,12 @@ fun HomeTimerTab(
                             OutlinedTextField(
                                 value = newSubjectInput,
                                 onValueChange = { input ->
-                                    // 🔤 पहला अक्षर ऑटोमैटिक कैपिटल (Titlecase)
                                     newSubjectInput = input.replaceFirstChar {
                                         if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
                                     }
                                 },
                                 placeholder = {
-                                    Text("Type subject (e.g. Physics)...", color = textMuted, fontSize = 13.sp)
+                                    Text("Type new subject...", color = textMuted, fontSize = 13.sp)
                                 },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
@@ -831,13 +900,17 @@ fun HomeTimerTab(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        TextButton(
+                        Button(
                             onClick = {
                                 showAddDialog = false
                                 newSubjectInput = ""
-                            }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isDark) Color(0xFF2A2A32) else Color(0xFF0F172A)
+                            ),
+                            shape = RoundedCornerShape(50)
                         ) {
-                            Text("Cancel", color = textMuted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Done", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -882,7 +955,7 @@ fun HomeTimerTab(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // शांत डार्क/ग्रे एंड सेशन बटन (लाल रंग हटा दिया)
+                            // शांत न्यूट्रल एंड सेशन बटन (कोई लाल रंग नहीं)
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
