@@ -406,7 +406,7 @@ fun HomeTimerTab(
                     }
                 }
             } else {
-                // 🌟 मिनिमल और क्लासी सब्जेक्ट पिल (पीला बॉर्डर और 🎯 हटाकर साफ़ हरा डॉट)
+                // 🌟 मिनिमल और क्लासी सब्जेक्ट पिल
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -454,28 +454,7 @@ fun HomeTimerTab(
                 textMuted = textMuted,
                 isDark = isDark,
                 timeFormatted = timeFormatted,
-                hours = hours,
-                onTogglePlayPause = {
-                    if (isRunning) {
-                        // ⏸️ स्क्रीन टैप पर पॉज़: सर्विस रोकी जाएगी बिना सेकंड्स रीसेट किए
-                        val intent = Intent(context, TimerService::class.java).apply {
-                            action = TimerService.ACTION_STOP
-                        }
-                        context.startService(intent)
-                    } else {
-                        // ▶️ दोबारा टैप पर उसी सेकंड से रिज़्यूम
-                        val intent = Intent(context, TimerService::class.java)
-                        initialTotalSeconds = if (totalSeconds > 0) totalSeconds else (dialMinutes.toInt() * 60)
-                        intent.action = TimerService.ACTION_START
-                        intent.putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
-                        intent.putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            context.startForegroundService(intent)
-                        } else {
-                            context.startService(intent)
-                        }
-                    }
-                }
+                hours = hours
             )
 
             // ----------------- ACTION BUTTONS -----------------
@@ -1301,7 +1280,7 @@ private fun calculateStreakDays(sessions: List<FocusSession>): Int {
     val dayMinutesMap = mutableMapOf<String, Int>()
     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     val formats = listOf(
-        SimpleDataFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
         SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
