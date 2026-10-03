@@ -11,7 +11,7 @@ object ThemeManager {
     private const val KEY_THEME = "selected_theme"
     private const val KEY_MODE = "selected_mode"
 
-    // 🟡 1. Accent Color State (Classic Yellow ya Luxe Gold)
+    // 🟡 1. Accent Color State (Default Luxe Gold)
     val currentTheme = mutableStateOf("Luxe Gold")
 
     // 🌓 2. App Mode State (Dark ya Light)
@@ -33,7 +33,7 @@ object ThemeManager {
         isDarkTheme.value = (savedMode != "Light")
     }
 
-    // 🟡 2. Accent Color (Yellow / Gold) save karna
+    // 🟡 2. Accent Color save karna
     fun saveTheme(context: Context, themeName: String) {
         val prefs = getPrefs(context)
         prefs.edit().putString(KEY_THEME, themeName).apply()
@@ -48,16 +48,18 @@ object ThemeManager {
         isDarkTheme.value = (modeName != "Light")
     }
 
-    // 🎨 4. Current Accent Color nikaalne ka helper
+    // 🎨 4. Current Accent Color nikaalne ka helper (Ab 5 Colors Support Karta Hai)
     fun getAccentColor(): Color {
-        return if (currentTheme.value == "Classic Yellow") {
-            Color(0xFFF5A524) // Classic Yellow
-        } else {
-            Color(0xFFF3C669) // Royal Luxe Gold
+        return when (currentTheme.value) {
+            "Classic Yellow"  -> Color(0xFFF5A524)
+            "Neon Rose"       -> Color(0xFFFF66CC)
+            "Electric Violet" -> Color(0xFFBF00FF)
+            "Blaze Orange"    -> Color(0xFFFF3800)
+            else              -> Color(0xFFF3C669) // Luxe Gold (Default)
         }
     }
 
-    // 🟢 नया जोड़ा गया: पूरी स्क्रीन का बैकग्राउंड रंग
+    // 🟢 पूरी स्क्रीन का बैकग्राउंड रंग
     fun getBackgroundColor(): Color {
         return if (isDarkTheme.value) {
             Color(0xFF121214) // Deep Dark
@@ -66,7 +68,7 @@ object ThemeManager {
         }
     }
 
-    // 🟢 नया जोड़ा गया: कार्ड्स और डिब्बों का बैकग्राउंड रंग
+    // 🟢 कार्ड्स और डिब्बों का बैकग्राउंड रंग
     fun getCardColor(): Color {
         return if (isDarkTheme.value) {
             Color(0xFF1E1E22) // Dark Card
@@ -75,7 +77,7 @@ object ThemeManager {
         }
     }
 
-    // 🟢 नया जोड़ा गया: मुख्य लिखावट (Text) का रंग
+    // 🟢 मुख्य लिखावट (Text) का रंग
     fun getTextColor(): Color {
         return if (isDarkTheme.value) {
             Color(0xFFFFFFFF) // सफ़ेद लिखावट
@@ -84,7 +86,7 @@ object ThemeManager {
         }
     }
 
-    // 🟢 नया जोड़ा गया: हल्की लिखावट (Sub-text / Muted) का रंग
+    // 🟢 हल्की लिखावट (Sub-text / Muted) का रंग
     fun getTextMutedColor(): Color {
         return if (isDarkTheme.value) {
             Color(0xFFA0A0A5) // Light gray
