@@ -189,7 +189,7 @@ fun ProfileScreen() {
             modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
         )
 
-        // ----------------- 2. USER PROFILE CARD (SMART NAME BOX) -----------------
+        // ----------------- 2. USER PROFILE CARD -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -236,7 +236,7 @@ fun ProfileScreen() {
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
-                        .background(goldColor.copy(alpha = 0.18f))
+                        .background(goldColor.copy(alpha = 0.15f))
                         .border(1.2.dp, goldColor.copy(alpha = 0.6f), RoundedCornerShape(50))
                         .padding(horizontal = 14.dp, vertical = 5.dp)
                 ) {
@@ -275,7 +275,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 4. EXPANDABLE: APPEARANCE & THEMES (7 SOFT EYE-FRIENDLY TILES) -----------------
+        // ----------------- 4. EXPANDABLE: APPEARANCE & THEMES -----------------
         val isThemeExpanded = activeExpandedCard == "theme"
         Box(
             modifier = Modifier
@@ -340,7 +340,13 @@ fun ProfileScreen() {
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isSelected) (if (isDark) Color(0x33F5A524) else Color(0x22D97706)) else Color(0x11FFFFFF))
+                                    .background(
+                                        if (isSelected) {
+                                            goldColor.copy(alpha = 0.15f) // ✨ 15% Soft Eye-Comfort Tint
+                                        } else {
+                                            if (isDark) Color(0x11FFFFFF) else Color(0x06000000)
+                                        }
+                                    )
                                     .border(
                                         width = if (isSelected) 1.5.dp else 1.dp,
                                         color = if (isSelected) goldColor else cardBorder,
@@ -371,7 +377,7 @@ fun ProfileScreen() {
                     )
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // 🎨 SCREENSHOT STYLE: 7 EYE-FRIENDLY COLOR TILES (4 on Row 1, 3 on Row 2)
+                    // 🎨 SCREENSHOT STYLE: 7 EYE-FRIENDLY COLOR TILES
                     val accentThemes = listOf(
                         Triple("Luxe Gold", Color(0xFFF3C669), Color(0xFF18181B)),
                         Triple("Classic Yellow", Color(0xFFF5A524), Color(0xFF18181B)),
@@ -417,7 +423,6 @@ fun ProfileScreen() {
                                         }
                                     }
                                 }
-                                // Second row me 3 items hain toh 4th slot ko align rakhne ke liye spacer
                                 if (rowItems.size < 4) {
                                     repeat(4 - rowItems.size) {
                                         Spacer(modifier = Modifier.weight(1f))
@@ -430,7 +435,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 5. PREFERENCES & CONTROLS (REAL KEEP-AWAKE FIX) -----------------
+        // ----------------- 5. PREFERENCES & CONTROLS -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -530,7 +535,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 6. APP UPDATES (PHOTO 2 ROCKET + PERMANENT FIRE GRADIENT) -----------------
+        // ----------------- 6. APP UPDATES -----------------
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
@@ -689,7 +694,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 7. AMON VAULT (BACKUP & RESTORE) -----------------
+        // ----------------- 7. AMON VAULT -----------------
         val isVaultExpanded = activeExpandedCard == "vault"
         Box(
             modifier = Modifier
@@ -926,7 +931,7 @@ fun ProfileScreen() {
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
-                                .background(if (isDark) Color(0x33F5A524) else Color(0x22D97706))
+                                .background(goldColor.copy(alpha = 0.15f))
                                 .border(1.dp, goldColor, RoundedCornerShape(50))
                                 .clickable(enabled = !isSyncing) {
                                     coroutineScope.launch {
@@ -981,7 +986,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 8. SHARE DIRECT APK (EXACT TEXT) -----------------
+        // ----------------- 8. SHARE DIRECT APK -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1167,18 +1172,16 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
         val h = size.height
         val stroke = 1.8.dp.toPx()
 
-        // 🔥 Asli aag ka gradient (Yellow -> Orange -> Red)
         val flameBrush = Brush.linearGradient(
             colors = listOf(
-                Color(0xFFFFEB3B), // Bright Yellow
-                Color(0xFFFF9800), // Vivid Orange
-                Color(0xFFE53935)  // Fiery Red
+                Color(0xFFFFEB3B),
+                Color(0xFFFF9800),
+                Color(0xFFE53935)
             ),
             start = Offset(w * 0.40f, h * 0.60f),
             end = Offset(w * 0.05f, h * 0.95f)
         )
 
-        // 1. Aag ki 3 tez lapte
         val flamePath = Path().apply {
             moveTo(w * 0.35f, h * 0.57f)
             cubicTo(w * 0.28f, h * 0.64f, w * 0.20f, h * 0.74f, w * 0.15f, h * 0.84f)
@@ -1191,7 +1194,6 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
         }
         drawPath(path = flamePath, brush = flameBrush)
 
-        // 2. Rocket main body
         val bodyPath = Path().apply {
             moveTo(w * 0.92f, h * 0.08f)
             cubicTo(w * 0.88f, h * 0.28f, w * 0.74f, h * 0.50f, w * 0.52f, h * 0.64f)
@@ -1205,7 +1207,6 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
             style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
 
-        // 3. Left wing
         val leftFin = Path().apply {
             moveTo(w * 0.48f, h * 0.32f)
             cubicTo(w * 0.30f, h * 0.32f, w * 0.18f, h * 0.42f, w * 0.14f, h * 0.56f)
@@ -1217,7 +1218,6 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
             style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
 
-        // 4. Right wing
         val rightFin = Path().apply {
             moveTo(w * 0.68f, h * 0.52f)
             cubicTo(w * 0.68f, h * 0.70f, w * 0.58f, h * 0.82f, w * 0.44f, h * 0.86f)
@@ -1229,7 +1229,6 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
             style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
 
-        // 5. Porthole
         drawCircle(
             color = tint,
             radius = w * 0.08f,
@@ -1237,7 +1236,6 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
             style = Stroke(width = stroke * 0.9f)
         )
 
-        // 6. Nozzle ring line
         drawLine(
             color = tint,
             start = Offset(w * 0.41f, h * 0.53f),
