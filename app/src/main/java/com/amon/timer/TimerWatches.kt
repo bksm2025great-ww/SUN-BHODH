@@ -104,7 +104,7 @@ fun TimerWatchesContainer(
                 }
             }
     ) {
-        // 🎛️ स्लीक वॉच सिलेक्टर बॉक्स (ऊपर-नीचे से 2dp और साइडों से 4dp छोटा)
+        // 🎛️️ स्लीक वॉच सिलेक्टर बॉक्स
         if (!isRunning) {
             WatchStyleSelectorBox(
                 selectedIndex = selectedWatchStyle,
@@ -194,7 +194,7 @@ fun TimerWatchesContainer(
 }
 
 // =============================================================================
-// 🎛️ WATCH SELECTOR BOX (HEIGHT: 48dp, GAP: 2dp, FONT: 11sp)
+// 🎛️ WATCH SELECTOR BOX
 // =============================================================================
 @Composable
 private fun WatchStyleSelectorBox(
@@ -241,12 +241,12 @@ private fun WatchStyleSelectorBox(
                                     .shadow(
                                         elevation = 6.dp,
                                         shape = RoundedCornerShape(10.dp),
-                                        spotColor = Color.White.copy(alpha = 0.55f),
-                                        ambientColor = Color.White.copy(alpha = 0.35f)
+                                        spotColor = if (isDark) Color.White.copy(alpha = 0.55f) else Color(0x33000000),
+                                        ambientColor = if (isDark) Color.White.copy(alpha = 0.35f) else Color(0x22000000)
                                     )
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(if (isDark) Color(0xFF1E1E26) else Color(0xFFFFFFFF))
-                                    .border(1.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+                                    .border(1.dp, if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFFCBD5E1), RoundedCornerShape(10.dp))
                             } else {
                                 Modifier
                                     .clip(RoundedCornerShape(10.dp))
@@ -264,15 +264,9 @@ private fun WatchStyleSelectorBox(
                         modifier = Modifier.padding(horizontal = 2.dp)
                     ) {
                         when (index) {
-                            0 -> MinimalLuxeRingIcon(
-                                tint = if (isSelected) goldColor else textMuted
-                            )
-                            1 -> VintageTechRotaryIcon(
-                                tint = if (isSelected) goldColor else textMuted
-                            )
-                            2 -> VintageTechFlipIcon(
-                                tint = if (isSelected) goldColor else textMuted
-                            )
+                            0 -> MinimalLuxeRingIcon(tint = if (isSelected) goldColor else textMuted)
+                            1 -> VintageTechRotaryIcon(tint = if (isSelected) goldColor else textMuted)
+                            2 -> VintageTechFlipIcon(tint = if (isSelected) goldColor else textMuted)
                         }
 
                         Text(
@@ -290,7 +284,7 @@ private fun WatchStyleSelectorBox(
 }
 
 // =============================================================================
-// 🎨 PURE CANVAS VECTOR ICONS (SIZE: 18dp × 18dp)
+// 🎨 PURE CANVAS VECTOR ICONS
 // =============================================================================
 @Composable
 private fun MinimalLuxeRingIcon(tint: Color) {
@@ -379,7 +373,7 @@ private fun VintageTechFlipIcon(tint: Color) {
 }
 
 // =============================================================================
-// ⏱️ WATCH STYLE 1: CLASSIC LUXE RING
+// ⏱️️ WATCH STYLE 1: CLASSIC LUXE RING
 // =============================================================================
 @Composable
 private fun ClassicRingWatch(
@@ -634,7 +628,7 @@ private fun RotaryDialWatch(
                         useCenter = false,
                         topLeft = Offset(center.x - radius, center.y - radius),
                         size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 5.5.dp.toPx(), cap = StrokeCap.Round)
                     )
 
                     val knobAngleRad = (sweep - 90f) * (PI.toFloat() / 180f)
@@ -727,7 +721,7 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: RETRO FLIP CLOCK
+// 📜 WATCH STYLE 3: RETRO FLIP CLOCK (SMART AUTO SWITCH & LIGHT THEME FIX)
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
@@ -743,10 +737,20 @@ private fun RetroFlipClockWatch(
     textMuted: Color,
     isDark: Boolean
 ) {
-    val mins = totalSeconds / 60
-    val secs = totalSeconds % 60
-    val minStr = String.format("%02d", mins)
-    val secStr = String.format("%02d", secs)
+    // ⏱️ स्मार्ट स्विच: 1 घंटे से कम (<3600s) = Min : Sec | 1 घंटे या ज़्यादा = Hr : Min
+    val isHourMode = totalSeconds >= 3600
+
+    val topDigitStr = if (isHourMode) {
+        String.format("%02d", totalSeconds / 3600)
+    } else {
+        String.format("%02d", totalSeconds / 60)
+    }
+
+    val bottomDigitStr = if (isHourMode) {
+        String.format("%02d", (totalSeconds % 3600) / 60)
+    } else {
+        String.format("%02d", totalSeconds % 60)
+    }
 
     var showTimeInputDialog by remember { mutableStateOf(false) }
 
@@ -762,8 +766,8 @@ private fun RetroFlipClockWatch(
     )
 
     val baseFontSize = if (isRunning) 115f else 105f
-    val minFontSize = if (minStr.length > 2) baseFontSize * 0.72f else baseFontSize
-    val secFontSize = baseFontSize
+    val topFontSize = if (topDigitStr.length > 2) baseFontSize * 0.72f else baseFontSize
+    val bottomFontSize = baseFontSize
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -783,17 +787,19 @@ private fun RetroFlipClockWatch(
             }
         ) {
             AuthenticSplitFlapCard(
-                digit = minStr,
+                digit = topDigitStr,
                 cardWidth = animatedWidth,
                 cardHeight = animatedHeight,
-                fontSizeSp = minFontSize
+                fontSizeSp = topFontSize,
+                isDark = isDark
             )
 
             AuthenticSplitFlapCard(
-                digit = secStr,
+                digit = bottomDigitStr,
                 cardWidth = animatedWidth,
                 cardHeight = animatedHeight,
-                fontSizeSp = secFontSize
+                fontSizeSp = bottomFontSize,
+                isDark = isDark
             )
         }
 
@@ -964,14 +970,15 @@ private fun RetroFlipClockWatch(
 }
 
 /**
- * 🎴 ASLI MECHANICAL SPLIT-FLAP COMPONENT
+ * 🎴 ASLI MECHANICAL SPLIT-FLAP COMPONENT (LIGHT & DARK DYNAMIC)
  */
 @Composable
 private fun AuthenticSplitFlapCard(
     digit: String,
     cardWidth: Dp,
     cardHeight: Dp,
-    fontSizeSp: Float
+    fontSizeSp: Float,
+    isDark: Boolean
 ) {
     var previousDigit by remember { mutableStateOf(digit) }
     var currentDigit by remember { mutableStateOf(digit) }
@@ -1024,7 +1031,8 @@ private fun AuthenticSplitFlapCard(
                 cardHeight = cardHeight,
                 halfHeight = halfHeight,
                 fontSizeSp = fontSizeSp,
-                shape = topShape
+                shape = topShape,
+                isDark = isDark
             )
 
             SplitFlapHalfPlate(
@@ -1034,7 +1042,8 @@ private fun AuthenticSplitFlapCard(
                 cardHeight = cardHeight,
                 halfHeight = halfHeight,
                 fontSizeSp = fontSizeSp,
-                shape = bottomShape
+                shape = bottomShape,
+                isDark = isDark
             )
         }
 
@@ -1057,23 +1066,25 @@ private fun AuthenticSplitFlapCard(
                     cardHeight = cardHeight,
                     halfHeight = halfHeight,
                     fontSizeSp = fontSizeSp,
-                    shape = if (isTopFolded) bottomShape else topShape
+                    shape = if (isTopFolded) bottomShape else topShape,
+                    isDark = isDark
                 )
             }
         }
 
+        // बीच की असली मैकेनिकल स्प्लिट लाइन
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(seamGap)
-                .background(Color.Black)
+                .background(if (isDark) Color(0xFF09090C) else Color(0xFFE2E8F0))
                 .align(Alignment.Center)
         )
     }
 }
 
 /**
- * ✂️ MATHEMATICAL 50-50 HALF-PLATE RENDERER
+ * ✂️ MATHEMATICAL 50-50 HALF-PLATE RENDERER (LIGHT / DARK AUTO)
  */
 @Composable
 private fun SplitFlapHalfPlate(
@@ -1083,14 +1094,30 @@ private fun SplitFlapHalfPlate(
     cardHeight: Dp,
     halfHeight: Dp,
     fontSizeSp: Float,
-    shape: Shape
+    shape: Shape,
+    isDark: Boolean
 ) {
+    // 🎨 रेफरेंस स्क्रीनशॉट स्टाइल: डार्क मोड में चारकोल, लाइट मोड में मिनिमल व्हाइट
+    val plateBg = if (isDark) Color(0xFF16161B) else Color(0xFFFFFFFF)
+    val plateBorder = if (isDark) Color(0x22FFFFFF) else Color(0xFFE2E8F0)
+    val digitTextColor = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+
     Box(
         modifier = Modifier
             .size(width = cardWidth, height = halfHeight)
+            .then(
+                if (!isDark) {
+                    Modifier.shadow(
+                        elevation = 4.dp,
+                        shape = shape,
+                        spotColor = Color(0x18000000),
+                        ambientColor = Color(0x10000000)
+                    )
+                } else Modifier
+            )
             .clip(shape)
-            .background(Color(0xFF16161B))
-            .border(1.2.dp, Color(0x22FFFFFF), shape)
+            .background(plateBg)
+            .border(1.2.dp, plateBorder, shape)
     ) {
         Layout(
             content = {
@@ -1099,7 +1126,7 @@ private fun SplitFlapHalfPlate(
                     fontSize = fontSizeSp.sp,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.SansSerif,
-                    color = Color(0xFFF1F5F9),
+                    color = digitTextColor,
                     letterSpacing = (-2).sp
                 )
             }
@@ -1121,7 +1148,7 @@ private fun SplitFlapHalfPlate(
 }
 
 // =============================================================================
-// 🌟 CUSTOM HORIZONTAL SLIDER (REDUCED VERTICAL PADDING: 14dp)
+// 🌟 CUSTOM HORIZONTAL SLIDER
 // =============================================================================
 @Composable
 private fun CustomHorizontalSlider(
@@ -1147,7 +1174,6 @@ private fun CustomHorizontalSlider(
         }
     }
 
-    // 📦 ऊपर और नीचे से 2-2 dp कम किया गया पैडिंग (16dp -> 14dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1300,6 +1326,6 @@ private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
         drawLine(tint, Offset(center.x, center.y - w * 0.44f), Offset(center.x, center.y - w * 0.44f + crossLen), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x, center.y + w * 0.44f - crossLen), Offset(center.x, center.y + w * 0.44f), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x - w * 0.44f, center.y), Offset(center.x - w * 0.44f + crossLen, center.y), stroke, StrokeCap.Round)
-        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f, center.y), stroke, StrokeCap.Round)
+        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f), stroke, StrokeCap.Round)
     }
 }
