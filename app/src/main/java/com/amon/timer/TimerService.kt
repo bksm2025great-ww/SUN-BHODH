@@ -63,7 +63,6 @@ class TimerService : Service() {
         var sessionTargetElapsedRealtime: Long = 0L
             private set
 
-        // 🔄 स्क्रीन खुलते ही या रीसेंट्स से ऐप दोबारा खोलने पर टाइम और पॉज़ स्टेट रिस्टोर करना
         fun syncRemainingTime(context: Context? = null) {
             if (context != null) {
                 val prefs = context.getSharedPreferences(PREFS_SESSION, Context.MODE_PRIVATE)
@@ -280,6 +279,11 @@ class TimerService : Service() {
                 remainingSeconds.intValue
             }
 
+            // 🛑 5 MINUTE RULE: 300 seconds se kam ka session silently discard hoga
+            if (completedSeconds < 300) {
+                return
+            }
+
             val minutes = completedSeconds / 60
 
             val trees = if (isCancelled) {
@@ -293,8 +297,6 @@ class TimerService : Service() {
                     else -> 0
                 }
             }
-
-            if (minutes < 1 && !isCancelled) return
 
             val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
             val currentDate = sdf.format(Date())
