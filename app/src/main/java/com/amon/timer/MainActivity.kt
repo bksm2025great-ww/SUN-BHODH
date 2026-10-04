@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,11 +21,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +44,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import com.amon.timer.ui.theme.AmonTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // 📱 App की 2 मुख्य स्टेज (Splash ➔ Direct Main)
 private enum class AppScreenState {
@@ -118,6 +116,9 @@ class MainActivity : ComponentActivity() {
                                     // 🔄 WhatsApp Line-Art Styled Android Auto-Rotate Button
                                     FocusRotateButtonOverlay(activity = this@MainActivity)
 
+                                    // 🚀 ऑटोमैटिक न्यू अपडेट इंजन (मिंट ग्रीन रॉकेट + 3-कलर फ्लेम्स)
+                                    AutoUpdatePopupEngine()
+
                                     // 2. Android 13+ Notification Permission Dialog
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                         val context = LocalContext.current
@@ -158,6 +159,256 @@ class MainActivity : ComponentActivity() {
 }
 
 // =============================================================================
+// 🚀 AUTOMATIC UPDATE POPUP ENGINE (CHECK & SHOW POPUP ON LAUNCH)
+// =============================================================================
+@Composable
+private fun AutoUpdatePopupEngine() {
+    val context = LocalContext.current
+    val updateManager = remember { UpdateManager(context) }
+    val scope = rememberCoroutineScope()
+
+    var updateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
+    var showDialog by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        delay(1200) // स्क्रीन लोड होने के 1.2 सेकंड बाद चुपचाप जांच होगी
+        val info = updateManager.checkLatestUpdate()
+        if (info.hasUpdate && updateManager.shouldShowOneTimePopup(info.latestVersion)) {
+            updateInfo = info
+            showDialog = true
+        }
+    }
+
+    if (showDialog && updateInfo != null) {
+        val info = updateInfo!!
+        val mintGreen = Color(0xFF05B67A) // 🟢 प्रोफ़ाइल स्क्रीन के डाउनलोड बटन वाला मिंट ग्रीन
+
+        Dialog(onDismissRequest = {
+            if (!isDownloading) {
+                updateManager.markPopupAsDismissed(info.latestVersion)
+                showDialog = false
+            }
+        }) {
+            Surface(
+                shape = RoundedCornerShape(26.dp),
+                color = Color(0xFF181820),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                border = BorderStroke(1.2.dp, mintGreen.copy(alpha = 0.4f)),
+                shadowElevation = 14.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(22.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // 🚀 रॉकेट विथ 3-कलर फ्लेम्स (मिंट ग्रीन सर्कल बैकग्राउंड)
+                    Box(
+                        modifier = Modifier
+                            .size(68.dp)
+                            .shadow(10.dp, CircleShape, spotColor = mintGreen, ambientColor = mintGreen.copy(alpha = 0.4f))
+                            .clip(CircleShape)
+                            .background(mintGreen),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CanvasRocketWithFlames(modifier = Modifier.size(36.dp))
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "New Update Available! 🚀",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Version ${info.latestVersion} is ready to install",
+                        fontSize = 12.5.sp,
+                        color = mintGreen,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 📑 1-लाइनर आसान फ़ीचर्स
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF22222C))
+                            .padding(12.dp)
+                    ) {
+                        FeatureOneLinerBullet(text = "Desk Flip Mode: आड़े मोड में नया साइड-बाय-साइड लेआउट")
+                        FeatureOneLinerBullet(text = "Ultra-Bold: 160sp का विशाल और साफ़ डिस्प्ले")
+                        FeatureOneLinerBullet(text = "Direct Updates: 1-टैप में आसान इन-ऐप इंस्टॉलेशन")
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // 📥 लाइव डाउनलोड और अपडेट बटन
+                    Button(
+                        onClick = {
+                            if (!isDownloading) {
+                                isDownloading = true
+                                scope.launch {
+                                    val apkFile = updateManager.downloadUpdateApk(info.downloadUrl) { progress ->
+                                        downloadProgress = progress
+                                    }
+                                    isDownloading = false
+                                    if (apkFile != null) {
+                                        showDialog = false
+                                        updateManager.installApk(apkFile)
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = mintGreen)
+                    ) {
+                        if (isDownloading) {
+                            Text(
+                                text = "Downloading... $downloadProgress%",
+                                color = Color.White,
+                                fontSize = 14.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else {
+                            Text(
+                                text = "Update Now ⚡",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+
+                    if (!isDownloading) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        TextButton(
+                            onClick = {
+                                updateManager.markPopupAsDismissed(info.latestVersion)
+                                showDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Maybe Later",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeatureOneLinerBullet(text: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(text = "• ", color = Color(0xFF05B67A), fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text(text = text, color = Color(0xFFE2E8F0), fontSize = 12.sp, lineHeight = 17.sp)
+    }
+}
+
+// =============================================================================
+// 🚀 CANVAS ROCKET WITH 3-COLOR FLAMES (RED, ORANGE, YELLOW)
+// =============================================================================
+@Composable
+private fun CanvasRocketWithFlames(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        // 1. 🔥 आग (Flames): रॉकेट के नीचे तीन रंगों वाली थ्रस्ट
+        val flameCenterX = w * 0.50f
+        val flameTopY = h * 0.70f
+
+        // (A) बाहरी लाल आग (Outer Red Flame)
+        val redFlame = Path().apply {
+            moveTo(flameCenterX - w * 0.18f, flameTopY)
+            quadraticBezierTo(flameCenterX - w * 0.22f, h * 0.88f, flameCenterX, h * 0.98f)
+            quadraticBezierTo(flameCenterX + w * 0.22f, h * 0.88f, flameCenterX + w * 0.18f, flameTopY)
+            close()
+        }
+        drawPath(redFlame, color = Color(0xFFEF4444))
+
+        // (B) बीच की नारंगी आग (Mid Orange Flame)
+        val orangeFlame = Path().apply {
+            moveTo(flameCenterX - w * 0.12f, flameTopY)
+            quadraticBezierTo(flameCenterX - w * 0.15f, h * 0.85f, flameCenterX, h * 0.92f)
+            quadraticBezierTo(flameCenterX + w * 0.15f, h * 0.85f, flameCenterX + w * 0.12f, flameTopY)
+            close()
+        }
+        drawPath(orangeFlame, color = Color(0xFFFB923C))
+
+        // (C) अंदर की पीली कोर आग (Inner Core Yellow Flame)
+        val yellowFlame = Path().apply {
+            moveTo(flameCenterX - w * 0.06f, flameTopY)
+            quadraticBezierTo(flameCenterX - w * 0.08f, h * 0.80f, flameCenterX, h * 0.86f)
+            quadraticBezierTo(flameCenterX + w * 0.08f, h * 0.80f, flameCenterX + w * 0.06f, flameTopY)
+            close()
+        }
+        drawPath(yellowFlame, color = Color(0xFFFDE047))
+
+        // 2. 🚀 रॉकेट के बाएँ और दाएँ पंख (Rocket Fins)
+        val leftFin = Path().apply {
+            moveTo(w * 0.35f, h * 0.50f)
+            lineTo(w * 0.15f, h * 0.68f)
+            lineTo(w * 0.35f, h * 0.68f)
+            close()
+        }
+        drawPath(leftFin, color = Color.White.copy(alpha = 0.85f))
+
+        val rightFin = Path().apply {
+            moveTo(w * 0.65f, h * 0.50f)
+            lineTo(w * 0.85f, h * 0.68f)
+            lineTo(w * 0.65f, h * 0.68f)
+            close()
+        }
+        drawPath(rightFin, color = Color.White.copy(alpha = 0.85f))
+
+        // 3. ⚪ रॉकेट की मुख्य बॉडी (White Main Fuselage)
+        val bodyPath = Path().apply {
+            moveTo(w * 0.50f, h * 0.12f)
+            cubicTo(w * 0.70f, h * 0.28f, w * 0.68f, h * 0.62f, w * 0.65f, h * 0.70f)
+            lineTo(w * 0.35f, h * 0.70f)
+            cubicTo(w * 0.32f, h * 0.62f, w * 0.30f, h * 0.28f, w * 0.50f, h * 0.12f)
+            close()
+        }
+        drawPath(bodyPath, color = Color.White)
+
+        // 4. 🪟 रॉकेट की खिड़की (Porthole Window)
+        drawCircle(
+            color = Color(0xFF05B67A),
+            radius = w * 0.09f,
+            center = Offset(w * 0.50f, h * 0.38f)
+        )
+        drawCircle(
+            color = Color.White,
+            radius = w * 0.035f,
+            center = Offset(w * 0.48f, h * 0.36f)
+        )
+    }
+}
+
+// =============================================================================
 // 🔘 MINIMAL OUTLINE ROTATE BUTTON (PROFILE-SCREEN AESTHETIC)
 // =============================================================================
 @Composable
@@ -168,7 +419,7 @@ private fun FocusRotateButtonOverlay(activity: ComponentActivity) {
 
     var isLandscape by remember { mutableStateOf(false) }
 
-    // 🛡️ फ़ोकस ख़त्म होते ही स्क्रीन तुरंत वापस सीधी (Portrait) लॉक हो जाएगी
+    // 🛡️️ फ़ोकस ख़त्म होते ही स्क्रीन तुरंत वापस सीधी (Portrait) लॉक हो जाएगी
     LaunchedEffect(isFocusActive) {
         if (!isFocusActive) {
             activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -242,7 +493,7 @@ private fun AndroidAutoRotateLineIcon(
         val center = Offset(w / 2f, h / 2f)
         val strokeWidth = 1.4.dp.toPx()
 
-        // 1. बीच का क्लीन आउटलाइन फ़ोन (WhatsApp Style Line Art)
+        // 1. बीच का क्लीन आउटलाइन फ़ोन (Line Art)
         val phoneW = w * 0.32f
         val phoneH = h * 0.50f
         drawRoundRect(
