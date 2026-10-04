@@ -1,6 +1,7 @@
 package com.amon.timer
 
 import android.content.Context
+import android.content.res.Configuration
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -33,6 +34,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
@@ -722,7 +724,7 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: RETRO FLIP CLOCK (SMART AUTO SWITCH & LIGHT THEME FIX)
+// 📜 WATCH STYLE 3: RETRO FLIP CLOCK (LANDSCAPE ROW + HUGE BOLD TYPOGRAPHY)
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
@@ -738,6 +740,10 @@ private fun RetroFlipClockWatch(
     textMuted: Color,
     isDark: Boolean
 ) {
+    // 🧭 ऑटो ओरिएंटेशन डिटेक्टर: फ़ोन आड़ा है या सीधा
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     // ⏱️ स्मार्ट स्विच: 1 घंटे से कम (<3600s) = Min : Sec | 1 घंटे या ज़्यादा = Hr : Min
     val isHourMode = totalSeconds >= 3600
 
@@ -755,60 +761,110 @@ private fun RetroFlipClockWatch(
 
     var showTimeInputDialog by remember { mutableStateOf(false) }
 
+    // 📐 आड़े और सीधे मोड के अनुसार सटीक डायनामिक साइज़
+    val targetCardWidth = if (isLandscape) {
+        if (isRunning) 235.dp else 215.dp
+    } else {
+        if (isRunning) 265.dp else 245.dp
+    }
+
+    val targetCardHeight = if (isLandscape) {
+        if (isRunning) 180.dp else 165.dp
+    } else {
+        if (isRunning) 195.dp else 175.dp
+    }
+
     val animatedWidth by animateDpAsState(
-        targetValue = if (isRunning) 265.dp else 245.dp,
+        targetValue = targetCardWidth,
         animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
         label = "FlipCardWidth"
     )
     val animatedHeight by animateDpAsState(
-        targetValue = if (isRunning) 195.dp else 175.dp,
+        targetValue = targetCardHeight,
         animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
         label = "FlipCardHeight"
     )
 
-    val baseFontSize = if (isRunning) 115f else 105f
-    val topFontSize = if (topDigitStr.length > 2) baseFontSize * 0.72f else baseFontSize
+    // 🔤 अल्ट्रा-बोल्ड भारी फ़ॉन्ट (रेफरेंस स्क्रीनशॉट जैसी विशालकाय साइज़)
+    val baseFontSize = if (isLandscape) {
+        if (isRunning) 150f else 136f
+    } else {
+        if (isRunning) 160f else 142f
+    }
+    val topFontSize = if (topDigitStr.length > 2) baseFontSize * 0.70f else baseFontSize
     val bottomFontSize = baseFontSize
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = if (isRunning) 6.dp else 2.dp)
+            .padding(vertical = if (isRunning) (if (isLandscape) 2.dp else 6.dp) else 2.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(if (isRunning) 18.dp else 12.dp),
-            modifier = Modifier.clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                enabled = !isRunning
+        if (isLandscape) {
+            // ↔️ आड़े (Landscape) मोड में: बाएँ (Minutes) और दाएँ (Seconds) अगल-बगल
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    enabled = !isRunning
+                ) {
+                    showTimeInputDialog = true
+                }
             ) {
-                showTimeInputDialog = true
-            }
-        ) {
-            AuthenticSplitFlapCard(
-                digit = topDigitStr,
-                cardWidth = animatedWidth,
-                cardHeight = animatedHeight,
-                fontSizeSp = topFontSize,
-                isDark = isDark
-            )
+                AuthenticSplitFlapCard(
+                    digit = topDigitStr,
+                    cardWidth = animatedWidth,
+                    cardHeight = animatedHeight,
+                    fontSizeSp = topFontSize,
+                    isDark = isDark
+                )
 
-            AuthenticSplitFlapCard(
-                digit = bottomDigitStr,
-                cardWidth = animatedWidth,
-                cardHeight = animatedHeight,
-                fontSizeSp = bottomFontSize,
-                isDark = isDark
-            )
+                AuthenticSplitFlapCard(
+                    digit = bottomDigitStr,
+                    cardWidth = animatedWidth,
+                    cardHeight = animatedHeight,
+                    fontSizeSp = bottomFontSize,
+                    isDark = isDark
+                )
+            }
+        } else {
+            // ↕️ सीधे (Portrait) मोड में: ऊपर (Minutes) और नीचे (Seconds)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(if (isRunning) 18.dp else 12.dp),
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    enabled = !isRunning
+                ) {
+                    showTimeInputDialog = true
+                }
+            ) {
+                AuthenticSplitFlapCard(
+                    digit = topDigitStr,
+                    cardWidth = animatedWidth,
+                    cardHeight = animatedHeight,
+                    fontSizeSp = topFontSize,
+                    isDark = isDark
+                )
+
+                AuthenticSplitFlapCard(
+                    digit = bottomDigitStr,
+                    cardWidth = animatedWidth,
+                    cardHeight = animatedHeight,
+                    fontSizeSp = bottomFontSize,
+                    isDark = isDark
+                )
+            }
         }
 
         if (!isRunning) {
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 14.dp))
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxWidth(if (isLandscape) 0.75f else 1f)
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -1085,7 +1141,7 @@ private fun AuthenticSplitFlapCard(
 }
 
 /**
- * ✂️ MATHEMATICAL 50-50 HALF-PLATE RENDERER (LIGHT / DARK AUTO)
+ * ✂️ MATHEMATICAL 50-50 HALF-PLATE RENDERER (LIGHT / DARK AUTO + HUGE TEXT)
  */
 @Composable
 private fun SplitFlapHalfPlate(
@@ -1128,7 +1184,7 @@ private fun SplitFlapHalfPlate(
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.SansSerif,
                     color = digitTextColor,
-                    letterSpacing = (-2).sp
+                    letterSpacing = (-4).sp
                 )
             }
         ) { measurables, _ ->
