@@ -15,8 +15,11 @@ object FocusSessionManager {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    // 1. डायरी में लिखना (Save Data with Duplicate Prevention / Upsert)
+    // 1. डायरी में लिखना (5 मिनट से कम वाला कभी सेव नहीं होगा + डुप्लीकेट रोकथाम)
     fun saveSession(context: Context, session: FocusSession) {
+        // 🛑 5 MINUTE GUARD: 5 मिनट से कम की पढ़ाई कभी लोकल मेमोरी में नहीं जाएगी
+        if (session.durationMinutes < 5) return
+
         val prefs = getPrefs(context)
         val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
 
@@ -25,12 +28,13 @@ object FocusSessionManager {
             val updatedJsonArray = JSONArray()
             var isAlreadyExists = false
 
-            // डुप्लीकेट रोकने का लॉजिक (Upsert check): अगर वही ID पहले से है तो उसे अपडेट करो
+            // डुप्लीकेट रोकने का लॉजिक (Upsert check): optLong से क्रैश का ख़तरा शून्य
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
-                if (obj.getLong("id") == session.id) {
+                val existingId = obj.optLong("id", -1L)
+
+                if (existingId == session.id && session.id != 0L) {
                     isAlreadyExists = true
-                    // Update existing object
                     obj.put("date", session.date)
                     obj.put("subject", session.subject)
                     obj.put("durationMinutes", session.durationMinutes)
@@ -42,7 +46,7 @@ object FocusSessionManager {
             // अगर नया सेशन है, तो इसे सूची में जोड़ दो
             if (!isAlreadyExists) {
                 val newSessionObj = JSONObject().apply {
-                    put("id", session.id)
+                    put("id", if (session.id != 0L) session.id else System.currentTimeMillis())
                     put("date", session.date)
                     put("subject", session.subject)
                     put("durationMinutes", session.durationMinutes)
@@ -58,39 +62,56 @@ object FocusSessionManager {
         }
     }
 
-    // 2. डायरी से पढ़ना (Read Data)
+    // 2. डायरी से पढ़ना + 🧹 ऑटो-क्लीनर (0 से 4 मिनट वाले पुराने सेशन्स पर झाड़ू)
     fun getAllSessions(context: Context): List<FocusSession> {
         val prefs = getPrefs(context)
         val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
         val sessionList = mutableListOf<FocusSession>()
+        val cleanedJsonArray = JSONArray()
+        var needToCleanStorage = false
 
         try {
             val jsonArray = JSONArray(existingData)
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
+                val duration = obj.optInt("durationMinutes", 0)
+
+                // 🛑 झाड़ू: 5 मिनट से छोटा पुराना सेशन मिलते ही तिजोरी से बाहर
+                if (duration < 5) {
+                    needToCleanStorage = true
+                    continue
+                }
+
+                cleanedJsonArray.put(obj)
+
                 val session = FocusSession(
-                    id = obj.getLong("id"),
-                    date = obj.getString("date"),
-                    subject = obj.getString("subject"),
-                    durationMinutes = obj.getInt("durationMinutes"),
-                    earnedTrees = obj.getInt("earnedTrees")
+                    id = obj.optLong("id", System.currentTimeMillis()),
+                    date = obj.optString("date", ""),
+                    subject = obj.optString("subject", "All"),
+                    durationMinutes = duration,
+                    earnedTrees = obj.optInt("earnedTrees", 0)
                 )
                 sessionList.add(session)
+            }
+
+            // 🧹 अगर कचरा मिला था, तो फ़ोन की मेमोरी को हमेशा के लिए क्लीन करके राइट कर दो
+            if (needToCleanStorage) {
+                prefs.edit().putString(KEY_SESSIONS, cleanedJsonArray.toString()).apply()
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
+
         // लिस्ट को उल्टा (reversed) कर रहे हैं ताकि सबसे नई पढ़ाई सबसे ऊपर दिखे
         return sessionList.reversed()
     }
 
-    // 🟢 Shortcut alias to support any legacy getSessions calls smoothly
+    // 🟢 Shortcut alias: पुराने कोड के साथ 100% कम्पैटिबल
     fun getSessions(context: Context): List<FocusSession> {
         return getAllSessions(context)
     }
 
-    // 3. 🛡️ Google Sheet से आया डेटा जोड़ना (स्मार्ट आधार कार्ड चेक - डुप्लीकेट नहीं बनेगा)
-    // यह फ़ंक्शन वापस बताता है: (कितने नए पेड़ जुड़े, कितने मिनट जुड़े)
+    // 3. 🛡️️ Google Sheet से डेटा रीस्टोर करना (5 मिनट से कम वाले को अंदर मत आने दो)
     fun restoreSessions(context: Context, incomingSessions: List<FocusSession>): Pair<Int, Int> {
         val prefs = getPrefs(context)
         val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
@@ -99,15 +120,25 @@ object FocusSessionManager {
 
         try {
             val jsonArray = JSONArray(existingData)
+            val cleanExistingArray = JSONArray()
             val existingList = mutableListOf<JSONObject>()
+
+            // केवल 5 मिनट या उससे बड़े पुराने सेशन्स ही आगे जाएँगे
             for (i in 0 until jsonArray.length()) {
-                existingList.add(jsonArray.getJSONObject(i))
+                val obj = jsonArray.getJSONObject(i)
+                if (obj.optInt("durationMinutes", 0) >= 5) {
+                    existingList.add(obj)
+                    cleanExistingArray.put(obj)
+                }
             }
 
             var anyNewAdded = false
 
             for (incoming in incomingSessions) {
-                // स्मार्ट आधार कार्ड चेक: क्या यह सेशन तारीख, विषय और समय से पहले से मौजूद है?
+                // 🛑 शीट से आया हुआ सेशन भी अगर 5 मिनट से छोटा है, तो छोड़ दो
+                if (incoming.durationMinutes < 5) continue
+
+                // स्मार्ट आधार कार्ड चेक: तारीख, विषय और समय की समानता
                 val alreadyExists = existingList.any { obj ->
                     val sameId = obj.optLong("id", -1L) == incoming.id
                     val sameDate = obj.optString("date") == incoming.date
@@ -117,7 +148,6 @@ object FocusSessionManager {
                     sameId || (sameDate && sameSubject && sameDuration)
                 }
 
-                // अगर यह सेशन फ़ोन में नहीं है, तभी जोड़ेंगे
                 if (!alreadyExists) {
                     val newObj = JSONObject().apply {
                         put("id", if (incoming.id > 0) incoming.id else System.currentTimeMillis())
@@ -126,7 +156,7 @@ object FocusSessionManager {
                         put("durationMinutes", incoming.durationMinutes)
                         put("earnedTrees", incoming.earnedTrees)
                     }
-                    jsonArray.put(newObj)
+                    cleanExistingArray.put(newObj)
                     existingList.add(newObj)
                     restoredTrees += incoming.earnedTrees
                     restoredMinutes += incoming.durationMinutes
@@ -134,9 +164,9 @@ object FocusSessionManager {
                 }
             }
 
-            // अगर कोई नया सेशन जुड़ा है, तो तिजोरी में पक्का सेव कर दो
-            if (anyNewAdded) {
-                prefs.edit().putString(KEY_SESSIONS, jsonArray.toString()).apply()
+            // साफ़-सुथरा डेटा तिजोरी में लॉक
+            if (anyNewAdded || cleanExistingArray.length() != jsonArray.length()) {
+                prefs.edit().putString(KEY_SESSIONS, cleanExistingArray.toString()).apply()
             }
         } catch (e: Exception) {
             e.printStackTrace()
