@@ -48,14 +48,16 @@ object ThemeManager {
         isDarkTheme.value = (modeName != "Light")
     }
 
-    // 🎨 4. Current Accent Color nikaalne ka helper (Ab 5 Colors Support Karta Hai)
+    // 🎨 4. Current Accent Color nikaalne ka helper (Ab 7 Eye-Friendly Shades)
     fun getAccentColor(): Color {
         return when (currentTheme.value) {
-            "Classic Yellow"  -> Color(0xFFF5A524)
-            "Neon Rose"       -> Color(0xFFFF66CC)
-            "Electric Violet" -> Color(0xFFBF00FF)
-            "Blaze Orange"    -> Color(0xFFFF3800)
-            else              -> Color(0xFFF3C669) // Luxe Gold (Default)
+            "Classic Yellow" -> Color(0xFFF5A524)
+            "Soft Lavender"  -> Color(0xFFA78BFA)
+            "Slate Violet"   -> Color(0xFF9381FF)
+            "Warm Amber"     -> Color(0xFFFB923C)
+            "Dusty Rose"     -> Color(0xFFF472B6)
+            "Blossom Rose"   -> Color(0xFFE879A9)
+            else             -> Color(0xFFF3C669) // Luxe Gold (Default)
         }
     }
 
@@ -80,9 +82,9 @@ object ThemeManager {
     // 🟢 मुख्य लिखावट (Text) का रंग
     fun getTextColor(): Color {
         return if (isDarkTheme.value) {
-            Color(0xFFFFFFFF) // सफ़ेद लिखावट
+            Color(0xFFFFFFFF) // Safed text
         } else {
-            Color(0xFF19191C) // गहरा काला लिखावट
+            Color(0xFF19191C) // Dark text
         }
     }
 
