@@ -104,7 +104,7 @@ fun TimerWatchesContainer(
                 }
             }
     ) {
-        // 🎛️️ स्लीक वॉच सिलेक्टर बॉक्स
+        // 🎛 स्लीक वॉच सिलेक्टर बॉक्स
         if (!isRunning) {
             WatchStyleSelectorBox(
                 selectedIndex = selectedWatchStyle,
@@ -373,7 +373,7 @@ private fun VintageTechFlipIcon(tint: Color) {
 }
 
 // =============================================================================
-// ⏱️️ WATCH STYLE 1: CLASSIC LUXE RING
+// ⏱ WATCH STYLE 1: CLASSIC LUXE RING
 // =============================================================================
 @Composable
 private fun ClassicRingWatch(
@@ -628,7 +628,7 @@ private fun RotaryDialWatch(
                         useCenter = false,
                         topLeft = Offset(center.x - radius, center.y - radius),
                         size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 5.5.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
                     )
 
                     val knobAngleRad = (sweep - 90f) * (PI.toFloat() / 180f)
@@ -651,6 +651,7 @@ private fun RotaryDialWatch(
                         size = Size(radius * 2f, radius * 2f),
                         style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
                     )
+
                     drawArc(
                         color = goldColor,
                         startAngle = -90f,
@@ -1326,6 +1327,6 @@ private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
         drawLine(tint, Offset(center.x, center.y - w * 0.44f), Offset(center.x, center.y - w * 0.44f + crossLen), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x, center.y + w * 0.44f - crossLen), Offset(center.x, center.y + w * 0.44f), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x - w * 0.44f, center.y), Offset(center.x - w * 0.44f + crossLen, center.y), stroke, StrokeCap.Round)
-        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f), stroke, StrokeCap.Round)
+        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f, center.y), stroke, StrokeCap.Round)
     }
 }
