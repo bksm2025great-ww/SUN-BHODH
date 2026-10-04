@@ -6,8 +6,7 @@ import android.content.SharedPreferences
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -67,8 +67,10 @@ fun MainScreen() {
     val textMain = ThemeManager.getTextColor()
     val textMuted = ThemeManager.getTextMutedColor()
     val goldColor = ThemeManager.getAccentColor()
-    val glassBorder = if (isDark) Color(0x33F3C669) else Color(0xFFCBD5E1)
-    val glowYellow = if (ThemeManager.currentTheme.value == "Classic Yellow") Color(0xFFFDE68A) else Color(0xFFFFE082)
+
+    // ✨ न्यूट्रल बॉर्डर (स्टैट्स पेज जैसा शांत लुक - कोई पीली लकीर नहीं)
+    val glassBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
+    val glowBorder = goldColor.copy(alpha = 0.6f)
 
     val appPrefs = remember {
         context.getSharedPreferences("amon_app_prefs", Context.MODE_PRIVATE)
@@ -114,7 +116,7 @@ fun MainScreen() {
                 .padding(paddingValues)
         ) {
             when (currentNavIndex) {
-                0 -> HomeTimerTab(context, goldColor, glowYellow, cardBg, glassBorder, textMuted, textMain, isDark, isRunning, isPaused, isFocusActive)
+                0 -> HomeTimerTab(context, goldColor, glowBorder, cardBg, glassBorder, textMuted, textMain, isDark, isRunning, isPaused, isFocusActive)
                 1 -> ForestScreen()
                 2 -> StatsScreen()
                 3 -> ProfileScreen()
@@ -124,7 +126,7 @@ fun MainScreen() {
                 WhatsNewDialog(
                     versionName = currentVersion,
                     goldColor = goldColor,
-                    glowYellow = glowYellow,
+                    glowYellow = glowBorder,
                     cardBg = cardBg,
                     textMain = textMain,
                     textMuted = textMuted,
@@ -314,24 +316,24 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // Streak Capsule
+                        // 🔥 STREAK CAPSULE: जीवंत लहराती हुई आग की बॉल (ANIMATED LIVING FLAME)
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
-                                .background(if (isDark) Color(0x33F5A524) else Color(0x22D97706))
-                                .border(1.2.dp, goldColor, RoundedCornerShape(50))
-                                .padding(horizontal = 9.dp, vertical = 4.dp)
+                                .background(if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9))
+                                .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
                             ) {
-                                Text(text = "🔥", fontSize = 11.sp)
+                                AnimatedLivingFlame()
                                 Text(
                                     text = "$streakDays",
-                                    color = goldColor,
-                                    fontSize = 11.sp,
+                                    color = if (streakDays > 0) Color(0xFFFB923C) else textMuted,
+                                    fontSize = 11.5.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                             }
@@ -358,7 +360,7 @@ fun HomeTimerTab(
                             verticalAlignment = Alignment.CenterVertically,
                             contentPadding = PaddingValues(horizontal = 2.dp)
                         ) {
-                            // 1. + Add Button
+                            // 1. ✨ + Subject Button (क्लियर और आसान पहचान)
                             item {
                                 Box(
                                     contentAlignment = Alignment.Center,
@@ -369,7 +371,7 @@ fun HomeTimerTab(
                                         .padding(horizontal = 14.dp, vertical = 6.dp)
                                 ) {
                                     Text(
-                                        text = "+ Add",
+                                        text = "+ Subject",
                                         color = Color.Black,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.ExtraBold
@@ -477,7 +479,7 @@ fun HomeTimerTab(
                 hours = hours
             )
 
-            // ----------------- ACTION CONTROLS (SLEEK PLAYER & MUSIC-STYLE PAIR) -----------------
+            // ----------------- ACTION CONTROLS -----------------
             if (!isFocusActive) {
                 // 🎯 बाहर का स्लीक प्ले बटन (44dp)
                 Box(
@@ -638,7 +640,7 @@ fun HomeTimerTab(
                     .width(108.dp)
                     .clip(RoundedCornerShape(26.dp))
                     .background(cardBg)
-                    .border(1.5.dp, goldColor, RoundedCornerShape(26.dp))
+                    .border(1.5.dp, glassBorder, RoundedCornerShape(26.dp))
                     .padding(vertical = 12.dp, horizontal = 8.dp)
             ) {
                 Column(
@@ -737,7 +739,7 @@ fun HomeTimerTab(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(24.dp))
                         .background(cardBg)
-                        .border(1.5.dp, goldColor, RoundedCornerShape(24.dp))
+                        .border(1.5.dp, glassBorder, RoundedCornerShape(24.dp))
                         .padding(20.dp)
                 ) {
                     Column(
@@ -752,7 +754,7 @@ fun HomeTimerTab(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Tap to Show (Gold) or Hide (Plain)",
+                            text = "Tap to Show (Color) or Hide (Plain)",
                             color = textMuted,
                             fontSize = 13.sp
                         )
@@ -824,7 +826,7 @@ fun HomeTimerTab(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 🔤 नया सब्जेक्ट बॉक्स (Auto Capitalize)
+                        // 🔤 नया सब्जेक्ट बॉक्स
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -948,7 +950,6 @@ fun HomeTimerTab(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // शांत न्यूट्रल एंड सेशन बटन
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -976,7 +977,6 @@ fun HomeTimerTab(
                                 )
                             }
 
-                            // कीप फोकसिंग बटन
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -1000,6 +1000,100 @@ fun HomeTimerTab(
                 }
             }
         }
+    }
+}
+
+// =============================================================================
+// 🔥 ANIMATED LIVING FLAME ICON (असली लहराती हुई मशाल - PURE VECTOR CANVAS)
+// =============================================================================
+@Composable
+private fun AnimatedLivingFlame(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "flame_anim")
+
+    // 1. हल्की साँस लेने जैसी धड़कन (Scale Pulse)
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.90f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(620, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "flame_pulse"
+    )
+
+    // 2. हवा में थिरकती लपटें (Wind Sway)
+    val sway by infiniteTransition.animateFloat(
+        initialValue = -1.8f,
+        targetValue = 1.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(440, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "flame_sway"
+    )
+
+    // 3. रंगों का उतार-चढ़ाव (Color Shifting between Yellow, Orange & Fiery Red)
+    val colorPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(850, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "flame_color"
+    )
+
+    Canvas(modifier = modifier.size(16.dp)) {
+        val w = size.width
+        val h = size.height
+
+        val topYellow = Color(0xFFFFEB3B)
+        val midOrange = Color(0xFFFF9800)
+        val bottomRed = Color(0xFFE53935)
+
+        val outerBrush = Brush.verticalGradient(
+            colors = listOf(
+                topYellow.copy(alpha = 0.95f),
+                midOrange,
+                bottomRed
+            ),
+            startY = (h * 0.15f) * (1f - colorPhase),
+            endY = h
+        )
+
+        val innerBrush = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFFFDE7),
+                Color(0xFFFFEE58),
+                Color(0xFFFFA726)
+            ),
+            startY = h * 0.35f,
+            endY = h * 0.95f
+        )
+
+        // बाहरी आग का घेरा
+        val tipX = (w * 0.5f) + (sway * (w / 16f))
+        val tipY = h * 0.04f * (2f - scale)
+
+        val outerFlame = Path().apply {
+            moveTo(tipX, tipY)
+            cubicTo(w * 0.86f, h * 0.35f, w * 0.96f, h * 0.65f, w * 0.76f, h * 0.90f)
+            cubicTo(w * 0.64f, h * 1.02f, w * 0.36f, h * 1.02f, w * 0.24f, h * 0.90f)
+            cubicTo(w * 0.04f, h * 0.65f, w * 0.14f, h * 0.35f, tipX, tipY)
+            close()
+        }
+        drawPath(path = outerFlame, brush = outerBrush)
+
+        // भीतरी चमकदार कोर (Hot Core)
+        val innerTipX = (w * 0.5f) + (sway * 0.4f * (w / 16f))
+        val innerFlame = Path().apply {
+            moveTo(innerTipX, h * 0.38f)
+            cubicTo(w * 0.70f, h * 0.52f, w * 0.74f, h * 0.72f, w * 0.62f, h * 0.86f)
+            cubicTo(w * 0.56f, h * 0.94f, w * 0.44f, h * 0.94f, w * 0.38f, h * 0.86f)
+            cubicTo(w * 0.26f, h * 0.72f, w * 0.30f, h * 0.52f, innerTipX, h * 0.38f)
+            close()
+        }
+        drawPath(path = innerFlame, brush = innerBrush)
     }
 }
 
