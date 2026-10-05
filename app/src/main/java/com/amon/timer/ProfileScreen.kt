@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
-import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.view.WindowManager
@@ -14,7 +13,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.comp.ConnectivityManager
+import android.netose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
