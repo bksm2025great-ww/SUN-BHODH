@@ -50,6 +50,8 @@ class TimerService : Service() {
         private const val KEY_SUBJECT = "key_subject"
         private const val KEY_TARGET_ELAPSED = "key_target_elapsed"
         private const val KEY_START_ELAPSED = "key_start_elapsed"
+        private const val KEY_ACCUMULATED_MILLIS = "key_accumulated_millis"
+        private const val KEY_RESUME_ELAPSED = "key_resume_elapsed"
 
         val remainingSeconds = mutableIntStateOf(25 * 60)
         val isTimerRunning = mutableStateOf(false)
@@ -63,6 +65,12 @@ class TimerService : Service() {
         var sessionTargetElapsedRealtime: Long = 0L
             private set
 
+        // 🛡️ हार्डवेयर टिक काउंटर (Time-Zone Cheat Proof)
+        var accumulatedActiveMillis: Long = 0L
+            private set
+        var sessionResumeElapsedRealtime: Long = 0L
+            private set
+
         fun syncRemainingTime(context: Context? = null) {
             if (context != null) {
                 val prefs = context.getSharedPreferences(PREFS_SESSION, Context.MODE_PRIVATE)
@@ -72,14 +80,17 @@ class TimerService : Service() {
                 if (wasActive && !isTimerRunning.value && !isTimerPaused.value) {
                     originalTimerSeconds = prefs.getInt(KEY_ORIGINAL, 25 * 60)
                     currentSubjectName.value = prefs.getString(KEY_SUBJECT, "All") ?: "All"
+                    accumulatedActiveMillis = prefs.getLong(KEY_ACCUMULATED_MILLIS, 0L)
 
                     if (wasPaused) {
                         isTimerPaused.value = true
                         remainingSeconds.intValue = prefs.getInt(KEY_REMAINING, originalTimerSeconds)
+                        sessionResumeElapsedRealtime = 0L
                     } else {
                         val targetTime = prefs.getLong(KEY_TARGET_ELAPSED, 0L)
                         sessionTargetElapsedRealtime = targetTime
                         sessionStartElapsedRealtime = prefs.getLong(KEY_START_ELAPSED, 0L)
+                        sessionResumeElapsedRealtime = prefs.getLong(KEY_RESUME_ELAPSED, SystemClock.elapsedRealtime())
 
                         val leftMillis = targetTime - SystemClock.elapsedRealtime()
                         val left = (leftMillis / 1000L).toInt().coerceAtLeast(0)
@@ -116,12 +127,16 @@ class TimerService : Service() {
                 .putString(KEY_SUBJECT, currentSubjectName.value)
                 .putLong(KEY_TARGET_ELAPSED, sessionTargetElapsedRealtime)
                 .putLong(KEY_START_ELAPSED, sessionStartElapsedRealtime)
+                .putLong(KEY_ACCUMULATED_MILLIS, accumulatedActiveMillis)
+                .putLong(KEY_RESUME_ELAPSED, sessionResumeElapsedRealtime)
                 .apply()
         }
 
         private fun clearPersistedState(context: Context) {
             val prefs = context.getSharedPreferences(PREFS_SESSION, Context.MODE_PRIVATE)
             prefs.edit().clear().apply()
+            accumulatedActiveMillis = 0L
+            sessionResumeElapsedRealtime = 0L
         }
     }
 
@@ -153,11 +168,15 @@ class TimerService : Service() {
     }
 
     private fun startTimer(seconds: Int, subject: String, isResume: Boolean = false) {
+        val nowElapsed = SystemClock.elapsedRealtime()
+        sessionResumeElapsedRealtime = nowElapsed
+
         if (!isResume) {
             originalTimerSeconds = seconds
+            accumulatedActiveMillis = 0L
+            sessionStartElapsedRealtime = nowElapsed
         }
-        val nowElapsed = SystemClock.elapsedRealtime()
-        sessionStartElapsedRealtime = nowElapsed
+
         timerJob?.cancel()
         remainingSeconds.intValue = seconds
         currentSubjectName.value = subject
@@ -208,6 +227,12 @@ class TimerService : Service() {
 
     private fun pauseTimer() {
         if (!isTimerRunning.value || isTimerPaused.value) return
+        val now = SystemClock.elapsedRealtime()
+        if (sessionResumeElapsedRealtime > 0L) {
+            accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
+        }
+        sessionResumeElapsedRealtime = 0L
+
         timerJob?.cancel()
         isTimerRunning.value = false
         isTimerPaused.value = true
@@ -234,14 +259,22 @@ class TimerService : Service() {
     }
 
     private fun cancelSessionGiveUp() {
+        val now = SystemClock.elapsedRealtime()
+        if (isTimerRunning.value && sessionResumeElapsedRealtime > 0L) {
+            accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
+        }
+
         if (isTimerRunning.value || isTimerPaused.value) {
             saveSessionToDiary(isCancelled = true)
         }
+
         timerJob?.cancel()
         isTimerRunning.value = false
         isTimerPaused.value = false
         sessionStartElapsedRealtime = 0L
         sessionTargetElapsedRealtime = 0L
+        sessionResumeElapsedRealtime = 0L
+        accumulatedActiveMillis = 0L
 
         clearPersistedState(this)
 
@@ -254,15 +287,26 @@ class TimerService : Service() {
     }
 
     private fun onTimerFinished() {
+        val now = SystemClock.elapsedRealtime()
+        if (isTimerRunning.value && sessionResumeElapsedRealtime > 0L) {
+            accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
+        }
+
         if (isTimerRunning.value || isTimerPaused.value) {
             saveSessionToDiary(isCancelled = false)
         }
+
         isTimerRunning.value = false
         isTimerPaused.value = false
         sessionStartElapsedRealtime = 0L
         sessionTargetElapsedRealtime = 0L
+        sessionResumeElapsedRealtime = 0L
+        accumulatedActiveMillis = 0L
 
         clearPersistedState(this)
+
+        // 🔄 00:00 पर खत्म होने के बाद घड़ी को तुरंत मूल समय पर रीसेट करना (ताकि लूप न बने)
+        remainingSeconds.intValue = if (originalTimerSeconds > 0) originalTimerSeconds else 25 * 60
 
         triggerGentleVibration()
         try {
@@ -273,13 +317,14 @@ class TimerService : Service() {
 
     private fun saveSessionToDiary(isCancelled: Boolean) {
         try {
-            val completedSeconds = if (originalTimerSeconds > 0) {
-                (originalTimerSeconds - remainingSeconds.intValue).coerceAtLeast(0)
+            val rawSeconds = ((accumulatedActiveMillis + 500L) / 1000L).toInt().coerceAtLeast(0)
+            val completedSeconds = if (!isCancelled && originalTimerSeconds > 0) {
+                originalTimerSeconds
             } else {
-                remainingSeconds.intValue
+                rawSeconds
             }
 
-            // 🛑 5 MINUTE RULE: 300 seconds se kam ka session silently discard hoga
+            // 🛑 5 MINUTE RULE: 300 सेकंड से कम की पढ़ाई डायरी में नहीं जाएगी (सुरक्षित)
             if (completedSeconds < 300) {
                 return
             }
@@ -307,6 +352,7 @@ class TimerService : Service() {
                 durationMinutes = minutes,
                 earnedTrees = trees
             )
+            // 📁 लोकल डिवाइस स्टोरेज में तुरंत (माइक्रोसेकंड में) सुरक्षित सेव
             FocusSessionManager.saveSession(this, session)
 
             CloudSyncManager.syncSession(
