@@ -1,11 +1,12 @@
 package com.amon.timer
 
 import android.app.Activity
-import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.Build
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -13,8 +14,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.comp.ConnectivityManager
-import android.netose.foundation.border
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -342,7 +343,7 @@ fun ProfileScreen() {
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(
                                         if (isSelected) {
-                                            goldColor.copy(alpha = 0.15f) // ✨ 15% Soft Eye-Comfort Tint
+                                            goldColor.copy(alpha = 0.15f)
                                         } else {
                                             if (isDark) Color(0x11FFFFFF) else Color(0x06000000)
                                         }
@@ -377,7 +378,6 @@ fun ProfileScreen() {
                     )
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // 🎨 SCREENSHOT STYLE: 7 EYE-FRIENDLY COLOR TILES
                     val accentThemes = listOf(
                         Triple("Luxe Gold", Color(0xFFF3C669), Color(0xFF18181B)),
                         Triple("Classic Yellow", Color(0xFFF5A524), Color(0xFF18181B)),
@@ -694,7 +694,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 7. AMON VAULT -----------------
+        // ----------------- 7. AMON VAULT (BACKUP & RESTORE) -----------------
         val isVaultExpanded = activeExpandedCard == "vault"
         Box(
             modifier = Modifier
@@ -738,85 +738,90 @@ fun ProfileScreen() {
                 if (isVaultExpanded) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        // 📤 EXPORT BUTTON
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
-                                .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-                                .clickable {
-                                    val success = BackupManager.exportBackup(context, currentUserName)
-                                    if (!success) {
-                                        Toast.makeText(context, "Could not open share menu.", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                                .padding(vertical = 11.dp, horizontal = 10.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                OutlinedUploadIcon(tint = goldColor)
-                                Column {
-                                    Text(
-                                        text = "Export Backup",
-                                        color = textMain,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "Save to Drive / Share",
-                                        color = textMuted,
-                                        fontSize = 10.5.sp
-                                    )
+                    // 1️⃣ FULL APP BACKUP (.AMON)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
+                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                            .clickable {
+                                val success = BackupManager.exportBackup(context, currentUserName)
+                                if (!success) {
+                                    Toast.makeText(context, "Could not open share menu.", Toast.LENGTH_SHORT).show()
                                 }
                             }
-                        }
-
-                        // 📥 IMPORT BUTTON
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
-                                .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-                                .clickable {
-                                    backupFilePicker.launch("*/*")
-                                }
-                                .padding(vertical = 11.dp, horizontal = 10.dp)
+                            .padding(vertical = 12.dp, horizontal = 12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                OutlinedDownloadIcon(tint = goldColor)
-                                Column {
-                                    Text(
-                                        text = "Import Backup",
-                                        color = textMain,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "Restore from file",
-                                        color = textMuted,
-                                        fontSize = 10.5.sp
-                                    )
-                                }
+                            OutlinedUploadIcon(tint = goldColor)
+                            Column {
+                                Text(
+                                    text = "Full App Backup (.amon)",
+                                    color = textMain,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Secure backup for switching phones • Readable only by Amon",
+                                    color = textMuted,
+                                    fontSize = 11.sp,
+                                    fontStyle = FontStyle.Italic,
+                                    fontWeight = FontWeight.Normal
+                                )
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // 📊 EXCEL / CSV EXPORT BUTTON
+                    // 2️⃣ RESTORE BACKUP
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
+                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                            .clickable {
+                                backupFilePicker.launch("*/*")
+                            }
+                            .padding(vertical = 12.dp, horizontal = 12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedDownloadIcon(tint = goldColor)
+                            Column {
+                                Text(
+                                    text = "Restore Backup",
+                                    color = textMain,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Recover your streak, stats, and hours of hard work using Amon backup",
+                                    color = textMuted,
+                                    fontSize = 11.sp,
+                                    fontStyle = FontStyle.Italic,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 3️⃣ EXPORT STUDY SHEET (.CSV)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -829,21 +834,30 @@ fun ProfileScreen() {
                                     Toast.makeText(context, "Could not open share menu.", Toast.LENGTH_SHORT).show()
                                 }
                             }
-                            .padding(vertical = 12.dp, horizontal = 14.dp)
+                            .padding(vertical = 12.dp, horizontal = 12.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedTableGridIcon(tint = goldColor)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Export Study Report (CSV / Excel)",
-                                color = textMain,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Column {
+                                Text(
+                                    text = "Export Study Sheet (.csv)",
+                                    color = textMain,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "View logs in Excel or Google Sheets • For personal viewing only",
+                                    color = textMuted,
+                                    fontSize = 11.sp,
+                                    fontStyle = FontStyle.Italic,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
                         }
                     }
 
@@ -851,6 +865,7 @@ fun ProfileScreen() {
                     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.4f)))
                     Spacer(modifier = Modifier.height(14.dp))
 
+                    // WHAT'S BACKED UP SUMMARY
                     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Text(
                             text = "WHAT'S BACKED UP",
@@ -896,33 +911,34 @@ fun ProfileScreen() {
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // ☁️ GOOGLE SHEET CLOUD SYNC
-                    Row(
+                    // ☁️ BALANCED GOOGLE SHEET CLOUD SYNC CARD
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isDark) Color(0x11FFFFFF) else Color(0x08000000))
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .border(1.dp, cardBorder.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.weight(1f)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             OutlinedCloudSyncIcon(tint = goldColor, modifier = Modifier.size(24.dp))
                             Column {
                                 Text(
                                     text = "Google Sheet Cloud Sync",
                                     color = textMain,
-                                    fontSize = 12.5.sp,
+                                    fontSize = 13.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "Google Sheets cloud backup & sync",
                                     color = textMuted,
-                                    fontSize = 10.5.sp
+                                    fontSize = 11.sp
                                 )
                             }
                         }
@@ -930,9 +946,11 @@ fun ProfileScreen() {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(50))
+                                .fillMaxWidth()
+                                .height(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(goldColor.copy(alpha = 0.15f))
-                                .border(1.dp, goldColor, RoundedCornerShape(50))
+                                .border(1.dp, goldColor.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
                                 .clickable(enabled = !isSyncing) {
                                     coroutineScope.launch {
                                         isSyncing = true
@@ -964,19 +982,29 @@ fun ProfileScreen() {
                                         }
                                     }
                                 }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             if (isSyncing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(10.dp),
-                                    color = goldColor,
-                                    strokeWidth = 1.5.dp
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(12.dp),
+                                        color = goldColor,
+                                        strokeWidth = 1.8.dp
+                                    )
+                                    Text(
+                                        text = "Syncing...",
+                                        color = goldColor,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             } else {
                                 Text(
                                     text = "Sync Now",
                                     color = goldColor,
-                                    fontSize = 11.5.sp,
+                                    fontSize = 12.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -986,7 +1014,146 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 8. SHARE DIRECT APK -----------------
+        // ----------------- 8. HELP & SUPPORT -----------------
+        val isSupportExpanded = activeExpandedCard == "support"
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(cardBg)
+                .border(
+                    width = 1.dp,
+                    color = if (isSupportExpanded) goldColor.copy(alpha = 0.7f) else cardBorder,
+                    shape = RoundedCornerShape(16.dp)
+                )
+                .padding(16.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            activeExpandedCard = if (isSupportExpanded) null else "support"
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(13.dp)
+                ) {
+                    OutlinedHelpSupportIcon(tint = goldColor)
+                    Column {
+                        Text(
+                            text = "Help & Support",
+                            color = textMain,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Report issues, share feedback & ideas",
+                            color = textMuted,
+                            fontSize = 11.5.sp
+                        )
+                    }
+                }
+
+                if (isSupportExpanded) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 🐞 REPORT A BUG
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
+                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                            .clickable {
+                                sendSupportEmail(
+                                    context = context,
+                                    subject = "[Amon Bug Report] v$currentAppVersion",
+                                    appVersion = currentAppVersion,
+                                    isBug = true
+                                )
+                            }
+                            .padding(vertical = 12.dp, horizontal = 12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "🐞",
+                                fontSize = 16.sp
+                            )
+                            Column {
+                                Text(
+                                    text = "Report a Bug",
+                                    color = textMain,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Found an issue? Send diagnostics directly to developer",
+                                    color = textMuted,
+                                    fontSize = 11.sp,
+                                    fontStyle = FontStyle.Italic
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 💡 SEND FEEDBACK & IDEAS
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
+                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                            .clickable {
+                                sendSupportEmail(
+                                    context = context,
+                                    subject = "[Amon Feedback] Suggestion",
+                                    appVersion = currentAppVersion,
+                                    isBug = false
+                                )
+                            }
+                            .padding(vertical = 12.dp, horizontal = 12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "💡",
+                                fontSize = 16.sp
+                            )
+                            Column {
+                                Text(
+                                    text = "Send Feedback & Ideas",
+                                    color = textMain,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Have a feature suggestion or want to say hi? We'd love to hear",
+                                    color = textMuted,
+                                    fontSize = 11.sp,
+                                    fontStyle = FontStyle.Italic
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ----------------- 9. SHARE DIRECT APK -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1162,8 +1329,69 @@ fun ProfileScreen() {
 }
 
 // =============================================================================
-// ✨ 100% PURE VECTOR ICONS (PHOTO 2 ROCKET WITH REAL FIRE GRADIENT)
+// ✨ SUPPORT EMAIL DISPATCHER (PRE-FILLED DIAGNOSTICS)
 // =============================================================================
+
+private fun sendSupportEmail(context: Context, subject: String, appVersion: String, isBug: Boolean) {
+    try {
+        val deviceInfo = """
+
+--------------------------------
+Device Diagnostics (Auto-generated):
+• App Version: v$appVersion
+• Device: ${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}
+• Android Version: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})
+--------------------------------
+""".trimIndent()
+
+        val body = if (isBug) {
+            "Hi Amon Team,\n\nI found a bug:\n[Describe what went wrong here]\n\nSteps to reproduce:\n1. \n2. \n$deviceInfo"
+        } else {
+            "Hi Amon Team,\n\nI have a suggestion for Amon:\n[Write your idea or thoughts here]\n\n$deviceInfo"
+        }
+
+        val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:bksm2025great@gmail.com")
+            putExtra(Intent.EXTRA_SUBJECT, subject)
+            putExtra(Intent.EXTRA_TEXT, body)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(Intent.createChooser(emailIntent, "Send feedback via..."))
+    } catch (e: Exception) {
+        Toast.makeText(context, "No email app found on your phone.", Toast.LENGTH_SHORT).show()
+    }
+}
+
+// =============================================================================
+// ✨ 100% PURE VECTOR ICONS (HAND-DRAWN CANVAS ART)
+// =============================================================================
+
+@Composable
+private fun OutlinedHelpSupportIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.8.dp.toPx()
+
+        val bubble = Path().apply {
+            moveTo(w * 0.20f, h * 0.22f)
+            lineTo(w * 0.80f, h * 0.22f)
+            cubicTo(w * 0.90f, h * 0.22f, w * 0.90f, h * 0.65f, w * 0.80f, h * 0.65f)
+            lineTo(w * 0.45f, h * 0.65f)
+            lineTo(w * 0.26f, h * 0.82f)
+            lineTo(w * 0.26f, h * 0.65f)
+            lineTo(w * 0.20f, h * 0.65f)
+            cubicTo(w * 0.10f, h * 0.65f, w * 0.10f, h * 0.22f, w * 0.20f, h * 0.22f)
+            close()
+        }
+        drawPath(bubble, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+        val dotRadius = w * 0.038f
+        drawCircle(color = tint, radius = dotRadius, center = Offset(w * 0.36f, h * 0.435f))
+        drawCircle(color = tint, radius = dotRadius, center = Offset(w * 0.50f, h * 0.435f))
+        drawCircle(color = tint, radius = dotRadius, center = Offset(w * 0.64f, h * 0.435f))
+    }
+}
 
 @Composable
 private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
