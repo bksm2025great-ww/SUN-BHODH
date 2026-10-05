@@ -31,6 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -183,7 +186,7 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🟢 HOME TAB
+// 🟢 1. HOME TAB (TIMER, DYNAMIC SUBJECTS & CONTROLS)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
@@ -199,7 +202,6 @@ fun HomeTimerTab(
     isPaused: Boolean,
     isFocusActive: Boolean
 ) {
-    // 🛡️ समाधान: activity को यहाँ परिभाषित किया ताकि Line 1143 का एरर न आए
     val activity = context as? Activity
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -511,7 +513,7 @@ fun HomeTimerTab(
             }
         } else {
             // =================================================================
-            // 🎯 MASTER FOCUS SCREEN
+            // 🎯 MASTER FOCUS SCREEN (HAND-DRAWN BLUEPRINT)
             // =================================================================
             if (!isLandscape) {
                 // 📱 PORTRAIT MODE: Top Center Subject + Watch + Lifted Buttons (+20dp)
@@ -519,11 +521,11 @@ fun HomeTimerTab(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 20.dp)
-                        .padding(top = 18.dp, bottom = 44.dp), // 🔼 44dp: बटन्स को ऊपर रखा गया है
+                        .padding(top = 18.dp, bottom = 44.dp), // 🔼 44dp: 20dp ऊपर
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // 1. TOP: Subject Pill (दायाँ कोना सिस्टम बटन के लिए साफ़)
+                    // 1. TOP: Subject Pill
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -649,7 +651,7 @@ fun HomeTimerTab(
                     }
                 }
             } else {
-                // 🔄 LANDSCAPE MODE: Blueprint Style
+                // 🔄 LANDSCAPE MODE: Drawing Blueprint
                 // बाएँ: सब्जेक्ट | बीच: बड़ी खुली घड़ी | दाएँ: पॉज़ + स्टॉप
                 Box(
                     modifier = Modifier
@@ -688,7 +690,7 @@ fun HomeTimerTab(
                         }
                     }
 
-                    // 2. CENTER: Large Watch with Maximum Height
+                    // 2. CENTER: Large Watch
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -720,7 +722,7 @@ fun HomeTimerTab(
                         )
                     }
 
-                    // 3. RIGHT: Pause & Stop Controls for Thumb
+                    // 3. RIGHT: Controls
                     Column(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
@@ -767,7 +769,7 @@ fun HomeTimerTab(
                                 .clip(CircleShape)
                                 .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                 .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                            .clickable { showGiveUpDialog = true }
+                                .clickable { showGiveUpDialog = true }
                         ) {
                             Box(
                                 modifier = Modifier
@@ -1177,8 +1179,405 @@ fun HomeTimerTab(
     }
 }
 
+// =============================================================================
+// 🔥 2. ANIMATED LIVING FLAME ICON
+// =============================================================================
+@Composable
+private fun AnimatedLivingFlame(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "flame_anim")
+
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.90f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(620, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "flame_pulse"
+    )
+
+    val sway by infiniteTransition.animateFloat(
+        initialValue = -1.8f,
+        targetValue = 1.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(440, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "flame_sway"
+    )
+
+    val colorPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(850, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "flame_color"
+    )
+
+    Canvas(modifier = modifier.size(16.dp)) {
+        val w = size.width
+        val h = size.height
+
+        val topYellow = Color(0xFFFFEB3B)
+        val midOrange = Color(0xFFFF9800)
+        val bottomRed = Color(0xFFE53935)
+
+        val outerBrush = Brush.verticalGradient(
+            colors = listOf(
+                topYellow.copy(alpha = 0.95f),
+                midOrange,
+                bottomRed
+            ),
+            startY = (h * 0.15f) * (1f - colorPhase),
+            endY = h
+        )
+
+        val innerBrush = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFFFDE7),
+                Color(0xFFFFEE58),
+                Color(0xFFFFA726)
+            ),
+            startY = h * 0.35f,
+            endY = h * 0.95f
+        )
+
+        val tipX = (w * 0.5f) + (sway * (w / 16f))
+        val tipY = h * 0.04f * (2f - scale)
+
+        val outerFlame = Path().apply {
+            moveTo(tipX, tipY)
+            cubicTo(w * 0.86f, h * 0.35f, w * 0.96f, h * 0.65f, w * 0.76f, h * 0.90f)
+            cubicTo(w * 0.64f, h * 1.02f, w * 0.36f, h * 1.02f, w * 0.24f, h * 0.90f)
+            cubicTo(w * 0.04f, h * 0.65f, w * 0.14f, h * 0.35f, tipX, tipY)
+            close()
+        }
+        drawPath(path = outerFlame, brush = outerBrush)
+
+        val innerTipX = (w * 0.5f) + (sway * 0.4f * (w / 16f))
+        val innerFlame = Path().apply {
+            moveTo(innerTipX, h * 0.38f)
+            cubicTo(w * 0.70f, h * 0.52f, w * 0.74f, h * 0.72f, w * 0.62f, h * 0.86f)
+            cubicTo(w * 0.56f, h * 0.94f, w * 0.44f, h * 0.94f, w * 0.38f, h * 0.86f)
+            cubicTo(w * 0.26f, h * 0.72f, w * 0.30f, h * 0.52f, innerTipX, h * 0.38f)
+            close()
+        }
+        drawPath(path = innerFlame, brush = innerBrush)
+    }
+}
+
+// =============================================================================
+// ✨ 3. WHAT'S NEW DIALOG
+// =============================================================================
+@Composable
+fun WhatsNewDialog(
+    versionName: String,
+    goldColor: Color,
+    glowYellow: Color,
+    cardBg: Color,
+    textMain: Color,
+    textMuted: Color,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(cardBg)
+                .border(1.6.dp, goldColor, RoundedCornerShape(26.dp))
+                .padding(22.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(goldColor.copy(alpha = 0.2f))
+                        .border(1.dp, goldColor, RoundedCornerShape(50))
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "Version $versionName",
+                        color = goldColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "What's New in Amon ✨",
+                    color = textMain,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center
+                )
+
+                Text(
+                    text = "Built for deeper focus & zero distractions",
+                    color = textMuted,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    WhatsNewItem(
+                        icon = "👑",
+                        title = "3 Luxury Watch Styles",
+                        description = "Swipe between Classic Ring, Rotary Dial, and Retro Desk Flip Clock.",
+                        textMain = textMain,
+                        textMuted = textMuted
+                    )
+
+                    WhatsNewItem(
+                        icon = "🎛️",
+                        title = "Silent Rotary 0–180m Dial",
+                        description = "Smooth circular touch with zero noise and a clean minimal display.",
+                        textMain = textMain,
+                        textMuted = textMuted
+                    )
+
+                    WhatsNewItem(
+                        icon = "📜",
+                        title = "3D Split-Flap Desk Clock",
+                        description = "Authentic mechanical flip simulation with tap-to-type input and minimal Play/Stop controls.",
+                        textMain = textMain,
+                        textMuted = textMuted
+                    )
+
+                    WhatsNewItem(
+                        icon = "🍩",
+                        title = "Subject Breakdown Chart",
+                        description = "Modern donut analytics in Stats to track your study balance across days, weeks & months.",
+                        textMain = textMain,
+                        textMuted = textMuted
+                    )
+
+                    WhatsNewItem(
+                        icon = "📦",
+                        title = "Direct APK Share",
+                        description = "Share Amon directly to WhatsApp & Quick Share without external links.",
+                        textMain = textMain,
+                        textMuted = textMuted
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(goldColor)
+                        .border(1.dp, glowYellow, RoundedCornerShape(50))
+                        .clickable { onDismiss() }
+                ) {
+                    Text(
+                        text = "Got It, Let's Focus 🎯",
+                        color = Color.Black,
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WhatsNewItem(
+    icon: String,
+    title: String,
+    description: String,
+    textMain: Color,
+    textMuted: Color
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(text = icon, fontSize = 20.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = textMain,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                color = textMuted,
+                fontSize = 11.5.sp,
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
+// =============================================================================
+// 🟢 4. CURVED BOTTOM BAR
+// =============================================================================
+@Composable
+fun AmonCurvedBottomBar(
+    selectedIndex: Int,
+    onTabSelected: (Int) -> Unit,
+    isDark: Boolean,
+    goldColor: Color,
+    cardBg: Color,
+    borderCol: Color
+) {
+    val tabItems = listOf(
+        Triple("Home", R.drawable.ic_nav_home, 0),
+        Triple("Forest", R.drawable.ic_nav_forest, 1),
+        Triple("Stats", R.drawable.ic_nav_stats, 2),
+        Triple("Profile", R.drawable.ic_nav_profile, 3)
+    )
+
+    val animatedIndex by animateFloatAsState(
+        targetValue = selectedIndex.toFloat(),
+        animationSpec = tween(durationMillis = 200),
+        label = "notch_slide"
+    )
+
+    val inactiveColor = Color(0xFF9CA3AF)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(84.dp)
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val barHeight = 64.dp.toPx()
+            val startY = size.height - barHeight
+            val tabWidth = size.width / 4f
+
+            val notchCenterX = (animatedIndex + 0.5f) * tabWidth
+            val notchRadius = 34.dp.toPx()
+            val shoulderWidth = 14.dp.toPx()
+
+            val path = Path().apply {
+                moveTo(0f, startY)
+                val left = notchCenterX - notchRadius
+                val right = notchCenterX + notchRadius
+
+                lineTo(left - shoulderWidth, startY)
+                cubicTo(
+                    left, startY,
+                    left, startY + notchRadius * 0.95f,
+                    notchCenterX, startY + notchRadius * 0.95f
+                )
+                cubicTo(
+                    right, startY + notchRadius * 0.95f,
+                    right, startY,
+                    right + shoulderWidth, startY
+                )
+
+                lineTo(size.width, startY)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+
+            drawPath(path = path, color = cardBg)
+            drawPath(path = path, color = borderCol, style = Stroke(width = 1.2.dp.toPx()))
+        }
+
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val tabWidth = maxWidth / 4
+
+            val bubbleSize = 54.dp
+            val bubbleX = (tabWidth * animatedIndex) + (tabWidth / 2) - (bubbleSize / 2)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .offset(x = bubbleX, y = 2.dp)
+                    .size(bubbleSize)
+                    .clip(CircleShape)
+                    .background(if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC))
+                    .border(2.6.dp, goldColor, CircleShape)
+            ) {
+                val activeIconRes = tabItems[selectedIndex].second
+                Image(
+                    painter = painterResource(id = activeIconRes),
+                    contentDescription = tabItems[selectedIndex].first,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                    contentScale = ContentScale.Fit
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .height(64.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                tabItems.forEachIndexed { index, item ->
+                    val isSelected = index == selectedIndex
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clickable { onTabSelected(index) }
+                            .padding(top = 4.dp)
+                    ) {
+                        if (!isSelected) {
+                            Image(
+                                painter = painterResource(id = item.second),
+                                contentDescription = item.first,
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(RoundedCornerShape(7.dp)),
+                                contentScale = ContentScale.Fit
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = item.first,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = inactiveColor
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.height(26.dp))
+                            Text(
+                                text = item.first,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = goldColor
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // -----------------------------------------------------------------------------
-// 🔥 Helper: Streak Calculator (Min 30 mins / day)
+// 🔥 5. STREAK CALCULATOR
 // -----------------------------------------------------------------------------
 private fun calculateStreakDays(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
