@@ -2,7 +2,6 @@ package com.amon.timer
 
 import android.content.Context
 import android.content.res.Configuration
-import android.view.HapticFeedbackConstants
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -13,7 +12,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -36,7 +34,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -375,7 +372,7 @@ private fun VintageTechFlipIcon(tint: Color) {
 }
 
 // =============================================================================
-// ⏱ WATCH STYLE 1: CLASSIC LUXE RING
+// ⏱ WATCH STYLE 1: CLASSIC LUXE RING (100% STABLE - NO LAYOUT SHIFT)
 // =============================================================================
 @Composable
 private fun ClassicRingWatch(
@@ -468,6 +465,7 @@ private fun ClassicRingWatch(
             }
         }
 
+        // 🔘 PRESET BUTTONS (बिल्कुल अपनी जगह पर स्थिर रहेंगे)
         if (!isRunning) {
             Spacer(modifier = Modifier.height(14.dp))
             Row(
@@ -498,6 +496,7 @@ private fun ClassicRingWatch(
                     }
                 }
 
+                // ✨ Custom Button - अब यह कोई सिकुड़न नहीं करेगा, सीधे सुंदर पॉपअप खोलेगा
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -516,17 +515,90 @@ private fun ClassicRingWatch(
                     )
                 }
             }
+        }
+    }
 
-            if (isCustomMode) {
-                Spacer(modifier = Modifier.height(12.dp))
-                CustomHorizontalSlider(
-                    dialMinutes = dialMinutes,
-                    onDialMinutesChange = onDialMinutesChange,
-                    goldColor = goldColor,
-                    cardBg = cardBg,
-                    textMain = textMain,
-                    textMuted = textMuted
-                )
+    // =========================================================================
+    // 🌟 FLOATING CUSTOM SLIDER DIALOG (स्क्रीन के ऊपर तैरेगा - टच पूरी तरह सेफ़)
+    // =========================================================================
+    if (isCustomMode) {
+        Dialog(onDismissRequest = { onCustomModeToggle() }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(cardBg)
+                    .border(1.6.dp, goldColor, RoundedCornerShape(24.dp))
+                    .padding(20.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Set Custom Time ⏱️",
+                        color = goldColor,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Slide smoothly to adjust (0 - 180 min)",
+                        color = textMuted,
+                        fontSize = 12.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    val mins = dialMinutes.toInt()
+                    val displayTitle = when {
+                        mins == 0 -> "0 min (Stopwatch)"
+                        mins >= 60 -> {
+                            val h = mins / 60
+                            val m = mins % 60
+                            if (m > 0) "$mins min ($h h $m m)" else "$mins min ($h h)"
+                        }
+                        else -> "$mins min"
+                    }
+
+                    Text(
+                        text = displayTitle,
+                        color = textMain,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // 🎯 आइसोलेटेड मैग्नेटिक स्लाइडर (पीछे की कोई चीज़ नहीं हिलेगी)
+                    CustomHorizontalSlider(
+                        dialMinutes = dialMinutes,
+                        onDialMinutesChange = onDialMinutesChange,
+                        goldColor = goldColor,
+                        cardBg = cardBg,
+                        textMain = textMain,
+                        textMuted = textMuted
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // ✅ Done बटन - टाइम लॉक करके तुरंत कार्ड बंद करेगा
+                    Button(
+                        onClick = { onCustomModeToggle() },
+                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                    ) {
+                        Text(
+                            text = "Done 🎯",
+                            color = Color.Black,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
             }
         }
     }
@@ -724,7 +796,7 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: RETRO FLIP CLOCK (LANDSCAPE ROW + HUGE BOLD TYPOGRAPHY)
+// 📜 WATCH STYLE 3: RETRO FLIP CLOCK
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
@@ -740,11 +812,9 @@ private fun RetroFlipClockWatch(
     textMuted: Color,
     isDark: Boolean
 ) {
-    // 🧭 ऑटो ओरिएंटेशन डिटेक्टर: फ़ोन आड़ा है या सीधा
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    // ⏱️ स्मार्ट स्विच: 1 घंटे से कम (<3600s) = Min : Sec | 1 घंटे या ज़्यादा = Hr : Min
     val isHourMode = totalSeconds >= 3600
 
     val topDigitStr = if (isHourMode) {
@@ -761,7 +831,6 @@ private fun RetroFlipClockWatch(
 
     var showTimeInputDialog by remember { mutableStateOf(false) }
 
-    // 📐 आड़े और सीधे मोड के अनुसार सटीक डायनामिक साइज़
     val targetCardWidth = if (isLandscape) {
         if (isRunning) 235.dp else 215.dp
     } else {
@@ -785,7 +854,6 @@ private fun RetroFlipClockWatch(
         label = "FlipCardHeight"
     )
 
-    // 🔤 अल्ट्रा-बोल्ड भारी फ़ॉन्ट (रेफरेंस स्क्रीनशॉट जैसी विशालकाय साइज़)
     val baseFontSize = if (isLandscape) {
         if (isRunning) 150f else 136f
     } else {
@@ -801,7 +869,6 @@ private fun RetroFlipClockWatch(
             .padding(vertical = if (isRunning) (if (isLandscape) 2.dp else 6.dp) else 2.dp)
     ) {
         if (isLandscape) {
-            // ↔️ आड़े (Landscape) मोड में: बाएँ (Minutes) और दाएँ (Seconds) अगल-बगल
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -830,7 +897,6 @@ private fun RetroFlipClockWatch(
                 )
             }
         } else {
-            // ↕️ सीधे (Portrait) मोड में: ऊपर (Minutes) और नीचे (Seconds)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(if (isRunning) 18.dp else 12.dp),
@@ -1027,7 +1093,7 @@ private fun RetroFlipClockWatch(
 }
 
 /**
- * 🎴 ASLI MECHANICAL SPLIT-FLAP COMPONENT (LIGHT & DARK DYNAMIC)
+ * 🎴 MECHANICAL SPLIT-FLAP COMPONENT
  */
 @Composable
 private fun AuthenticSplitFlapCard(
@@ -1129,7 +1195,6 @@ private fun AuthenticSplitFlapCard(
             }
         }
 
-        // बीच की असली मैकेनिकल स्प्लिट लाइन
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1141,7 +1206,7 @@ private fun AuthenticSplitFlapCard(
 }
 
 /**
- * ✂️ MATHEMATICAL 50-50 HALF-PLATE RENDERER (LIGHT / DARK AUTO + HUGE TEXT)
+ * ✂️ MATHEMATICAL 50-50 HALF-PLATE RENDERER
  */
 @Composable
 private fun SplitFlapHalfPlate(
@@ -1154,7 +1219,6 @@ private fun SplitFlapHalfPlate(
     shape: Shape,
     isDark: Boolean
 ) {
-    // 🎨 रेफरेंस स्क्रीनशॉट स्टाइल: डार्क मोड में चारकोल, लाइट मोड में मिनिमल व्हाइट
     val plateBg = if (isDark) Color(0xFF16161B) else Color(0xFFFFFFFF)
     val plateBorder = if (isDark) Color(0x22FFFFFF) else Color(0xFFE2E8F0)
     val digitTextColor = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B)
@@ -1205,7 +1269,7 @@ private fun SplitFlapHalfPlate(
 }
 
 // =============================================================================
-// 🌟 CUSTOM HORIZONTAL SLIDER
+// 🌟 CUSTOM HORIZONTAL SLIDER (ISOLATED INSIDE DIALOG)
 // =============================================================================
 @Composable
 private fun CustomHorizontalSlider(
@@ -1218,133 +1282,94 @@ private fun CustomHorizontalSlider(
 ) {
     var rawMinutes by remember(dialMinutes) { mutableFloatStateOf(dialMinutes) }
 
-    val sliderDisplayTitle = remember(dialMinutes) {
-        val mins = dialMinutes.toInt()
-        when {
-            mins == 0 -> "0 min (Stopwatch)"
-            mins >= 60 -> {
-                val h = mins / 60
-                val m = mins % 60
-                if (m > 0) "$mins min ($h h $m m)" else "$mins min ($h h)"
-            }
-            else -> "$mins min"
-        }
-    }
-
     Box(
+        contentAlignment = Alignment.Center,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .height(54.dp)
+            .clip(RoundedCornerShape(14.dp))
             .background(cardBg)
-            .border(1.4.dp, goldColor, RoundedCornerShape(16.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = sliderDisplayTitle,
-                color = textMain,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Black
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            .border(1.2.dp, goldColor.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+            .pointerInput(Unit) {
+                val spacing = 22.dp.toPx()
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        val finalSnapped = (round(rawMinutes / 5f) * 5f).coerceIn(0f, 180f)
+                        rawMinutes = finalSnapped
+                        onDialMinutesChange(finalSnapped)
+                    },
+                    onDragCancel = {}
+                ) { change, dragAmount ->
+                    change.consume()
+                    val deltaMinutes = (-dragAmount / spacing) * 5f
+                    rawMinutes = (rawMinutes + deltaMinutes).coerceIn(0f, 180f)
 
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .pointerInput(Unit) {
-                        val spacing = 22.dp.toPx()
-                        detectHorizontalDragGestures(
-                            onDragEnd = {
-                                val finalSnapped = (round(rawMinutes / 5f) * 5f).coerceIn(0f, 180f)
-                                rawMinutes = finalSnapped
-                                onDialMinutesChange(finalSnapped)
-                            },
-                            onDragCancel = {}
-                        ) { change, dragAmount ->
-                            change.consume()
-                            val deltaMinutes = (-dragAmount / spacing) * 5f
-                            rawMinutes = (rawMinutes + deltaMinutes).coerceIn(0f, 180f)
-
-                            val currentSnapped = (round(rawMinutes / 5f) * 5f).coerceIn(0f, 180f)
-                            if (currentSnapped != dialMinutes) {
-                                onDialMinutesChange(currentSnapped)
-                            }
-                        }
-                    }
-            ) {
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(40.dp)
-                ) {
-                    val canvasWidth = size.width
-                    val canvasHeight = size.height
-                    val centerX = canvasWidth / 2f
-                    val centerY = canvasHeight / 2f
-                    val spacing = 22.dp.toPx()
-
-                    for (m in 0..180 step 5) {
-                        val x = centerX + ((m - rawMinutes) / 5f) * spacing
-                        if (x >= -20f && x <= canvasWidth + 20f) {
-                            val distFromCenter = abs(x - centerX)
-                            val alpha = (1f - distFromCenter / (canvasWidth / 2f)).coerceIn(0f, 1f)
-                            val isMajor30 = (m % 30 == 0)
-                            val isMajor15 = (m % 15 == 0)
-
-                            val tickHeight = when {
-                                isMajor30 -> 22.dp.toPx()
-                                isMajor15 -> 16.dp.toPx()
-                                else -> 10.dp.toPx()
-                            }
-                            val tickWidth = when {
-                                isMajor30 -> 2.4.dp.toPx()
-                                isMajor15 -> 1.8.dp.toPx()
-                                else -> 1.2.dp.toPx()
-                            }
-                            val tickColor = if (isMajor30 || isMajor15) {
-                                textMain.copy(alpha = alpha * 0.9f)
-                            } else {
-                                textMuted.copy(alpha = alpha * 0.6f)
-                            }
-
-                            drawLine(
-                                color = tickColor,
-                                start = Offset(x, centerY - tickHeight / 2f),
-                                end = Offset(x, centerY + tickHeight / 2f),
-                                strokeWidth = tickWidth,
-                                cap = StrokeCap.Round
-                            )
-                        }
+                    val currentSnapped = (round(rawMinutes / 5f) * 5f).coerceIn(0f, 180f)
+                    if (currentSnapped != dialMinutes) {
+                        onDialMinutesChange(currentSnapped)
                     }
                 }
-
-                Box(
-                    modifier = Modifier
-                        .width(3.2.dp)
-                        .height(28.dp)
-                        .shadow(
-                            elevation = 8.dp,
-                            shape = RoundedCornerShape(2.dp),
-                            spotColor = Color.White,
-                            ambientColor = Color.White
-                        )
-                        .background(Color.White, RoundedCornerShape(2.dp))
-                )
             }
+    ) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+        ) {
+            val canvasWidth = size.width
+            val canvasHeight = size.height
+            val centerX = canvasWidth / 2f
+            val centerY = canvasHeight / 2f
+            val spacing = 22.dp.toPx()
 
-            Spacer(modifier = Modifier.height(5.dp))
-            Text(
-                text = "Focus >",
-                color = textMuted,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold
-            )
+            for (m in 0..180 step 5) {
+                val x = centerX + ((m - rawMinutes) / 5f) * spacing
+                if (x >= -20f && x <= canvasWidth + 20f) {
+                    val distFromCenter = abs(x - centerX)
+                    val alpha = (1f - distFromCenter / (canvasWidth / 2f)).coerceIn(0f, 1f)
+                    val isMajor30 = (m % 30 == 0)
+                    val isMajor15 = (m % 15 == 0)
+
+                    val tickHeight = when {
+                        isMajor30 -> 24.dp.toPx()
+                        isMajor15 -> 17.dp.toPx()
+                        else -> 11.dp.toPx()
+                    }
+                    val tickWidth = when {
+                        isMajor30 -> 2.4.dp.toPx()
+                        isMajor15 -> 1.8.dp.toPx()
+                        else -> 1.2.dp.toPx()
+                    }
+                    val tickColor = if (isMajor30 || isMajor15) {
+                        textMain.copy(alpha = alpha * 0.9f)
+                    } else {
+                        textMuted.copy(alpha = alpha * 0.6f)
+                    }
+
+                    drawLine(
+                        color = tickColor,
+                        start = Offset(x, centerY - tickHeight / 2f),
+                        end = Offset(x, centerY + tickHeight / 2f),
+                        strokeWidth = tickWidth,
+                        cap = StrokeCap.Round
+                    )
+                }
+            }
         }
+
+        // Center Indicator Pin
+        Box(
+            modifier = Modifier
+                .width(3.2.dp)
+                .height(30.dp)
+                .shadow(
+                    elevation = 8.dp,
+                    shape = RoundedCornerShape(2.dp),
+                    spotColor = goldColor,
+                    ambientColor = goldColor
+                )
+                .background(goldColor, RoundedCornerShape(2.dp))
+        )
     }
 }
 
