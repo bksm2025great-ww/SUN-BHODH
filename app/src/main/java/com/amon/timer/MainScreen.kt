@@ -38,7 +38,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -129,7 +128,6 @@ fun MainScreen() {
 
     Scaffold(
         containerColor = bgColor,
-        // 🛡️ 0 Insets ताकि स्क्रीन पर कोई कटी पट्टी न बचे
         contentWindowInsets = if (isFocusActive) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
         bottomBar = {
             if (!isFocusActive) {
@@ -287,9 +285,14 @@ fun HomeTimerTab(
         }
     }
 
+    // 🔘 यूनिवर्सल न्यूट्रल ग्रे रंग (लाइट और डार्क दोनों में परफ़ेक्ट)
+    val rotateIconColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val rotateButtonBg = if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9)
+    val rotateButtonBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
+
     Box(modifier = Modifier.fillMaxSize()) {
         if (!isFocusActive) {
-            // ----------------- NORMAL PORTRAIT / LANDSCAPE MODE -----------------
+            // ----------------- NORMAL MODE (TIMER NOT RUNNING) -----------------
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -527,179 +530,31 @@ fun HomeTimerTab(
             }
         } else {
             // =================================================================
-            // 🎯 MASTER FOCUS SCREEN (PORTRAIT & LANDSCAPE 100% BALANCED)
+            // 🎯 MASTER FOCUS SCREEN (SYMMETRIC & CLEAN CENTER LAYOUT)
             // =================================================================
-            if (!isLandscape) {
-                // 📱 PORTRAIT MODE: Clean Center + Lifted Buttons (+20dp)
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 20.dp)
-                        .padding(top = 18.dp, bottom = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // TOP BAR: Subject Pill + Rotate Icon
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        // Center Pill
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(7.dp),
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .clip(RoundedCornerShape(50))
-                                .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
-                                .border(1.dp, glassBorder, RoundedCornerShape(50))
-                                .padding(horizontal = 16.dp, vertical = 6.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.5.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF22C55E))
-                            )
-                            Text(
-                                text = selectedSubjectName,
-                                color = textMain,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-
-                        // Top-Right Rotate Button
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
-                                .border(1.2.dp, goldColor.copy(alpha = 0.8f), CircleShape)
-                                .clickable { toggleOrientation() }
-                        ) {
-                            ScreenOrientationIcon(tint = goldColor)
-                        }
-                    }
-
-                    // CENTER WATCH
-                    Box(
-                        modifier = Modifier.weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        TimerWatchesContainer(
-                            dialMinutes = dialMinutes,
-                            onDialMinutesChange = { nextMins ->
-                                dialMinutes = nextMins
-                                val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
-                                TimerService.remainingSeconds.intValue = secs
-                                initialTotalSeconds = if (secs > 0) secs else 60
-                            },
-                            totalSeconds = totalSeconds,
-                            initialTotalSeconds = initialTotalSeconds,
-                            isRunning = true,
-                            isCustomMode = isCustomMode,
-                            onCustomModeToggle = { },
-                            goldColor = goldColor,
-                            glowYellow = glowYellow,
-                            cardBg = cardBg,
-                            glassBorder = glassBorder,
-                            textMain = textMain,
-                            textMuted = textMuted,
-                            isDark = isDark,
-                            timeFormatted = timeFormatted,
-                            hours = hours
-                        )
-                    }
-
-                    // BOTTOM ACTION CONTROLS (LIFTED & ERGONOMIC)
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(24.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // ⏸️ / ▶ Button
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable {
-                                        val intent = Intent(context, TimerService::class.java).apply {
-                                            action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
-                                        }
-                                        context.startService(intent)
-                                    }
-                            ) {
-                                if (isRunning) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Box(modifier = Modifier.width(3.2.dp).height(16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                        Box(modifier = Modifier.width(3.2.dp).height(16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                    }
-                                } else {
-                                    Text(
-                                        text = "▶",
-                                        color = textMain,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Black,
-                                        modifier = Modifier.offset(x = 1.5.dp)
-                                    )
-                                }
-                            }
-
-                            // ⏹ Stop Button
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable { showGiveUpDialog = true }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(textMuted)
-                                )
-                            }
-                        }
-
-                        if (isPaused) {
-                            Text(
-                                text = "PAUSED",
-                                color = textMuted.copy(alpha = 0.65f),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                letterSpacing = 2.sp
-                            )
-                        }
-                    }
-                }
-            } else {
-                // 🔄 LANDSCAPE MODE: 3-Zone Cinema Layout (Left Subject + Center Huge Clock + Right Dock)
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 24.dp, vertical = 12.dp)
-                ) {
-                    // 1. TOP-LEFT SUBJECT (Relaxed Padding)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = if (isLandscape) 24.dp else 20.dp)
+                    .padding(
+                        top = if (isLandscape) 6.dp else 18.dp,
+                        bottom = if (isLandscape) 12.dp else 24.dp
+                    ),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // 1. TOP BAR: Subject Pill (Center) + Neutral Gray Rotate Button (Top-Right)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    // Center Pill
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(7.dp),
                         modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(top = 4.dp)
+                            .align(Alignment.Center)
                             .clip(RoundedCornerShape(50))
                             .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
                             .border(1.dp, glassBorder, RoundedCornerShape(50))
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                            .padding(horizontal = 16.dp, vertical = if (isLandscape) 4.dp else 6.dp)
                     ) {
                         Box(
                             modifier = Modifier
@@ -716,113 +571,123 @@ fun HomeTimerTab(
                         )
                     }
 
-                    // 2. CENTER CLOCK (Full Height Maximum Freedom)
+                    // 🔄 Top-Right Rotate Button (ZERO RIPPLE - PURE NEUTRAL SLATE)
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 70.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        TimerWatchesContainer(
-                            dialMinutes = dialMinutes,
-                            onDialMinutesChange = { nextMins ->
-                                dialMinutes = nextMins
-                                val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
-                                TimerService.remainingSeconds.intValue = secs
-                                initialTotalSeconds = if (secs > 0) secs else 60
-                            },
-                            totalSeconds = totalSeconds,
-                            initialTotalSeconds = initialTotalSeconds,
-                            isRunning = true,
-                            isCustomMode = isCustomMode,
-                            onCustomModeToggle = { },
-                            goldColor = goldColor,
-                            glowYellow = glowYellow,
-                            cardBg = cardBg,
-                            glassBorder = glassBorder,
-                            textMain = textMain,
-                            textMuted = textMuted,
-                            isDark = isDark,
-                            timeFormatted = timeFormatted,
-                            hours = hours
-                        )
-                    }
-
-                    // 3. RIGHT SIDE-DOCK: Vertical Controls Bar
-                    Column(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
-                            .fillMaxHeight(),
-                        verticalArrangement = Arrangement.SpaceBetween,
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .size(if (isLandscape) 36.dp else 38.dp)
+                            .clip(CircleShape)
+                            .background(rotateButtonBg)
+                            .border(1.dp, rotateButtonBorder, CircleShape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null // 🚫 बैंगनी/गुलाबी डिफ़ॉल्ट घेरे का हमेशा के लिए खात्मा
+                            ) { toggleOrientation() }
                     ) {
-                        // 🔄 Rotate Screen Button (Top)
+                        ScreenOrientationIcon(tint = rotateIconColor)
+                    }
+                }
+
+                // 2. CENTER WATCH (Perfect Center Space in both orientations)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TimerWatchesContainer(
+                        dialMinutes = dialMinutes,
+                        onDialMinutesChange = { nextMins ->
+                            dialMinutes = nextMins
+                            val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
+                            TimerService.remainingSeconds.intValue = secs
+                            initialTotalSeconds = if (secs > 0) secs else 60
+                        },
+                        totalSeconds = totalSeconds,
+                        initialTotalSeconds = initialTotalSeconds,
+                        isRunning = true,
+                        isCustomMode = isCustomMode,
+                        onCustomModeToggle = { },
+                        goldColor = goldColor,
+                        glowYellow = glowYellow,
+                        cardBg = cardBg,
+                        glassBorder = glassBorder,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        isDark = isDark,
+                        timeFormatted = timeFormatted,
+                        hours = hours
+                    )
+                }
+
+                // 3. BOTTOM ACTION CONTROLS (Pause/Resume & Stop - Centered & Ergonomic)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(if (isLandscape) 4.dp else 8.dp)
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 28.dp else 24.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // ⏸️ / ▶ Pause-Play Button
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(if (isLandscape) 48.dp else 56.dp)
                                 .clip(CircleShape)
-                                .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
-                                .border(1.2.dp, goldColor.copy(alpha = 0.8f), CircleShape)
-                                .clickable { toggleOrientation() }
-                        ) {
-                            ScreenOrientationIcon(tint = goldColor)
-                        }
-
-                        // Middle & Bottom Actions
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            // ⏸️ / ▶ Pause-Play Button
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(50.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable {
-                                        val intent = Intent(context, TimerService::class.java).apply {
-                                            action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
-                                        }
-                                        context.startService(intent)
-                                    }
-                            ) {
-                                if (isRunning) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
-                                        Box(modifier = Modifier.width(3.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                        Box(modifier = Modifier.width(3.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                    }
-                                } else {
-                                    Text(
-                                        text = "▶",
-                                        color = textMain,
-                                        fontSize = 17.sp,
-                                        fontWeight = FontWeight.Black,
-                                        modifier = Modifier.offset(x = 1.2.dp)
-                                    )
+                                .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                            .clickable {
+                                val intent = Intent(context, TimerService::class.java).apply {
+                                    action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
                                 }
+                                context.startService(intent)
                             }
-
-                            // ⏹️ Stop Button
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(50.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable { showGiveUpDialog = true }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(15.dp)
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(textMuted)
+                        ) {
+                            if (isRunning) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 3.5.dp else 4.dp)) {
+                                    Box(modifier = Modifier.width(3.2.dp).height(if (isLandscape) 14.dp else 16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                    Box(modifier = Modifier.width(3.2.dp).height(if (isLandscape) 14.dp else 16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                }
+                            } else {
+                                Text(
+                                    text = "▶",
+                                    color = textMain,
+                                    fontSize = if (isLandscape) 16.sp else 18.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.offset(x = 1.5.dp)
                                 )
                             }
                         }
+
+                        // ⏹ Stop Button
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(if (isLandscape) 48.dp else 56.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                            .clickable { showGiveUpDialog = true }
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isLandscape) 14.dp else 16.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(textMuted)
+                            )
+                        }
+                    }
+
+                    if (isPaused) {
+                        Text(
+                            text = "PAUSED",
+                            color = textMuted.copy(alpha = 0.65f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 2.sp
+                        )
                     }
                 }
             }
@@ -1178,9 +1043,6 @@ fun HomeTimerTab(
                                             action = TimerService.ACTION_STOP
                                         }
                                         context.startService(intent)
-                                        val resetSecs = dialMinutes.toInt() * 60
-                                        TimerService.remainingSeconds.intValue = resetSecs
-                                        initialTotalSeconds = resetSecs
                                         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                                     }
                             ) {
@@ -1217,14 +1079,14 @@ fun HomeTimerTab(
 }
 
 // =============================================================================
-// 🔄 SCREEN ORIENTATION VECTOR ICON (HAND-DRAWN CANVAS ART)
+// 🔄 SCREEN ORIENTATION VECTOR ICON (NEUTRAL SLATE)
 // =============================================================================
 @Composable
 private fun ScreenOrientationIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
+    Canvas(modifier = modifier.size(18.dp)) {
         val w = size.width
         val h = size.height
-        val stroke = 1.6.dp.toPx()
+        val stroke = 1.5.dp.toPx()
 
         drawRoundRect(
             color = tint,
