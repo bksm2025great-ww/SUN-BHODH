@@ -88,7 +88,7 @@ fun ForestScreen() {
                     else -> TreeSpecies.CLASSIC_OAK
                 }
                 PlacedTree(
-                    id = "tree_${s.timestamp}_$index",
+                 id = "tree_$index",
                     subject = s.subject,
                     durationMinutes = s.durationMinutes,
                     species = species,
