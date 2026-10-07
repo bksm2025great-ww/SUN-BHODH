@@ -8,7 +8,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -16,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -38,11 +36,19 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.*
 
-enum class TreeSpecies {
-    CLASSIC_OAK,    // रोज़ाना के सामान्य फोकस के लिए
-    GEOMETRIC_PINE, // कठिन और तकनीकी विषयों के लिए
-    SAKURA_PINK,    // भाषा और रचनात्मक विषयों के लिए
-    GOLDEN_AMON     // 60+ मिनट के मैराथन फोकस के लिए
+// 11 अनोखी प्रजातियाँ ताकि आप अपनी पसंद का पेड़ चुन सकें
+enum class TreeSpecies(val title: String) {
+    CLOUD_OAK("Oak"),
+    LAYERED_PINE("Pine"),
+    SAKURA_PINK("Sakura"),
+    AUTUMN_MAPLE("Maple"),
+    WEEPING_WILLOW("Willow"),
+    TALL_CYPRESS("Cypress"),
+    ZEN_BONSAI("Bonsai"),
+    PALM_COCONUT("Palm"),
+    SILVER_BIRCH("Birch"),
+    FANTASY_SHROOM("Shroom"),
+    GOLDEN_AMON("Amon Gold")
 }
 
 data class PlacedTree(
@@ -50,8 +56,7 @@ data class PlacedTree(
     val subject: String,
     val durationMinutes: Int,
     val species: TreeSpecies,
-    val gridSlot: Int,
-    val scaleFactor: Float = 1f
+    val gridSlot: Int
 )
 
 @Composable
@@ -63,35 +68,31 @@ fun ForestScreen() {
     val textMain = ThemeManager.getTextColor()
     val textMuted = ThemeManager.getTextMutedColor()
     val cardBg = ThemeManager.getCardColor()
-    val glassBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
+    val glassBorder = if (isDark) Color(0x22FFFFFF) else Color(0x33000000)
 
-    // 1. पढ़ाई के असली सेशन्स लोड करें
     val sessions = remember { FocusSessionManager.getAllSessions(context) }
+    val allSpecies = remember { TreeSpecies.values() }
 
-    // 2. सेशन्स को पेड़ों में बदलें (अगर कोई सेशन नहीं है तो डेमो के लिए 6 पेड़ दिखाएँ)
+    // 11 के 11 पेड़ स्क्रीन पर सीधे प्रीव्यू के लिए दिखाए जा रहे हैं
     val trees = remember(sessions) {
         if (sessions.isEmpty()) {
-            listOf(
-                PlacedTree("d1", "All", 25, TreeSpecies.CLASSIC_OAK, 0),
-                PlacedTree("d2", "Math", 45, TreeSpecies.GEOMETRIC_PINE, 1),
-                PlacedTree("d3", "English", 30, TreeSpecies.SAKURA_PINK, 2),
-                PlacedTree("d4", "Mastery", 65, TreeSpecies.GOLDEN_AMON, 3),
-                PlacedTree("d5", "Physics", 50, TreeSpecies.CLASSIC_OAK, 4),
-                PlacedTree("d6", "History", 35, TreeSpecies.SAKURA_PINK, 5)
-            )
+            allSpecies.mapIndexed { index, spec ->
+                PlacedTree(
+                    id = "preview_$index",
+                    subject = spec.title,
+                    durationMinutes = 25 + index * 5,
+                    species = spec,
+                    gridSlot = index
+                )
+            }
         } else {
             sessions.mapIndexed { index, s ->
-                val species = when {
-                    s.durationMinutes >= 60 -> TreeSpecies.GOLDEN_AMON
-                    s.subject.contains("Math", ignoreCase = true) || s.subject.contains("Sci", ignoreCase = true) -> TreeSpecies.GEOMETRIC_PINE
-                    s.subject.contains("Eng", ignoreCase = true) || s.subject.contains("Read", ignoreCase = true) -> TreeSpecies.SAKURA_PINK
-                    else -> TreeSpecies.CLASSIC_OAK
-                }
+                val chosenSpecies = allSpecies[index % allSpecies.size]
                 PlacedTree(
-                 id = "tree_$index",
+                    id = "tree_$index",
                     subject = s.subject,
                     durationMinutes = s.durationMinutes,
-                    species = species,
+                    species = chosenSpecies,
                     gridSlot = index
                 )
             }
@@ -104,54 +105,53 @@ fun ForestScreen() {
     }
     val totalHours = String.format(Locale.getDefault(), "%.1f", totalMins / 60f)
 
-    val infiniteTransition = rememberInfiniteTransition(label = "zen_nature_clocks")
+    val infiniteTransition = rememberInfiniteTransition(label = "nature_anim")
 
-    // A. हवा में झूलना (Sine wave wind sway)
+    // हवा में झूलना
     val windPhase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 2f * PI.toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(4200, easing = LinearEasing),
+            animation = tween(4000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "wind_sway"
+        label = "wind"
     )
 
-    // B. तालाब की गोल लहरें (Pond Ripple Pulse)
+    // तालाब की लहरें
     val rippleProgress by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3200, easing = FastOutSlowInEasing),
+            animation = tween(3000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "pond_ripple"
+        label = "ripple"
     )
 
-    // C. रात के जुगनू की चमक (Firefly Glow)
+    // जुगनू
     val fireflyGlow by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.95f,
+        initialValue = 0.2f,
+        targetValue = 0.9f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = FastOutSlowInEasing),
+            animation = tween(1600, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "firefly_glow"
+        label = "glow"
     )
 
-    // D. टच करने पर पेड़ का उछलना (Tap Squish Physics State)
     val coroutineScope = rememberCoroutineScope()
     val squishAnimatables = remember { mutableStateMapOf<Int, Animatable<Float, AnimationVector1D>>() }
 
-    val meadowBg = if (isDark) Color(0xFF0F1713) else Color(0xFFEFF7EE)
-    val meadowPathColor = if (isDark) Color(0xFF19251E) else Color(0xFFE2EFE0)
-    val pondWaterColor = if (isDark) Color(0xFF17303E) else Color(0xFFC7E8F3)
-    val pondDeepColor = if (isDark) Color(0xFF11242F) else Color(0xFFB1DFEE)
+    val meadowBg = if (isDark) Color(0xFF0D1410) else Color(0xFFEDF6EC)
+    val meadowPathColor = if (isDark) Color(0xFF16211B) else Color(0xFFE2EFE0)
+    val pondWaterColor = if (isDark) Color(0xFF162F3D) else Color(0xFFC7E8F3)
+    val pondDeepColor = if (isDark) Color(0xFF10232E) else Color(0xFFB1DFEE)
     val rippleColor = if (isDark) Color(0x55A5E3F6) else Color(0x66FFFFFF)
 
-    // कैनवास की डायनामिक ऊँचाई (पेड़ों की संख्या के अनुसार स्वतः बढ़ेगी)
-    val totalSlots = maxOf(trees.size, 6)
-    val canvasHeightDp = (580 + (totalSlots / 2) * 160).dp
+    // कुल पेड़ों के हिसाब से डायनामिक स्क्रोल ऊँचाई
+    val rowCount = ceil(trees.size / 2.0).toInt()
+    val canvasHeightDp = (260 + rowCount * 135).dp
 
     Box(
         modifier = Modifier
@@ -170,26 +170,26 @@ fun ForestScreen() {
                     .pointerInput(trees) {
                         detectTapGestures { tapOffset ->
                             val w = size.width
-                            val stepY = 160.dp.toPx()
-                            val startY = 240.dp.toPx()
+                            val stepY = 130.dp.toPx()
+                            val startY = 160.dp.toPx()
 
                             trees.forEachIndexed { index, _ ->
                                 val isLeft = index % 2 == 0
-                                val treeX = if (isLeft) w * 0.24f else w * 0.76f
+                                val treeX = if (isLeft) w * 0.28f else w * 0.72f
                                 val treeY = startY + (index / 2) * stepY
 
                                 val dist = hypot(tapOffset.x - treeX, tapOffset.y - treeY)
-                                if (dist < 46.dp.toPx()) {
+                                if (dist < 42.dp.toPx()) {
                                     val anim = squishAnimatables.getOrPut(index) { Animatable(1f) }
                                     coroutineScope.launch {
-                                        anim.snapTo(0.78f) // दबेगा
+                                        anim.snapTo(0.82f)
                                         anim.animateTo(
                                             targetValue = 1f,
                                             animationSpec = spring(
                                                 dampingRatio = Spring.DampingRatioMediumBouncy,
                                                 stiffness = Spring.StiffnessLow
                                             )
-                                        ) // उछलकर सेट होगा
+                                        )
                                     }
                                 }
                             }
@@ -199,30 +199,31 @@ fun ForestScreen() {
                 val w = size.width
                 val h = size.height
 
+                // प्राकृतिक घुमावदार रास्ता (पेड़ों के करीब)
                 val trailPath = Path().apply {
                     moveTo(w * 0.50f, 0f)
-                    cubicTo(w * 0.44f, h * 0.18f, w * 0.58f, h * 0.36f, w * 0.48f, h * 0.52f)
-                    cubicTo(w * 0.38f, h * 0.68f, w * 0.56f, h * 0.84f, w * 0.50f, h)
+                    cubicTo(w * 0.46f, h * 0.22f, w * 0.54f, h * 0.45f, w * 0.48f, h * 0.68f)
+                    cubicTo(w * 0.44f, h * 0.82f, w * 0.52f, h * 0.94f, w * 0.50f, h)
                 }
                 drawPath(
                     path = trailPath,
                     color = meadowPathColor,
-                    style = Stroke(width = 54.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 46.dp.toPx(), cap = StrokeCap.Round)
                 )
 
-                // रास्ते के किनारे छोटे कंकड़ (Pebbles)
-                val pebbleColor = if (isDark) Color(0x33FFFFFF) else Color(0x448DA588)
-                for (step in 0..12) {
-                    val py = (h / 12f) * step
-                    val px = (w * 0.50f) + sin(step.toDouble() * 1.5).toFloat() * 26.dp.toPx()
-                    drawCircle(color = pebbleColor, radius = 2.4.dp.toPx(), center = Offset(px, py))
+                // रास्ते के पत्थर
+                val pebbleColor = if (isDark) Color(0x2AFFFFFF) else Color(0x3B8DA588)
+                for (step in 0..16) {
+                    val py = (h / 16f) * step
+                    val px = (w * 0.50f) + sin(step.toDouble() * 1.4).toFloat() * 18.dp.toPx()
+                    drawCircle(color = pebbleColor, radius = 2.2.dp.toPx(), center = Offset(px, py))
                 }
 
-                val pondCenter = Offset(w * 0.22f, 150.dp.toPx())
-                val pondRadiusX = 58.dp.toPx()
-                val pondRadiusY = 44.dp.toPx()
+                // शांत तालाब
+                val pondCenter = Offset(w * 0.20f, 100.dp.toPx())
+                val pondRadiusX = 52.dp.toPx()
+                val pondRadiusY = 38.dp.toPx()
 
-                // तालाब का बेस
                 drawOval(
                     color = pondWaterColor,
                     topLeft = Offset(pondCenter.x - pondRadiusX, pondCenter.y - pondRadiusY),
@@ -234,32 +235,30 @@ fun ForestScreen() {
                     size = Size(pondRadiusX * 1.3f, pondRadiusY * 1.3f)
                 )
 
-                // तालाब की गोल लहरें (Pulsating Waves)
                 val wave1R = pondRadiusX * 0.3f + (pondRadiusX * 0.65f * rippleProgress)
                 val waveAlpha = (1f - rippleProgress).coerceIn(0f, 1f)
                 drawOval(
-                    color = rippleColor.copy(alpha = waveAlpha * 0.7f),
-                    topLeft = Offset(pondCenter.x - wave1R, pondCenter.y - wave1R * 0.75f),
-                    size = Size(wave1R * 2, wave1R * 1.5f),
-                    style = Stroke(width = 2.dp.toPx())
+                    color = rippleColor.copy(alpha = waveAlpha * 0.6f),
+                    topLeft = Offset(pondCenter.x - wave1R, pondCenter.y - wave1R * 0.72f),
+                    size = Size(wave1R * 2, wave1R * 1.44f),
+                    style = Stroke(width = 1.8.dp.toPx())
                 )
 
-                val stepY = 160.dp.toPx()
-                val startY = 240.dp.toPx()
+                val stepY = 130.dp.toPx()
+                val startY = 160.dp.toPx()
 
+                // पेड़ों का ड्रॉइंग लूप
                 trees.forEachIndexed { index, tree ->
                     val isLeft = index % 2 == 0
-                    val baseX = if (isLeft) w * 0.24f else w * 0.76f
+                    // रास्ते के किनारों के बिल्कुल पास
+                    val baseX = if (isLeft) w * 0.28f else w * 0.72f
                     val baseY = startY + (index / 2) * stepY
 
-                    // हवा की चाल (अलग-अलग पेड़ों की स्वतंत्र चाल)
-                    val swayAngle = sin(windPhase + index * 1.3f) * 3.5f
-                    val swayOffset = Offset(sin(Math.toRadians(swayAngle.toDouble())).toFloat() * 12.dp.toPx(), 0f)
-
-                    // टैप करने पर लचीला स्केल
+                    val swayAngle = sin(windPhase + index * 1.1f) * 3f
+                    val swayOffset = Offset(sin(Math.toRadians(swayAngle.toDouble())).toFloat() * 9.dp.toPx(), 0f)
                     val squish = squishAnimatables[index]?.value ?: 1f
 
-                    drawZenTree(
+                    drawAdvancedTree(
                         species = tree.species,
                         base = Offset(baseX, baseY),
                         sway = swayOffset,
@@ -268,208 +267,277 @@ fun ForestScreen() {
                     )
                 }
 
+                // रात के जुगनू
                 if (isDark) {
                     val fireflyColor = Color(0xFFFDE047)
-                    val positions = listOf(
-                        Offset(w * 0.35f, 130.dp.toPx()),
-                        Offset(w * 0.70f, 210.dp.toPx()),
-                        Offset(w * 0.18f, 370.dp.toPx()),
-                        Offset(w * 0.82f, 490.dp.toPx()),
-                        Offset(w * 0.45f, 620.dp.toPx())
+                    val pts = listOf(
+                        Offset(w * 0.35f, 110.dp.toPx()),
+                        Offset(w * 0.65f, 180.dp.toPx()),
+                        Offset(w * 0.22f, 320.dp.toPx()),
+                        Offset(w * 0.78f, 440.dp.toPx()),
+                        Offset(w * 0.40f, 560.dp.toPx())
                     )
-
-                    positions.forEachIndexed { i, pt ->
-                        val floatX = pt.x + sin(windPhase * 0.8f + i) * 14.dp.toPx()
-                        val floatY = pt.y + cos(windPhase * 0.8f + i) * 10.dp.toPx()
-                        val glow = (fireflyGlow + sin(i.toFloat()).absoluteValue * 0.2f).coerceIn(0.2f, 1f)
-
-                        drawCircle(
-                            color = fireflyColor.copy(alpha = glow * 0.3f),
-                            radius = 6.dp.toPx(),
-                            center = Offset(floatX, floatY)
-                        )
-                        drawCircle(
-                            color = fireflyColor.copy(alpha = glow),
-                            radius = 2.dp.toPx(),
-                            center = Offset(floatX, floatY)
-                        )
+                    pts.forEachIndexed { i, pt ->
+                        val fx = pt.x + sin(windPhase * 0.9f + i) * 10.dp.toPx()
+                        val fy = pt.y + cos(windPhase * 0.9f + i) * 8.dp.toPx()
+                        val g = (fireflyGlow + sin(i.toFloat()).absoluteValue * 0.2f).coerceIn(0.2f, 1f)
+                        drawCircle(color = fireflyColor.copy(alpha = g * 0.25f), radius = 5.dp.toPx(), center = Offset(fx, fy))
+                        drawCircle(color = fireflyColor.copy(alpha = g), radius = 1.8.dp.toPx(), center = Offset(fx, fy))
                     }
                 }
             }
         }
 
+        // 🌟 बेहद मिनिमल और खूबसूरत फ्लोटिंग हेडर (No Big Box)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp)
-                .clip(RoundedCornerShape(22.dp))
-                .background(cardBg.copy(alpha = 0.92f))
-                .border(1.dp, glassBorder, RoundedCornerShape(22.dp))
-                .padding(horizontal = 18.dp, vertical = 12.dp)
+                .padding(top = 10.dp, start = 16.dp, end = 16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = cardBg.copy(alpha = 0.88f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, glassBorder, RoundedCornerShape(20.dp))
             ) {
-                Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(text = "🌿", fontSize = 16.sp)
+                        Text(text = "🌿", fontSize = 14.sp)
                         Text(
-                            text = "ZEN PARKLAND",
+                            text = "AMON PARK",
                             color = textMain,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp
                         )
                     }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Tap trees to wiggle • Deep study meadow",
-                        color = textMuted,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatPill(
-                        icon = "🌲",
-                        count = "${trees.size}",
-                        label = "Trees",
-                        goldColor = goldColor,
-                        textMain = textMain,
-                        isDark = isDark
-                    )
-                    StatPill(
-                        icon = "⏱️",
-                        count = "${totalHours}h",
-                        label = "Focus",
-                        goldColor = goldColor,
-                        textMain = textMain,
-                        isDark = isDark
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "${trees.size} Trees",
+                            color = goldColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(text = "•", color = textMuted, fontSize = 10.sp)
+                        Text(
+                            text = "${totalHours}h Focus",
+                            color = textMain,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-private fun DrawScope.drawZenTree(
+// -----------------------------------------------------------------------------
+// 🌳 11 प्रोसीजरल पेड़ों का मास्टर इंजन (Zero Lollipops!)
+// -----------------------------------------------------------------------------
+private fun DrawScope.drawAdvancedTree(
     species: TreeSpecies,
     base: Offset,
     sway: Offset,
     squish: Float,
     isDark: Boolean
 ) {
-    val trunkColor = if (isDark) Color(0xFF4A3728) else Color(0xFF6D4C41)
+    val trunkBrown = if (isDark) Color(0xFF423126) else Color(0xFF5D4037)
     val shadowColor = if (isDark) Color(0x33000000) else Color(0x18000000)
 
-    // 1. ज़मीन पर परछाई (Ground Shadow)
+    // 1. ज़मीन पर परछाई
     drawOval(
         color = shadowColor,
-        topLeft = Offset(base.x - 22.dp.toPx(), base.y - 6.dp.toPx()),
-        size = Size(44.dp.toPx(), 14.dp.toPx())
+        topLeft = Offset(base.x - 18.dp.toPx(), base.y - 4.dp.toPx()),
+        size = Size(36.dp.toPx(), 10.dp.toPx())
     )
-
-    // 2. पेड़ का तना (Wood Trunk)
-    val trunkHeight = 22.dp.toPx() * squish
-    val trunkWidth = 6.dp.toPx()
-    drawRoundRect(
-        color = trunkColor,
-        topLeft = Offset(base.x - trunkWidth / 2, base.y - trunkHeight),
-        size = Size(trunkWidth, trunkHeight),
-        cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
-    )
-
-    // 3. ताज / पत्तियाँ (Foliage Canopy)
-    val canopyCenter = Offset(base.x + sway.x, base.y - trunkHeight + sway.y - 14.dp.toPx())
 
     when (species) {
-        TreeSpecies.CLASSIC_OAK -> {
-            val mainGreen = if (isDark) Color(0xFF2E6F40) else Color(0xFF4ADE80)
-            val shadowGreen = if (isDark) Color(0xFF1E4E2C) else Color(0xFF22C55E)
-            val r = 24.dp.toPx() * squish
+        // 1. CLOUD OAK (फूला हुआ बादल ओक)
+        TreeSpecies.CLOUD_OAK -> {
+            val h = 18.dp.toPx() * squish
+            drawRoundRect(color = trunkBrown, topLeft = Offset(base.x - 3.dp.toPx(), base.y - h), size = Size(6.dp.toPx(), h), cornerRadius = CornerRadius(2.dp.toPx()))
+            val c = Offset(base.x + sway.x, base.y - h + sway.y - 12.dp.toPx())
+            val darkGreen = if (isDark) Color(0xFF1B4D2E) else Color(0xFF22C55E)
+            val lightGreen = if (isDark) Color(0xFF2E6F40) else Color(0xFF4ADE80)
+            val r = 16.dp.toPx() * squish
 
-            drawCircle(color = shadowGreen, radius = r * 0.95f, center = Offset(canopyCenter.x, canopyCenter.y + 3.dp.toPx()))
-            drawCircle(color = mainGreen, radius = r, center = canopyCenter)
-            drawCircle(color = Color.White.copy(alpha = 0.22f), radius = r * 0.45f, center = Offset(canopyCenter.x - 5.dp.toPx(), canopyCenter.y - 6.dp.toPx()))
+            drawCircle(darkGreen, r, Offset(c.x - 7.dp.toPx(), c.y + 2.dp.toPx()))
+            drawCircle(darkGreen, r, Offset(c.x + 7.dp.toPx(), c.y + 2.dp.toPx()))
+            drawCircle(lightGreen, r * 1.15f, Offset(c.x, c.y - 4.dp.toPx()))
+            drawCircle(Color.White.copy(alpha = 0.2f), r * 0.4f, Offset(c.x - 4.dp.toPx(), c.y - 8.dp.toPx()))
         }
 
-        TreeSpecies.GEOMETRIC_PINE -> {
-            val pineGreen = if (isDark) Color(0xFF1B4D3E) else Color(0xFF10B981)
-            val darkPine = if (isDark) Color(0xFF12382D) else Color(0xFF059669)
+        // 2. LAYERED PINE (तिकोना देवदार)
+        TreeSpecies.LAYERED_PINE -> {
+            val h = 20.dp.toPx() * squish
+            drawRect(color = trunkBrown, topLeft = Offset(base.x - 2.5.dp.toPx(), base.y - h), size = Size(5.dp.toPx(), h))
+            val c = Offset(base.x + sway.x, base.y - h + sway.y)
+            val pineColor = if (isDark) Color(0xFF133E31) else Color(0xFF059669)
 
-            for (layer in 0..2) {
-                val layerY = canopyCenter.y + (layer * 10.dp.toPx()) - 8.dp.toPx()
-                val halfW = (18.dp.toPx() + layer * 7.dp.toPx()) * squish
-                val triHeight = 20.dp.toPx() * squish
-
-                val path = Path().apply {
-                    moveTo(canopyCenter.x, layerY - triHeight / 2)
-                    lineTo(canopyCenter.x + halfW, layerY + triHeight / 2)
-                    lineTo(canopyCenter.x - halfW, layerY + triHeight / 2)
+            for (i in 0..2) {
+                val y = c.y - (i * 9.dp.toPx())
+                val w = (16.dp.toPx() - i * 3.dp.toPx()) * squish
+                val tri = Path().apply {
+                    moveTo(c.x, y - 12.dp.toPx())
+                    lineTo(c.x + w, y + 2.dp.toPx())
+                    lineTo(c.x - w, y + 2.dp.toPx())
                     close()
                 }
-                drawPath(path = path, color = if (layer == 2) darkPine else pineGreen)
+                drawPath(tri, pineColor)
             }
         }
 
+        // 3. SAKURA PINK (गुलाबी जापानी सकुरा)
         TreeSpecies.SAKURA_PINK -> {
-            val pinkMain = if (isDark) Color(0xFFC0627F) else Color(0xFFF472B6)
-            val pinkSoft = if (isDark) Color(0xFF8B3A54) else Color(0xFFFBCFE8)
-            val r = 22.dp.toPx() * squish
+            val h = 18.dp.toPx() * squish
+            drawRoundRect(color = trunkBrown, topLeft = Offset(base.x - 3.dp.toPx(), base.y - h), size = Size(6.dp.toPx(), h), cornerRadius = CornerRadius(2.dp.toPx()))
+            val c = Offset(base.x + sway.x, base.y - h + sway.y - 12.dp.toPx())
+            val deepPink = if (isDark) Color(0xFF9F2B55) else Color(0xFFEC4899)
+            val softPink = if (isDark) Color(0xFFBC4B75) else Color(0xFFF472B6)
+            val r = 15.dp.toPx() * squish
 
-            drawCircle(color = pinkSoft, radius = r * 1.15f, center = canopyCenter)
-            drawCircle(color = pinkMain, radius = r * 0.85f, center = Offset(canopyCenter.x - 4.dp.toPx(), canopyCenter.y - 4.dp.toPx()))
-            drawCircle(color = Color.White.copy(alpha = 0.4f), radius = 3.dp.toPx(), center = Offset(canopyCenter.x + 6.dp.toPx(), canopyCenter.y - 6.dp.toPx()))
+            drawCircle(deepPink, r, Offset(c.x - 6.dp.toPx(), c.y + 2.dp.toPx()))
+            drawCircle(deepPink, r, Offset(c.x + 6.dp.toPx(), c.y + 2.dp.toPx()))
+            drawCircle(softPink, r * 1.1f, Offset(c.x, c.y - 4.dp.toPx()))
+            drawCircle(Color.White.copy(alpha = 0.4f), 3.dp.toPx(), Offset(c.x + 4.dp.toPx(), c.y - 6.dp.toPx()))
         }
 
+        // 4. AUTUMN MAPLE (नारंगी मेपल)
+        TreeSpecies.AUTUMN_MAPLE -> {
+            val h = 18.dp.toPx() * squish
+            drawRoundRect(color = trunkBrown, topLeft = Offset(base.x - 3.dp.toPx(), base.y - h), size = Size(6.dp.toPx(), h), cornerRadius = CornerRadius(2.dp.toPx()))
+            val c = Offset(base.x + sway.x, base.y - h + sway.y - 12.dp.toPx())
+            val deepAmber = if (isDark) Color(0xFF9A3412) else Color(0xFFEA580C)
+            val brightOrange = if (isDark) Color(0xFFC2410C) else Color(0xFFF97316)
+            val r = 16.dp.toPx() * squish
+
+            drawCircle(deepAmber, r, Offset(c.x - 6.dp.toPx(), c.y + 3.dp.toPx()))
+            drawCircle(deepAmber, r, Offset(c.x + 6.dp.toPx(), c.y + 3.dp.toPx()))
+            drawCircle(brightOrange, r * 1.1f, Offset(c.x, c.y - 4.dp.toPx()))
+        }
+
+        // 5. WEEPING WILLOW (झुकती हुई लतादार विलो)
+        TreeSpecies.WEEPING_WILLOW -> {
+            val h = 22.dp.toPx() * squish
+            drawRoundRect(color = trunkBrown, topLeft = Offset(base.x - 3.dp.toPx(), base.y - h), size = Size(6.dp.toPx(), h), cornerRadius = CornerRadius(2.dp.toPx()))
+            val c = Offset(base.x + sway.x, base.y - h + sway.y - 10.dp.toPx())
+            val willowGreen = if (isDark) Color(0xFF1F513F) else Color(0xFF10B981)
+
+            drawOval(willowGreen, Offset(c.x - 16.dp.toPx(), c.y - 10.dp.toPx()), Size(32.dp.toPx(), 20.dp.toPx()))
+            // लटकती पत्तियाँ
+            for (dx in listOf(-12.dp, -6.dp, 0.dp, 6.dp, 12.dp)) {
+                drawLine(
+                    color = willowGreen,
+                    start = Offset(c.x + dx.toPx(), c.y),
+                    end = Offset(c.x + dx.toPx() + (sway.x * 0.5f), c.y + 14.dp.toPx()),
+                    strokeWidth = 2.5.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+
+        // 6. TALL CYPRESS (लंबा पतला साइप्रस)
+        TreeSpecies.TALL_CYPRESS -> {
+            val h = 12.dp.toPx() * squish
+            drawRect(color = trunkBrown, topLeft = Offset(base.x - 2.dp.toPx(), base.y - h), size = Size(4.dp.toPx(), h))
+            val c = Offset(base.x + sway.x, base.y - h + sway.y - 18.dp.toPx())
+            val cypressColor = if (isDark) Color(0xFF0F3824) else Color(0xFF15803D)
+            drawOval(cypressColor, Offset(c.x - 8.dp.toPx() * squish, c.y - 14.dp.toPx()), Size(16.dp.toPx() * squish, 36.dp.toPx()))
+        }
+
+        // 7. ZEN BONSAI (घुमावदार बोंसाई)
+        TreeSpecies.ZEN_BONSAI -> {
+            val trunkPath = Path().apply {
+                moveTo(base.x, base.y)
+                cubicTo(base.x - 6.dp.toPx(), base.y - 8.dp.toPx(), base.x + 8.dp.toPx(), base.y - 14.dp.toPx(), base.x + sway.x, base.y - 20.dp.toPx() * squish)
+            }
+            drawPath(trunkPath, trunkBrown, style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round))
+            val c = Offset(base.x + sway.x, base.y - 20.dp.toPx() * squish + sway.y)
+            val bonsaiGreen = if (isDark) Color(0xFF1E4E2B) else Color(0xFF16A34A)
+
+            drawOval(bonsaiGreen, Offset(c.x - 14.dp.toPx(), c.y - 6.dp.toPx()), Size(28.dp.toPx() * squish, 12.dp.toPx()))
+            drawOval(bonsaiGreen, Offset(c.x - 20.dp.toPx(), c.y + 4.dp.toPx()), Size(16.dp.toPx() * squish, 8.dp.toPx()))
+        }
+
+        // 8. PALM COCONUT (नारियल का पेड़)
+        TreeSpecies.PALM_COCONUT -> {
+            val trunkPath = Path().apply {
+                moveTo(base.x, base.y)
+                quadraticBezierTo(base.x + 8.dp.toPx(), base.y - 14.dp.toPx(), base.x + 4.dp.toPx() + sway.x, base.y - 26.dp.toPx() * squish)
+            }
+            drawPath(trunkPath, trunkBrown, style = Stroke(width = 4.5.dp.toPx(), cap = StrokeCap.Round))
+            val tip = Offset(base.x + 4.dp.toPx() + sway.x, base.y - 26.dp.toPx() * squish)
+            val palmGreen = if (isDark) Color(0xFF1B5E20) else Color(0xFF22C55E)
+
+            // 4 झुके हुए पत्ते
+            for (ang in listOf(-50.0, -15.0, 30.0, 65.0)) {
+                val rad = Math.toRadians(ang)
+                val ex = tip.x + (cos(rad) * 16.dp.toPx()).toFloat()
+                val ey = tip.y + (sin(rad) * 12.dp.toPx()).toFloat()
+                drawLine(palmGreen, tip, Offset(ex, ey), strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
+            }
+        }
+
+        // 9. SILVER BIRCH (सफ़ेद बर्च)
+        TreeSpecies.SILVER_BIRCH -> {
+            val h = 24.dp.toPx() * squish
+            val whiteTrunk = Color(0xFFE2E8F0)
+            drawRoundRect(whiteTrunk, Offset(base.x - 2.5.dp.toPx(), base.y - h), Size(5.dp.toPx(), h), cornerRadius = CornerRadius(2.dp.toPx()))
+            // काले निशान
+            drawRect(Color(0xFF334155), Offset(base.x - 2.dp.toPx(), base.y - h * 0.4f), Size(4.dp.toPx(), 2.dp.toPx()))
+            drawRect(Color(0xFF334155), Offset(base.x - 2.dp.toPx(), base.y - h * 0.7f), Size(4.dp.toPx(), 2.dp.toPx()))
+
+            val c = Offset(base.x + sway.x, base.y - h + sway.y - 10.dp.toPx())
+            val limeGreen = if (isDark) Color(0xFF3F6212) else Color(0xFF84CC16)
+            drawCircle(limeGreen, 13.dp.toPx() * squish, c)
+        }
+
+        // 10. FANTASY SHROOM (जादुई मशरूम ट्री)
+        TreeSpecies.FANTASY_SHROOM -> {
+            val h = 16.dp.toPx() * squish
+            val stemColor = if (isDark) Color(0xFFCBD5E1) else Color(0xFFF1F5F9)
+            drawRoundRect(stemColor, Offset(base.x - 3.5.dp.toPx(), base.y - h), Size(7.dp.toPx(), h), cornerRadius = CornerRadius(3.dp.toPx()))
+
+            val c = Offset(base.x + sway.x, base.y - h + sway.y - 8.dp.toPx())
+            val capColor = if (isDark) Color(0xFF6B21A8) else Color(0xFF8B5CF6)
+            drawOval(capColor, Offset(c.x - 16.dp.toPx() * squish, c.y - 10.dp.toPx()), Size(32.dp.toPx() * squish, 18.dp.toPx()))
+            // सफ़ेद जादुई बिंदु
+            drawCircle(Color.White, 2.dp.toPx(), Offset(c.x - 6.dp.toPx(), c.y - 4.dp.toPx()))
+            drawCircle(Color.White, 2.dp.toPx(), Offset(c.x + 6.dp.toPx(), c.y - 4.dp.toPx()))
+        }
+
+        // 11. GOLDEN AMON (अमोन का शाही सुनहरा पेड़)
         TreeSpecies.GOLDEN_AMON -> {
-            val goldBase = Color(0xFFF59E0B)
-            val goldBright = Color(0xFFFDE047)
-            val r = 26.dp.toPx() * squish
+            val h = 20.dp.toPx() * squish
+            drawRoundRect(trunkBrown, Offset(base.x - 3.dp.toPx(), base.y - h), Size(6.dp.toPx(), h), cornerRadius = CornerRadius(2.dp.toPx()))
+            val c = Offset(base.x + sway.x, base.y - h + sway.y - 14.dp.toPx())
+            val r = 18.dp.toPx() * squish
 
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(goldBright, goldBase),
-                    center = canopyCenter,
+                    colors = listOf(Color(0xFFFEF08A), Color(0xFFEAB308), Color(0xFFCA8A04)),
+                    center = c,
                     radius = r
                 ),
                 radius = r,
-                center = canopyCenter
+                center = c
             )
-            drawCircle(color = Color.White, radius = 3.2.dp.toPx(), center = Offset(canopyCenter.x, canopyCenter.y - r * 0.45f))
-        }
-    }
-}
-
-@Composable
-private fun StatPill(
-    icon: String,
-    count: String,
-    label: String,
-    goldColor: Color,
-    textMain: Color,
-    isDark: Boolean
-) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (isDark) Color(0xFF1E2822) else Color(0xFFF1F5F9))
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(text = icon, fontSize = 12.sp)
-            Text(text = count, color = textMain, fontSize = 12.sp, fontWeight = FontWeight.Black)
-            Text(text = label, color = goldColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            drawCircle(Color.White.copy(alpha = 0.6f), 3.5.dp.toPx(), Offset(c.x - 5.dp.toPx(), c.y - 5.dp.toPx()))
         }
     }
 }
@@ -479,62 +547,20 @@ private fun StatPill(
 // -----------------------------------------------------------------------------
 fun parseSessionDateUniversal(rawDateStr: String): Date? {
     if (rawDateStr.isBlank()) return null
-
-    val clean = rawDateStr
-        .replace("\n", " ")
-        .replace("\r", " ")
-        .replace("\"", "")
-        .replace("'", "")
-        .replace(",", " ")
-        .replace(Regex("\\s+"), " ")
-        .trim()
-
-    clean.toLongOrNull()?.let { millis ->
-        if (millis > 1000000000000L) return Date(millis)
-    }
-
+    val clean = rawDateStr.replace("\n", " ").replace("\r", " ").replace("\"", "").replace("'", "").replace(",", " ").replace(Regex("\\s+"), " ").trim()
+    clean.toLongOrNull()?.let { millis -> if (millis > 1000000000000L) return Date(millis) }
     val formats = listOf(
         SimpleDateFormat("dd MMM yyyy hh:mm:ss a", Locale.ENGLISH),
         SimpleDateFormat("dd MMM yyyy hh:mm a", Locale.ENGLISH),
-        SimpleDateFormat("dd MMM yyyy HH:mm:ss", Locale.ENGLISH),
-        SimpleDateFormat("dd MMM yyyy HH:mm", Locale.ENGLISH),
-        SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH),
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
-        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
         SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()),
-        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()),
-        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
-        SimpleDateFormat("d/M/yyyy", Locale.getDefault()),
-        SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()),
-        SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()),
-        SimpleDateFormat("MMMM dd yyyy", Locale.ENGLISH)
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     )
-
     for (fmt in formats) {
         try {
             val d = fmt.parse(clean)
             if (d != null) return d
         } catch (_: Exception) {}
     }
-
-    val ymdMatch = Regex("(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})").find(clean)
-    if (ymdMatch != null) {
-        val (y, m, d) = ymdMatch.destructured
-        return Calendar.getInstance().apply {
-            set(y.toInt(), m.toInt() - 1, d.toInt(), 0, 0, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-    }
-
-    val dmyMatch = Regex("(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{4})").find(clean)
-    if (dmyMatch != null) {
-        val (d, m, y) = dmyMatch.destructured
-        return Calendar.getInstance().apply {
-            set(d.toInt(), m.toInt() - 1, y.toInt(), 0, 0, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.time
-    }
-
     return null
 }
