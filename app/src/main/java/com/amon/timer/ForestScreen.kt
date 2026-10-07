@@ -35,19 +35,15 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.*
 
-enum class SpiritType {
-    ASTRAL_FOX,    // आग के पास बैठी लोमड़ी
-    SCHOLAR_OWL,   // किताब पढ़ता प्यारा उल्लू
-    SLEEPY_BADGER, // पत्तों पर सोता हुआ नन्हा भालू
-    JELLY_PUFF     // तालाब के पास फुदकने वाली जेली
-}
-
-data class ActiveSpirit(
+data class ShelfBook(
     val id: String,
-    val type: SpiritType,
-    val name: String,
-    val relativeX: Float,
-    val relativeY: Float
+    val subject: String,
+    val durationMinutes: Int,
+    val spineColor: Color,
+    val accentColor: Color,
+    val widthFactor: Float,
+    val heightFactor: Float,
+    val hasRibbon: Boolean
 )
 
 @Composable
@@ -62,207 +58,212 @@ fun ForestScreen() {
     val glassBorder = if (isDark) Color(0x22FFFFFF) else Color(0x33000000)
 
     val sessions = remember { FocusSessionManager.getAllSessions(context) }
-    val totalMins = remember(sessions) { sessions.sumOf { it.durationMinutes } }
-    val totalHoursNum = totalMins / 60f
-    val totalHours = String.format(Locale.getDefault(), "%.1f", totalHoursNum)
 
-    // कुल फोकस के हिसाब से आग का लेवल तय होता है
-    val fireLevel = when {
-        totalHoursNum >= 10f -> 3
-        totalHoursNum >= 3f -> 2
-        else -> 1
-    }
-
-    // अभयारण्य के निवासी (Companions)
-    val activeSpirits = remember {
-        listOf(
-            ActiveSpirit("s1", SpiritType.ASTRAL_FOX, "Kitsu", 0.65f, 0.54f),
-            ActiveSpirit("s2", SpiritType.SCHOLAR_OWL, "Hoot", 0.22f, 0.38f),
-            ActiveSpirit("s3", SpiritType.SLEEPY_BADGER, "Pebble", 0.76f, 0.72f),
-            ActiveSpirit("s4", SpiritType.JELLY_PUFF, "Boba", 0.28f, 0.68f)
+    // सेशन्स को असली किताबों में बदलें (अगर कोई सेशन नहीं है तो डेमो के लिए 12 किताबें)
+    val books = remember(sessions) {
+        val palette = listOf(
+            Pair(Color(0xFF8B2635), Color(0xFFFDE047)), // रूबी रेड
+            Pair(Color(0xFF1E3A8A), Color(0xFF93C5FD)), // रॉयल ब्लू
+            Pair(Color(0xFF14532D), Color(0xFF86EFAC)), // एमराल्ड ग्रीन
+            Pair(Color(0xFF78350F), Color(0xFFFDE68A)), // विंटेज लेदर
+            Pair(Color(0xFF581C87), Color(0xFFD8B4FE)), // मिस्टिक पर्पल
+            Pair(Color(0xFF0F766E), Color(0xFF99F6E4))  // गहरा फिरोजी
         )
+
+        if (sessions.isEmpty()) {
+            List(12) { i ->
+                val p = palette[i % palette.size]
+                ShelfBook(
+                    id = "b_$i",
+                    subject = when (i % 4) {
+                        0 -> "Mathematics"
+                        1 -> "History"
+                        2 -> "Deep Science"
+                        else -> "Philosophy"
+                    },
+                    durationMinutes = 25 + (i * 5),
+                    spineColor = p.first,
+                    accentColor = p.second,
+                    widthFactor = 0.85f + (i % 3) * 0.15f,
+                    heightFactor = 0.88f + ((i * 7) % 4) * 0.05f,
+                    hasRibbon = i % 3 == 0
+                )
+            }
+        } else {
+            sessions.mapIndexed { i, s ->
+                val p = palette[i % palette.size]
+                ShelfBook(
+                    id = "b_$i",
+                    subject = s.subject,
+                    durationMinutes = s.durationMinutes,
+                    spineColor = p.first,
+                    accentColor = p.second,
+                    widthFactor = 0.85f + (i % 3) * 0.15f,
+                    heightFactor = 0.88f + ((i * 7) % 4) * 0.05f,
+                    hasRibbon = s.durationMinutes >= 45
+                )
+            }
+        }
     }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "sanctuary_physics")
+    val totalMins = remember(sessions, books) {
+        if (sessions.isNotEmpty()) sessions.sumOf { it.durationMinutes }
+        else books.sumOf { it.durationMinutes }
+    }
+    val totalHours = String.format(Locale.getDefault(), "%.1f", totalMins / 60f)
 
-    // 1. साँस लेने की गति
-    val breathePhase by infiniteTransition.animateFloat(
+    val infiniteTransition = rememberInfiniteTransition(label = "library_life")
+
+    // 1. मोमबत्ती की लौ का हिलना (Flame Flicker)
+    val flameFlicker by infiniteTransition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "flame"
+    )
+
+    // 2. हवा में तैरते सुनहरे कण (Floating Dust Motes)
+    val dustPhase by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 2f * PI.toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(3400, easing = LinearEasing),
+            animation = tween(6000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "breath"
+        label = "dust"
     )
 
-    // 2. आग की लौ की गति
-    val firePulse by infiniteTransition.animateFloat(
-        initialValue = 0.88f,
-        targetValue = 1.18f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1100, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "fire_anim"
-    )
-
-    // 3. हवा में तैरती चिंगारियाँ
-    val emberProgress by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2600, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "embers_flow"
-    )
-
-    // 4. तालाब की लहरें
-    val pondRipple by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "pond_wave"
-    )
-
-    // टच रिस्पॉन्स के लिए एनिमेटेबल्स
+    // चुनी गई किताब के बाहर खिसकने का एनिमेशन (Slide-out animation)
     val coroutineScope = rememberCoroutineScope()
-    val spiritSquish = remember { mutableStateMapOf<String, Animatable<Float, AnimationVector1D>>() }
-    val spiritPopHeart = remember { mutableStateMapOf<String, Animatable<Float, AnimationVector1D>>() }
+    var selectedBookIndex by remember { mutableStateOf<Int?>(null) }
+    val bookSlideOffsets = remember { mutableStateMapOf<Int, Animatable<Float, AnimationVector1D>>() }
 
-    val sanctuaryBg = if (isDark) Color(0xFF09120E) else Color(0xFFEBF5EB)
-    val hillColor = if (isDark) Color(0xFF11211A) else Color(0xFFDCEFDC)
-    val pathPebbleColor = if (isDark) Color(0xFF1A3026) else Color(0xFFCDE4CD)
-    val pondWater = if (isDark) Color(0xFF142B38) else Color(0xFFBCE3F0)
-    val pondWaterDeep = if (isDark) Color(0xFF0D1E27) else Color(0xFFA5D6E7)
+    val libraryBg = if (isDark) Color(0xFF0F0B08) else Color(0xFFF7F3EE)
+    val woodShelfColor = if (isDark) Color(0xFF2B1810) else Color(0xFFD4A373)
+    val woodShadowColor = if (isDark) Color(0xFF170C08) else Color(0xFFB07D4C)
+
+    // कुल शेल्व्स (हर शेल्फ़ पर 6 किताबें)
+    val booksPerShelf = 6
+    val shelfCount = maxOf(2, ceil(books.size / booksPerShelf.toDouble()).toInt())
+    val shelfHeightDp = 180.dp
+    val totalCanvasHeightDp = 160.dp + (shelfCount * shelfHeightDp)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(sanctuaryBg)
+            .background(libraryBg)
     ) {
-        Canvas(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures { tapOffset ->
-                        val w = size.width
-                        val h = size.height
+                .verticalScroll(rememberScrollState())
+        ) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(totalCanvasHeightDp)
+                    .pointerInput(books) {
+                        detectTapGestures { tapOffset ->
+                            val w = size.width
+                            val startY = 160.dp.toPx()
+                            val shelfStep = 180.dp.toPx()
 
-                        activeSpirits.forEach { sp ->
-                            val sx = w * sp.relativeX
-                            val sy = h * sp.relativeY
-                            val dist = hypot(tapOffset.x - sx, tapOffset.y - sy)
+                            books.forEachIndexed { index, _ ->
+                                val shelfIdx = index / booksPerShelf
+                                val posInShelf = index % booksPerShelf
+                                val shelfBaseY = startY + (shelfIdx * shelfStep) + 120.dp.toPx()
 
-                            if (dist < 46.dp.toPx()) {
-                                val sqAnim = spiritSquish.getOrPut(sp.id) { Animatable(1f) }
-                                val heartAnim = spiritPopHeart.getOrPut(sp.id) { Animatable(0f) }
+                                val bookWidthPx = 38.dp.toPx()
+                                val startX = w * 0.14f + (posInShelf * (bookWidthPx + 10.dp.toPx()))
 
-                                coroutineScope.launch {
-                                    sqAnim.snapTo(0.74f)
-                                    launch {
-                                        sqAnim.animateTo(
-                                            targetValue = 1f,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            )
-                                        )
+                                if (tapOffset.x in startX..(startX + bookWidthPx) &&
+                                    tapOffset.y in (shelfBaseY - 110.dp.toPx())..shelfBaseY
+                                ) {
+                                    selectedBookIndex = index
+                                    val anim = bookSlideOffsets.getOrPut(index) { Animatable(0f) }
+                                    coroutineScope.launch {
+                                        anim.animateTo(-24.dp.toPx(), tween(160, easing = FastOutSlowInEasing))
+                                        anim.animateTo(-16.dp.toPx(), spring(dampingRatio = Spring.DampingRatioMediumBouncy))
                                     }
-                                    heartAnim.snapTo(0.01f)
-                                    heartAnim.animateTo(
-                                        targetValue = 1f,
-                                        animationSpec = tween(850, easing = FastOutSlowInEasing)
-                                    )
-                                    heartAnim.snapTo(0f)
                                 }
                             }
                         }
                     }
-                }
-        ) {
-            val w = size.width
-            val h = size.height
+            ) {
+                val w = size.width
+                val startY = 160.dp.toPx()
+                val shelfStep = 180.dp.toPx()
 
-            // A. शांत घुमावदार पहाड़ी घाटी (Sanctuary Hills)
-            val hillPath = Path().apply {
-                moveTo(0f, h * 0.32f)
-                cubicTo(w * 0.30f, h * 0.28f, w * 0.70f, h * 0.36f, w, h * 0.30f)
-                lineTo(w, h)
-                lineTo(0f, h)
-                close()
-            }
-            drawPath(hillPath, hillColor)
+                // A. शेल्व्स (लकड़ी की पटरियाँ) खींचना
+                for (s in 0 until shelfCount) {
+                    val shelfY = startY + (s * shelfStep) + 120.dp.toPx()
 
-            // B. सुखद छोटा रास्ता
-            val meadowTrail = Path().apply {
-                moveTo(w * 0.15f, h * 0.34f)
-                cubicTo(w * 0.35f, h * 0.44f, w * 0.45f, h * 0.58f, w * 0.85f, h * 0.78f)
-            }
-            drawPath(
-                path = meadowTrail,
-                color = pathPebbleColor,
-                style = Stroke(width = 38.dp.toPx(), cap = StrokeCap.Round)
-            )
-
-            // C. नन्हा ज़ेन तालाब (The Zen Pond)
-            val pCenter = Offset(w * 0.24f, h * 0.68f)
-            val prX = 54.dp.toPx()
-            val prY = 36.dp.toPx()
-
-            drawOval(pondWater, Offset(pCenter.x - prX, pCenter.y - prY), Size(prX * 2, prY * 2))
-            drawOval(pondWaterDeep, Offset(pCenter.x - prX * 0.6f, pCenter.y - prY * 0.6f), Size(prX * 1.2f, prY * 1.2f))
-
-            // तालाब की गोल लहर
-            val waveR = prX * 0.3f + (prX * 0.65f * pondRipple)
-            val waveAlpha = (1f - pondRipple).coerceIn(0f, 1f)
-            drawOval(
-                color = Color.White.copy(alpha = waveAlpha * 0.45f),
-                topLeft = Offset(pCenter.x - waveR, pCenter.y - waveR * 0.65f),
-                size = Size(waveR * 2, waveR * 1.3f),
-                style = Stroke(width = 1.6.dp.toPx())
-            )
-
-            // D. केंद्र में अपग्रेडेड सोल हर्थ (The Great Campfire)
-            val altarCenter = Offset(w * 0.48f, h * 0.50f)
-            drawCampfire(
-                center = altarCenter,
-                level = fireLevel,
-                pulse = firePulse,
-                emberProg = emberProgress,
-                isDark = isDark
-            )
-
-            // E. सभी 4 जादुई जीवों का सजीव चित्रण (Living Companions)
-            activeSpirits.forEach { sp ->
-                val sx = w * sp.relativeX
-                val sy = h * sp.relativeY
-                val squishVal = spiritSquish[sp.id]?.value ?: 1f
-                val breathY = sin(breathePhase + sp.relativeX * 5f) * 2.2.dp.toPx()
-
-                when (sp.type) {
-                    SpiritType.ASTRAL_FOX -> {
-                        drawAstralFox(Offset(sx, sy), squishVal, breathY, isDark)
-                    }
-                    SpiritType.SCHOLAR_OWL -> {
-                        drawScholarOwl(Offset(sx, sy), squishVal, breathY, isDark)
-                    }
-                    SpiritType.SLEEPY_BADGER -> {
-                        drawSleepyBadger(Offset(sx, sy), squishVal, breathY, isDark)
-                    }
-                    SpiritType.JELLY_PUFF -> {
-                        drawJellyPuff(Offset(sx, sy), squishVal, breathY, isDark)
-                    }
+                    // शेल्फ़ की परछाई
+                    drawRect(
+                        color = woodShadowColor,
+                        topLeft = Offset(w * 0.06f, shelfY + 8.dp.toPx()),
+                        size = Size(w * 0.88f, 10.dp.toPx())
+                    )
+                    // मुख्य लकड़ी की पटरी
+                    drawRoundRect(
+                        color = woodShelfColor,
+                        topLeft = Offset(w * 0.06f, shelfY),
+                        size = Size(w * 0.88f, 12.dp.toPx()),
+                        cornerRadius = CornerRadius(3.dp.toPx())
+                    )
                 }
 
-                // छूने पर प्यार भरा दिल या सितारे का उड़ना
-                val popProg = spiritPopHeart[sp.id]?.value ?: 0f
-                if (popProg > 0f) {
-                    drawFloatingLove(Offset(sx, sy - 34.dp.toPx()), popProg)
+                // B. पहली शेल्फ़ पर विंटेज मोमबत्ती (Cozy Candle)
+                val candleBaseX = w * 0.84f
+                val candleBaseY = startY + 120.dp.toPx()
+                drawVintageCandle(
+                    base = Offset(candleBaseX, candleBaseY),
+                    flamePulse = flameFlicker,
+                    isDark = isDark
+                )
+
+                // C. किताबें सजाना (Drawing Books)
+                books.forEachIndexed { index, book ->
+                    val shelfIdx = index / booksPerShelf
+                    val posInShelf = index % booksPerShelf
+                    val shelfBaseY = startY + (shelfIdx * shelfStep) + 120.dp.toPx()
+
+                    val bookWidthPx = 36.dp.toPx() * book.widthFactor
+                    val bookHeightPx = 88.dp.toPx() * book.heightFactor
+                    val bookX = w * 0.14f + (posInShelf * (38.dp.toPx() + 10.dp.toPx()))
+                    val slideY = bookSlideOffsets[index]?.value ?: 0f
+
+                    drawLibraryBook(
+                        book = book,
+                        topLeft = Offset(bookX, shelfBaseY - bookHeightPx + slideY),
+                        width = bookWidthPx,
+                        height = bookHeightPx,
+                        isSelected = selectedBookIndex == index
+                    )
+                }
+
+                // D. हवा में तैरते सुनहरे धूल के कण (Floating Golden Dust)
+                if (isDark) {
+                    val dustColor = Color(0xFFFDE047)
+                    for (i in 0..10) {
+                        val dx = (w * 0.15f) + sin(dustPhase + i * 1.5f) * (w * 0.35f) + (i * 24.dp.toPx()) % (w * 0.7f)
+                        val dy = startY + cos(dustPhase + i * 1.2f) * 60.dp.toPx() + (i * 45.dp.toPx())
+                        val dAlpha = (sin(dustPhase + i) * 0.5f + 0.5f).coerceIn(0.15f, 0.75f)
+
+                        drawCircle(
+                            color = dustColor.copy(alpha = dAlpha * 0.25f),
+                            radius = 3.dp.toPx(),
+                            center = Offset(dx, dy)
+                        )
+                        drawCircle(
+                            color = dustColor.copy(alpha = dAlpha),
+                            radius = 1.2.dp.toPx(),
+                            center = Offset(dx, dy)
+                        )
+                    }
                 }
             }
         }
@@ -291,9 +292,9 @@ fun ForestScreen() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(text = "🏕️", fontSize = 14.sp)
+                        Text(text = "📚", fontSize = 14.sp)
                         Text(
-                            text = "SPIRIT SANCTUM",
+                            text = "MYSTIC LIBRARY",
                             color = textMain,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
@@ -306,14 +307,14 @@ fun ForestScreen() {
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "Hearth Lv.$fireLevel",
+                            text = "${books.size} Books",
                             color = goldColor,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(text = "•", color = textMuted, fontSize = 10.sp)
                         Text(
-                            text = "${totalHours}h Focus",
+                            text = "${totalHours}h Read",
                             color = textMain,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
@@ -326,210 +327,145 @@ fun ForestScreen() {
 }
 
 // -----------------------------------------------------------------------------
-// 🔥 अपग्रेडेड कैम्पफ़ायर इंजन (Campfire / Hearth)
+// 📖 विंटेज लेदर-बाउंड बुक इंजन (Procedural Book Engine)
 // -----------------------------------------------------------------------------
-private fun DrawScope.drawCampfire(
-    center: Offset,
-    level: Int,
-    pulse: Float,
-    emberProg: Float,
-    isDark: Boolean
+private fun DrawScope.drawLibraryBook(
+    book: ShelfBook,
+    topLeft: Offset,
+    width: Float,
+    height: Float,
+    isSelected: Boolean
 ) {
-    // 1. ज़मीन पर गर्म रोशनी (Glow Aura)
-    val auraR = (50.dp.toPx() + level * 12.dp.toPx()) * pulse
-    val auraColor = if (level >= 3) Color(0xFFFBBF24) else Color(0xFFF59E0B)
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(auraColor.copy(alpha = 0.35f), Color.Transparent),
-            center = center,
-            radius = auraR
-        ),
-        radius = auraR,
-        center = center
+    // 1. किताब की परछाई
+    drawRect(
+        color = Color(0x33000000),
+        topLeft = Offset(topLeft.x + 2.dp.toPx(), topLeft.y + 4.dp.toPx()),
+        size = Size(width, height)
     )
 
-    // 2. पत्थर का घेरा (Stone Circle)
-    val stoneCount = 6 + level * 2
-    for (i in 0 until stoneCount) {
-        val ang = (i.toFloat() / stoneCount) * 2f * PI.toFloat()
-        val dist = 24.dp.toPx() + (level * 4.dp.toPx())
-        val stoneX = center.x + cos(ang) * dist
-        val stoneY = center.y + sin(ang) * (dist * 0.55f)
-        drawOval(
-            color = if (isDark) Color(0xFF334155) else Color(0xFF94A3B8),
-            topLeft = Offset(stoneX - 5.dp.toPx(), stoneY - 3.dp.toPx()),
-            size = Size(10.dp.toPx(), 6.dp.toPx())
+    // 2. मुख्य जिल्द (Book Spine)
+    drawRoundRect(
+        color = book.spineColor,
+        topLeft = topLeft,
+        size = Size(width, height),
+        cornerRadius = CornerRadius(2.dp.toPx())
+    )
+
+    // 3. जिल्द की शेडिंग (3D Curved Spine Effect)
+    drawRect(
+        brush = Brush.horizontalGradient(
+            colors = listOf(
+                Color.White.copy(alpha = 0.22f),
+                Color.Transparent,
+                Color.Black.copy(alpha = 0.25f)
+            ),
+            startX = topLeft.x,
+            endX = topLeft.x + width
+        ),
+        topLeft = topLeft,
+        size = Size(width, height)
+    )
+
+    // 4. सुनहरी धारियाँ (Gold Ribs / Embossed Foil)
+    val goldStripeColor = book.accentColor.copy(alpha = 0.85f)
+    drawLine(
+        color = goldStripeColor,
+        start = Offset(topLeft.x + 3.dp.toPx(), topLeft.y + height * 0.16f),
+        end = Offset(topLeft.x + width - 3.dp.toPx(), topLeft.y + height * 0.16f),
+        strokeWidth = 2.dp.toPx()
+    )
+    drawLine(
+        color = goldStripeColor,
+        start = Offset(topLeft.x + 3.dp.toPx(), topLeft.y + height * 0.20f),
+        end = Offset(topLeft.x + width - 3.dp.toPx(), topLeft.y + height * 0.20f),
+        strokeWidth = 1.2.dp.toPx()
+    )
+
+    drawLine(
+        color = goldStripeColor,
+        start = Offset(topLeft.x + 3.dp.toPx(), topLeft.y + height * 0.80f),
+        end = Offset(topLeft.x + width - 3.dp.toPx(), topLeft.y + height * 0.80f),
+        strokeWidth = 1.2.dp.toPx()
+    )
+    drawLine(
+        color = goldStripeColor,
+        start = Offset(topLeft.x + 3.dp.toPx(), topLeft.y + height * 0.84f),
+        end = Offset(topLeft.x + width - 3.dp.toPx(), topLeft.y + height * 0.84f),
+        strokeWidth = 2.dp.toPx()
+    )
+
+    // 5. सिल्क बुकमार्क रिबन (अगर सेशन लंबा था)
+    if (book.hasRibbon) {
+        val ribbonX = topLeft.x + width * 0.5f
+        drawLine(
+            color = Color(0xFFDC2626),
+            start = Offset(ribbonX, topLeft.y + height),
+            end = Offset(ribbonX + 2.dp.toPx(), topLeft.y + height + 14.dp.toPx()),
+            strokeWidth = 3.dp.toPx(),
+            cap = StrokeCap.Round
         )
     }
 
-    // 3. लकड़ी के लट्ठे (Crossed Fire Logs)
-    val woodColor = Color(0xFF5D4037)
-    drawLine(woodColor, Offset(center.x - 14.dp.toPx(), center.y + 6.dp.toPx()), Offset(center.x + 14.dp.toPx(), center.y - 2.dp.toPx()), strokeWidth = 5.dp.toPx(), cap = StrokeCap.Round)
-    drawLine(woodColor, Offset(center.x - 12.dp.toPx(), center.y - 3.dp.toPx()), Offset(center.x + 12.dp.toPx(), center.y + 7.dp.toPx()), strokeWidth = 5.dp.toPx(), cap = StrokeCap.Round)
+    // 6. अगर किताब सिलेक्टेड है (गोल्डन चमक)
+    if (isSelected) {
+        drawRoundRect(
+            color = Color(0xFFFDE047),
+            topLeft = topLeft,
+            size = Size(width, height),
+            cornerRadius = CornerRadius(2.dp.toPx()),
+            style = Stroke(width = 2.dp.toPx())
+        )
+    }
+}
 
-    // 4. आग की लौ (Animated Flame)
-    val flameH = (28.dp.toPx() + level * 8.dp.toPx()) * pulse
+// -----------------------------------------------------------------------------
+// 🕯️ विंटेज मोमबत्ती इंजन (Cozy Candle with Flame Flicker)
+// -----------------------------------------------------------------------------
+private fun DrawScope.drawVintageCandle(
+    base: Offset,
+    flamePulse: Float,
+    isDark: Boolean
+) {
+    val candleW = 12.dp.toPx()
+    val candleH = 26.dp.toPx()
+    val cTopLeft = Offset(base.x - candleW / 2, base.y - candleH)
+
+    // मोम की बॉडी
+    drawRoundRect(
+        color = if (isDark) Color(0xFFFDF6B2) else Color(0xFFFEF9C3),
+        topLeft = cTopLeft,
+        size = Size(candleW, candleH),
+        cornerRadius = CornerRadius(1.dp.toPx())
+    )
+
+    // बत्ती (Wick)
+    val wickTop = Offset(base.x, cTopLeft.y - 5.dp.toPx())
+    drawLine(Color(0xFF27272A), Offset(base.x, cTopLeft.y), wickTop, strokeWidth = 1.5.dp.toPx())
+
+    // आग की चमक (Aura Glow)
+    val auraR = 24.dp.toPx() * flamePulse
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0x55FBBF24), Color.Transparent),
+            center = wickTop,
+            radius = auraR
+        ),
+        radius = auraR,
+        center = wickTop
+    )
+
+    // लौ (Flame)
+    val flH = 14.dp.toPx() * flamePulse
     val flamePath = Path().apply {
-        moveTo(center.x, center.y - flameH)
-        cubicTo(center.x + 14.dp.toPx(), center.y - flameH * 0.4f, center.x + 10.dp.toPx(), center.y, center.x, center.y)
-        cubicTo(center.x - 10.dp.toPx(), center.y, center.x - 14.dp.toPx(), center.y - flameH * 0.4f, center.x, center.y - flameH)
+        moveTo(wickTop.x, wickTop.y - flH)
+        cubicTo(wickTop.x + 5.dp.toPx(), wickTop.y - flH * 0.4f, wickTop.x + 3.dp.toPx(), wickTop.y, wickTop.x, wickTop.y)
+        cubicTo(wickTop.x - 3.dp.toPx(), wickTop.y, wickTop.x - 5.dp.toPx(), wickTop.y - flH * 0.4f, wickTop.x, wickTop.y - flH)
         close()
     }
-    drawPath(flamePath, color = Color(0xFFEA580C))
+    drawPath(flamePath, Color(0xFFF59E0B))
 
-    val innerFlame = Path().apply {
-        val ih = flameH * 0.65f
-        moveTo(center.x, center.y - ih)
-        cubicTo(center.x + 8.dp.toPx(), center.y - ih * 0.35f, center.x + 5.dp.toPx(), center.y, center.x, center.y)
-        cubicTo(center.x - 5.dp.toPx(), center.y, center.x - 8.dp.toPx(), center.y - ih * 0.35f, center.x, center.y - ih)
-        close()
-    }
-    drawPath(innerFlame, color = Color(0xFFFDE047))
-
-    // 5. ऊपर उड़ती चिंगारियाँ (Embers)
-    for (i in 0..4) {
-        val p = (emberProg + i * 0.22f) % 1f
-        val ey = center.y - (p * (50.dp.toPx() + level * 14.dp.toPx()))
-        val ex = center.x + sin(p * 2f * PI.toFloat() + i) * 12.dp.toPx()
-        val alpha = (1f - p).coerceIn(0f, 1f)
-        drawCircle(Color(0xFFFEF08A).copy(alpha = alpha), radius = 2.dp.toPx(), center = Offset(ex, ey))
-    }
-}
-
-// -----------------------------------------------------------------------------
-// 🦊 1. द एस्ट्रल फ़ॉक्स (Astral Fox)
-// -----------------------------------------------------------------------------
-private fun DrawScope.drawAstralFox(base: Offset, squish: Float, breathY: Float, isDark: Boolean) {
-    val bCenter = Offset(base.x, base.y - 15.dp.toPx() * squish + breathY)
-    val r = 16.dp.toPx() * squish
-
-    // परछाई
-    drawOval(Color(0x22000000), Offset(base.x - 18.dp.toPx(), base.y - 3.dp.toPx()), Size(36.dp.toPx(), 9.dp.toPx()))
-
-    // पूँछ
-    drawOval(Color(0xFFF97316), Offset(bCenter.x + 5.dp.toPx(), bCenter.y - 2.dp.toPx()), Size(15.dp.toPx() * squish, 11.dp.toPx() * squish))
-    drawCircle(Color(0xFFFEF3C7), 4.dp.toPx() * squish, Offset(bCenter.x + 18.dp.toPx(), bCenter.y + 4.dp.toPx()))
-
-    // शरीर
-    drawCircle(Color(0xFFFED7AA), r, bCenter)
-
-    // कान
-    val ear = Path().apply {
-        moveTo(bCenter.x - 10.dp.toPx(), bCenter.y - 8.dp.toPx())
-        lineTo(bCenter.x - 7.dp.toPx(), bCenter.y - 20.dp.toPx() * squish)
-        lineTo(bCenter.x - 2.dp.toPx(), bCenter.y - 10.dp.toPx())
-        close()
-        moveTo(bCenter.x + 2.dp.toPx(), bCenter.y - 10.dp.toPx())
-        lineTo(bCenter.x + 7.dp.toPx(), bCenter.y - 20.dp.toPx() * squish)
-        lineTo(bCenter.x + 10.dp.toPx(), bCenter.y - 8.dp.toPx())
-        close()
-    }
-    drawPath(ear, Color(0xFFEA580C))
-
-    // आँखें (^ ^)
-    val eyeCol = Color(0xFF7C2D12)
-    drawArc(eyeCol, 180f, 180f, false, Offset(bCenter.x - 7.dp.toPx(), bCenter.y - 2.dp.toPx()), Size(5.dp.toPx(), 4.dp.toPx()), style = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round))
-    drawArc(eyeCol, 180f, 180f, false, Offset(bCenter.x + 2.dp.toPx(), bCenter.y - 2.dp.toPx()), Size(5.dp.toPx(), 4.dp.toPx()), style = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round))
-    // गाल
-    drawCircle(Color(0xFFF472B6).copy(alpha = 0.6f), 2.dp.toPx(), Offset(bCenter.x - 8.dp.toPx(), bCenter.y + 2.dp.toPx()))
-    drawCircle(Color(0xFFF472B6).copy(alpha = 0.6f), 2.dp.toPx(), Offset(bCenter.x + 8.dp.toPx(), bCenter.y + 2.dp.toPx()))
-}
-
-// -----------------------------------------------------------------------------
-// 🦉 2. द स्कॉलर आउल (Scholar Owl with glowing book)
-// -----------------------------------------------------------------------------
-private fun DrawScope.drawScholarOwl(base: Offset, squish: Float, breathY: Float, isDark: Boolean) {
-    val bCenter = Offset(base.x, base.y - 16.dp.toPx() * squish + breathY)
-    val r = 15.dp.toPx() * squish
-
-    // लकड़ी का लट्ठा जिसपर उल्लू बैठा है
-    drawRoundRect(Color(0xFF5D4037), Offset(base.x - 18.dp.toPx(), base.y - 5.dp.toPx()), Size(36.dp.toPx(), 10.dp.toPx()), CornerRadius(4.dp.toPx()))
-
-    // शरीर
-    drawOval(Color(0xFF64748B), Offset(bCenter.x - r, bCenter.y - r * 1.1f), Size(r * 2, r * 2.2f))
-    drawOval(Color(0xFFE2E8F0), Offset(bCenter.x - r * 0.65f, bCenter.y - r * 0.5f), Size(r * 1.3f, r * 1.4f))
-
-    // बड़ी गोल चश्मे जैसी आँखें
-    val eyeR = 4.2.dp.toPx() * squish
-    drawCircle(Color.White, eyeR, Offset(bCenter.x - 5.dp.toPx(), bCenter.y - 6.dp.toPx()))
-    drawCircle(Color.White, eyeR, Offset(bCenter.x + 5.dp.toPx(), bCenter.y - 6.dp.toPx()))
-    drawCircle(Color(0xFF0F172A), eyeR * 0.45f, Offset(bCenter.x - 5.dp.toPx(), bCenter.y - 6.dp.toPx()))
-    drawCircle(Color(0xFF0F172A), eyeR * 0.45f, Offset(bCenter.x + 5.dp.toPx(), bCenter.y - 6.dp.toPx()))
-
-    // चोंच
-    val beak = Path().apply {
-        moveTo(bCenter.x - 2.dp.toPx(), bCenter.y - 3.dp.toPx())
-        lineTo(bCenter.x + 2.dp.toPx(), bCenter.y - 3.dp.toPx())
-        lineTo(bCenter.x, bCenter.y + 1.dp.toPx())
-        close()
-    }
-    drawPath(beak, Color(0xFFF59E0B))
-
-    // नन्ही जादुई किताब (Tiny Book in paws)
-    val bookCenter = Offset(bCenter.x, bCenter.y + 8.dp.toPx())
-    drawRoundRect(Color(0xFF3B82F6), Offset(bookCenter.x - 8.dp.toPx(), bookCenter.y - 4.dp.toPx()), Size(16.dp.toPx(), 8.dp.toPx()), CornerRadius(1.5.dp.toPx()))
-    drawRect(Color.White, Offset(bookCenter.x - 7.dp.toPx(), bookCenter.y - 3.dp.toPx()), Size(14.dp.toPx(), 6.dp.toPx()))
-}
-
-// -----------------------------------------------------------------------------
-// 🦡 3. द स्लीपिंग बेजर (Sleeping Badger with Zzz)
-// -----------------------------------------------------------------------------
-private fun DrawScope.drawSleepyBadger(base: Offset, squish: Float, breathY: Float, isDark: Boolean) {
-    val bCenter = Offset(base.x, base.y - 10.dp.toPx() * squish + breathY * 0.7f)
-
-    // पत्तों का बिस्तर
-    drawOval(Color(0xFFD97706), Offset(base.x - 20.dp.toPx(), base.y - 5.dp.toPx()), Size(40.dp.toPx(), 12.dp.toPx()))
-
-    // मुड़ा हुआ गोल शरीर (Curled up body)
-    drawOval(Color(0xFF78716C), Offset(bCenter.x - 16.dp.toPx(), bCenter.y - 10.dp.toPx()), Size(32.dp.toPx() * squish, 20.dp.toPx() * squish))
-    drawOval(Color(0xFFE7E5E4), Offset(bCenter.x - 14.dp.toPx(), bCenter.y - 7.dp.toPx()), Size(18.dp.toPx() * squish, 14.dp.toPx() * squish))
-
-    // सोती हुई आँख (- -)
-    drawLine(Color(0xFF1C1917), Offset(bCenter.x - 10.dp.toPx(), bCenter.y), Offset(bCenter.x - 5.dp.toPx(), bCenter.y), strokeWidth = 1.5.dp.toPx(), cap = StrokeCap.Round)
-
-    // 'Zzz' तैरते हुए अक्षर
-    val zAlpha = ((breathY / 2.2.dp.toPx() + 1f) * 0.5f).coerceIn(0.2f, 0.9f)
-    drawCircle(Color.White.copy(alpha = zAlpha), 2.2.dp.toPx(), Offset(bCenter.x + 12.dp.toPx(), bCenter.y - 12.dp.toPx()))
-    drawCircle(Color.White.copy(alpha = zAlpha * 0.7f), 1.6.dp.toPx(), Offset(bCenter.x + 16.dp.toPx(), bCenter.y - 18.dp.toPx()))
-}
-
-// -----------------------------------------------------------------------------
-// 🫧 4. द जेली पफ़ (Bouncing Jelly Puff)
-// -----------------------------------------------------------------------------
-private fun DrawScope.drawJellyPuff(base: Offset, squish: Float, breathY: Float, isDark: Boolean) {
-    val bCenter = Offset(base.x, base.y - 12.dp.toPx() * squish + breathY)
-    val r = 13.dp.toPx() * squish
-
-    // परछाई
-    drawOval(Color(0x22000000), Offset(base.x - 14.dp.toPx(), base.y - 2.dp.toPx()), Size(28.dp.toPx(), 7.dp.toPx()))
-
-    // जेली शरीर (Water droplet shape)
-    drawCircle(Color(0xFF38BDF8), r, bCenter)
-    drawCircle(Color(0xFFBAE6FD), r * 0.45f, Offset(bCenter.x - 3.dp.toPx(), bCenter.y - 4.dp.toPx()))
-
-    // क्यूट आँखें (• •)
-    drawCircle(Color(0xFF0369A1), 1.6.dp.toPx(), Offset(bCenter.x - 4.dp.toPx(), bCenter.y))
-    drawCircle(Color(0xFF0369A1), 1.6.dp.toPx(), Offset(bCenter.x + 4.dp.toPx(), bCenter.y))
-}
-
-// -----------------------------------------------------------------------------
-// 💖 टच करने पर प्यार भरा दिल / स्पार्कल्स (Floating Love Reaction)
-// -----------------------------------------------------------------------------
-private fun DrawScope.drawFloatingLove(center: Offset, progress: Float) {
-    val hy = center.y - (progress * 30.dp.toPx())
-    val hx = center.x + sin(progress * 5f) * 6.dp.toPx()
-    val alpha = (1f - progress).coerceIn(0f, 1f)
-
-    drawCircle(Color(0xFFF472B6).copy(alpha = alpha), 4.dp.toPx() * (1f - progress * 0.3f), Offset(hx - 2.5.dp.toPx(), hy))
-    drawCircle(Color(0xFFF472B6).copy(alpha = alpha), 4.dp.toPx() * (1f - progress * 0.3f), Offset(hx + 2.5.dp.toPx(), hy))
-
-    val tri = Path().apply {
-        moveTo(hx - 6.dp.toPx(), hy + 1.dp.toPx())
-        lineTo(hx + 6.dp.toPx(), hy + 1.dp.toPx())
-        lineTo(hx, hy + 7.dp.toPx())
-        close()
-    }
-    drawPath(tri, Color(0xFFF472B6).copy(alpha = alpha))
+    // लौ का अंदरूनी सफेद-पीला हिस्सा
+    drawCircle(Color(0xFFFEF08A), 2.8.dp.toPx(), Offset(wickTop.x, wickTop.y - 4.dp.toPx()))
 }
 
 // -----------------------------------------------------------------------------
