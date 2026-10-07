@@ -149,7 +149,7 @@ fun ForestScreen() {
     val booksPerShelf = 6
     val shelfCount = maxOf(2, ceil(books.size / booksPerShelf.toDouble()).toInt())
     val shelfHeightDp = 180.dp
-    val totalCanvasHeightDp = 160.dp + (shelfCount * shelfHeightDp)
+   val totalCanvasHeightDp = (160 + shelfCount * 180).dp
 
     Box(
         modifier = Modifier
