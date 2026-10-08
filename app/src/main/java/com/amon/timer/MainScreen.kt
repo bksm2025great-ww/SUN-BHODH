@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -44,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -73,7 +75,20 @@ fun MainScreen() {
 
     val isFocusActive = isRunning || isPaused
 
-    // 🔕 इमर्सिव मोड
+    // 🚀 Update Check for Green Dot Notification on Profile Tab
+    val updateManager = remember { UpdateManager(context) }
+    var hasNewUpdate by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val updateInfo = updateManager.checkLatestUpdate()
+            if (updateInfo.hasUpdate) {
+                hasNewUpdate = true
+            }
+        } catch (_: Exception) {}
+    }
+
+    // 🔕 Immersive Mode
     DisposableEffect(isFocusActive) {
         val window = activity?.window
         if (window != null) {
@@ -135,7 +150,8 @@ fun MainScreen() {
                     isDark = isDark,
                     goldColor = goldColor,
                     cardBg = cardBg,
-                    borderCol = glassBorder
+                    borderCol = glassBorder,
+                    hasNewUpdate = hasNewUpdate
                 )
             }
         }
@@ -271,6 +287,26 @@ fun HomeTimerTab(
         userSubjects
             .filter { it !in hiddenSubjects }
             .sortedByDescending { subjectMinutesMap[it] ?: 0 }
+    }
+
+    // Helper: Add Subject Logic
+    val onAddSubjectAction = {
+        if (newSubjectInput.isNotBlank()) {
+            val cleanInput = newSubjectInput.trim().replaceFirstChar {
+                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+            }
+            val success = SubjectManager.addSubject(context, cleanInput)
+            if (success) {
+                userSubjects = SubjectManager.getUserSubjects(context)
+                if (cleanInput in hiddenSubjects) {
+                    val newHidden = hiddenSubjects - cleanInput
+                    hiddenSubjects = newHidden
+                    subjectPrefs.edit().putStringSet("hidden_subjects", newHidden).apply()
+                }
+                selectedSubjectName = cleanInput
+                newSubjectInput = ""
+            }
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -513,15 +549,15 @@ fun HomeTimerTab(
             }
         } else {
             // =================================================================
-            // 🎯 MASTER FOCUS SCREEN (HAND-DRAWN BLUEPRINT)
+            // 🎯 MASTER FOCUS SCREEN
             // =================================================================
             if (!isLandscape) {
-                // 📱 PORTRAIT MODE: Top Center Subject + Watch + Lifted Buttons (+20dp)
+                // 📱 PORTRAIT MODE
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 20.dp)
-                        .padding(top = 18.dp, bottom = 44.dp), // 🔼 44dp: 20dp ऊपर
+                        .padding(top = 18.dp, bottom = 44.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -651,8 +687,7 @@ fun HomeTimerTab(
                     }
                 }
             } else {
-                // 🔄 LANDSCAPE MODE: Drawing Blueprint
-                // बाएँ: सब्जेक्ट | बीच: बड़ी खुली घड़ी | दाएँ: पॉज़ + स्टॉप
+                // 🔄 LANDSCAPE MODE
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -908,39 +943,71 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎨 POPUP DIALOG (MANAGE SUBJECTS)
+        // 🎨 FROSTED TRANSLUCENT POPUP (MANAGE SUBJECTS)
         // =====================================================================
         if (showAddDialog) {
             Dialog(onDismissRequest = {
                 showAddDialog = false
                 newSubjectInput = ""
             }) {
+                // 🌟 Frosted Glass Translucent Background
+                val frostedDialogBg = if (isDark) Color(0xEB161620) else Color(0xF2FFFFFF)
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(cardBg)
-                        .border(1.5.dp, glassBorder, RoundedCornerShape(24.dp))
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(frostedDialogBg)
+                        .border(1.5.dp, if (isDark) Color(0x44FFFFFF) else Color(0x33000000), RoundedCornerShape(26.dp))
                         .padding(20.dp)
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "Manage Subjects",
-                            color = goldColor,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        // Header with Close '✕' Icon
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Manage Subjects",
+                                color = goldColor,
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
+                                    .clickable {
+                                        showAddDialog = false
+                                        newSubjectInput = ""
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "✕",
+                                    color = textMuted,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = "Tap to Show (Color) or Hide (Plain)",
                             color = textMuted,
-                            fontSize = 13.sp
+                            fontSize = 12.5.sp,
+                            modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
+                        // Subject Chips Scrollable Area
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -958,7 +1025,7 @@ fun HomeTimerTab(
                                         val chipBg = if (!isHidden) {
                                             goldColor.copy(alpha = 0.22f)
                                         } else {
-                                            if (isDark) Color(0xFF222228) else Color(0xFFF1F5F9)
+                                            if (isDark) Color(0x22FFFFFF) else Color(0xFFF1F5F9)
                                         }
 
                                         Box(
@@ -1007,11 +1074,12 @@ fun HomeTimerTab(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
+                        // Integrated Input + Quick Add Capsule
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(50))
-                                .background(if (isDark) Color(0xFF18181B) else Color(0xFFF8FAFC))
+                                .background(if (isDark) Color(0x33FFFFFF) else Color(0xFFF8FAFC))
                                 .border(1.dp, glassBorder, RoundedCornerShape(50))
                                 .padding(horizontal = 10.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -1027,7 +1095,13 @@ fun HomeTimerTab(
                                     Text("Type new subject...", color = textMuted, fontSize = 13.sp)
                                 },
                                 singleLine = true,
-                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                                keyboardOptions = KeyboardOptions(
+                                    capitalization = KeyboardCapitalization.Words,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = { onAddSubjectAction() }
+                                ),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Color.Transparent,
                                     unfocusedBorderColor = Color.Transparent,
@@ -1043,26 +1117,8 @@ fun HomeTimerTab(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(50))
                                     .background(goldColor)
-                                    .clickable {
-                                        if (newSubjectInput.isNotBlank()) {
-                                            val cleanInput = newSubjectInput.trim().replaceFirstChar {
-                                                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
-                                            }
-                                            val success = SubjectManager.addSubject(context, cleanInput)
-                                            if (success) {
-                                                userSubjects = SubjectManager.getUserSubjects(context)
-                                                if (cleanInput in hiddenSubjects) {
-                                                    val newHidden = hiddenSubjects - cleanInput
-                                                    hiddenSubjects = newHidden
-                                                    subjectPrefs.edit().putStringSet("hidden_subjects", newHidden).apply()
-                                                }
-                                                selectedSubjectName = cleanInput
-                                                newSubjectInput = ""
-                                                showAddDialog = false
-                                            }
-                                        }
-                                    }
-                                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                                    .clickable { onAddSubjectAction() }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
                                 Text(
                                     text = "Add",
@@ -1071,21 +1127,6 @@ fun HomeTimerTab(
                                     fontWeight = FontWeight.ExtraBold
                                 )
                             }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Button(
-                            onClick = {
-                                showAddDialog = false
-                                newSubjectInput = ""
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isDark) Color(0xFF2A2A32) else Color(0xFF0F172A)
-                            ),
-                            shape = RoundedCornerShape(50)
-                        ) {
-                            Text("Done", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1433,7 +1474,7 @@ private fun WhatsNewItem(
 }
 
 // =============================================================================
-// 🟢 4. CURVED BOTTOM BAR
+// 🟢 4. CURVED BOTTOM BAR (WITH GREEN DOT UPDATE BADGE)
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
@@ -1442,7 +1483,8 @@ fun AmonCurvedBottomBar(
     isDark: Boolean,
     goldColor: Color,
     cardBg: Color,
-    borderCol: Color
+    borderCol: Color,
+    hasNewUpdate: Boolean = false
 ) {
     val tabItems = listOf(
         Triple("Home", R.drawable.ic_nav_home, 0),
@@ -1515,14 +1557,28 @@ fun AmonCurvedBottomBar(
                     .border(2.6.dp, goldColor, CircleShape)
             ) {
                 val activeIconRes = tabItems[selectedIndex].second
-                Image(
-                    painter = painterResource(id = activeIconRes),
-                    contentDescription = tabItems[selectedIndex].first,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp)),
-                    contentScale = ContentScale.Fit
-                )
+                Box(contentAlignment = Alignment.TopEnd) {
+                    Image(
+                        painter = painterResource(id = activeIconRes),
+                        contentDescription = tabItems[selectedIndex].first,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(10.dp)),
+                        contentScale = ContentScale.Fit
+                    )
+
+                    // 🟢 Green dot if Profile is selected and update is ready
+                    if (hasNewUpdate && selectedIndex == 3) {
+                        Box(
+                            modifier = Modifier
+                                .offset(x = 2.dp, y = (-2).dp)
+                                .size(9.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF10B981))
+                                .border(1.5.dp, if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC), CircleShape)
+                        )
+                    }
+                }
             }
 
             Row(
@@ -1545,14 +1601,28 @@ fun AmonCurvedBottomBar(
                             .padding(top = 4.dp)
                     ) {
                         if (!isSelected) {
-                            Image(
-                                painter = painterResource(id = item.second),
-                                contentDescription = item.first,
-                                modifier = Modifier
-                                    .size(26.dp)
-                                    .clip(RoundedCornerShape(7.dp)),
-                                contentScale = ContentScale.Fit
-                            )
+                            Box(contentAlignment = Alignment.TopEnd) {
+                                Image(
+                                    painter = painterResource(id = item.second),
+                                    contentDescription = item.first,
+                                    modifier = Modifier
+                                        .size(26.dp)
+                                        .clip(RoundedCornerShape(7.dp)),
+                                    contentScale = ContentScale.Fit
+                                )
+
+                                // 🟢 Green dot badge on unselected Profile tab
+                                if (hasNewUpdate && index == 3) {
+                                    Box(
+                                        modifier = Modifier
+                                            .offset(x = 3.dp, y = (-2).dp)
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF10B981))
+                                            .border(1.dp, cardBg, CircleShape)
+                                    )
+                                }
+                            }
                             Spacer(modifier = Modifier.height(3.dp))
                             Text(
                                 text = item.first,
