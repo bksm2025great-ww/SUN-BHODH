@@ -70,7 +70,7 @@ fun ProfileScreen() {
     val updateManager = remember { UpdateManager(context) }
     val currentAppVersion = remember { updateManager.currentVersion }
 
-    // ✏️ Smart Name State: Agar naam khali hai toh placeholder box dikhayega
+    // ✏️ Smart Name State
     var currentUserName by remember { mutableStateOf(userManager.getUserName().trim()) }
     val hasCustomName = currentUserName.isNotEmpty()
     var showEditNameDialog by remember { mutableStateOf(false) }
@@ -129,7 +129,7 @@ fun ProfileScreen() {
         mutableStateOf(prefs.getBoolean("pref_keep_screen_awake", false))
     }
 
-    // 💡 Real Keep Screen Awake Controller
+    // 💡 Keep Screen Awake Controller
     DisposableEffect(isKeepScreenAwake) {
         val activity = context as? Activity
         if (isKeepScreenAwake) {
@@ -604,13 +604,19 @@ fun ProfileScreen() {
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
+                        // 🌟 Sleek Gradient Progress Bar (Story/Ad Style)
                         Box(
-                            contentAlignment = Alignment.Center,
+                            contentAlignment = Alignment.CenterStart,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(44.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF10B981))
+                                .background(if (isDownloading) Color(0x2210B981) else Color(0xFF10B981))
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isDownloading) goldColor.copy(alpha = 0.5f) else Color.Transparent,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
                                 .clickable(enabled = !isDownloading) {
                                     coroutineScope.launch {
                                         isDownloading = true
@@ -628,29 +634,49 @@ fun ProfileScreen() {
                                 }
                         ) {
                             if (isDownloading) {
+                                // A. Left-to-right filling sleek gradient line
+                                val progressFraction = (downloadProgress / 100f).coerceIn(0.02f, 1f)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(progressFraction)
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            Brush.horizontalGradient(
+                                                colors = listOf(
+                                                    Color(0xFFF59E0B),
+                                                    Color(0xFFFDE047),
+                                                    Color(0x88FEF08A)
+                                                )
+                                            )
+                                        )
+                                )
+
+                                // B. Percentage Text
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        color = Color.White,
-                                        strokeWidth = 2.dp
-                                    )
                                     Text(
-                                        text = "Downloading... $downloadProgress%",
-                                        color = Color.White,
-                                        fontSize = 12.sp,
+                                        text = "Downloading Update... $downloadProgress%",
+                                        color = if (downloadProgress > 50) Color.Black else textMain,
+                                        fontSize = 12.5.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
                             } else {
-                                Text(
-                                    text = "Download & Install Update",
-                                    color = Color.White,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Download & Install Update",
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -1329,26 +1355,16 @@ fun ProfileScreen() {
 }
 
 // =============================================================================
-// ✨ SUPPORT EMAIL DISPATCHER (PRE-FILLED DIAGNOSTICS)
+// ✨ SUPPORT EMAIL DISPATCHER (MINIMAL TEMPLATE)
 // =============================================================================
 
 private fun sendSupportEmail(context: Context, subject: String, appVersion: String, isBug: Boolean) {
     try {
-        val deviceInfo = """
+        val body = """
+Hey Team Amon is here!
+App Version: v$appVersion
 
---------------------------------
-Device Diagnostics (Auto-generated):
-• App Version: v$appVersion
-• Device: ${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}
-• Android Version: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})
---------------------------------
 """.trimIndent()
-
-        val body = if (isBug) {
-            "Hi Amon Team,\n\nI found a bug:\n[Describe what went wrong here]\n\nSteps to reproduce:\n1. \n2. \n$deviceInfo"
-        } else {
-            "Hi Amon Team,\n\nI have a suggestion for Amon:\n[Write your idea or thoughts here]\n\n$deviceInfo"
-        }
 
         val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
             data = Uri.parse("mailto:bksm2025great@gmail.com")
