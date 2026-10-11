@@ -319,7 +319,7 @@ fun HomeTimerTab(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // TOP HEADER
+                // TOP HEADER: CLEAN AMON LOGO + NAME & STREAK BADGE
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -333,56 +333,35 @@ fun HomeTimerTab(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
+                        // Left: Logo (Slightly larger than 18sp text) + AMON Name
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .size(42.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .border(1.4.dp, goldColor, RoundedCornerShape(12.dp))
+                                    .size(24.dp)
+                                    .clip(RoundedCornerShape(6.dp))
                             ) {
                                 Image(
                                     painter = painterResource(id = R.drawable.ic_mascot_amon),
-                                    contentDescription = "Amon Mascot",
+                                    contentDescription = "Amon Logo",
                                     modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
+                                    contentScale = ContentScale.Fit
                                 )
                             }
 
-                            val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
-                            val timeGreeting = remember(currentHour) {
-                                when (currentHour) {
-                                    in 4..11 -> "Good Morning ☀️"
-                                    in 12..16 -> "Good Afternoon 🌤️"
-                                    in 17..19 -> "Good Evening 🌆"
-                                    else -> "Good Night 🌙"
-                                }
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "AMON",
-                                    color = textMain,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = 1.2.sp
-                                )
-                                Text(
-                                    text = "• $timeGreeting",
-                                    color = goldColor,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                            Text(
+                                text = "AMON",
+                                color = textMain,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.2.sp
+                            )
                         }
 
-                        // STREAK CAPSULE
+                        // Right: STREAK CAPSULE
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -950,7 +929,6 @@ fun HomeTimerTab(
                 showAddDialog = false
                 newSubjectInput = ""
             }) {
-                // 🌟 Frosted Glass Translucent Background
                 val frostedDialogBg = if (isDark) Color(0xEB161620) else Color(0xF2FFFFFF)
 
                 Box(
@@ -965,7 +943,6 @@ fun HomeTimerTab(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Header with Close '✕' Icon
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1007,7 +984,6 @@ fun HomeTimerTab(
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Subject Chips Scrollable Area
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1074,7 +1050,6 @@ fun HomeTimerTab(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Integrated Input + Quick Add Capsule
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1567,7 +1542,6 @@ fun AmonCurvedBottomBar(
                         contentScale = ContentScale.Fit
                     )
 
-                    // 🟢 Green dot if Profile is selected and update is ready
                     if (hasNewUpdate && selectedIndex == 3) {
                         Box(
                             modifier = Modifier
@@ -1611,7 +1585,6 @@ fun AmonCurvedBottomBar(
                                     contentScale = ContentScale.Fit
                                 )
 
-                                // 🟢 Green dot badge on unselected Profile tab
                                 if (hasNewUpdate && index == 3) {
                                     Box(
                                         modifier = Modifier
