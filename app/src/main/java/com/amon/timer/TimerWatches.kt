@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -25,8 +26,10 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -78,6 +81,16 @@ fun TimerWatchesContainer(
         mutableIntStateOf(watchPrefs.getInt("selected_watch_style", 0))
     }
 
+    val onPrevStyle = {
+        selectedWatchStyle = if (selectedWatchStyle > 0) selectedWatchStyle - 1 else 2
+        watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
+    }
+
+    val onNextStyle = {
+        selectedWatchStyle = if (selectedWatchStyle < 2) selectedWatchStyle + 1 else 0
+        watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -87,12 +100,10 @@ fun TimerWatchesContainer(
                     var totalDragX = 0f
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            if (totalDragX < -60f && selectedWatchStyle < 2) {
-                                selectedWatchStyle++
-                                watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
-                            } else if (totalDragX > 60f && selectedWatchStyle > 0) {
-                                selectedWatchStyle--
-                                watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
+                            if (totalDragX < -60f) {
+                                onNextStyle()
+                            } else if (totalDragX > 60f) {
+                                onPrevStyle()
                             }
                             totalDragX = 0f
                         },
@@ -103,179 +114,107 @@ fun TimerWatchesContainer(
                 }
             }
     ) {
-        // 🎛 स्लीक वॉच सिलेक्टर बॉक्स
-        if (!isRunning) {
-            WatchStyleSelectorBox(
-                selectedIndex = selectedWatchStyle,
-                onStyleSelected = { index ->
-                    selectedWatchStyle = index
-                    watchPrefs.edit().putInt("selected_watch_style", index).apply()
-                },
-                cardBg = cardBg,
-                glassBorder = glassBorder,
-                goldColor = goldColor,
-                textMuted = textMuted,
-                isDark = isDark,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 6.dp)
-                    .padding(bottom = 12.dp)
-            )
-        }
-
-        // 🕰️ वॉच स्टाइल स्विचिंग
-        AnimatedContent(
-            targetState = selectedWatchStyle,
-            transitionSpec = {
-                if (targetState > initialState) {
-                    slideInHorizontally { width -> width } + fadeIn() togetherWith
-                            slideOutHorizontally { width -> -width } + fadeOut()
-                } else {
-                    slideInHorizontally { width -> -width } + fadeIn() togetherWith
-                            slideOutHorizontally { width -> width } + fadeOut()
-                }
-            },
-            label = "WatchTransition"
-        ) { style ->
-            when (style) {
-                0 -> ClassicRingWatch(
-                    dialMinutes = dialMinutes,
-                    onDialMinutesChange = onDialMinutesChange,
-                    totalSeconds = totalSeconds,
-                    initialTotalSeconds = initialTotalSeconds,
-                    isRunning = isRunning,
-                    isCustomMode = isCustomMode,
-                    onCustomModeToggle = onCustomModeToggle,
-                    goldColor = goldColor,
-                    glowYellow = glowYellow,
-                    cardBg = cardBg,
-                    glassBorder = glassBorder,
-                    textMain = textMain,
-                    textMuted = textMuted,
-                    isDark = isDark,
-                    timeFormatted = timeFormatted,
-                    hours = hours
-                )
-
-                1 -> RotaryDialWatch(
-                    dialMinutes = dialMinutes,
-                    onDialMinutesChange = onDialMinutesChange,
-                    totalSeconds = totalSeconds,
-                    initialTotalSeconds = initialTotalSeconds,
-                    isRunning = isRunning,
-                    goldColor = goldColor,
-                    glowYellow = glowYellow,
-                    cardBg = cardBg,
-                    glassBorder = glassBorder,
-                    textMain = textMain,
-                    textMuted = textMuted,
-                    isDark = isDark,
-                    timeFormatted = timeFormatted,
-                    hours = hours
-                )
-
-                2 -> RetroFlipClockWatch(
-                    dialMinutes = dialMinutes,
-                    onDialMinutesChange = onDialMinutesChange,
-                    totalSeconds = totalSeconds,
-                    isRunning = isRunning,
-                    goldColor = goldColor,
-                    glowYellow = glowYellow,
-                    cardBg = cardBg,
-                    glassBorder = glassBorder,
-                    textMain = textMain,
-                    textMuted = textMuted,
-                    isDark = isDark
-                )
-            }
-        }
-    }
-}
-
-// =============================================================================
-// 🎛️ WATCH SELECTOR BOX
-// =============================================================================
-@Composable
-private fun WatchStyleSelectorBox(
-    selectedIndex: Int,
-    onStyleSelected: (Int) -> Unit,
-    cardBg: Color,
-    glassBorder: Color,
-    goldColor: Color,
-    textMuted: Color,
-    isDark: Boolean,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(cardBg)
-            .border(1.dp, glassBorder, RoundedCornerShape(14.dp))
-            .padding(horizontal = 4.dp, vertical = 3.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // 🕰️ वॉच स्टाइल डिस्प्ले + दोनों तरफ़ खुले शेवरॉन एरो
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.TopCenter
         ) {
-            val styles = listOf(
-                "Classic" to 0,
-                "Rotary" to 1,
-                "Desk Flip" to 2
-            )
+            AnimatedContent(
+                targetState = selectedWatchStyle,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        slideInHorizontally { width -> width } + fadeIn() togetherWith
+                                slideOutHorizontally { width -> -width } + fadeOut()
+                    } else {
+                        slideInHorizontally { width -> -width } + fadeIn() togetherWith
+                                slideOutHorizontally { width -> width } + fadeOut()
+                    }
+                },
+                label = "WatchTransition"
+            ) { style ->
+                when (style) {
+                    0 -> ClassicRingWatch(
+                        dialMinutes = dialMinutes,
+                        onDialMinutesChange = onDialMinutesChange,
+                        totalSeconds = totalSeconds,
+                        initialTotalSeconds = initialTotalSeconds,
+                        isRunning = isRunning,
+                        isCustomMode = isCustomMode,
+                        onCustomModeToggle = onCustomModeToggle,
+                        goldColor = goldColor,
+                        glowYellow = glowYellow,
+                        cardBg = cardBg,
+                        glassBorder = glassBorder,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        isDark = isDark,
+                        timeFormatted = timeFormatted,
+                        hours = hours
+                    )
 
-            styles.forEach { (name, index) ->
-                val isSelected = selectedIndex == index
+                    1 -> RotaryDialWatch(
+                        dialMinutes = dialMinutes,
+                        onDialMinutesChange = onDialMinutesChange,
+                        totalSeconds = totalSeconds,
+                        initialTotalSeconds = initialTotalSeconds,
+                        isRunning = isRunning,
+                        goldColor = goldColor,
+                        glowYellow = glowYellow,
+                        cardBg = cardBg,
+                        glassBorder = glassBorder,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        isDark = isDark,
+                        timeFormatted = timeFormatted,
+                        hours = hours
+                    )
 
+                    2 -> RetroFlipClockWatch(
+                        dialMinutes = dialMinutes,
+                        onDialMinutesChange = onDialMinutesChange,
+                        totalSeconds = totalSeconds,
+                        isRunning = isRunning,
+                        goldColor = goldColor,
+                        glowYellow = glowYellow,
+                        cardBg = cardBg,
+                        glassBorder = glassBorder,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        isDark = isDark
+                    )
+                }
+            }
+
+            // 🏹 बाएँ और दाएँ खुले शेवरॉन एरो (केवल जब टाइमर रुका हो)
+            if (!isRunning) {
+                // LEFT ARROW BUTTON
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .then(
-                            if (isSelected) {
-                                Modifier
-                                    .shadow(
-                                        elevation = 6.dp,
-                                        shape = RoundedCornerShape(10.dp),
-                                        spotColor = if (isDark) Color.White.copy(alpha = 0.55f) else Color(0x33000000),
-                                        ambientColor = if (isDark) Color.White.copy(alpha = 0.35f) else Color(0x22000000)
-                                    )
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(if (isDark) Color(0xFF1E1E26) else Color(0xFFFFFFFF))
-                                    .border(1.dp, if (isDark) Color.White.copy(alpha = 0.7f) else Color(0xFFCBD5E1), RoundedCornerShape(10.dp))
-                            } else {
-                                Modifier
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null
-                                    ) { onStyleSelected(index) }
-                            }
-                        ),
-                    contentAlignment = Alignment.Center
+                        .align(Alignment.TopStart)
+                        .offset(x = 2.dp, y = 110.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        modifier = Modifier.padding(horizontal = 2.dp)
-                    ) {
-                        when (index) {
-                            0 -> MinimalLuxeRingIcon(tint = if (isSelected) goldColor else textMuted)
-                            1 -> VintageTechRotaryIcon(tint = if (isSelected) goldColor else textMuted)
-                            2 -> VintageTechFlipIcon(tint = if (isSelected) goldColor else textMuted)
-                        }
+                    WatchNavArrowButton(
+                        isLeft = true,
+                        goldColor = goldColor,
+                        cardBg = cardBg,
+                        isDark = isDark,
+                        onClick = onPrevStyle
+                    )
+                }
 
-                        Text(
-                            text = name,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
-                            color = if (isSelected) (if (isDark) Color.White else Color(0xFF0F172A)) else textMuted,
-                            letterSpacing = (-0.2).sp
-                        )
-                    }
+                // RIGHT ARROW BUTTON
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = (-2).dp, y = 110.dp)
+                ) {
+                    WatchNavArrowButton(
+                        isLeft = false,
+                        goldColor = goldColor,
+                        cardBg = cardBg,
+                        isDark = isDark,
+                        onClick = onNextStyle
+                    )
                 }
             }
         }
@@ -283,96 +222,83 @@ private fun WatchStyleSelectorBox(
 }
 
 // =============================================================================
-// 🎨 PURE CANVAS VECTOR ICONS
+// 🏹 SLEEK OPEN-CHEVRON NAVIGATION BUTTONS (हाथ से बने खुले व सुंदर एरो)
 // =============================================================================
 @Composable
-private fun MinimalLuxeRingIcon(tint: Color) {
-    Canvas(modifier = Modifier.size(18.dp)) {
-        val w = size.width
-        val h = size.height
-        val center = Offset(w / 2f, h / 2f)
-        val stroke = 1.4.dp.toPx()
-        val r = w * 0.44f
-
-        drawCircle(color = tint, radius = r, center = center, style = Stroke(width = stroke))
-
-        val tickLen = w * 0.10f
-        drawLine(tint, Offset(center.x, center.y - r), Offset(center.x, center.y - r + tickLen), stroke)
-        drawLine(tint, Offset(center.x, center.y + r - tickLen), Offset(center.x, center.y + r), stroke)
-        drawLine(tint, Offset(center.x - r, center.y), Offset(center.x - r + tickLen, center.y), stroke)
-        drawLine(tint, Offset(center.x + r - tickLen, center.y), Offset(center.x + r, center.y), stroke)
-
-        drawLine(tint, center, Offset(center.x - w * 0.14f, center.y - h * 0.14f), stroke * 1.1f, StrokeCap.Round)
-        drawLine(tint, center, Offset(center.x + w * 0.20f, center.y - h * 0.08f), stroke * 0.9f, StrokeCap.Round)
-        drawCircle(tint, radius = 1.2.dp.toPx(), center = center)
-    }
-}
-
-@Composable
-private fun VintageTechRotaryIcon(tint: Color) {
-    Canvas(modifier = Modifier.size(18.dp)) {
-        val w = size.width
-        val h = size.height
-        val center = Offset(w / 2f, h / 2f)
-        val stroke = 1.3.dp.toPx()
-
-        drawCircle(color = tint, radius = w * 0.45f, center = center, style = Stroke(width = stroke))
-        drawCircle(color = tint, radius = w * 0.16f, center = center, style = Stroke(width = stroke * 0.9f))
-
-        val holeRadius = w * 0.052f
-        val orbitRadius = w * 0.31f
-        for (i in 0 until 8) {
-            val angle = Math.toRadians((i * 40.0) - 140.0)
-            val hx = center.x + (orbitRadius * cos(angle)).toFloat()
-            val hy = center.y + (orbitRadius * sin(angle)).toFloat()
-            drawCircle(color = tint, radius = holeRadius, center = Offset(hx, hy), style = Stroke(width = 1.0.dp.toPx()))
+private fun WatchNavArrowButton(
+    isLeft: Boolean,
+    goldColor: Color,
+    cardBg: Color,
+    isDark: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(if (isDark) Color(0x331E1E26) else Color(0x66FFFFFF))
+            .border(
+                width = 1.dp,
+                color = if (isDark) Color(0x33FFFFFF) else Color(0x44CBD5E1),
+                shape = CircleShape
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+    ) {
+        if (isLeft) {
+            SleekWideChevronLeft(tint = goldColor)
+        } else {
+            SleekWideChevronRight(tint = goldColor)
         }
-
-        val stopAngle = Math.toRadians(55.0)
-        val sx1 = center.x + (w * 0.22f * cos(stopAngle)).toFloat()
-        val sy1 = center.y + (w * 0.22f * sin(stopAngle)).toFloat()
-        val sx2 = center.x + (w * 0.45f * cos(stopAngle)).toFloat()
-        val sy2 = center.y + (w * 0.45f * sin(stopAngle)).toFloat()
-        drawLine(tint, Offset(sx1, sy1), Offset(sx2, sy2), stroke * 1.3f, StrokeCap.Round)
     }
 }
 
 @Composable
-private fun VintageTechFlipIcon(tint: Color) {
-    Canvas(modifier = Modifier.size(18.dp)) {
+private fun SleekWideChevronLeft(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(20.dp)) {
         val w = size.width
         val h = size.height
-        val stroke = 1.2.dp.toPx()
-        val cardWidth = w * 0.38f
-        val cardHeight = h * 0.68f
-        val topY = h * 0.16f
+        val stroke = 2.2.dp.toPx()
 
-        drawRoundRect(
+        val path = Path().apply {
+            moveTo(w * 0.62f, h * 0.22f)
+            lineTo(w * 0.36f, h * 0.50f)
+            lineTo(w * 0.62f, h * 0.78f)
+        }
+        drawPath(
+            path = path,
             color = tint,
-            topLeft = Offset(w * 0.10f, topY),
-            size = Size(cardWidth, cardHeight),
-            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()),
-            style = Stroke(width = stroke)
+            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
-        drawRoundRect(
+    }
+}
+
+@Composable
+private fun SleekWideChevronRight(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 2.2.dp.toPx()
+
+        val path = Path().apply {
+            moveTo(w * 0.38f, h * 0.22f)
+            lineTo(w * 0.64f, h * 0.50f)
+            lineTo(w * 0.38f, h * 0.78f)
+        }
+        drawPath(
+            path = path,
             color = tint,
-            topLeft = Offset(w * 0.52f, topY),
-            size = Size(cardWidth, cardHeight),
-            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()),
-            style = Stroke(width = stroke)
+            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
-
-        val midY = topY + (cardHeight / 2f)
-        drawLine(tint, Offset(w * 0.08f, midY), Offset(w * 0.48f, midY), stroke * 0.9f)
-        drawLine(tint, Offset(w * 0.52f, midY), Offset(w * 0.92f, midY), stroke * 0.9f)
-
-        drawCircle(tint, radius = 1.3.dp.toPx(), center = Offset(w * 0.05f, midY))
-        drawCircle(tint, radius = 1.3.dp.toPx(), center = Offset(w * 0.95f, midY))
     }
 }
 
 // =============================================================================
-// ⏱ WATCH STYLE 1: CLASSIC LUXE RING (100% STABLE - NO LAYOUT SHIFT)
+// ⏱ WATCH STYLE 1: CLASSIC LUXE RING
 // =============================================================================
 @Composable
 private fun ClassicRingWatch(
@@ -465,7 +391,7 @@ private fun ClassicRingWatch(
             }
         }
 
-        // 🔘 PRESET BUTTONS (बिल्कुल अपनी जगह पर स्थिर रहेंगे)
+        // 🔘 PRESET BUTTONS
         if (!isRunning) {
             Spacer(modifier = Modifier.height(14.dp))
             Row(
@@ -496,7 +422,6 @@ private fun ClassicRingWatch(
                     }
                 }
 
-                // ✨ Custom Button - अब यह कोई सिकुड़न नहीं करेगा, सीधे सुंदर पॉपअप खोलेगा
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -518,9 +443,6 @@ private fun ClassicRingWatch(
         }
     }
 
-    // =========================================================================
-    // 🌟 FLOATING CUSTOM SLIDER DIALOG (स्क्रीन के ऊपर तैरेगा - टच पूरी तरह सेफ़)
-    // =========================================================================
     if (isCustomMode) {
         Dialog(onDismissRequest = { onCustomModeToggle() }) {
             Box(
@@ -570,7 +492,6 @@ private fun ClassicRingWatch(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // 🎯 आइसोलेटेड मैग्नेटिक स्लाइडर (पीछे की कोई चीज़ नहीं हिलेगी)
                     CustomHorizontalSlider(
                         dialMinutes = dialMinutes,
                         onDialMinutesChange = onDialMinutesChange,
@@ -582,7 +503,6 @@ private fun ClassicRingWatch(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // ✅ Done बटन - टाइम लॉक करके तुरंत कार्ड बंद करेगा
                     Button(
                         onClick = { onCustomModeToggle() },
                         colors = ButtonDefaults.buttonColors(containerColor = goldColor),
