@@ -2,11 +2,11 @@ package com.amon.timer
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 
 object ThemeManager {
-    // थीम की सेटिंग्स सेव करने वाली तिजोरी
     private const val PREFS_NAME = "theme_prefs"
     private const val KEY_THEME = "selected_theme"
     private const val KEY_MODE = "selected_mode"
@@ -22,33 +22,48 @@ object ThemeManager {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    // 🟢 1. App khulte hi purani saved setting load karna
+    // 📱 फ़ोन के सिस्टम का असली लाइट/डार्क मोड चेक करने का तरीका
+    private fun isSystemDark(context: Context): Boolean {
+        val nightModeFlags = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        return nightModeFlags == Configuration.UI_MODE_NIGHT_YES
+    }
+
+    // 🎯 मोड के आधार पर तय करना कि ऐप डार्क रहेगी या लाइट
+    private fun resolveIsDark(context: Context, modeName: String): Boolean {
+        return when (modeName) {
+            "Light" -> false
+            "Dark" -> true
+            else -> isSystemDark(context) // "Default" ya "System" hone par phone ki setting chalegi
+        }
+    }
+
+    // 🟢 1. App खुलते ही पुरानी सेटिंग लोड करना
     fun loadTheme(context: Context) {
         val prefs = getPrefs(context)
         val savedTheme = prefs.getString(KEY_THEME, "Luxe Gold") ?: "Luxe Gold"
         val savedMode = prefs.getString(KEY_MODE, "Dark") ?: "Dark"
-        
+
         currentTheme.value = savedTheme
         appMode.value = savedMode
-        isDarkTheme.value = (savedMode != "Light")
+        isDarkTheme.value = resolveIsDark(context, savedMode)
     }
 
-    // 🟡 2. Accent Color save karna
+    // 🟡 2. Accent Color सेव करना
     fun saveTheme(context: Context, themeName: String) {
         val prefs = getPrefs(context)
         prefs.edit().putString(KEY_THEME, themeName).apply()
         currentTheme.value = themeName
     }
 
-    // 🌓 3. App Mode (Light / Dark / Default) save karna
+    // 🌓 3. App Mode (Light / Dark / Default) सेव करना
     fun saveMode(context: Context, modeName: String) {
         val prefs = getPrefs(context)
         prefs.edit().putString(KEY_MODE, modeName).apply()
         appMode.value = modeName
-        isDarkTheme.value = (modeName != "Light")
+        isDarkTheme.value = resolveIsDark(context, modeName)
     }
 
-    // 🎨 4. Current Accent Color nikaalne ka helper (Ab 7 Eye-Friendly Shades)
+    // 🎨 4. Current Accent Color निकालने का हेल्पर (7 Eye-Friendly Shades)
     fun getAccentColor(): Color {
         return when (currentTheme.value) {
             "Classic Yellow" -> Color(0xFFF5A524)
