@@ -1044,7 +1044,7 @@ private fun RetroFlipClockWatch(
 }
 
 /**
- * 🎴 MECHANICAL SPLIT-FLAP COMPONENT (WITH VINTAGE WARM/CHARCOAL PALETTE)
+ * 🎴 MECHANICAL SPLIT-FLAP COMPONENT
  */
 @Composable
 private fun AuthenticSplitFlapCard(
@@ -1352,7 +1352,7 @@ private fun CustomHorizontalSlider(
 }
 
 // =============================================================================
-// ✨ FOCUS TARGET ICON
+// ✨ FOCUS TARGET ICON (FIXED: TWO-ARGUMENT OFFSET ON LINE 1390)
 // =============================================================================
 @Composable
 private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
@@ -1386,6 +1386,6 @@ private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
         drawLine(tint, Offset(center.x, center.y - w * 0.44f), Offset(center.x, center.y - w * 0.44f + crossLen), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x, center.y + w * 0.44f - crossLen), Offset(center.x, center.y + w * 0.44f), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x - w * 0.44f, center.y), Offset(center.x - w * 0.44f + crossLen, center.y), stroke, StrokeCap.Round)
-        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f), stroke, StrokeCap.Round)
+        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f, center.y), stroke, StrokeCap.Round)
     }
 }
