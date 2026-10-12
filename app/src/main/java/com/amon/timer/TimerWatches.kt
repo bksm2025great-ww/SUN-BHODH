@@ -94,13 +94,17 @@ fun TimerWatchesContainer(
         watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
     }
 
-    // तीनों घड़ियों की ऊँचाई अब समान (~250dp) होने से एरो वर्टिकल सेंटर में संतुलित रहते हैं
-    val targetArrowY = if (isLandscape) 75.dp else 107.dp
+    // 🎯 फ्लिप वॉच में ठीक दोनों कार्ड्स के बीच वाले गैप (Seam) पर (105dp), और डायल पर सेंटर में (111dp)
+    val targetArrowY = if (isLandscape) {
+        if (selectedWatchStyle == 2) 72.dp else 95.dp
+    } else {
+        if (selectedWatchStyle == 2) 105.dp else 111.dp
+    }
 
     val animatedArrowY by animateDpAsState(
         targetValue = targetArrowY,
-        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
-        label = "ArrowGlide"
+        animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+        label = "ArrowSeamGlide"
     )
 
     Column(
@@ -198,7 +202,7 @@ fun TimerWatchesContainer(
                 }
             }
 
-            // 🏹 शुद्ध फ़्लोटिंग शेवरॉन एरो (सर्कल-फ़्री)
+            // 🏹 100% बिना सर्कल के, केवल तैरते हुए खुले शेवरॉन एरो
             if (!isRunning) {
                 Box(
                     modifier = Modifier
@@ -229,7 +233,7 @@ fun TimerWatchesContainer(
 }
 
 // =============================================================================
-// 🏹 PURE FLOATING CHEVRON BUTTON
+// 🏹 PURE FLOATING CHEVRON BUTTON (NO CIRCLE, NO BORDER, PURE VECTOR)
 // =============================================================================
 @Composable
 private fun WatchNavArrowButton(
@@ -373,7 +377,7 @@ private fun ClassicRingWatch(
                 )
             }
 
-            // 🎯 सेंटर टाइम टैप: टाइम पर टैप करते ही कस्टम स्लाइडर खुलेगा
+            // 🎯 सेंटर टाइम टैप
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
@@ -735,7 +739,7 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: RETRO FLIP CLOCK (ZERO LAYOUT SHIFT + VINTAGE STAMP)
+// 📜 WATCH STYLE 3: RETRO FLIP CLOCK
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
@@ -771,7 +775,6 @@ private fun RetroFlipClockWatch(
 
     var showTimeInputDialog by remember { mutableStateOf(false) }
 
-    // 📐 कॉम्पैक्ट साइज़ (Normal mode ~ 246dp height to match 258dp ring)
     val targetCardWidth = if (isLandscape) {
         if (isRunning) 235.dp else 195.dp
     } else {
@@ -810,7 +813,6 @@ private fun RetroFlipClockWatch(
             .padding(vertical = if (isRunning) (if (isLandscape) 2.dp else 6.dp) else 4.dp)
     ) {
         if (isLandscape) {
-            // 🔄 LANDSCAPE ROW LAYOUT
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -842,7 +844,6 @@ private fun RetroFlipClockWatch(
                 )
             }
         } else {
-            // 📱 PORTRAIT STACKED LAYOUT (ZERO SHIFT)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -1180,7 +1181,6 @@ private fun SplitFlapHalfPlate(
     isDark: Boolean,
     goldColor: Color
 ) {
-    // 🎨 कलर पैलेट: गहरा मैट चारकोल (Dark) और वार्म आइवरी पेपर (Light)
     val plateBg = if (isDark) Color(0xFF1B1B1E) else Color(0xFFFAF8F5)
     val plateBorder = if (isDark) Color(0x22FFFFFF) else Color(0x1F333333)
     val digitTextColor = if (isDark) Color(0xFFCECECF) else Color(0xFF333333)
@@ -1202,7 +1202,6 @@ private fun SplitFlapHalfPlate(
             .background(plateBg)
             .border(1.2.dp, plateBorder, shape)
     ) {
-        // 🏷️ मिनिमल विंटेज स्टैम्प बैज (ऊपरी प्लेट पर)
         if (isTop && badgeText != null) {
             Box(
                 modifier = Modifier
