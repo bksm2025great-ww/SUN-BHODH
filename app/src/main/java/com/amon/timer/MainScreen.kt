@@ -88,7 +88,7 @@ fun MainScreen() {
         } catch (_: Exception) {}
     }
 
-    // 🔕 Immersive Mode
+    // 🔕 Immersive Mode + ऑटो-रोटेशन सेंसर
     DisposableEffect(isFocusActive) {
         val window = activity?.window
         if (window != null) {
@@ -97,8 +97,11 @@ fun MainScreen() {
                 insetsController.hide(WindowInsetsCompat.Type.systemBars())
                 insetsController.systemBarsBehavior =
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                // पढ़ाई के दौरान फ़ोन घुमाते ही स्क्रीन अपने-आप सेंसर से लैंडस्केप हो जाएगी
+                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
             } else {
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
+                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             }
         }
         onDispose {
@@ -319,69 +322,33 @@ fun HomeTimerTab(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // TOP HEADER: CLEAN AMON LOGO + NAME & STREAK BADGE
-                Box(
+                // TOP HEADER: केवल तैरता हुआ स्ट्रीक (फ़ायर) कैप्सूल
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(cardBg)
-                        .border(1.dp, glassBorder, RoundedCornerShape(18.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .padding(top = 4.dp, bottom = 2.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9))
+                            .border(1.dp, glassBorder, RoundedCornerShape(50))
+                            .padding(horizontal = 11.dp, vertical = 5.dp)
                     ) {
-                        // Left: Logo (Slightly larger than 18sp text) + AMON Name
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                            ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.ic_mascot_amon),
-                                    contentDescription = "Amon Logo",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Fit
-                                )
-                            }
-
+                            AnimatedLivingFlame()
                             Text(
-                                text = "AMON",
-                                color = textMain,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.2.sp
+                                text = "$streakDays",
+                                color = if (streakDays > 0) Color(0xFFFB923C) else textMuted,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.ExtraBold
                             )
-                        }
-
-                        // Right: STREAK CAPSULE
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9))
-                                .border(1.dp, glassBorder, RoundedCornerShape(50))
-                                .padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)
-                            ) {
-                                AnimatedLivingFlame()
-                                Text(
-                                    text = "$streakDays",
-                                    color = if (streakDays > 0) Color(0xFFFB923C) else textMuted,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
                         }
                     }
                 }
@@ -462,7 +429,7 @@ fun HomeTimerTab(
                     }
                 }
 
-                // WATCH CONTAINER
+                // WATCH CONTAINER (सब्जेक्ट नाम के साथ जुड़ा हुआ)
                 TimerWatchesContainer(
                     dialMinutes = dialMinutes,
                     onDialMinutesChange = { nextMins ->
@@ -484,7 +451,8 @@ fun HomeTimerTab(
                     textMuted = textMuted,
                     isDark = isDark,
                     timeFormatted = timeFormatted,
-                    hours = hours
+                    hours = hours,
+                    selectedSubjectName = selectedSubjectName
                 )
 
                 // START FOCUS BUTTON
@@ -593,7 +561,8 @@ fun HomeTimerTab(
                             textMuted = textMuted,
                             isDark = isDark,
                             timeFormatted = timeFormatted,
-                            hours = hours
+                            hours = hours,
+                            selectedSubjectName = selectedSubjectName
                         )
                     }
 
@@ -732,7 +701,8 @@ fun HomeTimerTab(
                             textMuted = textMuted,
                             isDark = isDark,
                             timeFormatted = timeFormatted,
-                            hours = hours
+                            hours = hours,
+                            selectedSubjectName = selectedSubjectName
                         )
                     }
 
@@ -783,7 +753,7 @@ fun HomeTimerTab(
                                 .clip(CircleShape)
                                 .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                 .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                .clickable { showGiveUpDialog = true }
+                            .clickable { showGiveUpDialog = true }
                         ) {
                             Box(
                                 modifier = Modifier
