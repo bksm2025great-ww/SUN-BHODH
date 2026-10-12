@@ -12,7 +12,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -70,9 +69,13 @@ fun TimerWatchesContainer(
     isDark: Boolean,
     timeFormatted: String,
     hours: Int,
+    selectedSubjectName: String = "Focus",
     onTogglePlayPause: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     val watchPrefs = remember {
         context.getSharedPreferences("amon_watch_prefs", Context.MODE_PRIVATE)
     }
@@ -90,6 +93,15 @@ fun TimerWatchesContainer(
         selectedWatchStyle = if (selectedWatchStyle < 2) selectedWatchStyle + 1 else 0
         watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
     }
+
+    // तीनों घड़ियों की ऊँचाई अब समान (~250dp) होने से एरो वर्टिकल सेंटर में संतुलित रहते हैं
+    val targetArrowY = if (isLandscape) 75.dp else 107.dp
+
+    val animatedArrowY by animateDpAsState(
+        targetValue = targetArrowY,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "ArrowGlide"
+    )
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -114,7 +126,6 @@ fun TimerWatchesContainer(
                 }
             }
     ) {
-        // 🕰️ वॉच स्टाइल डिस्प्ले + दोनों तरफ़ खुले शेवरॉन एरो
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.TopCenter
@@ -158,6 +169,7 @@ fun TimerWatchesContainer(
                         totalSeconds = totalSeconds,
                         initialTotalSeconds = initialTotalSeconds,
                         isRunning = isRunning,
+                        onCustomModeToggle = onCustomModeToggle,
                         goldColor = goldColor,
                         glowYellow = glowYellow,
                         cardBg = cardBg,
@@ -174,6 +186,7 @@ fun TimerWatchesContainer(
                         onDialMinutesChange = onDialMinutesChange,
                         totalSeconds = totalSeconds,
                         isRunning = isRunning,
+                        subjectName = selectedSubjectName,
                         goldColor = goldColor,
                         glowYellow = glowYellow,
                         cardBg = cardBg,
@@ -185,34 +198,28 @@ fun TimerWatchesContainer(
                 }
             }
 
-            // 🏹 बाएँ और दाएँ खुले शेवरॉन एरो (केवल जब टाइमर रुका हो)
+            // 🏹 शुद्ध फ़्लोटिंग शेवरॉन एरो (सर्कल-फ़्री)
             if (!isRunning) {
-                // LEFT ARROW BUTTON
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .offset(x = 2.dp, y = 110.dp)
+                        .offset(x = 2.dp, y = animatedArrowY)
                 ) {
                     WatchNavArrowButton(
                         isLeft = true,
                         goldColor = goldColor,
-                        cardBg = cardBg,
-                        isDark = isDark,
                         onClick = onPrevStyle
                     )
                 }
 
-                // RIGHT ARROW BUTTON
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = (-2).dp, y = 110.dp)
+                        .offset(x = (-2).dp, y = animatedArrowY)
                 ) {
                     WatchNavArrowButton(
                         isLeft = false,
                         goldColor = goldColor,
-                        cardBg = cardBg,
-                        isDark = isDark,
                         onClick = onNextStyle
                     )
                 }
@@ -222,27 +229,18 @@ fun TimerWatchesContainer(
 }
 
 // =============================================================================
-// 🏹 SLEEK OPEN-CHEVRON NAVIGATION BUTTONS (हाथ से बने खुले व सुंदर एरो)
+// 🏹 PURE FLOATING CHEVRON BUTTON
 // =============================================================================
 @Composable
 private fun WatchNavArrowButton(
     isLeft: Boolean,
     goldColor: Color,
-    cardBg: Color,
-    isDark: Boolean,
     onClick: () -> Unit
 ) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(if (isDark) Color(0x331E1E26) else Color(0x66FFFFFF))
-            .border(
-                width = 1.dp,
-                color = if (isDark) Color(0x33FFFFFF) else Color(0x44CBD5E1),
-                shape = CircleShape
-            )
+            .size(44.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -259,15 +257,15 @@ private fun WatchNavArrowButton(
 
 @Composable
 private fun SleekWideChevronLeft(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
+    Canvas(modifier = modifier.size(24.dp)) {
         val w = size.width
         val h = size.height
-        val stroke = 2.2.dp.toPx()
+        val stroke = 2.4.dp.toPx()
 
         val path = Path().apply {
-            moveTo(w * 0.62f, h * 0.22f)
-            lineTo(w * 0.36f, h * 0.50f)
-            lineTo(w * 0.62f, h * 0.78f)
+            moveTo(w * 0.64f, h * 0.22f)
+            lineTo(w * 0.34f, h * 0.50f)
+            lineTo(w * 0.64f, h * 0.78f)
         }
         drawPath(
             path = path,
@@ -279,15 +277,15 @@ private fun SleekWideChevronLeft(tint: Color, modifier: Modifier = Modifier) {
 
 @Composable
 private fun SleekWideChevronRight(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
+    Canvas(modifier = modifier.size(24.dp)) {
         val w = size.width
         val h = size.height
-        val stroke = 2.2.dp.toPx()
+        val stroke = 2.4.dp.toPx()
 
         val path = Path().apply {
-            moveTo(w * 0.38f, h * 0.22f)
-            lineTo(w * 0.64f, h * 0.50f)
-            lineTo(w * 0.38f, h * 0.78f)
+            moveTo(w * 0.36f, h * 0.22f)
+            lineTo(w * 0.66f, h * 0.50f)
+            lineTo(w * 0.36f, h * 0.78f)
         }
         drawPath(
             path = path,
@@ -375,9 +373,19 @@ private fun ClassicRingWatch(
                 )
             }
 
+            // 🎯 सेंटर टाइम टैप: टाइम पर टैप करते ही कस्टम स्लाइडर खुलेगा
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(18.dp))
+                    .clickable(
+                        enabled = !isRunning,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onCustomModeToggle
+                    )
+                    .padding(8.dp)
             ) {
                 FocusTargetIcon(tint = goldColor, modifier = Modifier.size(26.dp))
                 Spacer(modifier = Modifier.height(4.dp))
@@ -534,6 +542,7 @@ private fun RotaryDialWatch(
     totalSeconds: Int,
     initialTotalSeconds: Int,
     isRunning: Boolean,
+    onCustomModeToggle: () -> Unit,
     goldColor: Color,
     glowYellow: Color,
     cardBg: Color,
@@ -658,9 +667,19 @@ private fun RotaryDialWatch(
                 }
             }
 
+            // 🎯 सेंटर टाइम टैप
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(18.dp))
+                    .clickable(
+                        enabled = !isRunning,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onCustomModeToggle
+                    )
+                    .padding(8.dp)
             ) {
                 Text(
                     text = timeFormatted,
@@ -716,7 +735,7 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: RETRO FLIP CLOCK
+// 📜 WATCH STYLE 3: RETRO FLIP CLOCK (ZERO LAYOUT SHIFT + VINTAGE STAMP)
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
@@ -724,6 +743,7 @@ private fun RetroFlipClockWatch(
     onDialMinutesChange: (Float) -> Unit,
     totalSeconds: Int,
     isRunning: Boolean,
+    subjectName: String,
     goldColor: Color,
     glowYellow: Color,
     cardBg: Color,
@@ -751,33 +771,34 @@ private fun RetroFlipClockWatch(
 
     var showTimeInputDialog by remember { mutableStateOf(false) }
 
+    // 📐 कॉम्पैक्ट साइज़ (Normal mode ~ 246dp height to match 258dp ring)
     val targetCardWidth = if (isLandscape) {
-        if (isRunning) 235.dp else 215.dp
+        if (isRunning) 235.dp else 195.dp
     } else {
-        if (isRunning) 265.dp else 245.dp
+        if (isRunning) 260.dp else 185.dp
     }
 
     val targetCardHeight = if (isLandscape) {
-        if (isRunning) 180.dp else 165.dp
+        if (isRunning) 175.dp else 145.dp
     } else {
-        if (isRunning) 195.dp else 175.dp
+        if (isRunning) 185.dp else 118.dp
     }
 
     val animatedWidth by animateDpAsState(
         targetValue = targetCardWidth,
-        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
         label = "FlipCardWidth"
     )
     val animatedHeight by animateDpAsState(
         targetValue = targetCardHeight,
-        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
         label = "FlipCardHeight"
     )
 
     val baseFontSize = if (isLandscape) {
-        if (isRunning) 150f else 136f
+        if (isRunning) 145f else 115f
     } else {
-        if (isRunning) 160f else 142f
+        if (isRunning) 150f else 95f
     }
     val topFontSize = if (topDigitStr.length > 2) baseFontSize * 0.70f else baseFontSize
     val bottomFontSize = baseFontSize
@@ -786,68 +807,77 @@ private fun RetroFlipClockWatch(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = if (isRunning) (if (isLandscape) 2.dp else 6.dp) else 2.dp)
+            .padding(vertical = if (isRunning) (if (isLandscape) 2.dp else 6.dp) else 4.dp)
     ) {
         if (isLandscape) {
+            // 🔄 LANDSCAPE ROW LAYOUT
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    enabled = !isRunning
-                ) {
-                    showTimeInputDialog = true
-                }
+                    enabled = !isRunning,
+                    onClick = { showTimeInputDialog = true }
+                )
             ) {
                 AuthenticSplitFlapCard(
                     digit = topDigitStr,
+                    badgeText = "• ${subjectName.uppercase()}",
                     cardWidth = animatedWidth,
                     cardHeight = animatedHeight,
                     fontSizeSp = topFontSize,
-                    isDark = isDark
+                    isDark = isDark,
+                    goldColor = goldColor
                 )
 
                 AuthenticSplitFlapCard(
                     digit = bottomDigitStr,
+                    badgeText = null,
                     cardWidth = animatedWidth,
                     cardHeight = animatedHeight,
                     fontSizeSp = bottomFontSize,
-                    isDark = isDark
+                    isDark = isDark,
+                    goldColor = goldColor
                 )
             }
         } else {
+            // 📱 PORTRAIT STACKED LAYOUT (ZERO SHIFT)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(if (isRunning) 18.dp else 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    enabled = !isRunning
-                ) {
-                    showTimeInputDialog = true
-                }
+                    enabled = !isRunning,
+                    onClick = { showTimeInputDialog = true }
+                )
             ) {
                 AuthenticSplitFlapCard(
                     digit = topDigitStr,
+                    badgeText = "• ${subjectName.uppercase()}",
                     cardWidth = animatedWidth,
                     cardHeight = animatedHeight,
                     fontSizeSp = topFontSize,
-                    isDark = isDark
+                    isDark = isDark,
+                    goldColor = goldColor
                 )
 
                 AuthenticSplitFlapCard(
                     digit = bottomDigitStr,
+                    badgeText = null,
                     cardWidth = animatedWidth,
                     cardHeight = animatedHeight,
                     fontSizeSp = bottomFontSize,
-                    isDark = isDark
+                    isDark = isDark,
+                    goldColor = goldColor
                 )
             }
         }
 
+        // 🔘 PRESET BUTTONS
         if (!isRunning) {
-            Spacer(modifier = Modifier.height(if (isLandscape) 8.dp else 14.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth(if (isLandscape) 0.75f else 1f)
@@ -1013,15 +1043,17 @@ private fun RetroFlipClockWatch(
 }
 
 /**
- * 🎴 MECHANICAL SPLIT-FLAP COMPONENT
+ * 🎴 MECHANICAL SPLIT-FLAP COMPONENT (WITH VINTAGE WARM/CHARCOAL PALETTE)
  */
 @Composable
 private fun AuthenticSplitFlapCard(
     digit: String,
+    badgeText: String? = null,
     cardWidth: Dp,
     cardHeight: Dp,
     fontSizeSp: Float,
-    isDark: Boolean
+    isDark: Boolean,
+    goldColor: Color
 ) {
     var previousDigit by remember { mutableStateOf(digit) }
     var currentDigit by remember { mutableStateOf(digit) }
@@ -1044,17 +1076,17 @@ private fun AuthenticSplitFlapCard(
     val isTopFolded = rotation >= 90f
     val seamGap = 2.dp
     val halfHeight = (cardHeight - seamGap) / 2
-    val cornerRadius = 22.dp
+    val cornerRadius = 18.dp
 
     val topShape = RoundedCornerShape(
         topStart = cornerRadius,
         topEnd = cornerRadius,
-        bottomStart = 3.dp,
-        bottomEnd = 3.dp
+        bottomStart = 2.5.dp,
+        bottomEnd = 2.5.dp
     )
     val bottomShape = RoundedCornerShape(
-        topStart = 3.dp,
-        topEnd = 3.dp,
+        topStart = 2.5.dp,
+        topEnd = 2.5.dp,
         bottomStart = cornerRadius,
         bottomEnd = cornerRadius
     )
@@ -1069,24 +1101,28 @@ private fun AuthenticSplitFlapCard(
         ) {
             SplitFlapHalfPlate(
                 digit = currentDigit,
+                badgeText = badgeText,
                 isTop = true,
                 cardWidth = cardWidth,
                 cardHeight = cardHeight,
                 halfHeight = halfHeight,
                 fontSizeSp = fontSizeSp,
                 shape = topShape,
-                isDark = isDark
+                isDark = isDark,
+                goldColor = goldColor
             )
 
             SplitFlapHalfPlate(
                 digit = if (flipAnim.isRunning) previousDigit else currentDigit,
+                badgeText = null,
                 isTop = false,
                 cardWidth = cardWidth,
                 cardHeight = cardHeight,
                 halfHeight = halfHeight,
                 fontSizeSp = fontSizeSp,
                 shape = bottomShape,
-                isDark = isDark
+                isDark = isDark,
+                goldColor = goldColor
             )
         }
 
@@ -1104,22 +1140,25 @@ private fun AuthenticSplitFlapCard(
             ) {
                 SplitFlapHalfPlate(
                     digit = if (isTopFolded) currentDigit else previousDigit,
+                    badgeText = if (!isTopFolded) badgeText else null,
                     isTop = !isTopFolded,
                     cardWidth = cardWidth,
                     cardHeight = cardHeight,
                     halfHeight = halfHeight,
                     fontSizeSp = fontSizeSp,
                     shape = if (isTopFolded) bottomShape else topShape,
-                    isDark = isDark
+                    isDark = isDark,
+                    goldColor = goldColor
                 )
             }
         }
 
+        // Seam Line
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(seamGap)
-                .background(if (isDark) Color(0xFF09090C) else Color(0xFFE2E8F0))
+                .background(if (isDark) Color(0xFF09090C) else Color(0xFFE2DAD0))
                 .align(Alignment.Center)
         )
     }
@@ -1131,17 +1170,20 @@ private fun AuthenticSplitFlapCard(
 @Composable
 private fun SplitFlapHalfPlate(
     digit: String,
+    badgeText: String? = null,
     isTop: Boolean,
     cardWidth: Dp,
     cardHeight: Dp,
     halfHeight: Dp,
     fontSizeSp: Float,
     shape: Shape,
-    isDark: Boolean
+    isDark: Boolean,
+    goldColor: Color
 ) {
-    val plateBg = if (isDark) Color(0xFF16161B) else Color(0xFFFFFFFF)
-    val plateBorder = if (isDark) Color(0x22FFFFFF) else Color(0xFFE2E8F0)
-    val digitTextColor = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+    // 🎨 कलर पैलेट: गहरा मैट चारकोल (Dark) और वार्म आइवरी पेपर (Light)
+    val plateBg = if (isDark) Color(0xFF1B1B1E) else Color(0xFFFAF8F5)
+    val plateBorder = if (isDark) Color(0x22FFFFFF) else Color(0x1F333333)
+    val digitTextColor = if (isDark) Color(0xFFCECECF) else Color(0xFF333333)
 
     Box(
         modifier = Modifier
@@ -1149,10 +1191,10 @@ private fun SplitFlapHalfPlate(
             .then(
                 if (!isDark) {
                     Modifier.shadow(
-                        elevation = 4.dp,
+                        elevation = 3.dp,
                         shape = shape,
-                        spotColor = Color(0x18000000),
-                        ambientColor = Color(0x10000000)
+                        spotColor = Color(0x15000000),
+                        ambientColor = Color(0x0C000000)
                     )
                 } else Modifier
             )
@@ -1160,6 +1202,24 @@ private fun SplitFlapHalfPlate(
             .background(plateBg)
             .border(1.2.dp, plateBorder, shape)
     ) {
+        // 🏷️ मिनिमल विंटेज स्टैम्प बैज (ऊपरी प्लेट पर)
+        if (isTop && badgeText != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 5.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Text(
+                    text = badgeText,
+                    fontSize = 8.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isDark) goldColor.copy(alpha = 0.85f) else Color(0xFF78716C),
+                    letterSpacing = 1.4.sp
+                )
+            }
+        }
+
         Layout(
             content = {
                 Text(
@@ -1168,7 +1228,7 @@ private fun SplitFlapHalfPlate(
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.SansSerif,
                     color = digitTextColor,
-                    letterSpacing = (-4).sp
+                    letterSpacing = (-3).sp
                 )
             }
         ) { measurables, _ ->
@@ -1189,7 +1249,7 @@ private fun SplitFlapHalfPlate(
 }
 
 // =============================================================================
-// 🌟 CUSTOM HORIZONTAL SLIDER (ISOLATED INSIDE DIALOG)
+// 🌟 CUSTOM HORIZONTAL SLIDER
 // =============================================================================
 @Composable
 private fun CustomHorizontalSlider(
@@ -1277,7 +1337,6 @@ private fun CustomHorizontalSlider(
             }
         }
 
-        // Center Indicator Pin
         Box(
             modifier = Modifier
                 .width(3.2.dp)
@@ -1294,11 +1353,11 @@ private fun CustomHorizontalSlider(
 }
 
 // =============================================================================
-// ✨ LUXE GOLD MATERIAL VECTOR ICON (TARGET VECTOR)
+// ✨ FOCUS TARGET ICON
 // =============================================================================
 @Composable
 private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(26.dp)) {
+    Canvas(modifier = modifier.size(24.dp)) {
         val w = size.width
         val h = size.height
         val center = Offset(w / 2f, h / 2f)
@@ -1328,6 +1387,6 @@ private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
         drawLine(tint, Offset(center.x, center.y - w * 0.44f), Offset(center.x, center.y - w * 0.44f + crossLen), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x, center.y + w * 0.44f - crossLen), Offset(center.x, center.y + w * 0.44f), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x - w * 0.44f, center.y), Offset(center.x - w * 0.44f + crossLen, center.y), stroke, StrokeCap.Round)
-        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f, center.y), stroke, StrokeCap.Round)
+        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f), stroke, StrokeCap.Round)
     }
 }
