@@ -97,7 +97,6 @@ fun MainScreen() {
                 insetsController.hide(WindowInsetsCompat.Type.systemBars())
                 insetsController.systemBarsBehavior =
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                // पढ़ाई के दौरान फ़ोन घुमाते ही स्क्रीन अपने-आप सेंसर से लैंडस्केप हो जाएगी
                 activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
             } else {
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
@@ -292,7 +291,6 @@ fun HomeTimerTab(
             .sortedByDescending { subjectMinutesMap[it] ?: 0 }
     }
 
-    // Helper: Add Subject Logic
     val onAddSubjectAction = {
         if (newSubjectInput.isNotBlank()) {
             val cleanInput = newSubjectInput.trim().replaceFirstChar {
@@ -322,14 +320,24 @@ fun HomeTimerTab(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // TOP HEADER: केवल तैरता हुआ स्ट्रीक (फ़ायर) कैप्सूल
+                // 👑 TOP HEADER: CLEAN AMON TEXT + STREAK PILL
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 2.dp),
-                    horizontalArrangement = Arrangement.End,
+                        .padding(top = 4.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // 👈 बाईं तरफ़: केवल साफ़ वाइट AMON टेक्स्ट
+                    Text(
+                        text = "AMON",
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.Black,
+                        color = if (isDark) Color.White else Color(0xFF1C1917),
+                        letterSpacing = 2.5.sp
+                    )
+
+                    // 👉 दाईं तरफ़: स्ट्रीक (फ़ायर) कैप्सूल
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -429,7 +437,7 @@ fun HomeTimerTab(
                     }
                 }
 
-                // WATCH CONTAINER (सब्जेक्ट नाम के साथ जुड़ा हुआ)
+                // WATCH CONTAINER
                 TimerWatchesContainer(
                     dialMinutes = dialMinutes,
                     onDialMinutesChange = { nextMins ->
