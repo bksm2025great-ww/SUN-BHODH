@@ -2,7 +2,7 @@ name: Build Amon APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "dev" ]
   workflow_dispatch:
 
 # 🔑 रोबोट को Releases काउंटर पर नया वर्ज़न पब्लिश करने की अनुमति देना
