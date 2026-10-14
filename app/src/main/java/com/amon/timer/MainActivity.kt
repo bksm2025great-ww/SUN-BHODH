@@ -1,6 +1,7 @@
 package com.amon.timer
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.os.Build
@@ -161,21 +162,36 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// =============================================================================
+// 🚀 SMART IN-APP UPDATE POPUP (WHITE & PURPLE THEME + NEW USER SHIELD)
+// =============================================================================
 @Composable
 private fun AutoUpdatePopupEngine() {
     val context = LocalContext.current
     val updateManager = remember { UpdateManager(context) }
     val scope = rememberCoroutineScope()
+    val updatePrefs = remember { context.getSharedPreferences("amon_update_prefs", Context.MODE_PRIVATE) }
 
     var updateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
     var showDialog by remember { mutableStateOf(false) }
     var isDownloading by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableIntStateOf(0) }
 
+    val purpleAccent = Color(0xFF5B3BA5)
+
     LaunchedEffect(Unit) {
         delay(1200)
+        val isFirstLaunch = !updatePrefs.getBoolean("has_initialized_app", false)
         val info = updateManager.checkLatestUpdate()
-        if (info.hasUpdate && updateManager.shouldShowOneTimePopup(info.latestVersion)) {
+
+        if (isFirstLaunch) {
+            // 🛡️ पहला ताला: नए यूजर के लिए इसे तुरंत देखा हुआ मान लो (कोई फालतू पॉपअप नहीं)
+            updatePrefs.edit()
+                .putBoolean("has_initialized_app", true)
+                .putString("dismissed_version", info.latestVersion)
+                .apply()
+        } else if (info.hasUpdate && updateManager.shouldShowOneTimePopup(info.latestVersion)) {
+            // केवल तभी खुलेगा जब सचमुच कोई नया वर्ज़न आएगा (और सिर्फ़ 1 बार)
             updateInfo = info
             showDialog = true
         }
@@ -183,7 +199,6 @@ private fun AutoUpdatePopupEngine() {
 
     if (showDialog && updateInfo != null) {
         val info = updateInfo!!
-        val mintGreen = Color(0xFF05B67A)
 
         Dialog(onDismissRequest = {
             if (!isDownloading) {
@@ -192,65 +207,67 @@ private fun AutoUpdatePopupEngine() {
             }
         }) {
             Surface(
-                shape = RoundedCornerShape(26.dp),
-                color = Color(0xFF181820),
+                shape = RoundedCornerShape(28.dp),
+                color = Color.White,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp),
-                border = BorderStroke(1.2.dp, mintGreen.copy(alpha = 0.4f)),
-                shadowElevation = 14.dp
+                shadowElevation = 10.dp
             ) {
                 Column(
-                    modifier = Modifier.padding(22.dp),
+                    modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // 🚀 पर्पल बैज
                     Box(
                         modifier = Modifier
-                            .size(68.dp)
-                            .shadow(10.dp, CircleShape, spotColor = mintGreen, ambientColor = mintGreen.copy(alpha = 0.4f))
-                            .clip(CircleShape)
-                            .background(mintGreen),
+                            .size(60.dp)
+                            .background(purpleAccent, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        CanvasRocketWithFlames(modifier = Modifier.size(36.dp))
+                        Text(text = "🚀", fontSize = 26.sp)
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     Text(
-                        text = "New Update Available! 🚀",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color.White,
-                        textAlign = TextAlign.Center
+                        text = "New Update\nAvailable!",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E1E24),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 28.sp
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
                         text = "Version ${info.latestVersion} is ready to install",
-                        fontSize = 12.5.sp,
-                        color = mintGreen,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = purpleAccent
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
+                    // 📝 फीचर्स का साफ-सुथरा बॉक्स
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF22222C))
-                            .padding(12.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFFF8FAFC))
+                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
+                            .padding(14.dp)
                     ) {
                         FeatureOneLinerBullet(text = "Desk Flip Mode: आड़े मोड में नया साइड-बाय-साइड लेआउट")
                         FeatureOneLinerBullet(text = "Ultra-Bold: 160sp का विशाल और साफ़ डिस्प्ले")
                         FeatureOneLinerBullet(text = "Direct Updates: 1-टैप में आसान इन-ऐप इंस्टॉलेशन")
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
+                    // ⚡ अपडेट बटन
                     Button(
                         onClick = {
                             if (!isDownloading) {
@@ -271,27 +288,28 @@ private fun AutoUpdatePopupEngine() {
                             .fillMaxWidth()
                             .height(48.dp),
                         shape = RoundedCornerShape(24.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = mintGreen)
+                        colors = ButtonDefaults.buttonColors(containerColor = purpleAccent)
                     ) {
                         if (isDownloading) {
                             Text(
                                 text = "Downloading... $downloadProgress%",
                                 color = Color.White,
-                                fontSize = 14.5.sp,
-                                fontWeight = FontWeight.Bold
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
                         } else {
                             Text(
                                 text = "Update Now ⚡",
                                 color = Color.White,
                                 fontSize = 15.sp,
-                                fontWeight = FontWeight.ExtraBold
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
 
                     if (!isDownloading) {
                         Spacer(modifier = Modifier.height(6.dp))
+
                         TextButton(
                             onClick = {
                                 updateManager.markPopupAsDismissed(info.latestVersion)
@@ -301,9 +319,9 @@ private fun AutoUpdatePopupEngine() {
                         ) {
                             Text(
                                 text = "Maybe Later",
-                                color = Color(0xFF94A3B8),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold
+                                color = purpleAccent,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
@@ -319,78 +337,17 @@ private fun FeatureOneLinerBullet(text: String) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top
     ) {
-        Text(text = "• ", color = Color(0xFF05B67A), fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text(text = text, color = Color(0xFFE2E8F0), fontSize = 12.sp, lineHeight = 17.sp)
-    }
-}
-
-@Composable
-private fun CanvasRocketWithFlames(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-
-        val flameCenterX = w * 0.50f
-        val flameTopY = h * 0.70f
-
-        val redFlame = Path().apply {
-            moveTo(flameCenterX - w * 0.18f, flameTopY)
-            quadraticBezierTo(flameCenterX - w * 0.22f, h * 0.88f, flameCenterX, h * 0.98f)
-            quadraticBezierTo(flameCenterX + w * 0.22f, h * 0.88f, flameCenterX + w * 0.18f, flameTopY)
-            close()
-        }
-        drawPath(redFlame, color = Color(0xFFEF4444))
-
-        val orangeFlame = Path().apply {
-            moveTo(flameCenterX - w * 0.12f, flameTopY)
-            quadraticBezierTo(flameCenterX - w * 0.15f, h * 0.85f, flameCenterX, h * 0.92f)
-            quadraticBezierTo(flameCenterX + w * 0.15f, h * 0.85f, flameCenterX + w * 0.12f, flameTopY)
-            close()
-        }
-        drawPath(orangeFlame, color = Color(0xFFFB923C))
-
-        val yellowFlame = Path().apply {
-            moveTo(flameCenterX - w * 0.06f, flameTopY)
-            quadraticBezierTo(flameCenterX - w * 0.08f, h * 0.80f, flameCenterX, h * 0.86f)
-            quadraticBezierTo(flameCenterX + w * 0.08f, h * 0.80f, flameCenterX + w * 0.06f, flameTopY)
-            close()
-        }
-        drawPath(yellowFlame, color = Color(0xFFFDE047))
-
-        val leftFin = Path().apply {
-            moveTo(w * 0.35f, h * 0.50f)
-            lineTo(w * 0.15f, h * 0.68f)
-            lineTo(w * 0.35f, h * 0.68f)
-            close()
-        }
-        drawPath(leftFin, color = Color.White.copy(alpha = 0.85f))
-
-        val rightFin = Path().apply {
-            moveTo(w * 0.65f, h * 0.50f)
-            lineTo(w * 0.85f, h * 0.68f)
-            lineTo(w * 0.65f, h * 0.68f)
-            close()
-        }
-        drawPath(rightFin, color = Color.White.copy(alpha = 0.85f))
-
-        val bodyPath = Path().apply {
-            moveTo(w * 0.50f, h * 0.12f)
-            cubicTo(w * 0.70f, h * 0.28f, w * 0.68f, h * 0.62f, w * 0.65f, h * 0.70f)
-            lineTo(w * 0.35f, h * 0.70f)
-            cubicTo(w * 0.32f, h * 0.62f, w * 0.30f, h * 0.28f, w * 0.50f, h * 0.12f)
-            close()
-        }
-        drawPath(bodyPath, color = Color.White)
-
-        drawCircle(
-            color = Color(0xFF05B67A),
-            radius = w * 0.09f,
-            center = Offset(w * 0.50f, h * 0.38f)
+        Text(
+            text = "• ",
+            color = Color(0xFF5B3BA5),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
         )
-        drawCircle(
-            color = Color.White,
-            radius = w * 0.035f,
-            center = Offset(w * 0.48f, h * 0.36f)
+        Text(
+            text = text,
+            color = Color(0xFF2D3748),
+            fontSize = 13.sp,
+            lineHeight = 18.sp
         )
     }
 }
