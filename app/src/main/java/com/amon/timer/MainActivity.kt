@@ -1,241 +1,643 @@
 package com.amon.timer
 
+import android.Manifest
 import android.content.Context
-import android.content.Intent
-import android.content.SharedPreferences
-import android.net.Uri
+import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.os.Build
-import android.provider.Settings
-import androidx.core.content.FileProvider
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
+import android.os.Bundle
+import android.util.Log
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import com.amon.timer.ui.theme.AmonTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-// 📦 अपडेट की सारी जानकारी का मॉडल
-data class AppUpdateInfo(
-    val hasUpdate: Boolean,
-    val currentVersion: String,
-    val latestVersion: String,
-    val whatsNew: String,
-    val downloadUrl: String
-)
+private enum class AppScreenState {
+    SPLASH,
+    MAIN
+}
 
-class UpdateManager(private val context: Context) {
-
-    companion object {
-        // 🔗 आपकी असली GitHub Repository का सटीक पता
-        private const val GITHUB_REPO = "bksm2025great-ww/SUN-BHODH"
-        private const val API_URL = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
-    }
-
-    // 📱 फ़ोन के सिस्टम से सीधे असली इंस्टॉल हुआ वर्ज़न पढ़ना
-    val currentVersion: String
-        get() {
-            return try {
-                val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-                "v${pInfo.versionName}"
-            } catch (_: Exception) {
-                "v1.0.0"
-            }
-        }
-
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences("amon_update_prefs", Context.MODE_PRIVATE)
-
-    // 🛡️ पहला ताला: नए यूजर के लिए पूरी शांति + सिर्फ एक बार पॉपअप दिखाने का सटीक नियम
-    fun shouldShowOneTimePopup(version: String): Boolean {
-        val isFirstLaunch = !prefs.getBoolean("has_initialized_app", false)
-        if (isFirstLaunch) {
-            // पहली बार ऐप खुली है तो इसे तुरंत 'देखा हुआ' मार्क कर दो (नए यूजर को कभी पॉपअप नहीं दिखेगा)
-            prefs.edit()
-                .putBoolean("has_initialized_app", true)
-                .putString("dismissed_version", version)
-                .apply()
-            return false
-        }
-
-        val lastDismissedVersion = prefs.getString("dismissed_version", "")
-        return lastDismissedVersion != version
-    }
-
-    fun markPopupAsDismissed(version: String) {
-        prefs.edit()
-            .putBoolean("has_initialized_app", true)
-            .putString("dismissed_version", version)
-            .apply()
-    }
-
-    // 🌐 ताज़ा अपडेट बैकग्राउंड में ढूँढना
-    suspend fun checkLatestUpdate(): AppUpdateInfo = withContext(Dispatchers.IO) {
-        val activeVersion = currentVersion
-        var updateInfo = AppUpdateInfo(
-            hasUpdate = false,
-            currentVersion = activeVersion,
-            latestVersion = activeVersion,
-            whatsNew = "You are using the latest version of Amon.",
-            downloadUrl = ""
-        )
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
         try {
-            val url = URL(API_URL)
-            val connection = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 10000
-                readTimeout = 10000
-                setRequestProperty("User-Agent", "Amon-App")
-                setRequestProperty("Accept", "application/vnd.github.v3+json")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val currentDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    display
+                } else {
+                    @Suppress("DEPRECATION")
+                    windowManager.defaultDisplay
+                }
+                val maxRefreshMode = currentDisplay?.supportedModes?.maxByOrNull { it.refreshRate }
+                if (maxRefreshMode != null) {
+                    val params = window.attributes
+                    params.preferredDisplayModeId = maxRefreshMode.modeId
+                    window.attributes = params
+                }
             }
+        } catch (e: Exception) {
+            Log.e("AmonLaunch", "120Hz unlock catch: ${e.localizedMessage}")
+        }
 
-            if (connection.responseCode == 200) {
-                val reader = BufferedReader(InputStreamReader(connection.inputStream))
-                val response = reader.readText()
-                reader.close()
+        try {
+            AmonReminderManager.scheduleAllReminders(this)
+        } catch (e: Exception) {
+            Log.e("AmonLaunch", "Safe Reminder catch: ${e.localizedMessage}")
+        }
 
-                val json = JSONObject(response)
-                val tagName = json.optString("tag_name", activeVersion)
-                val body = json.optString("body", "Bug fixes and performance improvements.")
+        setContent {
+            AmonTheme {
+                val isDark = ThemeManager.isDarkTheme.value
+                val appBgColor = ThemeManager.getBackgroundColor()
 
-                var apkDownloadUrl = ""
-                val assets = json.optJSONArray("assets")
-                if (assets != null && assets.length() > 0) {
-                    for (i in 0 until assets.length()) {
-                        val asset = assets.getJSONObject(i)
-                        val name = asset.optString("name", "")
-                        if (name.endsWith(".apk")) {
-                            apkDownloadUrl = asset.optString("browser_download_url", "")
-                            break
+                var currentScreen by remember { mutableStateOf(AppScreenState.SPLASH) }
+
+                val currentStatusBarColor = if (currentScreen == AppScreenState.SPLASH) Color(0xFF0F0F12) else appBgColor
+                val isLightStatusBarIcons = if (currentScreen == AppScreenState.SPLASH) false else !isDark
+
+                SideEffect {
+                    window.statusBarColor = currentStatusBarColor.toArgb()
+                    WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = isLightStatusBarIcons
+                }
+
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = currentStatusBarColor
+                ) {
+                    LaunchedEffect(Unit) {
+                        delay(1500)
+                        currentScreen = AppScreenState.MAIN
+                    }
+
+                    Crossfade(
+                        targetState = currentScreen,
+                        animationSpec = tween(durationMillis = 400),
+                        label = "ScreenTransition"
+                    ) { screen ->
+                        when (screen) {
+                            AppScreenState.SPLASH -> {
+                                SplashScreenContent()
+                            }
+                            AppScreenState.MAIN -> {
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    MainScreen()
+
+                                    FocusRotateButtonOverlay(activity = this@MainActivity)
+
+                                    AutoUpdatePopupEngine()
+
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        val context = LocalContext.current
+                                        var showPermissionDialog by remember {
+                                            val isGranted = ContextCompat.checkSelfPermission(
+                                                context,
+                                                Manifest.permission.POST_NOTIFICATIONS
+                                            ) == PackageManager.PERMISSION_GRANTED
+                                            mutableStateOf(!isGranted)
+                                        }
+
+                                        val permissionLauncher = rememberLauncherForActivityResult(
+                                            contract = ActivityResultContracts.RequestPermission()
+                                        ) { _ ->
+                                            showPermissionDialog = false
+                                        }
+
+                                        if (showPermissionDialog) {
+                                            NotificationPermissionDialog(
+                                                onAllowClick = {
+                                                    showPermissionDialog = false
+                                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                                },
+                                                onDismiss = {
+                                                    showPermissionDialog = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
+            }
+        }
+    }
+}
 
-                val isNewer = isVersionNewer(tagName, activeVersion)
+// =============================================================================
+// 🚀 SMART IN-APP UPDATE POPUP (WHITE & PURPLE THEME + NEW USER SHIELD)
+// =============================================================================
+@Composable
+private fun AutoUpdatePopupEngine() {
+    val context = LocalContext.current
+    val updateManager = remember { UpdateManager(context) }
+    val scope = rememberCoroutineScope()
+    val updatePrefs = remember { context.getSharedPreferences("amon_update_prefs", Context.MODE_PRIVATE) }
 
-                updateInfo = AppUpdateInfo(
-                    hasUpdate = isNewer && apkDownloadUrl.isNotBlank(),
-                    currentVersion = activeVersion,
-                    latestVersion = tagName,
-                    whatsNew = body.ifBlank { "✨ New features and performance optimizations." },
-                    downloadUrl = apkDownloadUrl
+    var updateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
+    var showDialog by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableIntStateOf(0) }
+
+    val purpleAccent = Color(0xFF5B3BA5)
+
+    LaunchedEffect(Unit) {
+        delay(1200)
+        val isFirstLaunch = !updatePrefs.getBoolean("has_initialized_app", false)
+        val info = updateManager.checkLatestUpdate()
+
+        if (isFirstLaunch) {
+            // 🛡️ पहला ताला: नए यूजर के लिए इसे तुरंत देखा हुआ मान लो (कोई फालतू पॉपअप नहीं)
+            updatePrefs.edit()
+                .putBoolean("has_initialized_app", true)
+                .putString("dismissed_version", info.latestVersion)
+                .apply()
+        } else if (info.hasUpdate && updateManager.shouldShowOneTimePopup(info.latestVersion)) {
+            // केवल तभी खुलेगा जब सचमुच कोई नया वर्ज़न आएगा (और सिर्फ़ 1 बार)
+            updateInfo = info
+            showDialog = true
+        }
+    }
+
+    if (showDialog && updateInfo != null) {
+        val info = updateInfo!!
+
+        Dialog(onDismissRequest = {
+            if (!isDownloading) {
+                updateManager.markPopupAsDismissed(info.latestVersion)
+                showDialog = false
+            }
+        }) {
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = Color.White,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                shadowElevation = 10.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // 🚀 पर्पल बैज
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .background(purpleAccent, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "🚀", fontSize = 26.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Text(
+                        text = "New Update\nAvailable!",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E1E24),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 28.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Version ${info.latestVersion} is ready to install",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = purpleAccent
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // 📝 फीचर्स का साफ-सुथरा बॉक्स
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFFF8FAFC))
+                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
+                            .padding(14.dp)
+                    ) {
+                        FeatureOneLinerBullet(text = "Desk Flip Mode: आड़े मोड में नया साइड-बाय-साइड लेआउट")
+                        FeatureOneLinerBullet(text = "Ultra-Bold: 160sp का विशाल और साफ़ डिस्प्ले")
+                        FeatureOneLinerBullet(text = "Direct Updates: 1-टैप में आसान इन-ऐप इंस्टॉलेशन")
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // ⚡ अपडेट बटन
+                    Button(
+                        onClick = {
+                            if (!isDownloading) {
+                                isDownloading = true
+                                scope.launch {
+                                    val apkFile = updateManager.downloadUpdateApk(info.downloadUrl) { progress ->
+                                        downloadProgress = progress
+                                    }
+                                    isDownloading = false
+                                    if (apkFile != null) {
+                                        showDialog = false
+                                        updateManager.installApk(apkFile)
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = purpleAccent)
+                    ) {
+                        if (isDownloading) {
+                            Text(
+                                text = "Downloading... $downloadProgress%",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        } else {
+                            Text(
+                                text = "Update Now ⚡",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    if (!isDownloading) {
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        TextButton(
+                            onClick = {
+                                updateManager.markPopupAsDismissed(info.latestVersion)
+                                showDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Maybe Later",
+                                color = purpleAccent,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeatureOneLinerBullet(text: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = "• ",
+            color = Color(0xFF5B3BA5),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = text,
+            color = Color(0xFF2D3748),
+            fontSize = 13.sp,
+            lineHeight = 18.sp
+        )
+    }
+}
+
+@Composable
+private fun FocusRotateButtonOverlay(activity: ComponentActivity) {
+    val isRunning = TimerService.isTimerRunning.value
+    val isPaused = TimerService.isTimerPaused.value
+    val isFocusActive = isRunning || isPaused
+
+    var isLandscape by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isFocusActive) {
+        if (!isFocusActive) {
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            isLandscape = false
+        }
+    }
+
+    AnimatedVisibility(
+        visible = isFocusActive,
+        enter = fadeIn(tween(250)) + scaleIn(initialScale = 0.85f),
+        exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.85f),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 16.dp, end = 16.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopEnd
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(40.dp)
+                    .shadow(
+                        elevation = 6.dp,
+                        shape = CircleShape,
+                        spotColor = Color.Black.copy(alpha = 0.4f),
+                        ambientColor = Color.Black.copy(alpha = 0.2f)
+                    )
+                    .clip(CircleShape)
+                    .background(Color(0xFF1E1E26))
+                    .border(
+                        width = 1.1.dp,
+                        color = if (isLandscape) Color(0xFFF5A524) else Color(0x33FFFFFF),
+                        shape = CircleShape
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        if (isLandscape) {
+                            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                            isLandscape = false
+                        } else {
+                            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                            isLandscape = true
+                        }
+                    }
+            ) {
+                AndroidAutoRotateLineIcon(
+                    tint = if (isLandscape) Color(0xFFF5A524) else Color(0xFFE2E8F0),
+                    modifier = Modifier.size(20.dp)
                 )
             }
-        } catch (_: Exception) {
-            // नेटवर्क की समस्या होने पर ऐप शांत रहेगा
         }
-
-        updateInfo
     }
+}
 
-    // 📥 इन-ऐप बैकग्राउंड डाउनलोड (0% से 100%)
-    suspend fun downloadUpdateApk(
-        downloadUrl: String,
-        onProgress: (Int) -> Unit
-    ): File? = withContext(Dispatchers.IO) {
-        try {
-            val updateDir = File(context.cacheDir, "updates")
-            if (!updateDir.exists()) updateDir.mkdirs()
+@Composable
+private fun AndroidAutoRotateLineIcon(
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val center = Offset(w / 2f, h / 2f)
+        val strokeWidth = 1.4.dp.toPx()
 
-            val apkFile = File(updateDir, "amon_update.apk")
-            if (apkFile.exists()) apkFile.delete()
+        val phoneW = w * 0.32f
+        val phoneH = h * 0.50f
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(center.x - phoneW / 2f, center.y - phoneH / 2f),
+            size = Size(phoneW, phoneH),
+            cornerRadius = CornerRadius(2.2.dp.toPx(), 2.2.dp.toPx()),
+            style = Stroke(width = strokeWidth)
+        )
 
-            val url = URL(downloadUrl)
-            val connection = (url.openConnection() as HttpURLConnection).apply {
-                instanceFollowRedirects = true
-                connectTimeout = 15000
-                readTimeout = 20000
-                setRequestProperty("User-Agent", "Amon-App")
-            }
+        val arcRadius = w * 0.38f
+        drawArc(
+            color = tint,
+            startAngle = 205f,
+            sweepAngle = 95f,
+            useCenter = false,
+            topLeft = Offset(center.x - arcRadius, center.y - arcRadius),
+            size = Size(arcRadius * 2f, arcRadius * 2f),
+            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        )
 
-            val fileLength = connection.contentLength
-            val input = connection.inputStream
-            val output = FileOutputStream(apkFile)
+        val arrowPath1 = Path().apply {
+            moveTo(center.x + arcRadius * 0.10f, center.y - arcRadius * 1.02f)
+            lineTo(center.x + arcRadius * 0.40f, center.y - arcRadius * 0.90f)
+            lineTo(center.x + arcRadius * 0.25f, center.y - arcRadius * 0.62f)
+            close()
+        }
+        drawPath(path = arrowPath1, color = tint)
 
-            val data = ByteArray(4096)
-            var total: Long = 0
-            var count: Int
+        drawArc(
+            color = tint,
+            startAngle = 25f,
+            sweepAngle = 95f,
+            useCenter = false,
+            topLeft = Offset(center.x - arcRadius, center.y - arcRadius),
+            size = Size(arcRadius * 2f, arcRadius * 2f),
+            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        )
 
-            while (input.read(data).also { count = it } != -1) {
-                total += count
-                if (fileLength > 0) {
-                    val progress = ((total * 100) / fileLength).toInt()
-                    withContext(Dispatchers.Main) {
-                        onProgress(progress)
-                    }
+        val arrowPath2 = Path().apply {
+            moveTo(center.x - arcRadius * 0.10f, center.y + arcRadius * 1.02f)
+            lineTo(center.x - arcRadius * 0.40f, center.y + arcRadius * 0.90f)
+            lineTo(center.x - arcRadius * 0.25f, center.y - arcRadius * 0.62f)
+            close()
+        }
+        drawPath(path = arrowPath2, color = tint)
+    }
+}
+
+@Composable
+private fun NotificationPermissionDialog(
+    onAllowClick: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = Color.White,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            shadowElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .background(Color(0xFF5B3BA5), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "🔔", fontSize = 26.sp)
                 }
-                output.write(data, 0, count)
-            }
 
-            output.flush()
-            output.close()
-            input.close()
+                Spacer(modifier = Modifier.height(18.dp))
 
-            apkFile
-        } catch (_: Exception) {
-            null
-        }
-    }
+                Text(
+                    text = "Never miss a\nfocus session",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E1E24),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 28.sp
+                )
 
-    // ⚙️ फ़ोन का इंस्टॉलर स्क्रीन पर खोलना (No Browser, No GitHub)
-    fun installApk(apkFile: File) {
-        try {
-            // 1. Android 8+ (Oreo से Android 15 तक) परमिशन चेक
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                if (!context.packageManager.canRequestPackageInstalls()) {
-                    val permissionIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    }
-                    context.startActivity(permissionIntent)
-                    return
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "Enable notifications to unlock the\nfull timer experience:",
+                    fontSize = 14.sp,
+                    color = Color(0xFF4A5568),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    NotificationBulletItem(text = "Live countdown on lock screen and status bar")
+                    NotificationBulletItem(text = "Instant chime when focus block ends")
+                    NotificationBulletItem(text = "Smart reminders to protect study streak")
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = onAllowClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF5B3BA5)
+                    )
+                ) {
+                    Text(
+                        text = "Allow Notifications",
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Maybe Later",
+                        color = Color(0xFF5B3BA5),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
-
-            // 2. सही FileProvider से सुरक्षित URI बनाना
-            val authority = "${context.packageName}.fileprovider"
-            val apkUri: Uri = FileProvider.getUriForFile(context, authority, apkFile)
-
-            // 3. सिस्टम पैकेज इंस्टॉलर को सीधे स्क्रीन पर ट्रिगर करना
-            val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(apkUri, "application/vnd.android.package-archive")
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
-            }
-            context.startActivity(installIntent)
-
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
+}
 
-    // 🔢 गणितीय रूप से सिर्फ़ बड़े वर्ज़न पर ही ट्रू होगा (e.g. v1.1.2 > v1.1.1)
-    private fun isVersionNewer(latest: String, current: String): Boolean {
-        return try {
-            fun parseNumbers(ver: String): List<Int> {
-                val clean = ver.trim().removePrefix("v").removePrefix("V")
-                val base = clean.split("-")[0].split("+")[0]
-                return base.split(".")
-                    .mapNotNull { part -> part.filter { it.isDigit() }.toIntOrNull() }
-            }
+@Composable
+private fun NotificationBulletItem(text: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = "• ",
+            color = Color(0xFF1E1E24),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = text,
+            color = Color(0xFF2D3748),
+            fontSize = 14.sp,
+            lineHeight = 20.sp
+        )
+    }
+}
 
-            val latestParts = parseNumbers(latest)
-            val currentParts = parseNumbers(current)
+@Composable
+private fun SplashScreenContent() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0F0F12)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "AMON",
+                color = Color(0xFFF5A524),
+                fontSize = 38.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 4.sp
+            )
 
-            if (latestParts.isEmpty() || currentParts.isEmpty()) return false
+            Spacer(modifier = Modifier.height(6.dp))
 
-            val maxLength = maxOf(latestParts.size, currentParts.size)
-            for (i in 0 until maxLength) {
-                val l = latestParts.getOrNull(i) ?: 0
-                val c = currentParts.getOrNull(i) ?: 0
-                if (l > c) return true
-                if (l < c) return false
-            }
-            false
-        } catch (_: Exception) {
-            false
+            Text(
+                text = "Angel of Time - LOTM",
+                color = Color(0xFFCBD5E1),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Normal,
+                fontStyle = FontStyle.Italic,
+                letterSpacing = 1.sp
+            )
+
+            Spacer(modifier = Modifier.height(46.dp))
+
+            Text(
+                text = "S T A Y   F O C U S E D\n&\nG R O W",
+                color = Color(0xFF94A3B8),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                lineHeight = 18.sp,
+                letterSpacing = 3.sp
+            )
         }
     }
 }
