@@ -46,7 +46,7 @@ fun ForestScreen() {
     val totalMins = remember(sessions) { sessions.sumOf { it.durationMinutes } }
     val totalHours = String.format(Locale.getDefault(), "%.1f", totalMins / 60f)
 
-    // 🌳 WebP इमेज लोड (R.drawable.tree_maple)
+    // 🌳 WebP इमेज
     val mapleTreeBitmap = remember {
         try {
             ImageBitmap.imageResource(context.resources, R.drawable.tree_maple)
@@ -55,27 +55,25 @@ fun ForestScreen() {
         }
     }
 
-    // 🎥 कैमरा कंट्रोल: ज़ूम और पैन
     var zoomScale by remember { mutableFloatStateOf(1.0f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
 
-    // 🌌 बैकग्राउंड
     val skyBg = if (isDark) Color(0xFF0D0F14) else Color(0xFFF1F5F0)
     val gridLineColor = if (isDark) Color(0x24FFFFFF) else Color(0x335A7B66)
 
-    // 🧱 ग्रिड नाप (2:1 आइसोमेट्रिक अनुपात)
+    // 🧱 ग्रिड नाप (2:1 रेशियो)
     val tileWDp = 100.dp
     val tileHDp = 50.dp
 
-    // 🌲 पास-पास के 5 टेस्ट स्लॉट्स (क्लस्टर)
+    // 🌲 5 पास-पास वाले स्लॉट्स (गहराई के सही क्रम में सॉर्टेड)
     val testClusterSlots = remember {
         listOf(
             Pair(-1, 0),  // पीछे-बाएँ
             Pair(0, -1),  // पीछे-दाएँ
-            Pair(0, 0),   // बीच का मुख्य पेड़
+            Pair(0, 0),   // मुख्य सेंटर
             Pair(0, 1),   // आगे-बाएँ
             Pair(1, 0)    // आगे-दाएँ
-        ).sortedBy { (col, row) -> col + row } // 🎯 जादुई क्रम: पीछे वाले पहले, आगे वाले बाद में!
+        ).sortedBy { (col, row) -> col + row }
     }
 
     Box(
@@ -83,9 +81,6 @@ fun ForestScreen() {
             .fillMaxSize()
             .background(skyBg)
     ) {
-        // ---------------------------------------------------------------------
-        // 🌍 UNIFIED WORLD CONTAINER (कैमरा ज़ूम और ड्रैग)
-        // ---------------------------------------------------------------------
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -104,7 +99,7 @@ fun ForestScreen() {
             contentAlignment = Alignment.Center
         ) {
             Canvas(
-                modifier = Modifier.size(3600.dp) // 50x50 का विशाल कैनवास
+                modifier = Modifier.size(3600.dp)
             ) {
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
@@ -114,11 +109,9 @@ fun ForestScreen() {
                 val halfW = tileWPx / 2f
                 val halfH = tileHPx / 2f
 
-                val gridRadius = 14 // 50x50 ग्रिड
+                val gridRadius = 14
 
-                // -------------------------------------------------------------
-                // 1. लेयर 1: सबसे नीचे पूरा वायरफ़्रेम ग्रिड (GRID PASS)
-                // -------------------------------------------------------------
+                // 1. सबसे नीचे पूरा ग्रिड
                 for (col in -gridRadius..gridRadius) {
                     for (row in -gridRadius..gridRadius) {
                         val slotCenterX = centerX + (col - row) * halfW
@@ -140,34 +133,33 @@ fun ForestScreen() {
                     }
                 }
 
-                // -------------------------------------------------------------
-                // 2. लेयर 2: सभी 5 पेड़ों की परछाइयाँ (SHADOW PASS)
-                // -------------------------------------------------------------
+                // 2. परछाइयाँ
                 testClusterSlots.forEach { (c, r) ->
                     val slotCenterX = centerX + (c - r) * halfW
                     val slotCenterY = centerY + (c + r) * halfH
 
                     drawOval(
-                        color = Color(0x33000000),
-                        topLeft = Offset(slotCenterX - 40.dp.toPx(), slotCenterY + 4.dp.toPx()),
-                        size = Size(80.dp.toPx(), 28.dp.toPx())
+                        color = Color(0x35000000),
+                        topLeft = Offset(slotCenterX - 46.dp.toPx(), slotCenterY + 4.dp.toPx()),
+                        size = Size(92.dp.toPx(), 36.dp.toPx())
                     )
                 }
 
-                // -------------------------------------------------------------
-                // 3. लेयर 3: 3D पेड़ सही क्रम में (TREE RENDERING PASS)
-                // -------------------------------------------------------------
+                // 3. 🎯 ग्रिड-लॉक 3D पेड़ (सटीक 100dp स्नैप)
                 if (mapleTreeBitmap != null) {
-                    val treeRenderW = 140.dp.toPx()
-                    val treeRenderH = 140.dp.toPx()
+                    // चबूतरे को 100dp बनाने के लिए पूरी इमेज 202dp होगी
+                    val treeRenderW = 202.dp.toPx()
+                    val treeRenderH = 202.dp.toPx()
 
                     testClusterSlots.forEach { (c, r) ->
                         val slotCenterX = centerX + (c - r) * halfW
                         val slotCenterY = centerY + (c + r) * halfH
 
+                        // X-अलाइनमेंट: इमेज का क्षैतिज केंद्र ग्रिड सेंटर पर
                         val drawPosX = slotCenterX - (treeRenderW / 2f)
-                        // यह ऑफ़सेट पेड़ के चबूतरे को ग्रिड के ठीक ऊपर उभरा हुआ रखता है
-                        val drawPosY = (slotCenterY + halfH) - (treeRenderH * 0.88f)
+
+                        // Y-अलाइनमेंट: इमेज में चबूतरे का केंद्र (77% पर) ठीक ग्रिड के सेंटर (slotCenterY) पर लॉक होगा
+                        val drawPosY = slotCenterY - (treeRenderH * 0.77f)
 
                         drawImage(
                             image = mapleTreeBitmap,
@@ -179,9 +171,7 @@ fun ForestScreen() {
             }
         }
 
-        // ---------------------------------------------------------------------
-        // 👑 TOP STATUS BAR
-        // ---------------------------------------------------------------------
+        // स्टेटस बार
         Surface(
             shape = RoundedCornerShape(50),
             color = cardBg.copy(alpha = 0.92f),
@@ -211,9 +201,7 @@ fun ForestScreen() {
             }
         }
 
-        // ---------------------------------------------------------------------
-        // 🎯 RE-CENTER BUTTON
-        // ---------------------------------------------------------------------
+        // री-सेंटर बटन
         Surface(
             shape = CircleShape,
             color = cardBg.copy(alpha = 0.94f),
@@ -232,25 +220,4 @@ fun ForestScreen() {
             }
         }
     }
-}
-
-// 📅 Universal Smart Date Parser
-fun parseSessionDateUniversal(rawDateStr: String): Date? {
-    if (rawDateStr.isBlank()) return null
-    val clean = rawDateStr.replace("\n", " ").replace("\r", " ").replace("\"", "").replace("'", "").replace(",", " ").replace(Regex("\\s+"), " ").trim()
-    clean.toLongOrNull()?.let { millis -> if (millis > 1000000000000L) return Date(millis) }
-    val formats = listOf(
-        SimpleDateFormat("dd MMM yyyy hh:mm:ss a", Locale.ENGLISH),
-        SimpleDateFormat("dd MMM yyyy hh:mm a", Locale.ENGLISH),
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
-        SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()),
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-    )
-    for (fmt in formats) {
-        try {
-            val d = fmt.parse(clean)
-            if (d != null) return d
-        } catch (_: Exception) {}
-    }
-    return null
 }
