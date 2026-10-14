@@ -12,18 +12,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun ForestScreen() {
@@ -40,27 +46,37 @@ fun ForestScreen() {
     val totalMins = remember(sessions) { sessions.sumOf { it.durationMinutes } }
     val totalHours = String.format(Locale.getDefault(), "%.1f", totalMins / 60f)
 
+    // 🌳 WebP इमेज लोड (R.drawable.tree_maple)
+    val mapleTreeBitmap = remember {
+        try {
+            ImageBitmap.imageResource(context.resources, R.drawable.tree_maple)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     // 🎥 कैमरा कंट्रोल: ज़ूम और पैन
     var zoomScale by remember { mutableFloatStateOf(1.0f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
 
-    // 🌌 डार्क बैकग्राउंड (स्पेस / मिनिमल थीम)
+    // 🌌 बैकग्राउंड
     val skyBg = if (isDark) Color(0xFF0D0F14) else Color(0xFFF1F5F0)
-    val gridLineColor = if (isDark) Color(0x26FFFFFF) else Color(0x335A7B66)
+    val gridLineColor = if (isDark) Color(0x24FFFFFF) else Color(0x335A7B66)
 
-    // 🧱 ग्रिड और 3D टाइल का नाप
+    // 🧱 ग्रिड नाप (2:1 आइसोमेट्रिक अनुपात)
     val tileWDp = 100.dp
     val tileHDp = 50.dp
-    val soilDepthDp = 24.dp // सेंटर वाली टाइल की 3D मिट्टी की मोटाई
 
-    // 🎨 3D घास और मिट्टी के रंग
-    val grassTopColor = if (isDark) Color(0xFF388E3C) else Color(0xFF5DBB46)
-    val grassBorderColor = if (isDark) Color(0xFF4CAF50) else Color(0xFF76C444)
-    val grassSpeckColor = if (isDark) Color(0x5581C784) else Color(0x55A5E876)
-
-    val soilLeftColor = if (isDark) Color(0xFF4E342E) else Color(0xFF6D4C41)   // बायीं मिट्टी (रोशनी)
-    val soilRightColor = if (isDark) Color(0xFF3E2723) else Color(0xFF4E342E)  // दायीं मिट्टी (छाया)
-    val soilLineColor = if (isDark) Color(0x44000000) else Color(0x33000000)
+    // 🌲 पास-पास के 5 टेस्ट स्लॉट्स (क्लस्टर)
+    val testClusterSlots = remember {
+        listOf(
+            Pair(-1, 0),  // पीछे-बाएँ
+            Pair(0, -1),  // पीछे-दाएँ
+            Pair(0, 0),   // बीच का मुख्य पेड़
+            Pair(0, 1),   // आगे-बाएँ
+            Pair(1, 0)    // आगे-दाएँ
+        ).sortedBy { (col, row) -> col + row } // 🎯 जादुई क्रम: पीछे वाले पहले, आगे वाले बाद में!
+    }
 
     Box(
         modifier = Modifier
@@ -68,7 +84,7 @@ fun ForestScreen() {
             .background(skyBg)
     ) {
         // ---------------------------------------------------------------------
-        // 🌍 UNIFIED WORLD CONTAINER (कैमरा: ग्रिड को ज़ूम और ड्रैग करना)
+        // 🌍 UNIFIED WORLD CONTAINER (कैमरा ज़ूम और ड्रैग)
         // ---------------------------------------------------------------------
         Box(
             modifier = Modifier
@@ -88,7 +104,7 @@ fun ForestScreen() {
             contentAlignment = Alignment.Center
         ) {
             Canvas(
-                modifier = Modifier.size(3600.dp) // विशाल कैनवास
+                modifier = Modifier.size(3600.dp) // 50x50 का विशाल कैनवास
             ) {
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
@@ -97,11 +113,12 @@ fun ForestScreen() {
                 val tileHPx = tileHDp.toPx()
                 val halfW = tileWPx / 2f
                 val halfH = tileHPx / 2f
-                val soilDepthPx = soilDepthDp.toPx()
 
-                // ग्रिड का फैलाव (रेडियस 14 = लगभग 800+ टाइल्स का विशाल मैदान)
-                val gridRadius = 14
+                val gridRadius = 14 // 50x50 ग्रिड
 
+                // -------------------------------------------------------------
+                // 1. लेयर 1: सबसे नीचे पूरा वायरफ़्रेम ग्रिड (GRID PASS)
+                // -------------------------------------------------------------
                 for (col in -gridRadius..gridRadius) {
                     for (row in -gridRadius..gridRadius) {
                         val slotCenterX = centerX + (col - row) * halfW
@@ -115,63 +132,48 @@ fun ForestScreen() {
                             close()
                         }
 
-                        // ⭐ केवल सेंटर स्लॉट (0, 0) पर 3D घास + मिट्टी की टाइल बनेगी
-                        if (col == 0 && row == 0) {
-                            // A. 3D मिट्टी की बायीं दीवार (Soil Left Cliff)
-                            val soilLeft = Path().apply {
-                                moveTo(slotCenterX - halfW, slotCenterY)
-                                lineTo(slotCenterX, slotCenterY + halfH)
-                                lineTo(slotCenterX, slotCenterY + halfH + soilDepthPx)
-                                lineTo(slotCenterX - halfW, slotCenterY + soilDepthPx)
-                                close()
-                            }
-                            drawPath(soilLeft, color = soilLeftColor)
+                        drawPath(
+                            path = diamondPath,
+                            color = gridLineColor,
+                            style = Stroke(width = 0.85.dp.toPx())
+                        )
+                    }
+                }
 
-                            // B. 3D मिट्टी की दायीं दीवार (Soil Right Cliff)
-                            val soilRight = Path().apply {
-                                moveTo(slotCenterX, slotCenterY + halfH)
-                                lineTo(slotCenterX + halfW, slotCenterY)
-                                lineTo(slotCenterX + halfW, slotCenterY + soilDepthPx)
-                                lineTo(slotCenterX, slotCenterY + halfH + soilDepthPx)
-                                close()
-                            }
-                            drawPath(soilRight, color = soilRightColor)
+                // -------------------------------------------------------------
+                // 2. लेयर 2: सभी 5 पेड़ों की परछाइयाँ (SHADOW PASS)
+                // -------------------------------------------------------------
+                testClusterSlots.forEach { (c, r) ->
+                    val slotCenterX = centerX + (c - r) * halfW
+                    val slotCenterY = centerY + (c + r) * halfH
 
-                            // मिट्टी के बीच की बॉर्डर लाइन
-                            drawLine(
-                                color = soilLineColor,
-                                start = Offset(slotCenterX, slotCenterY + halfH),
-                                end = Offset(slotCenterX, slotCenterY + halfH + soilDepthPx),
-                                strokeWidth = 1.5.dp.toPx()
-                            )
+                    drawOval(
+                        color = Color(0x33000000),
+                        topLeft = Offset(slotCenterX - 40.dp.toPx(), slotCenterY + 4.dp.toPx()),
+                        size = Size(80.dp.toPx(), 28.dp.toPx())
+                    )
+                }
 
-                            // C. ऊपर की मखमली हरी घास (Lush Grass Surface)
-                            drawPath(diamondPath, color = grassTopColor)
-                            drawPath(
-                                diamondPath,
-                                color = grassBorderColor,
-                                style = Stroke(width = 1.5.dp.toPx())
-                            )
+                // -------------------------------------------------------------
+                // 3. लेयर 3: 3D पेड़ सही क्रम में (TREE RENDERING PASS)
+                // -------------------------------------------------------------
+                if (mapleTreeBitmap != null) {
+                    val treeRenderW = 140.dp.toPx()
+                    val treeRenderH = 140.dp.toPx()
 
-                            // घास के छोटे-छोटे तिनके (Texture Details)
-                            drawCircle(
-                                color = grassSpeckColor,
-                                radius = 1.2.dp.toPx(),
-                                center = Offset(slotCenterX - 10.dp.toPx(), slotCenterY - 4.dp.toPx())
-                            )
-                            drawCircle(
-                                color = grassSpeckColor,
-                                radius = 1.0.dp.toPx(),
-                                center = Offset(slotCenterX + 12.dp.toPx(), slotCenterY + 2.dp.toPx())
-                            )
-                        } else {
-                            // 🌐 बाकी पूरा मैदान: आपका मनपसंद वायरफ़्रेम ग्रिड
-                            drawPath(
-                                path = diamondPath,
-                                color = gridLineColor,
-                                style = Stroke(width = 0.85.dp.toPx())
-                            )
-                        }
+                    testClusterSlots.forEach { (c, r) ->
+                        val slotCenterX = centerX + (c - r) * halfW
+                        val slotCenterY = centerY + (c + r) * halfH
+
+                        val drawPosX = slotCenterX - (treeRenderW / 2f)
+                        // यह ऑफ़सेट पेड़ के चबूतरे को ग्रिड के ठीक ऊपर उभरा हुआ रखता है
+                        val drawPosY = (slotCenterY + halfH) - (treeRenderH * 0.88f)
+
+                        drawImage(
+                            image = mapleTreeBitmap,
+                            dstOffset = IntOffset(drawPosX.roundToInt(), drawPosY.roundToInt()),
+                            dstSize = IntSize(treeRenderW.roundToInt(), treeRenderH.roundToInt())
+                        )
                     }
                 }
             }
@@ -194,7 +196,7 @@ fun ForestScreen() {
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "🌱 Forest Grid",
+                    text = "🍁 Maple Forest (${testClusterSlots.size} Trees)",
                     color = textMain,
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.Bold
