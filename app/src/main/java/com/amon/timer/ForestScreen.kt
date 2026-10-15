@@ -1,226 +1,232 @@
 package com.amon.timer
 
+import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlin.math.roundToInt
+
+enum class TileItemType {
+    EMPTY,
+    CAT_ROCK,    // ग्रुप 1: बिल्ली
+    TREE_OAK,    // ग्रुप 1: नया पेड़
+    BENCH_PARK   // ग्रुप 2: बेंच
+}
+
+data class ForestTile(
+    val row: Int,
+    val col: Int,
+    val itemType: TileItemType = TileItemType.EMPTY
+)
 
 @Composable
 fun ForestScreen() {
-    val context = LocalContext.current
     val isDark = ThemeManager.isDarkTheme.value
+    val context = LocalContext.current
+    val density = LocalDensity.current
 
-    val goldColor = ThemeManager.getAccentColor()
-    val textMain = ThemeManager.getTextColor()
-    val textMuted = ThemeManager.getTextMutedColor()
-    val cardBg = ThemeManager.getCardColor()
-    val glassBorder = if (isDark) Color(0x22FFFFFF) else Color(0x33000000)
+    // 🌿 6x6 का ग्रिड ताकि दोनों ग्रुप्स में गैप दिख सके
+    val gridSize = 6
+    val tileWidth = with(density) { 90.dp.toPx() }
+    val tileHeight = tileWidth / 2f // 2:1 आइसोमेट्रिक अनुपात
 
-    val sessions = remember { FocusSessionManager.getAllSessions(context) }
-    val totalMins = remember(sessions) { sessions.sumOf { it.durationMinutes } }
-    val totalHours = String.format(Locale.getDefault(), "%.1f", totalMins / 60f)
+    // 🎨 तीनों एसेट्स लोड करें
+    val catBitmap = remember { loadBitmapSafe(context, "cat_rock") }
+    val treeBitmap = remember { loadBitmapSafe(context, "tree_oak") }
+    val benchBitmap = remember { loadBitmapSafe(context, "bench_park") }
 
-    // 🌳 WebP इमेज
-    val mapleTreeBitmap = remember {
-        try {
-            ImageBitmap.imageResource(context.resources, R.drawable.tree_maple)
-        } catch (_: Exception) {
-            null
+    // 🗺️ टाइल्स का लेआउट (दोनों ग्रुप्स का विभाजन)
+    val tiles = remember {
+        mutableStateListOf<ForestTile>().apply {
+            for (r in 0 until gridSize) {
+                for (c in 0 until gridSize) {
+                    val type = when {
+                        // 🐾 ग्रुप 1: ट्री और कैट का क्लस्टर (Row 0 से 2, Col 0 से 2)
+                        r == 0 && c == 0 -> TileItemType.TREE_OAK
+                        r == 0 && c == 1 -> TileItemType.TREE_OAK
+                        r == 1 && c == 0 -> TileItemType.TREE_OAK
+                        r == 1 && c == 1 -> TileItemType.CAT_ROCK // सेंटर में बिल्ली
+                        r == 1 && c == 2 -> TileItemType.TREE_OAK
+                        r == 2 && c == 0 -> TileItemType.TREE_OAK
+                        r == 2 && c == 1 -> TileItemType.TREE_OAK
+
+                        // 🪑 ग्रुप 2: थोड़ा गैप देकर 4 बेंच का क्लस्टर (Row 4 से 5, Col 3 से 4)
+                        r == 4 && c == 3 -> TileItemType.BENCH_PARK
+                        r == 4 && c == 4 -> TileItemType.BENCH_PARK
+                        r == 5 && c == 3 -> TileItemType.BENCH_PARK
+                        r == 5 && c == 4 -> TileItemType.BENCH_PARK
+
+                        // बीच का खाली गैप
+                        else -> TileItemType.EMPTY
+                    }
+                    add(ForestTile(row = r, col = c, itemType = type))
+                }
+            }
         }
     }
 
-    var zoomScale by remember { mutableFloatStateOf(1.0f) }
+    // 🔍 पैन और ज़ूम
+    var scale by remember { mutableFloatStateOf(1f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
-
-    val skyBg = if (isDark) Color(0xFF0D0F14) else Color(0xFFF1F5F0)
-    val gridLineColor = if (isDark) Color(0x24FFFFFF) else Color(0x335A7B66)
-
-    // 🧱 ग्रिड नाप (2:1 रेशियो)
-    val tileWDp = 100.dp
-    val tileHDp = 50.dp
-
-    // 🌲 5 स्लॉट्स का क्लस्टर (सही गहराई क्रम)
-    val testClusterSlots = remember {
-        listOf(
-            Pair(-1, 0),  // पीछे-बाएँ
-            Pair(0, -1),  // पीछे-दाएँ
-            Pair(0, 0),   // मुख्य सेंटर
-            Pair(0, 1),   // आगे-बाएँ
-            Pair(1, 0)    // आगे-दाएँ
-        ).sortedBy { (col, row) -> col + row }
+    val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
+        scale = (scale * zoomChange).coerceIn(0.5f, 2.5f)
+        panOffset += offsetChange
     }
+
+    val bgGradient = Brush.verticalGradient(
+        colors = if (isDark) {
+            listOf(Color(0xFF111713), Color(0xFF090D0A))
+        } else {
+            listOf(Color(0xFFE8F0E9), Color(0xFFD6E3D8))
+        }
+    )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(skyBg)
+            .background(bgGradient)
     ) {
-        Box(
+        Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTransformGestures { _, pan, zoom, _ ->
-                        zoomScale = (zoomScale * zoom).coerceIn(0.4f, 2.5f)
-                        panOffset += pan
-                    }
-                }
-                .graphicsLayer {
-                    scaleX = zoomScale
-                    scaleY = zoomScale
-                    translationX = panOffset.x
-                    translationY = panOffset.y
-                },
-            contentAlignment = Alignment.Center
+                .transformable(state = transformState)
         ) {
-            Canvas(
-                modifier = Modifier.size(3600.dp)
-            ) {
-                val centerX = size.width / 2f
-                val centerY = size.height / 2f
+            val centerX = size.width / 2f + panOffset.x
+            val centerY = size.height / 3f + panOffset.y
 
-                val tileWPx = tileWDp.toPx()
-                val tileHPx = tileHDp.toPx()
-                val halfW = tileWPx / 2f
-                val halfH = tileHPx / 2f
+            // Z-इंडेक्स सॉर्टिंग: पीछे से आगे की ओर ड्रा करना
+            val sortedTiles = tiles.sortedWith(compareBy({ it.row + it.col }, { it.row }))
 
-                val gridRadius = 14
+            sortedTiles.forEach { tile ->
+                // 2:1 आइसोमेट्रिक गणित
+                val isoX = (tile.col - tile.row) * (tileWidth / 2f) * scale
+                val isoY = (tile.col + tile.row) * (tileHeight / 2f) * scale
 
-                // 1. सबसे नीचे पूरा ग्रिड
-                for (col in -gridRadius..gridRadius) {
-                    for (row in -gridRadius..gridRadius) {
-                        val slotCenterX = centerX + (col - row) * halfW
-                        val slotCenterY = centerY + (col + row) * halfH
+                val slotX = centerX + isoX
+                val slotY = centerY + isoY
 
-                        val diamondPath = Path().apply {
-                            moveTo(slotCenterX, slotCenterY - halfH)
-                            lineTo(slotCenterX + halfW, slotCenterY)
-                            lineTo(slotCenterX, slotCenterY + halfH)
-                            lineTo(slotCenterX - halfW, slotCenterY)
-                            close()
+                // 1. बेस ग्रिड डायमंड (हल्की गाइडलाइन)
+                drawTileBase(
+                    cx = slotX,
+                    cy = slotY,
+                    w = tileWidth * scale,
+                    h = tileHeight * scale,
+                    isDark = isDark
+                )
+
+                // 2. एसेट रेंडरिंग
+                when (tile.itemType) {
+                    TileItemType.CAT_ROCK -> {
+                        catBitmap?.let { bmp ->
+                            // लियोनार्डो बेस रेश्यो: ~76% चौड़ाई, 0.68f Y-एंकर
+                            val renderW = (tileWidth / 0.76f) * scale
+                            val renderH = renderW
+                            val dx = slotX - (renderW / 2f)
+                            val dy = slotY - (renderH * 0.68f)
+
+                            drawImage(
+                                image = bmp,
+                                dstOffset = IntOffset(dx.roundToInt(), dy.roundToInt()),
+                                dstSize = IntSize(renderW.roundToInt(), renderH.roundToInt())
+                            )
                         }
-
-                        drawPath(
-                            path = diamondPath,
-                            color = gridLineColor,
-                            style = Stroke(width = 0.85.dp.toPx())
-                        )
                     }
-                }
 
-                // 2. परछाइयाँ (नए सटीक साइज़ के अनुसार)
-                testClusterSlots.forEach { (c, r) ->
-                    val slotCenterX = centerX + (c - r) * halfW
-                    val slotCenterY = centerY + (c + r) * halfH
+                    TileItemType.TREE_OAK -> {
+                        treeBitmap?.let { bmp ->
+                            // नए ओक ट्री का बेस: ~78% चौड़ाई, 0.70f Y-एंकर
+                            val renderW = (tileWidth / 0.78f) * scale
+                            val renderH = renderW
+                            val dx = slotX - (renderW / 2f)
+                            val dy = slotY - (renderH * 0.70f)
 
-                    drawOval(
-                        color = Color(0x35000000),
-                        topLeft = Offset(slotCenterX - 48.dp.toPx(), slotCenterY - 2.dp.toPx()),
-                        size = Size(96.dp.toPx(), 44.dp.toPx())
-                    )
-                }
+                            drawImage(
+                                image = bmp,
+                                dstOffset = IntOffset(dx.roundToInt(), dy.roundToInt()),
+                                dstSize = IntSize(renderW.roundToInt(), renderH.roundToInt())
+                            )
+                        }
+                    }
 
-                // 3. 🎯 100dp परफेक्ट ग्रिड-स्नैप 3D पेड़
-                if (mapleTreeBitmap != null) {
-                    // इमेज का असली अनुपात (बिना किसी खिंचाव के)
-                    val bitmapAspect = mapleTreeBitmap.height.toFloat() / mapleTreeBitmap.width.toFloat()
+                    TileItemType.BENCH_PARK -> {
+                        benchBitmap?.let { bmp ->
+                            // बेंच टाइल का बेस: ~80% चौड़ाई, 0.68f Y-एंकर
+                            val renderW = (tileWidth / 0.80f) * scale
+                            val renderH = renderW
+                            val dx = slotX - (renderW / 2f)
+                            val dy = slotY - (renderH * 0.68f)
 
-                    // चबूतरे को 100dp बनाने के लिए पूरी इमेज 265dp होगी
-                    val treeRenderW = 265.dp.toPx()
-                    val treeRenderH = treeRenderW * bitmapAspect
+                            drawImage(
+                                image = bmp,
+                                dstOffset = IntOffset(dx.roundToInt(), dy.roundToInt()),
+                                dstSize = IntSize(renderW.roundToInt(), renderH.roundToInt())
+                            )
+                        }
+                    }
 
-                    testClusterSlots.forEach { (c, r) ->
-                        val slotCenterX = centerX + (c - r) * halfW
-                        val slotCenterY = centerY + (c + r) * halfH
-
-                        // X-अलाइनमेंट: सेंटर लॉक
-                        val drawPosX = slotCenterX - (treeRenderW / 2f)
-
-                        // Y-अलाइनमेंट: चबूतरे का केंद्र ठीक ग्रिड की सेंटर लाइन पर लॉक
-                        val drawPosY = slotCenterY - (treeRenderH * 0.738f)
-
-                        drawImage(
-                            image = mapleTreeBitmap,
-                            dstOffset = IntOffset(drawPosX.roundToInt(), drawPosY.roundToInt()),
-                            dstSize = IntSize(treeRenderW.roundToInt(), treeRenderH.roundToInt())
-                        )
+                    TileItemType.EMPTY -> {
+                        // खाली जगह को खाली छोड़ें
                     }
                 }
             }
         }
 
-        // स्टेटस बार
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = cardBg.copy(alpha = 0.92f),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp, start = 20.dp, end = 20.dp)
-                .border(1.dp, glassBorder, RoundedCornerShape(50))
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = "🍁 Maple Forest (${testClusterSlots.size} Trees)",
-                    color = textMain,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(text = "•", color = textMuted, fontSize = 11.sp)
-                Text(
-                    text = "⏱️ ${totalHours}h Focused",
-                    color = goldColor,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            }
-        }
-
-        // री-सेंटर बटन
-        Surface(
-            shape = CircleShape,
-            color = cardBg.copy(alpha = 0.94f),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 24.dp, end = 20.dp)
-                .size(46.dp)
-                .border(1.dp, glassBorder, CircleShape),
+        // 🔄 रीसेट बटन (ज़ूम और पोजीशन रीसेट)
+        IconButton(
             onClick = {
-                zoomScale = 1.0f
+                scale = 1f
                 panOffset = Offset.Zero
-            }
+            },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+                .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(50))
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(text = "🎯", fontSize = 18.sp)
-            }
+            Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Color.White)
         }
+    }
+}
+
+/**
+ * आइसोमेट्रिक ग्रिड की हल्की बाउंड्री
+ */
+fun DrawScope.drawTileBase(cx: Float, cy: Float, w: Float, h: Float, isDark: Boolean) {
+    val path = Path().apply {
+        moveTo(cx, cy - h / 2f)
+        lineTo(cx + w / 2f, cy)
+        lineTo(cx, cy + h / 2f)
+        lineTo(cx - w / 2f, cy)
+        close()
+    }
+    val lineColor = if (isDark) Color(0x224ADE80) else Color(0x222E7D32)
+    drawPath(path = path, color = lineColor, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f))
+}
+
+/**
+ * सेफ बिटमैप लोडर
+ */
+fun loadBitmapSafe(context: Context, resName: String): ImageBitmap? {
+    return try {
+        val resId = context.resources.getIdentifier(resName, "drawable", context.packageName)
+        if (resId != 0) ImageBitmap.imageResource(context.resources, resId) else null
+    } catch (_: Exception) {
+        null
     }
 }
