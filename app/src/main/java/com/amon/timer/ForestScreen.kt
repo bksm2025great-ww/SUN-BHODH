@@ -65,7 +65,7 @@ fun ForestScreen() {
     val tileWDp = 100.dp
     val tileHDp = 50.dp
 
-    // 🌲 5 पास-पास वाले स्लॉट्स (गहराई के सही क्रम में सॉर्टेड)
+    // 🌲 5 स्लॉट्स का क्लस्टर (सही गहराई क्रम)
     val testClusterSlots = remember {
         listOf(
             Pair(-1, 0),  // पीछे-बाएँ
@@ -133,33 +133,36 @@ fun ForestScreen() {
                     }
                 }
 
-                // 2. परछाइयाँ
+                // 2. परछाइयाँ (नए सटीक साइज़ के अनुसार)
                 testClusterSlots.forEach { (c, r) ->
                     val slotCenterX = centerX + (c - r) * halfW
                     val slotCenterY = centerY + (c + r) * halfH
 
                     drawOval(
                         color = Color(0x35000000),
-                        topLeft = Offset(slotCenterX - 46.dp.toPx(), slotCenterY + 4.dp.toPx()),
-                        size = Size(92.dp.toPx(), 36.dp.toPx())
+                        topLeft = Offset(slotCenterX - 48.dp.toPx(), slotCenterY - 2.dp.toPx()),
+                        size = Size(96.dp.toPx(), 44.dp.toPx())
                     )
                 }
 
-                // 3. 🎯 ग्रिड-लॉक 3D पेड़ (सटीक 100dp स्नैप)
+                // 3. 🎯 100dp परफेक्ट ग्रिड-स्नैप 3D पेड़
                 if (mapleTreeBitmap != null) {
-                    // चबूतरे को 100dp बनाने के लिए पूरी इमेज 202dp होगी
-                    val treeRenderW = 202.dp.toPx()
-                    val treeRenderH = 202.dp.toPx()
+                    // इमेज का असली अनुपात (बिना किसी खिंचाव के)
+                    val bitmapAspect = mapleTreeBitmap.height.toFloat() / mapleTreeBitmap.width.toFloat()
+
+                    // चबूतरे को 100dp बनाने के लिए पूरी इमेज 265dp होगी
+                    val treeRenderW = 265.dp.toPx()
+                    val treeRenderH = treeRenderW * bitmapAspect
 
                     testClusterSlots.forEach { (c, r) ->
                         val slotCenterX = centerX + (c - r) * halfW
                         val slotCenterY = centerY + (c + r) * halfH
 
-                        // X-अलाइनमेंट: इमेज का क्षैतिज केंद्र ग्रिड सेंटर पर
+                        // X-अलाइनमेंट: सेंटर लॉक
                         val drawPosX = slotCenterX - (treeRenderW / 2f)
 
-                        // Y-अलाइनमेंट: इमेज में चबूतरे का केंद्र (77% पर) ठीक ग्रिड के सेंटर (slotCenterY) पर लॉक होगा
-                        val drawPosY = slotCenterY - (treeRenderH * 0.77f)
+                        // Y-अलाइनमेंट: चबूतरे का केंद्र ठीक ग्रिड की सेंटर लाइन पर लॉक
+                        val drawPosY = slotCenterY - (treeRenderH * 0.738f)
 
                         drawImage(
                             image = mapleTreeBitmap,
