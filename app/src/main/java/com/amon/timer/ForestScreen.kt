@@ -1,6 +1,7 @@
 package com.amon.timer
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -135,7 +136,6 @@ fun ForestScreen() {
                 when (tile.itemType) {
                     TileItemType.CAT_ROCK -> {
                         catBitmap?.let { bmp ->
-                            // लियोनार्डो बेस रेश्यो: ~76% चौड़ाई, 0.68f Y-एंकर
                             val renderW = (tileWidth / 0.76f) * scale
                             val renderH = renderW
                             val dx = slotX - (renderW / 2f)
@@ -151,7 +151,6 @@ fun ForestScreen() {
 
                     TileItemType.TREE_OAK -> {
                         treeBitmap?.let { bmp ->
-                            // नए ओक ट्री का बेस: ~78% चौड़ाई, 0.70f Y-एंकर
                             val renderW = (tileWidth / 0.78f) * scale
                             val renderH = renderW
                             val dx = slotX - (renderW / 2f)
@@ -167,7 +166,6 @@ fun ForestScreen() {
 
                     TileItemType.BENCH_PARK -> {
                         benchBitmap?.let { bmp ->
-                            // बेंच टाइल का बेस: ~80% चौड़ाई, 0.68f Y-एंकर
                             val renderW = (tileWidth / 0.80f) * scale
                             val renderH = renderW
                             val dx = slotX - (renderW / 2f)
@@ -182,13 +180,13 @@ fun ForestScreen() {
                     }
 
                     TileItemType.EMPTY -> {
-                        // खाली जगह को खाली छोड़ें
+                        // खाली स्लॉट
                     }
                 }
             }
         }
 
-        // 🔄 रीसेट बटन (ज़ूम और पोजीशन रीसेट)
+        // 🔄 रीसेट बटन
         IconButton(
             onClick = {
                 scale = 1f
@@ -204,9 +202,6 @@ fun ForestScreen() {
     }
 }
 
-/**
- * आइसोमेट्रिक ग्रिड की हल्की बाउंड्री
- */
 fun DrawScope.drawTileBase(cx: Float, cy: Float, w: Float, h: Float, isDark: Boolean) {
     val path = Path().apply {
         moveTo(cx, cy - h / 2f)
@@ -219,13 +214,13 @@ fun DrawScope.drawTileBase(cx: Float, cy: Float, w: Float, h: Float, isDark: Boo
     drawPath(path = path, color = lineColor, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f))
 }
 
-/**
- * सेफ बिटमैप लोडर
- */
 fun loadBitmapSafe(context: Context, resName: String): ImageBitmap? {
     return try {
         val resId = context.resources.getIdentifier(resName, "drawable", context.packageName)
-        if (resId != 0) ImageBitmap.imageResource(context.resources, resId) else null
+        if (resId != 0) {
+            val bitmap = BitmapFactory.decodeResource(context.resources, resId)
+            bitmap?.asImageBitmap()
+        } else null
     } catch (_: Exception) {
         null
     }
