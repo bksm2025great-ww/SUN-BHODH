@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
 enum class TileItemType {
@@ -43,38 +44,42 @@ fun ForestScreen() {
     val context = LocalContext.current
     val density = LocalDensity.current
 
-    // 🌿 6x6 का ग्रिड ताकि दोनों ग्रुप्स में गैप दिख सके
     val gridSize = 6
-    val tileWidth = with(density) { 90.dp.toPx() }
-    val tileHeight = tileWidth / 2f // 2:1 आइसोमेट्रिक अनुपात
+    val baseTileWidth = with(density) { 90.dp.toPx() }
+    val baseTileHeight = baseTileWidth / 2f
 
-    // 🎨 तीनों एसेट्स लोड करें
+    // 🎨 एसेट्स लोड करें
     val catBitmap = remember { loadBitmapSafe(context, "cat_rock") }
     val treeBitmap = remember { loadBitmapSafe(context, "tree_oak") }
     val benchBitmap = remember { loadBitmapSafe(context, "bench_park") }
 
-    // 🗺️ टाइल्स का लेआउट (दोनों ग्रुप्स का विभाजन)
+    // 🎛️ लाइव ट्यूनर स्टेट्स (डिफ़ॉल्ट सेटिंग्स)
+    var overlapSpacing by remember { mutableFloatStateOf(0.92f) } // टाइल्स का खिंचाव
+    var tileScaleRatio by remember { mutableFloatStateOf(0.80f) }  // इमेज स्केल अनुपात
+    var anchorYRatio by remember { mutableFloatStateOf(0.70f) }    // Y-अक्ष अलाइनमेंट
+    var showDebugPanel by remember { mutableStateOf(true) }
+
+    // टाइल्स का लेआउट (ग्रुप 1 और ग्रुप 2)
     val tiles = remember {
         mutableStateListOf<ForestTile>().apply {
             for (r in 0 until gridSize) {
                 for (c in 0 until gridSize) {
                     val type = when {
-                        // 🐾 ग्रुप 1: ट्री और कैट का क्लस्टर (Row 0 से 2, Col 0 से 2)
+                        // 🐾 ग्रुप 1: ट्री और कैट
                         r == 0 && c == 0 -> TileItemType.TREE_OAK
                         r == 0 && c == 1 -> TileItemType.TREE_OAK
                         r == 1 && c == 0 -> TileItemType.TREE_OAK
-                        r == 1 && c == 1 -> TileItemType.CAT_ROCK // सेंटर में बिल्ली
+                        r == 1 && c == 1 -> TileItemType.CAT_ROCK
                         r == 1 && c == 2 -> TileItemType.TREE_OAK
                         r == 2 && c == 0 -> TileItemType.TREE_OAK
                         r == 2 && c == 1 -> TileItemType.TREE_OAK
 
-                        // 🪑 ग्रुप 2: थोड़ा गैप देकर 4 बेंच का क्लस्टर (Row 4 से 5, Col 3 से 4)
+                        // 🪑 ग्रुप 2: बेंच क्लस्टर (2x2)
                         r == 4 && c == 3 -> TileItemType.BENCH_PARK
                         r == 4 && c == 4 -> TileItemType.BENCH_PARK
                         r == 5 && c == 3 -> TileItemType.BENCH_PARK
                         r == 5 && c == 4 -> TileItemType.BENCH_PARK
 
-                        // बीच का खाली गैप
                         else -> TileItemType.EMPTY
                     }
                     add(ForestTile(row = r, col = c, itemType = type))
@@ -83,7 +88,6 @@ fun ForestScreen() {
         }
     }
 
-    // 🔍 पैन और ज़ूम
     var scale by remember { mutableFloatStateOf(1f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
     val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
@@ -92,112 +96,131 @@ fun ForestScreen() {
     }
 
     val bgGradient = Brush.verticalGradient(
-        colors = if (isDark) {
-            listOf(Color(0xFF111713), Color(0xFF090D0A))
-        } else {
-            listOf(Color(0xFFE8F0E9), Color(0xFFD6E3D8))
-        }
+        colors = if (isDark) listOf(Color(0xFF111713), Color(0xFF090D0A))
+        else listOf(Color(0xFFE8F0E9), Color(0xFFD6E3D8))
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(bgGradient)
-    ) {
+    Box(modifier = Modifier.fillMaxSize().background(bgGradient)) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
                 .transformable(state = transformState)
         ) {
             val centerX = size.width / 2f + panOffset.x
-            val centerY = size.height / 3f + panOffset.y
+            val centerY = size.height / 3.2f + panOffset.y
 
-            // Z-इंडेक्स सॉर्टिंग: पीछे से आगे की ओर ड्रा करना
             val sortedTiles = tiles.sortedWith(compareBy({ it.row + it.col }, { it.row }))
 
             sortedTiles.forEach { tile ->
-                // 2:1 आइसोमेट्रिक गणित
-                val isoX = (tile.col - tile.row) * (tileWidth / 2f) * scale
-                val isoY = (tile.col + tile.row) * (tileHeight / 2f) * scale
+                // 🛠️ लाइव स्लाइडर वैल्यू का इस्तेमाल
+                val isoX = (tile.col - tile.row) * (baseTileWidth / 2f) * overlapSpacing * scale
+                val isoY = (tile.col + tile.row) * (baseTileHeight / 2f) * overlapSpacing * scale
 
                 val slotX = centerX + isoX
                 val slotY = centerY + isoY
 
-                // 1. बेस ग्रिड डायमंड (हल्की गाइडलाइन)
                 drawTileBase(
                     cx = slotX,
                     cy = slotY,
-                    w = tileWidth * scale,
-                    h = tileHeight * scale,
+                    w = baseTileWidth * scale,
+                    h = baseTileHeight * scale,
                     isDark = isDark
                 )
 
-                // 2. एसेट रेंडरिंग
-                when (tile.itemType) {
-                    TileItemType.CAT_ROCK -> {
-                        catBitmap?.let { bmp ->
-                            val renderW = (tileWidth / 0.76f) * scale
-                            val renderH = renderW
-                            val dx = slotX - (renderW / 2f)
-                            val dy = slotY - (renderH * 0.68f)
+                val bmp = when (tile.itemType) {
+                    TileItemType.CAT_ROCK -> catBitmap
+                    TileItemType.TREE_OAK -> treeBitmap
+                    TileItemType.BENCH_PARK -> benchBitmap
+                    TileItemType.EMPTY -> null
+                }
 
-                            drawImage(
-                                image = bmp,
-                                dstOffset = IntOffset(dx.roundToInt(), dy.roundToInt()),
-                                dstSize = IntSize(renderW.roundToInt(), renderH.roundToInt())
-                            )
-                        }
-                    }
+                bmp?.let { imageBitmap ->
+                    val renderW = (baseTileWidth / tileScaleRatio) * scale
+                    val renderH = renderW
+                    val dx = slotX - (renderW / 2f)
+                    val dy = slotY - (renderH * anchorYRatio)
 
-                    TileItemType.TREE_OAK -> {
-                        treeBitmap?.let { bmp ->
-                            val renderW = (tileWidth / 0.78f) * scale
-                            val renderH = renderW
-                            val dx = slotX - (renderW / 2f)
-                            val dy = slotY - (renderH * 0.70f)
-
-                            drawImage(
-                                image = bmp,
-                                dstOffset = IntOffset(dx.roundToInt(), dy.roundToInt()),
-                                dstSize = IntSize(renderW.roundToInt(), renderH.roundToInt())
-                            )
-                        }
-                    }
-
-                    TileItemType.BENCH_PARK -> {
-                        benchBitmap?.let { bmp ->
-                            val renderW = (tileWidth / 0.80f) * scale
-                            val renderH = renderW
-                            val dx = slotX - (renderW / 2f)
-                            val dy = slotY - (renderH * 0.68f)
-
-                            drawImage(
-                                image = bmp,
-                                dstOffset = IntOffset(dx.roundToInt(), dy.roundToInt()),
-                                dstSize = IntSize(renderW.roundToInt(), renderH.roundToInt())
-                            )
-                        }
-                    }
-
-                    TileItemType.EMPTY -> {
-                        // खाली स्लॉट
-                    }
+                    drawImage(
+                        image = imageBitmap,
+                        dstOffset = IntOffset(dx.roundToInt(), dy.roundToInt()),
+                        dstSize = IntSize(renderW.roundToInt(), renderH.roundToInt())
+                    )
                 }
             }
         }
 
-        // 🔄 रीसेट बटन
-        IconButton(
-            onClick = {
-                scale = 1f
-                panOffset = Offset.Zero
-            },
+        // 🔄 रीसेट और टॉगल पैनल बटन
+        Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(16.dp)
-                .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(50))
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Color.White)
+            Button(
+                onClick = { showDebugPanel = !showDebugPanel },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.5f))
+            ) {
+                Text(if (showDebugPanel) "Hide Controls" else "Tune Grid", fontSize = 12.sp)
+            }
+            IconButton(
+                onClick = {
+                    scale = 1f
+                    panOffset = Offset.Zero
+                },
+                modifier = Modifier.background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(50))
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Color.White)
+            }
+        }
+
+        // 🎛️ लाइव ट्यूनर पैनल (स्क्रीन के निचले हिस्से में)
+        if (showDebugPanel) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 80.dp, start = 16.dp, end = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xDD1E1E1E)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    // 1. Spacing Slider (टाइल्स को चिपकाने के लिए)
+                    Text(
+                        "1. Spacing (खिंचाव): ${String.format("%.3f", overlapSpacing)}",
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                    Slider(
+                        value = overlapSpacing,
+                        onValueChange = { overlapSpacing = it },
+                        valueRange = 0.70f..1.05f
+                    )
+
+                    // 2. Scale Ratio Slider (इमेज की चौड़ाई अनुपात)
+                    Text(
+                        "2. Scale Ratio: ${String.format("%.3f", tileScaleRatio)}",
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                    Slider(
+                        value = tileScaleRatio,
+                        onValueChange = { tileScaleRatio = it },
+                        valueRange = 0.65f..0.95f
+                    )
+
+                    // 3. Anchor Y Slider (ऊपर-नीचे एडजस्टमेंट)
+                    Text(
+                        "3. Anchor Y: ${String.format("%.3f", anchorYRatio)}",
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                    Slider(
+                        value = anchorYRatio,
+                        onValueChange = { anchorYRatio = it },
+                        valueRange = 0.60f..0.85f
+                    )
+                }
+            }
         }
     }
 }
