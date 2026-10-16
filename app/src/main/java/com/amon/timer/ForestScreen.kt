@@ -2,6 +2,7 @@ package com.amon.timer
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,40 +25,45 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// एकदम बेसिक लेवल का डेटा स्ट्रक्चर
-data class SimpleLevelNode(
+// सीढ़ी या स्टेप का डेटा मॉडल
+data class JourneyStep(
     val level: Int,
-    val title: String
+    val offsetFactor: Float // ज़िग-जैग के लिए बाएँ या दाएँ खिसकाने का मान (-1.0 से 1.0)
 )
 
 @Composable
 fun ForestScreen() {
     val isDark = ThemeManager.isDarkTheme.value
 
-    // शुरुआती डेमो के लिए 10 आसान लेवल्स
-    val levels = remember {
-        listOf(
-            SimpleLevelNode(1, "Forest Tier - Start"),
-            SimpleLevelNode(2, "Forest Tier - Step 2"),
-            SimpleLevelNode(3, "Forest Tier - Step 3"),
-            SimpleLevelNode(4, "Forest Tier - Step 4"),
-            SimpleLevelNode(5, "Forest Tier - Step 5"),
-            SimpleLevelNode(6, "Wooden Cabin - 1"),
-            SimpleLevelNode(7, "Wooden Cabin - 2"),
-            SimpleLevelNode(8, "Silver Ice - 1"),
-            SimpleLevelNode(9, "Ancient Desert - 1"),
-            SimpleLevelNode(10, "Grandmaster Gold")
-        )
+    // कुल 50-60 लेवल्स का ज़िग-जैग रास्ता
+    val totalLevels = 60
+    val stepsList = remember {
+        val list = mutableListOf<JourneyStep>()
+        for (i in 1..totalLevels) {
+            // ज़िग-जैग पैटर्न (बाएँ, बीच, दाएँ, बीच)
+            val align = when (i % 4) {
+                1 -> -0.55f
+                2 -> 0.0f
+                3 -> 0.55f
+                else -> 0.0f
+            }
+            list.add(JourneyStep(level = i, offsetFactor = align))
+        }
+        list
     }
 
-    // टेस्टिंग के लिए करंट लेवल
-    var currentLevel by remember { mutableIntStateOf(3) }
+    // टेस्टिंग के लिए वर्तमान लेवल
+    var currentLevel by remember { mutableIntStateOf(4) }
+
+    fun changeLevel(newLevel: Int) {
+        currentLevel = newLevel.coerceIn(1, totalLevels)
+    }
 
     val bgBrush = Brush.verticalGradient(
         colors = if (isDark) {
-            listOf(Color(0xFF0B0F17), Color(0xFF151C28))
+            listOf(Color(0xFF121212), Color(0xFF1E1E1E))
         } else {
-            listOf(Color(0xFFF1F5F9), Color(0xFFE2E8F0))
+            listOf(Color(0xFFF0F2F5), Color(0xFFE4E6EB))
         }
     )
 
@@ -69,11 +75,11 @@ fun ForestScreen() {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // टॉप हेडर और टेस्ट कंट्रोल्स
+            // टॉप हेडर और लेवल जंप कंट्रोल पैनल (टेस्टिंग के लिए)
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = if (isDark) Color(0xFF161B26) else Color.White,
-                shadowElevation = 4.dp
+                color = if (isDark) Color(0xFF1F242D) else Color.White,
+                shadowElevation = 6.dp
             ) {
                 Row(
                     modifier = Modifier
@@ -84,47 +90,47 @@ fun ForestScreen() {
                 ) {
                     Column {
                         Text(
-                            text = "BASIC DEMO JOURNEY",
+                            text = "PUZZLE JOURNEY PATH",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF4ADE80),
                             letterSpacing = 1.5.sp
                         )
                         Text(
-                            text = "Current Level: $currentLevel",
+                            text = "Level $currentLevel of $totalLevels",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = if (isDark) Color.White else Color.Black
                         )
                     }
 
-                    // लेवल घटाने-बढ़ाने के बटन
+                    // लेवल घटाने और बढ़ाने के बटन (+ / -)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         IconButton(
-                            onClick = { if (currentLevel > 1) currentLevel-- },
+                            onClick = { changeLevel(currentLevel - 1) },
                             modifier = Modifier
                                 .size(38.dp)
-                                .background(Color(0xFF4ADE80).copy(alpha = 0.2f), CircleShape)
+                                .background(Color(0xFFEF4444).copy(alpha = 0.2f), CircleShape)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Decrease",
-                                tint = Color(0xFF4ADE80)
+                                contentDescription = "Decrease Level",
+                                tint = Color(0xFFEF4444)
                             )
                         }
 
                         IconButton(
-                            onClick = { if (currentLevel < 10) currentLevel++ },
+                            onClick = { changeLevel(currentLevel + 1) },
                             modifier = Modifier
                                 .size(38.dp)
                                 .background(Color(0xFF4ADE80), CircleShape)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
-                                contentDescription = "Increase",
+                                contentDescription = "Increase Level",
                                 tint = Color.White
                             )
                         }
@@ -132,95 +138,106 @@ fun ForestScreen() {
                 }
             }
 
-            // सिंपल लिस्ट व्यू (डेमो के लिए)
+            // ज़िग-जैग सीढ़ी नुमा पाथ (नीचे से ऊपर की तरफ चढ़ता हुआ)
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
                     .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(top = 20.dp, bottom = 100.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(top = 30.dp, bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                reverseLayout = true // नीचे से शुरू होकर ऊपर की तरफ जाएगा
             ) {
-                items(levels) { item ->
-                    val isCompleted = item.level < currentLevel
-                    val isCurrent = item.level == currentLevel
-                    val isUnlocked = item.level <= currentLevel + 1
+                items(stepsList) { step ->
+                    val isCompleted = step.level < currentLevel
+                    val isCurrent = step.level == currentLevel
+                    val isUnlocked = step.level <= currentLevel + 2
 
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = when {
-                                isCurrent -> Color(0xFF16A34A).copy(alpha = 0.25f)
-                                isCompleted -> if (isDark) Color(0xFF1E2638) else Color.White
-                                else -> if (isDark) Color(0xFF111622) else Color(0xFFE2E8F0)
-                            }
-                        ),
-                        border = BorderStroke(
-                            width = if (isCurrent) 2.dp else 1.dp,
-                            color = if (isCurrent) Color(0xFF4ADE80) else Color.Gray.copy(alpha = 0.3f)
-                        )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = ((step.offsetFactor + 1f) * 65.dp)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(
+                        // सीढ़ी का एक स्टेप (क्यूब कार्ड)
+                        Card(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .size(width = 100.dp, height = 70.dp)
+                                .clickable {
+                                    if (isUnlocked) {
+                                        changeLevel(step.level)
+                                    }
+                                },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = when {
+                                    isCurrent -> Color(0xFF22C55E) // वर्तमान लेवल (हरा)
+                                    isCompleted -> Color(0xFF15803D) // पार किया हुआ लेवल (गहरा हरा)
+                                    isUnlocked -> if (isDark) Color(0xFF2D3748) else Color(0xFFE2E8F0) // खुला हुआ अगला लेवल
+                                    else -> if (isDark) Color(0xFF1A202C) else Color(0xFFCBD5E1) // लॉक लेवल
+                                }
+                            ),
+                            border = BorderStroke(
+                                width = if (isCurrent) 2.5.dp else 1.dp,
+                                color = if (isCurrent) Color.White else Color.Transparent
+                            ),
+                            elevation = CardDefaults.cardElevation(
+                                defaultElevation = if (isCurrent) 8.dp else 2.dp
+                            )
                         ) {
-                            // आइकॉन बॉक्स
                             Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .background(
-                                        when {
-                                            isCurrent -> Color(0xFF4ADE80)
-                                            isCompleted -> Color(0xFF22C55E).copy(alpha = 0.2f)
-                                            else -> Color.Gray.copy(alpha = 0.2f)
-                                        },
-                                        CircleShape
-                                    ),
+                                modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = when {
-                                        isCompleted -> Icons.Default.Check
-                                        isCurrent -> Icons.Default.Star
-                                        isUnlocked -> Icons.Default.Add
-                                        else -> Icons.Default.Lock
-                                    },
-                                    contentDescription = null,
-                                    tint = if (isCurrent) Color.Black else if (isCompleted) Color(0xFF4ADE80) else Color.Gray,
-                                    modifier = Modifier.size(22.dp)
-                                )
+                                when {
+                                    isCompleted -> {
+                                        // पूरा हो चुका स्टेप (सफेद टिक)
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Completed",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+                                    isCurrent -> {
+                                        // वर्तमान स्टेप जिसपर प्यादा / स्टार है
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Star,
+                                                contentDescription = "Current Pawn",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                            Text(
+                                                text = "${step.level}",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
+                                    isUnlocked -> {
+                                        // खुला हुआ नंबर
+                                        Text(
+                                            text = "${step.level}",
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isDark) Color.White else Color(0xFF1E293B)
+                                        )
+                                    }
+                                    else -> {
+                                        // लॉक किया हुआ स्टेप
+                                        Icon(
+                                            imageVector = Icons.Default.Lock,
+                                            contentDescription = "Locked",
+                                            tint = Color.Gray,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
                             }
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Level ${item.level}",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isDark) Color.White else Color.Black
-                                )
-                                Text(
-                                    text = item.title,
-                                    fontSize = 13.sp,
-                                    color = Color.Gray
-                                )
-                            }
-
-                            // स्टेटस टेक्स्ट
-                            Text(
-                                text = when {
-                                    isCurrent -> "CURRENT"
-                                    isCompleted -> "DONE"
-                                    else -> "LOCKED"
-                                },
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isCurrent) Color(0xFF4ADE80) else if (isCompleted) Color.Gray else Color.DarkGray
-                            )
                         }
                     }
                 }
