@@ -6,7 +6,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,13 +21,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -52,14 +49,13 @@ enum class ChessPieceType {
 data class JourneyNode(
     val level: Int,
     val theme: JourneyTheme,
-    val alignment: Float // -1.0 (Left), 0.0 (Center), 1.0 (Right) के लिए जिग-जैग ऑफसेट
+    val alignment: Float
 )
 
 @Composable
 fun ForestScreen() {
     val isDark = ThemeManager.isDarkTheme.value
 
-    // कुल 60 लेवल्स जनरेट करना (10-10 के बंडल में 6 थीम)
     val totalLevels = 60
     val nodes = remember {
         val list = mutableListOf<JourneyNode>()
@@ -77,7 +73,6 @@ fun ForestScreen() {
         list
     }
 
-    // यूज़र का वर्तमान लेवल (टेस्टिंग के लिए 3 से शुरू)
     var currentLevel by remember { mutableIntStateOf(3) }
     var unlockedTierForPopup by remember { mutableIntStateOf(0) }
 
@@ -107,9 +102,6 @@ fun ForestScreen() {
                 .fillMaxSize()
                 .background(bgBrush)
         ) {
-            // ════════════════════════════════════════════════════════
-            // 1. टॉप हेडर (थीम का नाम और क्विक लेवल जंप पैनल)
-            // ════════════════════════════════════════════════════════
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = if (isDark) Color(0xFF161B26) else Color.White,
@@ -138,7 +130,6 @@ fun ForestScreen() {
                         )
                     }
 
-                    // + / - लेवल कंट्रोल (टेस्टिंग के लिए)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -180,9 +171,6 @@ fun ForestScreen() {
                 }
             }
 
-            // ════════════════════════════════════════════════════════
-            // 2. 3D जिग-जैग पाथ (CHESS.COM STYLE PUZZLE JOURNEY)
-            // ════════════════════════════════════════════════════════
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -203,7 +191,6 @@ fun ForestScreen() {
                             .padding(horizontal = ((node.alignment + 1f) * 60.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        // साइड में डेकोरेशन ब्लॉक
                         if (node.level % 3 == 0) {
                             Box(
                                 modifier = Modifier
@@ -221,7 +208,6 @@ fun ForestScreen() {
                             }
                         }
 
-                        // मुख्य 3D क्यूब / स्टेप बटन
                         Card(
                             modifier = Modifier
                                 .size(width = 90.dp, height = 75.dp)
@@ -297,9 +283,6 @@ fun ForestScreen() {
             }
         }
 
-        // ════════════════════════════════════════════════════════
-        // 3. टियर / थीम कंप्लीशन सेलिब्रेशन पॉप-अप
-        // ════════════════════════════════════════════════════════
         if (unlockedTierForPopup > 0) {
             val tierName = when (unlockedTierForPopup) {
                 10 -> "Forest Tier Completed!"
@@ -373,7 +356,6 @@ fun ForestScreen() {
     }
 }
 
-// ♟️ कस्टम वेक्टर शतरंज आइकन रेंडरर (एरर-फ्री)
 @Composable
 fun ChessPieceVectorIcon(
     pieceType: ChessPieceType,
