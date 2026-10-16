@@ -15,31 +15,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
 
 // 6 महा-थीम्स (हर 10 लेवल पर बदलेंगी)
 enum class JourneyTheme(val title: String, val primaryColor: Color, val secondaryColor: Color, val tileColor: Color) {
@@ -49,6 +43,10 @@ enum class JourneyTheme(val title: String, val primaryColor: Color, val secondar
     DESERT("4. Ancient Desert", Color(0xFFD97706), Color(0xFFB45309), Color(0xFFFBBF24)),
     VOLCANO("5. Magma Volcano", Color(0xFFDC2626), Color(0xFFB91C1C), Color(0xFFEF4444)),
     GOLD("6. Grandmaster Gold", Color(0xFFCA8A04), Color(0xFFA16207), Color(0xFFFACC15))
+}
+
+enum class ChessPieceType {
+    PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING
 }
 
 data class JourneyNode(
@@ -68,7 +66,6 @@ fun ForestScreen() {
         for (i in 1..totalLevels) {
             val themeIndex = ((i - 1) / 10).coerceIn(0, 5)
             val theme = JourneyTheme.entries[themeIndex]
-            // जिग-जैग पैटर्न: बाएं, बीच, दाएं, बीच
             val align = when (i % 4) {
                 1 -> -0.65f
                 2 -> 0.0f
@@ -86,13 +83,11 @@ fun ForestScreen() {
 
     val currentTheme = ((currentLevel - 1) / 10).let { JourneyTheme.entries[it.coerceIn(0, 5)] }
 
-    // लेवल बदलने का फंक्शन (डायरेक्ट क्लिक या + / - बटन से)
     fun navigateToLevel(targetLevel: Int) {
         val clamped = targetLevel.coerceIn(1, totalLevels)
         val oldLevel = currentLevel
         currentLevel = clamped
 
-        // अगर कोई नया बंडल (जैसे 10, 20, 30...) पार किया, तो बधाई पॉप-अप दिखाओ
         if (clamped > oldLevel && clamped % 10 == 0) {
             unlockedTierForPopup = clamped
         }
@@ -195,20 +190,20 @@ fun ForestScreen() {
                     .padding(horizontal = 16.dp),
                 contentPadding = PaddingValues(top = 30.dp, bottom = 120.dp),
                 verticalArrangement = Arrangement.spacedBy(28.dp),
-                reverseLayout = true // नीचे से ऊपर की तरफ रास्ता चढ़ेगा
+                reverseLayout = true
             ) {
                 items(nodes) { node ->
                     val isCompleted = node.level < currentLevel
                     val isCurrent = node.level == currentLevel
-                    val isUnlocked = node.level <= currentLevel + 2 // आगे के 2 लेवल एक्सप्लोर करने के लिए खुले हैं
+                    val isUnlocked = node.level <= currentLevel + 2
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = ((node.alignment + 1f) * 60.dp)), // जिग-जैग पोजीशनिंग
+                            .padding(horizontal = ((node.alignment + 1f) * 60.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        // साइड में डेकोरेशन / शॉप पीस (बिना किसी इमोजी के प्योर वेक्टर ब्लॉक)
+                        // साइड में डेकोरेशन ब्लॉक
                         if (node.level % 3 == 0) {
                             Box(
                                 modifier = Modifier
@@ -231,7 +226,6 @@ fun ForestScreen() {
                             modifier = Modifier
                                 .size(width = 90.dp, height = 75.dp)
                                 .clickable {
-                                    // यूज़र किसी भी खुले या पिछले लेवल पर क्लिक करके डायरेक्ट जा सकता है
                                     if (isUnlocked) {
                                         navigateToLevel(node.level)
                                     }
@@ -265,21 +259,17 @@ fun ForestScreen() {
                                             )
                                         }
                                         isCurrent -> {
-                                            // वर्तमान लेवल पर घूमने वाला/चमकता प्यादा (शतरंज का मोहरा)
                                             Box(
                                                 modifier = Modifier
                                                     .size(32.dp)
                                                     .background(Color.White, CircleShape),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Canvas(modifier = Modifier.size(20.dp)) {
-                                                    drawRect(
-                                                        color = node.theme.tileColor,
-                                                        topLeft = Offset(size.width * 0.35f, size.height * 0.2f),
-                                                        size = Size(size.width * 0.3f, size.height * 0.6f),
-                                                        cornerRadius = CornerRadius(4f, 4f)
-                                                    )
-                                                }
+                                                ChessPieceVectorIcon(
+                                                    pieceType = ChessPieceType.PAWN,
+                                                    color = node.theme.tileColor,
+                                                    iconSize = 20.dp
+                                                )
                                             }
                                         }
                                         isUnlocked -> {
@@ -365,14 +355,149 @@ fun ForestScreen() {
                         Spacer(modifier = Modifier.height(20.dp))
                         Button(
                             onClick = { unlockedTierForPopup = 0 },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
                             shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700), contentColor = Color(0xFF0F172A))
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFFFD700),
+                                contentColor = Color(0xFF0F172A)
+                            )
                         ) {
                             Text("CONTINUE JOURNEY", fontWeight = FontWeight.Black)
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// ♟️ कस्टम वेक्टर शतरंज आइकन रेंडरर (एरर-फ्री)
+@Composable
+fun ChessPieceVectorIcon(
+    pieceType: ChessPieceType,
+    color: Color,
+    iconSize: Dp
+) {
+    Canvas(modifier = Modifier.size(iconSize)) {
+        val w = size.width
+        val h = size.height
+
+        drawRect(
+            color = color,
+            topLeft = Offset(w * 0.18f, h * 0.82f),
+            size = Size(w * 0.64f, h * 0.10f)
+        )
+        drawRect(
+            color = color,
+            topLeft = Offset(w * 0.26f, h * 0.74f),
+            size = Size(w * 0.48f, h * 0.07f)
+        )
+
+        when (pieceType) {
+            ChessPieceType.PAWN -> {
+                drawCircle(
+                    color = color,
+                    radius = w * 0.16f,
+                    center = Offset(w * 0.5f, h * 0.28f)
+                )
+                val body = Path().apply {
+                    moveTo(w * 0.38f, h * 0.42f)
+                    lineTo(w * 0.62f, h * 0.42f)
+                    lineTo(w * 0.68f, h * 0.74f)
+                    lineTo(w * 0.32f, h * 0.74f)
+                    close()
+                }
+                drawPath(body, color)
+            }
+            ChessPieceType.KNIGHT -> {
+                val knightPath = Path().apply {
+                    moveTo(w * 0.32f, h * 0.74f)
+                    lineTo(w * 0.36f, h * 0.42f)
+                    lineTo(w * 0.24f, h * 0.36f)
+                    lineTo(w * 0.42f, h * 0.16f)
+                    lineTo(w * 0.56f, h * 0.12f)
+                    lineTo(w * 0.68f, h * 0.28f)
+                    lineTo(w * 0.66f, h * 0.74f)
+                    close()
+                }
+                drawPath(knightPath, color)
+            }
+            ChessPieceType.BISHOP -> {
+                drawCircle(
+                    color = color,
+                    radius = w * 0.06f,
+                    center = Offset(w * 0.5f, h * 0.14f)
+                )
+                val miter = Path().apply {
+                    moveTo(w * 0.5f, h * 0.20f)
+                    lineTo(w * 0.68f, h * 0.46f)
+                    lineTo(w * 0.64f, h * 0.74f)
+                    lineTo(w * 0.36f, h * 0.74f)
+                    lineTo(w * 0.32f, h * 0.46f)
+                    close()
+                }
+                drawPath(miter, color)
+            }
+            ChessPieceType.ROOK -> {
+                val tower = Path().apply {
+                    moveTo(w * 0.30f, h * 0.74f)
+                    lineTo(w * 0.34f, h * 0.34f)
+                    lineTo(w * 0.26f, h * 0.34f)
+                    lineTo(w * 0.26f, h * 0.18f)
+                    lineTo(w * 0.38f, h * 0.18f)
+                    lineTo(w * 0.38f, h * 0.26f)
+                    lineTo(w * 0.44f, h * 0.26f)
+                    lineTo(w * 0.44f, h * 0.18f)
+                    lineTo(w * 0.56f, h * 0.18f)
+                    lineTo(w * 0.56f, h * 0.26f)
+                    lineTo(w * 0.62f, h * 0.26f)
+                    lineTo(w * 0.62f, h * 0.18f)
+                    lineTo(w * 0.74f, h * 0.18f)
+                    lineTo(w * 0.74f, h * 0.34f)
+                    lineTo(w * 0.66f, h * 0.34f)
+                    lineTo(w * 0.70f, h * 0.74f)
+                    close()
+                }
+                drawPath(tower, color)
+            }
+            ChessPieceType.QUEEN -> {
+                val crown = Path().apply {
+                    moveTo(w * 0.30f, h * 0.74f)
+                    lineTo(w * 0.22f, h * 0.26f)
+                    lineTo(w * 0.40f, h * 0.44f)
+                    lineTo(w * 0.50f, h * 0.20f)
+                    lineTo(w * 0.60f, h * 0.44f)
+                    lineTo(w * 0.78f, h * 0.26f)
+                    lineTo(w * 0.70f, h * 0.74f)
+                    close()
+                }
+                drawPath(crown, color)
+                drawCircle(color, radius = w * 0.045f, center = Offset(w * 0.22f, h * 0.20f))
+                drawCircle(color, radius = w * 0.055f, center = Offset(w * 0.50f, h * 0.14f))
+                drawCircle(color, radius = w * 0.045f, center = Offset(w * 0.78f, h * 0.20f))
+            }
+            ChessPieceType.KING -> {
+                drawRect(
+                    color = color,
+                    topLeft = Offset(w * 0.46f, h * 0.06f),
+                    size = Size(w * 0.08f, h * 0.18f)
+                )
+                drawRect(
+                    color = color,
+                    topLeft = Offset(w * 0.38f, h * 0.11f),
+                    size = Size(w * 0.24f, h * 0.07f)
+                )
+                val kingCrown = Path().apply {
+                    moveTo(w * 0.28f, h * 0.74f)
+                    lineTo(w * 0.24f, h * 0.32f)
+                    lineTo(w * 0.50f, h * 0.24f)
+                    lineTo(w * 0.76f, h * 0.32f)
+                    lineTo(w * 0.72f, h * 0.74f)
+                    close()
+                }
+                drawPath(kingCrown, color)
             }
         }
     }
