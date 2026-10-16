@@ -1,6 +1,5 @@
 package com.amon.timer
 
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -32,7 +31,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// 6 महा-थीम्स (हर 10 लेवल पर बदलेंगी)
+// 6 महा-थीम्स
 enum class JourneyTheme(val title: String, val primaryColor: Color, val secondaryColor: Color, val tileColor: Color) {
     FOREST("1. Forest Sanctuary", Color(0xFF16A34A), Color(0xFF15803D), Color(0xFF22C55E)),
     WOOD("2. Wooden Cabin", Color(0xFFB45309), Color(0xFF92400E), Color(0xFFD97706)),
@@ -57,11 +56,20 @@ fun ForestScreen() {
     val isDark = ThemeManager.isDarkTheme.value
 
     val totalLevels = 60
+    val themesList = listOf(
+        JourneyTheme.FOREST,
+        JourneyTheme.WOOD,
+        JourneyTheme.ICE,
+        JourneyTheme.DESERT,
+        JourneyTheme.VOLCANO,
+        JourneyTheme.GOLD
+    )
+
     val nodes = remember {
         val list = mutableListOf<JourneyNode>()
         for (i in 1..totalLevels) {
             val themeIndex = ((i - 1) / 10).coerceIn(0, 5)
-            val theme = JourneyTheme.entries[themeIndex]
+            val theme = themesList[themeIndex]
             val align = when (i % 4) {
                 1 -> -0.65f
                 2 -> 0.0f
@@ -76,7 +84,8 @@ fun ForestScreen() {
     var currentLevel by remember { mutableIntStateOf(3) }
     var unlockedTierForPopup by remember { mutableIntStateOf(0) }
 
-    val currentTheme = ((currentLevel - 1) / 10).let { JourneyTheme.entries[it.coerceIn(0, 5)] }
+    val currentThemeIndex = ((currentLevel - 1) / 10).coerceIn(0, 5)
+    val currentTheme = themesList[currentThemeIndex]
 
     fun navigateToLevel(targetLevel: Int) {
         val clamped = targetLevel.coerceIn(1, totalLevels)
