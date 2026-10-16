@@ -1,250 +1,382 @@
 package com.amon.timer
 
-import android.content.Context
-import android.graphics.BitmapFactory
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.roundToInt
 
-enum class TileItemType {
-    EMPTY,
-    CAT_ROCK,    // ग्रुप 1: बिल्ली
-    TREE_OAK,    // ग्रुप 1: नया पेड़
-    BENCH_PARK   // ग्रुप 2: बेंच
-}
-
-data class ForestTile(
-    val row: Int,
-    val col: Int,
-    val itemType: TileItemType = TileItemType.EMPTY
+// शतरंज के हर लेवल का डेटा मॉडल
+data class ChessRankTier(
+    val level: Int,
+    val title: String,
+    val hindiTitle: String,
+    val symbol: String,
+    val minElo: Int,
+    val maxElo: Int,
+    val accentColor: Color
 )
 
 @Composable
 fun ForestScreen() {
     val isDark = ThemeManager.isDarkTheme.value
-    val context = LocalContext.current
-    val density = LocalDensity.current
 
-    val gridSize = 6
-    val baseTileWidth = with(density) { 90.dp.toPx() }
-    val baseTileHeight = baseTileWidth / 2f
-
-    // 🎨 एसेट्स लोड करें
-    val catBitmap = remember { loadBitmapSafe(context, "cat_rock") }
-    val treeBitmap = remember { loadBitmapSafe(context, "tree_oak") }
-    val benchBitmap = remember { loadBitmapSafe(context, "bench_park") }
-
-    // 🎛️ लाइव ट्यूनर स्टेट्स (डिफ़ॉल्ट सेटिंग्स)
-    var overlapSpacing by remember { mutableFloatStateOf(0.92f) } // टाइल्स का खिंचाव
-    var tileScaleRatio by remember { mutableFloatStateOf(0.80f) }  // इमेज स्केल अनुपात
-    var anchorYRatio by remember { mutableFloatStateOf(0.70f) }    // Y-अक्ष अलाइनमेंट
-    var showDebugPanel by remember { mutableStateOf(true) }
-
-    // टाइल्स का लेआउट (ग्रुप 1 और ग्रुप 2)
-    val tiles = remember {
-        mutableStateListOf<ForestTile>().apply {
-            for (r in 0 until gridSize) {
-                for (c in 0 until gridSize) {
-                    val type = when {
-                        // 🐾 ग्रुप 1: ट्री और कैट
-                        r == 0 && c == 0 -> TileItemType.TREE_OAK
-                        r == 0 && c == 1 -> TileItemType.TREE_OAK
-                        r == 1 && c == 0 -> TileItemType.TREE_OAK
-                        r == 1 && c == 1 -> TileItemType.CAT_ROCK
-                        r == 1 && c == 2 -> TileItemType.TREE_OAK
-                        r == 2 && c == 0 -> TileItemType.TREE_OAK
-                        r == 2 && c == 1 -> TileItemType.TREE_OAK
-
-                        // 🪑 ग्रुप 2: बेंच क्लस्टर (2x2)
-                        r == 4 && c == 3 -> TileItemType.BENCH_PARK
-                        r == 4 && c == 4 -> TileItemType.BENCH_PARK
-                        r == 5 && c == 3 -> TileItemType.BENCH_PARK
-                        r == 5 && c == 4 -> TileItemType.BENCH_PARK
-
-                        else -> TileItemType.EMPTY
-                    }
-                    add(ForestTile(row = r, col = c, itemType = type))
-                }
-            }
-        }
+    // ♟️ 6 शतरंज रैंक्स की लिस्ट
+    val ranks = remember {
+        listOf(
+            ChessRankTier(1, "Pawn", "प्यादा", "♟", 400, 800, Color(0xFF94A3B8)),
+            ChessRankTier(2, "Knight", "घोड़ा", "♞", 800, 1200, Color(0xFF4ADE80)),
+            ChessRankTier(3, "Bishop", "ऊंट", "♝", 1200, 1600, Color(0xFF38BDF8)),
+            ChessRankTier(4, "Rook", "हाथी", "♜", 1600, 2000, Color(0xFFA855F7)),
+            ChessRankTier(5, "Queen", "वज़ीर", "♛", 2000, 2400, Color(0xFFF43F5E)),
+            ChessRankTier(6, "Grandmaster", "राजा (King)", "♚", 2400, 3000, Color(0xFFFACC15))
+        )
     }
 
-    var scale by remember { mutableFloatStateOf(1f) }
-    var panOffset by remember { mutableStateOf(Offset.Zero) }
-    val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
-        scale = (scale * zoomChange).coerceIn(0.5f, 2.5f)
-        panOffset += offsetChange
-    }
+    // 🎯 यूज़र का ELO स्कोर (टेस्टिंग के लिए 450 से शुरू)
+    var currentElo by remember { mutableIntStateOf(450) }
+    var lastChangeText by remember { mutableStateOf("Ready to Focus!") }
+    var lastChangeColor by remember { mutableStateOf(Color(0xFF94A3B8)) }
 
-    val bgGradient = Brush.verticalGradient(
-        colors = if (isDark) listOf(Color(0xFF111713), Color(0xFF090D0A))
-        else listOf(Color(0xFFE8F0E9), Color(0xFFD6E3D8))
+    // नंबर बदलने का स्मूथ एनिमेशन
+    val animatedElo by animateIntAsState(
+        targetValue = currentElo,
+        animationSpec = tween(durationMillis = 500),
+        label = "eloAnim"
     )
 
-    Box(modifier = Modifier.fillMaxSize().background(bgGradient)) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .transformable(state = transformState)
-        ) {
-            val centerX = size.width / 2f + panOffset.x
-            val centerY = size.height / 3.2f + panOffset.y
+    // अभी की रैंक पता करना
+    val currentRank = ranks.lastOrNull { currentElo >= it.minElo } ?: ranks.first()
+    val nextRank = ranks.firstOrNull { it.minElo > currentElo }
 
-            val sortedTiles = tiles.sortedWith(compareBy({ it.row + it.col }, { it.row }))
+    // प्रोग्रेस बार का प्रतिशत (0.0 से 1.0)
+    val rawProgress = if (nextRank != null) {
+        (currentElo - currentRank.minElo).toFloat() / (nextRank.minElo - currentRank.minElo).toFloat()
+    } else {
+        1f
+    }.coerceIn(0f, 1f)
 
-            sortedTiles.forEach { tile ->
-                // 🛠️ लाइव स्लाइडर वैल्यू का इस्तेमाल
-                val isoX = (tile.col - tile.row) * (baseTileWidth / 2f) * overlapSpacing * scale
-                val isoY = (tile.col + tile.row) * (baseTileHeight / 2f) * overlapSpacing * scale
+    val animatedProgress by animateFloatAsState(
+        targetValue = rawProgress,
+        animationSpec = tween(durationMillis = 600),
+        label = "progressAnim"
+    )
 
-                val slotX = centerX + isoX
-                val slotY = centerY + isoY
-
-                drawTileBase(
-                    cx = slotX,
-                    cy = slotY,
-                    w = baseTileWidth * scale,
-                    h = baseTileHeight * scale,
-                    isDark = isDark
-                )
-
-                val bmp = when (tile.itemType) {
-                    TileItemType.CAT_ROCK -> catBitmap
-                    TileItemType.TREE_OAK -> treeBitmap
-                    TileItemType.BENCH_PARK -> benchBitmap
-                    TileItemType.EMPTY -> null
-                }
-
-                bmp?.let { imageBitmap ->
-                    val renderW = (baseTileWidth / tileScaleRatio) * scale
-                    val renderH = renderW
-                    val dx = slotX - (renderW / 2f)
-                    val dy = slotY - (renderH * anchorYRatio)
-
-                    drawImage(
-                        image = imageBitmap,
-                        dstOffset = IntOffset(dx.roundToInt(), dy.roundToInt()),
-                        dstSize = IntSize(renderW.roundToInt(), renderH.roundToInt())
-                    )
-                }
-            }
+    val bgBrush = Brush.verticalGradient(
+        colors = if (isDark) {
+            listOf(Color(0xFF0B0F17), Color(0xFF151C28))
+        } else {
+            listOf(Color(0xFFF1F5F9), Color(0xFFE2E8F0))
         }
+    )
 
-        // 🔄 रीसेट और टॉगल पैनल बटन
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                onClick = { showDebugPanel = !showDebugPanel },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.5f))
-            ) {
-                Text(if (showDebugPanel) "Hide Controls" else "Tune Grid", fontSize = 12.sp)
-            }
-            IconButton(
-                onClick = {
-                    scale = 1f
-                    panOffset = Offset.Zero
-                },
-                modifier = Modifier.background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(50))
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Color.White)
-            }
-        }
-
-        // 🎛️ लाइव ट्यूनर पैनल (स्क्रीन के निचले हिस्से में)
-        if (showDebugPanel) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bgBrush)
+            .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(top = 20.dp, bottom = 100.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // ════════════════════════════════════════════════════════
+        // 1. ऊपरी मुख्य रैंक कार्ड (HERO ELO CARD)
+        // ════════════════════════════════════════════════════════
+        item {
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 80.dp, start = 16.dp, end = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xDD1E1E1E)),
-                shape = RoundedCornerShape(16.dp)
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isDark) Color(0xFF1E2638) else Color.White
+                ),
+                border = BorderStroke(1.5.dp, currentRank.accentColor.copy(alpha = 0.6f))
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    // 1. Spacing Slider (टाइल्स को चिपकाने के लिए)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text(
-                        "1. Spacing (खिंचाव): ${String.format("%.3f", overlapSpacing)}",
-                        color = Color.White,
-                        fontSize = 12.sp
-                    )
-                    Slider(
-                        value = overlapSpacing,
-                        onValueChange = { overlapSpacing = it },
-                        valueRange = 0.70f..1.05f
+                        text = "FOCUS ARENA RATING",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = currentRank.accentColor,
+                        letterSpacing = 1.5.sp
                     )
 
-                    // 2. Scale Ratio Slider (इमेज की चौड़ाई अनुपात)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // चमकता हुआ गोल शतरंज बैज
+                    Box(
+                        modifier = Modifier
+                            .size(92.dp)
+                            .clip(CircleShape)
+                            .background(currentRank.accentColor.copy(alpha = 0.15f))
+                            .border(3.dp, currentRank.accentColor, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = currentRank.symbol,
+                            fontSize = 50.sp,
+                            color = currentRank.accentColor
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // रैंक का नाम
                     Text(
-                        "2. Scale Ratio: ${String.format("%.3f", tileScaleRatio)}",
-                        color = Color.White,
-                        fontSize = 12.sp
-                    )
-                    Slider(
-                        value = tileScaleRatio,
-                        onValueChange = { tileScaleRatio = it },
-                        valueRange = 0.65f..0.95f
+                        text = "Level ${currentRank.level}: ${currentRank.title} (${currentRank.hindiTitle})",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (isDark) Color.White else Color(0xFF0F172A)
                     )
 
-                    // 3. Anchor Y Slider (ऊपर-नीचे एडजस्टमेंट)
+                    // बड़ा ELO नंबर
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Text(
+                            text = "$animatedElo",
+                            fontSize = 38.sp,
+                            fontWeight = FontWeight.Black,
+                            color = currentRank.accentColor
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "ELO",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                    }
+
+                    // लास्ट एक्शन मैसेज (+40 या -15 का फीडबैक)
                     Text(
-                        "3. Anchor Y: ${String.format("%.3f", anchorYRatio)}",
-                        color = Color.White,
-                        fontSize = 12.sp
+                        text = lastChangeText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = lastChangeColor,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 14.dp)
                     )
-                    Slider(
-                        value = anchorYRatio,
-                        onValueChange = { anchorYRatio = it },
-                        valueRange = 0.60f..0.85f
+
+                    // प्रोग्रेस बार
+                    LinearProgressIndicator(
+                        progress = { animatedProgress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(12.dp)
+                            .clip(RoundedCornerShape(50)),
+                        color = currentRank.accentColor,
+                        trackColor = if (isDark) Color(0xFF0F172A) else Color(0xFFE2E8F0)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // अगली रैंक की जानकारी
+                    val nextInfo = if (nextRank != null) {
+                        "अगली रैंक (${nextRank.symbol} ${nextRank.title}) के लिए ${nextRank.minElo - currentElo} ELO और चाहिए"
+                    } else {
+                        "👑 आप सर्वोच्च Grandmaster रैंक पर हैं!"
+                    }
+                    Text(
+                        text = nextInfo,
+                        fontSize = 12.sp,
+                        color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569),
+                        textAlign = TextAlign.Center
                     )
                 }
             }
         }
-    }
-}
 
-fun DrawScope.drawTileBase(cx: Float, cy: Float, w: Float, h: Float, isDark: Boolean) {
-    val path = Path().apply {
-        moveTo(cx, cy - h / 2f)
-        lineTo(cx + w / 2f, cy)
-        lineTo(cx, cy + h / 2f)
-        lineTo(cx - w / 2f, cy)
-        close()
-    }
-    val lineColor = if (isDark) Color(0x224ADE80) else Color(0x222E7D32)
-    drawPath(path = path, color = lineColor, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f))
-}
+        // ════════════════════════════════════════════════════════
+        // 2. लाइव डोपामिन टेस्ट कंसोल (SIMULATOR BUTTONS)
+        // ════════════════════════════════════════════════════════
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isDark) Color(0xFF151C28) else Color(0xFFF8FAFC)
+                ),
+                border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.25f))
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        text = "🧪 टेस्टिंग पैनल (दबाकर डोपामिन और लेवल चेक करें):",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isDark) Color.White else Color.Black
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
 
-fun loadBitmapSafe(context: Context, resName: String): ImageBitmap? {
-    return try {
-        val resId = context.resources.getIdentifier(resName, "drawable", context.packageName)
-        if (resId != 0) {
-            val bitmap = BitmapFactory.decodeResource(context.resources, resId)
-            bitmap?.asImageBitmap()
-        } else null
-    } catch (_: Exception) {
-        null
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // जीत का बटन (+25 ELO)
+                        Button(
+                            onClick = {
+                                currentElo = (currentElo + 25).coerceAtMost(3000)
+                                lastChangeText = "🔥 +25 ELO! शानदार फोकस सेशन पूरा!"
+                                lastChangeColor = Color(0xFF4ADE80)
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                            contentPadding = PaddingValues(vertical = 10.dp)
+                        ) {
+                            Text("+25 Win", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // हार मानने का बटन (-10 ELO)
+                        Button(
+                            onClick = {
+                                currentElo = (currentElo - 10).coerceAtLeast(100)
+                                lastChangeText = "⚠️ -10 ELO! सेशन अधूरा छोड़ने का जुर्माना!"
+                                lastChangeColor = Color(0xFFF43F5E)
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48)),
+                            contentPadding = PaddingValues(vertical = 10.dp)
+                        ) {
+                            Text("-10 GiveUp", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // बड़ा जंप बटन (+200 ELO रैंक टेस्ट के लिए)
+                        Button(
+                            onClick = {
+                                currentElo = if (currentElo >= 2500) 450 else currentElo + 200
+                                lastChangeText = "⚡ +200 ELO Boost (रैंक टेस्ट)!"
+                                lastChangeColor = Color(0xFFFACC15)
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                            contentPadding = PaddingValues(vertical = 10.dp)
+                        ) {
+                            Text("+200 Jump", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ════════════════════════════════════════════════════════
+        // 3. स्टेप-बाय-स्टेप रैंक सीढ़ी (THE 6 CHESS LEVELS)
+        // ════════════════════════════════════════════════════════
+        item {
+            Text(
+                text = "🏆 शतरंज रैंक पथ (Rank Progression)",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isDark) Color.White else Color.Black,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        itemsIndexed(ranks) { _, tier ->
+            val isUnlocked = currentElo >= tier.minElo
+            val isCurrent = currentRank.level == tier.level
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = when {
+                        isCurrent -> tier.accentColor.copy(alpha = 0.16f)
+                        isUnlocked -> if (isDark) Color(0xFF1E2638) else Color.White
+                        else -> if (isDark) Color(0xFF111622) else Color(0xFFE2E8F0).copy(alpha = 0.6f)
+                    }
+                ),
+                border = BorderStroke(
+                    width = if (isCurrent) 2.dp else 1.dp,
+                    color = when {
+                        isCurrent -> tier.accentColor
+                        isUnlocked -> tier.accentColor.copy(alpha = 0.4f)
+                        else -> Color.Gray.copy(alpha = 0.2f)
+                    }
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // बाईं तरफ शतरंज का मोहरा आइकॉन
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isUnlocked) tier.accentColor.copy(alpha = 0.2f)
+                                else Color.Gray.copy(alpha = 0.15f)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isUnlocked) tier.symbol else "🔒",
+                            fontSize = 26.sp,
+                            color = if (isUnlocked) tier.accentColor else Color.Gray
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    // बीच में रैंक का नाम और ELO रेंज
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Level ${tier.level}: ${tier.title} (${tier.hindiTitle})",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isUnlocked) {
+                                if (isDark) Color.White else Color.Black
+                            } else Color.Gray
+                        )
+                        Text(
+                            text = "आवश्यक रेटिंग: ${tier.minElo} ELO",
+                            fontSize = 12.sp,
+                            color = if (isCurrent) tier.accentColor else Color.Gray
+                        )
+                    }
+
+                    // दाईं तरफ स्टेटस बैज (Current / Unlocked / Locked)
+                    val statusBadge = when {
+                        isCurrent -> "🔥 CURRENT"
+                        isUnlocked -> "✅ PAR"
+                        else -> "LOCKED"
+                    }
+                    Text(
+                        text = statusBadge,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = when {
+                            isCurrent -> tier.accentColor
+                            isUnlocked -> Color(0xFF4ADE80)
+                            else -> Color.Gray
+                        }
+                    )
+                }
+            }
+        }
     }
 }
