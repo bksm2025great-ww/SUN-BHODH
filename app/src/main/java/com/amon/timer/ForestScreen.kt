@@ -1,23 +1,21 @@
+
 package com.amon.timer
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -25,223 +23,476 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// सीढ़ी या स्टेप का डेटा मॉडल
-data class JourneyStep(
-    val level: Int,
-    val offsetFactor: Float // ज़िग-जैग के लिए बाएँ या दाएँ खिसकाने का मान (-1.0 से 1.0)
+private data class Biome(
+    val name: String,
+    val emoji: String,
+    val startLevel: Int,
+    val endLevel: Int,
+    val dark: Color,
+    val light: Color
 )
 
 @Composable
 fun ForestScreen() {
-    val isDark = ThemeManager.isDarkTheme.value
+    var level by remember { mutableIntStateOf(7) }
+    var xp by remember { mutableIntStateOf(65) }
+    var selectedBiome by remember { mutableIntStateOf(0) }
 
-    // कुल 50-60 लेवल्स का ज़िग-जैग रास्ता
-    val totalLevels = 60
-    val stepsList = remember {
-        val list = mutableListOf<JourneyStep>()
-        for (i in 1..totalLevels) {
-            // ज़िग-जैग पैटर्न (बाएँ, बीच, दाएँ, बीच)
-            val align = when (i % 4) {
-                1 -> -0.55f
-                2 -> 0.0f
-                3 -> 0.55f
-                else -> 0.0f
-            }
-            list.add(JourneyStep(level = i, offsetFactor = align))
-        }
-        list
+    val biomes = remember {
+        listOf(
+            Biome("Forest", "🌲", 1, 50,
+                Color(0xFF123D2A), Color(0xFF54A66B)),
+            Biome("Desert", "🏜️", 51, 100,
+                Color(0xFF704214), Color(0xFFE6AE52)),
+            Biome("Ice", "❄️", 101, 150,
+                Color(0xFF164E63), Color(0xFF67C9E8)),
+            Biome("Volcano", "🌋", 151, 200,
+                Color(0xFF641E16), Color(0xFFFF7043))
+        )
     }
 
-    // टेस्टिंग के लिए वर्तमान लेवल
-    var currentLevel by remember { mutableIntStateOf(4) }
+    val biome = biomes[selectedBiome]
+    val isDark = selectedBiome == 0 || selectedBiome == 2 ||
+            selectedBiome == 3
 
-    fun changeLevel(newLevel: Int) {
-        currentLevel = newLevel.coerceIn(1, totalLevels)
-    }
-
-    val bgBrush = Brush.verticalGradient(
-        colors = if (isDark) {
-            listOf(Color(0xFF121212), Color(0xFF1E1E1E))
-        } else {
-            listOf(Color(0xFFF0F2F5), Color(0xFFE4E6EB))
-        }
+    val backgroundBrush = Brush.verticalGradient(
+        colors = listOf(
+            if (isDark) Color(0xFF101916) else Color(0xFFF3F0E7),
+            if (isDark) Color(0xFF080D0B) else Color(0xFFE3E8DC)
+        )
     )
 
-    Box(
+    val mainText = if (isDark) Color(0xFFF1F5F2) else Color(0xFF1F2933)
+    val mutedText = if (isDark) Color(0xFFB0BDB5) else Color(0xFF66736B)
+    val cardColor = if (isDark) Color(0xFF18221D) else Color(0xFFFFFFFF)
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(bgBrush)
+            .background(backgroundBrush)
+            .padding(horizontal = 16.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(top = 20.dp, bottom = 20.dp)
         ) {
-            // टॉप हेडर और लेवल जंप कंट्रोल पैनल (टेस्टिंग के लिए)
-            Surface(
+            // Header
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                color = if (isDark) Color(0xFF1F242D) else Color.White,
-                shadowElevation = 6.dp
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "YOUR JOURNEY",
+                        color = mutedText,
+                        fontSize = 12.sp,
+                        letterSpacing = 2.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(5.dp))
+
+                    Text(
+                        text = "Focus World",
+                        color = mainText,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = biome.dark
                 ) {
-                    Column {
-                        Text(
-                            text = "PUZZLE JOURNEY PATH",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF4ADE80),
-                            letterSpacing = 1.5.sp
-                        )
-                        Text(
-                            text = "Level $currentLevel of $totalLevels",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (isDark) Color.White else Color.Black
-                        )
-                    }
-
-                    // लेवल घटाने और बढ़ाने के बटन (+ / -)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        IconButton(
-                            onClick = { changeLevel(currentLevel - 1) },
-                            modifier = Modifier
-                                .size(38.dp)
-                                .background(Color(0xFFEF4444).copy(alpha = 0.2f), CircleShape)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Decrease Level",
-                                tint = Color(0xFFEF4444)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { changeLevel(currentLevel + 1) },
-                            modifier = Modifier
-                                .size(38.dp)
-                                .background(Color(0xFF4ADE80), CircleShape)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Increase Level",
-                                tint = Color.White
-                            )
-                        }
-                    }
+                    Text(
+                        text = biome.emoji,
+                        fontSize = 30.sp,
+                        modifier = Modifier.padding(12.dp)
+                    )
                 }
             }
 
-            // ज़िग-जैग सीढ़ी नुमा पाथ (नीचे से ऊपर की तरफ चढ़ता हुआ)
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(top = 30.dp, bottom = 120.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-                reverseLayout = true // नीचे से शुरू होकर ऊपर की तरफ जाएगा
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // XP card
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                color = cardColor,
+                shadowElevation = 4.dp
             ) {
-                items(stepsList) { step ->
-                    val isCompleted = step.level < currentLevel
-                    val isCurrent = step.level == currentLevel
-                    val isUnlocked = step.level <= currentLevel + 2
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "CURRENT LEVEL",
+                                fontSize = 11.sp,
+                                color = mutedText,
+                                letterSpacing = 1.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Text(
+                                text = "$level",
+                                fontSize = 36.sp,
+                                fontWeight = FontWeight.Black,
+                                color = biome.light
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "✦ $xp XP",
+                                fontSize = 20.sp,
+                                color = biome.light,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Demo rewards",
+                                color = mutedText,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = ((step.offsetFactor + 1f) * 65.dp)),
-                        contentAlignment = Alignment.Center
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(mutedText.copy(alpha = 0.18f))
                     ) {
-                        // सीढ़ी का एक स्टेप (क्यूब कार्ड)
-                        Card(
+                        Box(
                             modifier = Modifier
-                                .size(width = 100.dp, height = 70.dp)
-                                .clickable {
-                                    if (isUnlocked) {
-                                        changeLevel(step.level)
-                                    }
-                                },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = when {
-                                    isCurrent -> Color(0xFF22C55E) // वर्तमान लेवल (हरा)
-                                    isCompleted -> Color(0xFF15803D) // पार किया हुआ लेवल (गहरा हरा)
-                                    isUnlocked -> if (isDark) Color(0xFF2D3748) else Color(0xFFE2E8F0) // खुला हुआ अगला लेवल
-                                    else -> if (isDark) Color(0xFF1A202C) else Color(0xFFCBD5E1) // लॉक लेवल
-                                }
-                            ),
-                            border = BorderStroke(
-                                width = if (isCurrent) 2.5.dp else 1.dp,
-                                color = if (isCurrent) Color.White else Color.Transparent
-                            ),
-                            elevation = CardDefaults.cardElevation(
-                                defaultElevation = if (isCurrent) 8.dp else 2.dp
+                                .fillMaxWidth((xp % 100) / 100f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(50))
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(biome.dark, biome.light)
+                                    )
+                                )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "${xp % 100}/100 XP to next reward",
+                        fontSize = 12.sp,
+                        color = mutedText
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Biome selector
+            Text(
+                text = "EXPEDITIONS",
+                fontSize = 12.sp,
+                color = mutedText,
+                letterSpacing = 2.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                biomes.forEachIndexed { index, item ->
+                    val selected = selectedBiome == index
+
+                    Column(
+                        modifier = Modifier
+                            .width(112.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(
+                                if (selected) item.dark
+                                else cardColor
                             )
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                when {
-                                    isCompleted -> {
-                                        // पूरा हो चुका स्टेप (सफेद टिक)
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = "Completed",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(28.dp)
-                                        )
-                                    }
-                                    isCurrent -> {
-                                        // वर्तमान स्टेप जिसपर प्यादा / स्टार है
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Star,
-                                                contentDescription = "Current Pawn",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(22.dp)
-                                            )
-                                            Text(
-                                                text = "${step.level}",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Black,
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
-                                    isUnlocked -> {
-                                        // खुला हुआ नंबर
-                                        Text(
-                                            text = "${step.level}",
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isDark) Color.White else Color(0xFF1E293B)
-                                        )
-                                    }
-                                    else -> {
-                                        // लॉक किया हुआ स्टेप
-                                        Icon(
-                                            imageVector = Icons.Default.Lock,
-                                            contentDescription = "Locked",
-                                            tint = Color.Gray,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                            .border(
+                                width = 1.dp,
+                                color = if (selected) item.light
+                                else mutedText.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(18.dp)
+                            )
+                            .clickable { selectedBiome = index }
+                            .padding(12.dp)
+                    ) {
+                        Text(item.emoji, fontSize = 25.sp)
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = item.name,
+                            color = if (selected) Color.White else mainText,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Text(
+                            text = "${item.startLevel}-${item.endLevel}",
+                            color = if (selected) item.light else mutedText,
+                            fontSize = 11.sp
+                        )
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Level path
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = biome.emoji + "  ${biome.name} Path",
+                        color = mainText,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text = "Complete levels to explore further",
+                        color = mutedText,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Text(
+                    text = "LEVELS",
+                    color = biome.light,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Simple zigzag level map
+            for (rowIndex in 0 until 4) {
+                val rowLevels = (0 until 3).map { col ->
+                    biome.startLevel + rowIndex * 3 +
+                            if (rowIndex % 2 == 0) col else (2 - col)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    rowLevels.forEachIndexed { position, tileLevel ->
+                        val completed = tileLevel < level &&
+                                selectedBiome == 0
+                        val current = tileLevel == level &&
+                                selectedBiome == 0
+                        val unlocked = tileLevel <= level + 1 &&
+                                selectedBiome == 0
+
+                        val tileColor = when {
+                            completed -> biome.dark
+                            current -> biome.light
+                            unlocked -> cardColor
+                            else -> mutedText.copy(alpha = 0.12f)
+                        }
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.width(78.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(if (current) 62.dp else 54.dp)
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(tileColor)
+                                    .border(
+                                        width = if (current) 2.dp else 1.dp,
+                                        color = when {
+                                            current -> biome.light
+                                            completed -> biome.light.copy(alpha = 0.7f)
+                                            else -> mutedText.copy(alpha = 0.25f)
+                                        },
+                                        shape = RoundedCornerShape(18.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = when {
+                                        completed -> "✓"
+                                        current -> "★"
+                                        unlocked -> "$tileLevel"
+                                        else -> "🔒"
+                                    },
+                                    color = when {
+                                        completed -> Color.White
+                                        current -> Color(0xFF172016)
+                                        else -> mainText
+                                    },
+                                    fontSize = if (current) 22.sp else 17.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(5.dp))
+
+                            Text(
+                                text = "Level $tileLevel",
+                                fontSize = 10.sp,
+                                color = mutedText
+                            )
+                        }
+                    }
+                }
+
+                if (rowIndex < 3) {
+                    Text(
+                        text = if (rowIndex % 2 == 0) "↘  ·  ·  ↙"
+                        else "↗  ·  ·  ↖",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        textAlign = TextAlign.Center,
+                        color = biome.light.copy(alpha = 0.8f),
+                        fontSize = 18.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Milestone preview
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                color = biome.dark
+            ) {
+                Row(
+                    modifier = Modifier.padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("🏆", fontSize = 34.sp)
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Next Milestone",
+                            color = Color.White.copy(alpha = 0.75f),
+                            fontSize = 12.sp
+                        )
+
+                        Text(
+                            text = when {
+                                level < 50 -> "Reach Level 50"
+                                level < 100 -> "Reach Level 100"
+                                level < 150 -> "Reach Level 150"
+                                else -> "Master Explorer"
+                            },
+                            color = Color.White,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Text(
+                            text = "Keep going, one session at a time.",
+                            color = Color.White.copy(alpha = 0.75f),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Demo controls
+            Text(
+                text = "DEMO CONTROLS",
+                color = mutedText,
+                fontSize = 11.sp,
+                letterSpacing = 1.5.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = {
+                        xp += 25
+                        if (xp >= 100) {
+                            xp -= 100
+                            level = (level + 1).coerceAtMost(200)
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = biome.dark
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("+25 XP")
+                }
+
+                Button(
+                    onClick = {
+                        level = (level + 1).coerceAtMost(200)
+                        xp = 0
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = biome.light
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("Next Level", color = Color(0xFF102016))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Button(
+                onClick = {
+                    level = 7
+                    xp = 65
+                    selectedBiome = 0
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = cardColor,
+                    contentColor = mainText
+                ),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text("Reset Demo")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Prototype only • Progress is not saved",
+                modifier = Modifier.fillMaxWidth(),
+                color = mutedText,
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
