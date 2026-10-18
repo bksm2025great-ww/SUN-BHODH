@@ -2,7 +2,6 @@ package com.amon.timer
 
 import android.content.Context
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -16,18 +15,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.json.JSONArray
 import org.json.JSONObject
-import kotlin.math.roundToInt
 
 private data class ForestNode(
     val id: Int,
@@ -40,7 +38,6 @@ private const val FOREST_KEY = "nodes"
 
 private fun saveForestNodes(context: Context, nodes: List<ForestNode>) {
     val array = JSONArray()
-
     nodes.forEach { node ->
         array.put(
             JSONObject().apply {
@@ -50,25 +47,17 @@ private fun saveForestNodes(context: Context, nodes: List<ForestNode>) {
             }
         )
     }
-
-    context.getSharedPreferences(
-        FOREST_PREFS,
-        Context.MODE_PRIVATE
-    ).edit().putString(FOREST_KEY, array.toString()).apply()
+    context.getSharedPreferences(FOREST_PREFS, Context.MODE_PRIVATE)
+        .edit().putString(FOREST_KEY, array.toString()).apply()
 }
 
 private fun loadForestNodes(context: Context): List<ForestNode>? {
     return try {
-        val raw = context.getSharedPreferences(
-            FOREST_PREFS,
-            Context.MODE_PRIVATE
-        ).getString(FOREST_KEY, null) ?: return null
-
+        val raw = context.getSharedPreferences(FOREST_PREFS, Context.MODE_PRIVATE)
+            .getString(FOREST_KEY, null) ?: return null
         val array = JSONArray(raw)
-
         (0 until array.length()).map { index ->
             val item = array.getJSONObject(index)
-
             ForestNode(
                 id = item.getInt("id"),
                 x = item.getDouble("x").toFloat().coerceIn(0.05f, 0.95f),
@@ -87,11 +76,11 @@ fun ForestScreen() {
     var nodes by remember { mutableStateOf<List<ForestNode>>(emptyList()) }
     var selectedId by remember { mutableIntStateOf(1) }
     var editMode by remember { mutableStateOf(true) }
-    var message by remember { mutableStateOf("Add levels and adjust their positions.") }
+    var message by remember { mutableStateOf("Canvas Forest Map ready. Drag nodes to adjust.") }
 
-    val green = Color(0xFF65C887)
-    val panel = Color(0xE6192B21)
-    val white = Color(0xFFF1F7F2)
+    val primaryGreen = Color(0xFF65C887)
+    val panelColor = Color(0xE6192B21)
+    val textColorWhite = Color(0xFFF1F7F2)
 
     LaunchedEffect(Unit) {
         nodes = loadForestNodes(context) ?: (1..12).map { id ->
@@ -111,6 +100,7 @@ fun ForestScreen() {
             .fillMaxSize()
             .background(Color(0xFF0A140E))
     ) {
+        // Top Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -119,15 +109,15 @@ fun ForestScreen() {
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    "AMON • FOREST",
-                    color = green,
+                    "AMON • FOREST WORLD",
+                    color = primaryGreen,
                     fontSize = 11.sp,
                     letterSpacing = 2.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Level Builder",
-                    color = white,
+                    "Canvas Journey Map",
+                    color = textColorWhite,
                     fontSize = 25.sp,
                     fontWeight = FontWeight.ExtraBold
                 )
@@ -136,7 +126,7 @@ fun ForestScreen() {
             Button(
                 onClick = { editMode = !editMode },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (editMode) green else Color(0xFF34483A)
+                    containerColor = if (editMode) primaryGreen else Color(0xFF34483A)
                 )
             ) {
                 Text(
@@ -150,13 +140,13 @@ fun ForestScreen() {
             modifier = Modifier.padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            InfoChip("LEVELS", nodes.size.toString(), panel, white)
-            InfoChip("SELECTED", selectedId.toString(), panel, white)
+            InfoChip("LEVELS", nodes.size.toString(), panelColor, textColorWhite)
+            InfoChip("SELECTED", selectedId.toString(), panelColor, textColorWhite)
         }
 
         Spacer(Modifier.height(10.dp))
 
-        // The map is taller than the phone screen and can scroll.
+        // Map Box with Pure Canvas Forest & Stone Path
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -181,64 +171,57 @@ fun ForestScreen() {
                     val mapWidth = maxWidth
                     val totalHeight = mapHeight.dp
 
-                    Image(
-                        painter = painterResource(
-                            id = R.drawable.forest_map_background
-                        ),
-                        contentDescription = "Forest level map",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                    )
-
-                    // Connect all nodes in order with a visible winding path.
+                    // 🌲 प्योर कोटलिन कैनवास से बना हुआ फॉरेस्ट बैकग्राउंड, नदी और पत्थर की पग-डंडी (Path)
                     Canvas(Modifier.fillMaxSize()) {
+                        val w = size.width
+                        val h = size.height
+
+                        // 1. गहरा हरा घना जंगल बैकग्राउंड (Deep Forest Green Gradient feel)
+                        drawRect(color = Color(0xFF0F2618))
+
+                        // 2. नदी की घुमावदार नीली धारियाँ (Winding River stream)
+                        val riverPath = Path().apply {
+                            moveTo(w * 0.2f, 0f)
+                            cubicTo(w * 0.8f, h * 0.25f, w * 0.1f, h * 0.5f, w * 0.7f, h * 0.75f)
+                            lineTo(w * 0.7f, h)
+                            lineTo(w * 0.9f, h)
+                            lineTo(w * 0.9f, h * 0.7f)
+                            cubicTo(w * 0.3f, h * 0.4f, w * 0.9f, h * 0.2f, w * 0.4f, 0f)
+                            close()
+                        }
+                        drawPath(riverPath, color = Color(0xFF1B4D3E).copy(alpha = 0.6f))
+
+                        // 3. बीच की खूबसूरत घुमावदार पत्थर की पग-डंडी (Winding Stone Path / Stair system)
                         if (nodes.size > 1) {
-                            val path = Path()
-
+                            val stonePath = Path()
                             nodes.forEachIndexed { index, node ->
-                                val point = androidx.compose.ui.geometry.Offset(
-                                    node.x * size.width,
-                                    node.y * size.height
-                                )
-
+                                val pt = Offset(node.x * w, node.y * h)
                                 if (index == 0) {
-                                    path.moveTo(point.x, point.y)
+                                    stonePath.moveTo(pt.x, pt.y)
                                 } else {
-                                    val previous = nodes[index - 1]
-                                    val previousPoint =
-                                        androidx.compose.ui.geometry.Offset(
-                                            previous.x * size.width,
-                                            previous.y * size.height
-                                        )
-
-                                    val middleY =
-                                        (previousPoint.y + point.y) / 2f
-
-                                    path.cubicTo(
-                                        previousPoint.x, middleY,
-                                        point.x, middleY,
-                                        point.x, point.y
-                                    )
+                                    val prev = nodes[index - 1]
+                                    val prevPt = Offset(prev.x * w, prev.y * h)
+                                    val midY = (prevPt.y + pt.y) / 2f
+                                    stonePath.cubicTo(prevPt.x, midY, pt.x, midY, pt.x, pt.y)
                                 }
                             }
 
+                            // रास्ते की चौड़ी बेस लाइन (पत्थर का रंग)
                             drawPath(
-                                path = path,
+                                path = stonePath,
                                 color = Color(0xFFD8C18A),
-                                style = androidx.compose.ui.graphics.drawscope.Stroke(
-                                    width = 7.dp.toPx()
-                                )
+                                style = Stroke(width = 24.dp.toPx())
                             )
+                            // रास्ते की किनारों की आउटलाइन
                             drawPath(
-                                path = path,
+                                path = stonePath,
                                 color = Color(0xFF493C27),
-                                style = androidx.compose.ui.graphics.drawscope.Stroke(
-                                    width = 2.dp.toPx()
-                                )
+                                style = Stroke(width = 4.dp.toPx())
                             )
                         }
                     }
 
+                    // Interactive Level Nodes
                     nodes.forEach { node ->
                         val isSelected = node.id == selectedId
 
@@ -256,19 +239,15 @@ fun ForestScreen() {
                                 )
                                 .border(
                                     width = if (isSelected) 3.dp else 2.dp,
-                                    color = if (isSelected) Color.White
-                                    else Color(0xFFB8E8C4),
+                                    color = if (isSelected) Color.White else Color(0xFFB8E8C4),
                                     shape = CircleShape
                                 )
                                 .pointerInput(node.id, editMode, mapWidth, totalHeight) {
                                     if (editMode) {
                                         detectDragGestures(
-                                            onDragStart = {
-                                                selectedId = node.id
-                                            },
+                                            onDragStart = { selectedId = node.id },
                                             onDrag = { change, dragAmount ->
                                                 change.consume()
-
                                                 val widthPx = size.width.toFloat()
                                                 val heightPx = size.height.toFloat()
 
@@ -290,8 +269,7 @@ fun ForestScreen() {
                         ) {
                             Text(
                                 text = node.id.toString(),
-                                color = if (isSelected) Color(0xFF17251B)
-                                else Color.White,
+                                color = if (isSelected) Color(0xFF17251B) else Color.White,
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 15.sp
                             )
@@ -301,18 +279,18 @@ fun ForestScreen() {
             }
         }
 
-        // Editing controls
+        // Editing controls panel
         if (editMode) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(panel)
+                    .background(panelColor)
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
                     "Selected Level: $selectedId",
-                    color = white,
+                    color = textColorWhite,
                     fontWeight = FontWeight.Bold
                 )
 
@@ -321,21 +299,16 @@ fun ForestScreen() {
                         onClick = {
                             val next = (nodes.maxOfOrNull { it.id } ?: 0) + 1
                             val last = nodes.lastOrNull()
-
                             nodes = nodes + ForestNode(
                                 id = next,
-                                x = if (last == null) 0.5f
-                                else (1f - last.x).coerceIn(0.15f, 0.85f),
-                                y = if (last == null) 0.95f
-                                else (last.y - 0.065f).coerceAtLeast(0.03f)
+                                x = if (last == null) 0.5f else (1f - last.x).coerceIn(0.15f, 0.85f),
+                                y = if (last == null) 0.95f else (last.y - 0.065f).coerceAtLeast(0.03f)
                             )
                             selectedId = next
                             message = "Level $next added."
                         },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF34784A)
-                        )
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF34784A))
                     ) {
                         Text("+ Next Level")
                     }
@@ -343,13 +316,7 @@ fun ForestScreen() {
                     Button(
                         onClick = {
                             if (selected != null) {
-                                nodes = nodes.map { node ->
-                                    if (node.id == selectedId) {
-                                        node.copy(
-                                            y = (node.y - 0.01f).coerceAtLeast(0.02f)
-                                        )
-                                    } else node
-                                }
+                                nodes = nodes.map { if (it.id == selectedId) it.copy(y = (it.y - 0.01f).coerceAtLeast(0.02f)) else it }
                             }
                         },
                         modifier = Modifier.weight(1f)
@@ -360,13 +327,7 @@ fun ForestScreen() {
                     Button(
                         onClick = {
                             if (selected != null) {
-                                nodes = nodes.map { node ->
-                                    if (node.id == selectedId) {
-                                        node.copy(
-                                            y = (node.y + 0.01f).coerceAtMost(0.98f)
-                                        )
-                                    } else node
-                                }
+                                nodes = nodes.map { if (it.id == selectedId) it.copy(y = (it.y + 0.01f).coerceAtMost(0.98f)) else it }
                             }
                         },
                         modifier = Modifier.weight(1f)
@@ -379,13 +340,7 @@ fun ForestScreen() {
                     OutlinedButton(
                         onClick = {
                             if (selected != null) {
-                                nodes = nodes.map { node ->
-                                    if (node.id == selectedId) {
-                                        node.copy(
-                                            x = (node.x - 0.01f).coerceAtLeast(0.05f)
-                                        )
-                                    } else node
-                                }
+                                nodes = nodes.map { if (it.id == selectedId) it.copy(x = (it.x - 0.01f).coerceAtLeast(0.05f)) else it }
                             }
                         },
                         modifier = Modifier.weight(1f)
@@ -394,13 +349,7 @@ fun ForestScreen() {
                     OutlinedButton(
                         onClick = {
                             if (selected != null) {
-                                nodes = nodes.map { node ->
-                                    if (node.id == selectedId) {
-                                        node.copy(
-                                            x = (node.x + 0.01f).coerceAtMost(0.95f)
-                                        )
-                                    } else node
-                                }
+                                nodes = nodes.map { if (it.id == selectedId) it.copy(x = (it.x + 0.01f).coerceAtMost(0.95f)) else it }
                             }
                         },
                         modifier = Modifier.weight(1f)
@@ -411,12 +360,10 @@ fun ForestScreen() {
                     Button(
                         onClick = {
                             saveForestNodes(context, nodes)
-                            message = "Layout saved on this phone."
+                            message = "Layout saved successfully."
                         },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFE4BE63)
-                        )
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE4BE63))
                     ) {
                         Text("Save Layout", color = Color(0xFF17251B))
                     }
@@ -435,11 +382,7 @@ fun ForestScreen() {
                     }
                 }
 
-                Text(
-                    message,
-                    color = Color(0xFFBDD7C4),
-                    fontSize = 12.sp
-                )
+                Text(message, color = Color(0xFFBDD7C4), fontSize = 12.sp)
             }
         } else {
             Text(
@@ -465,12 +408,7 @@ private fun InfoChip(
     ) {
         Column(Modifier.padding(10.dp)) {
             Text(label, color = Color(0xFFA9C9B1), fontSize = 10.sp)
-            Text(
-                value,
-                color = foreground,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            )
+            Text(value, color = foreground, fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
     }
 }
