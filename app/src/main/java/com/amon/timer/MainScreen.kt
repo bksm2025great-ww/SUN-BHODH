@@ -9,6 +9,7 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -219,10 +220,7 @@ fun HomeTimerTab(
     var showGiveUpDialog by remember { mutableStateOf(false) }
     var newSubjectInput by remember { mutableStateOf("") }
 
-    // 🌟 नए मोड्स स्टेट (0 = Timer, 1 = Stopwatch, 2 = Pomodoro)
     var selectedFocusMode by rememberSaveable { mutableIntStateOf(0) }
-
-    // 🎛️ Pomodoro / Custom Duration कंट्रोल्स स्टेट्स (- / +)
     var customMinutes by rememberSaveable { mutableIntStateOf(25) }
     var customSeconds by rememberSaveable { mutableIntStateOf(0) }
 
@@ -423,7 +421,7 @@ fun HomeTimerTab(
                     }
                 }
 
-                // 🎛️ TIMER, STOPWATCH & POMODORO MODE SELECTOR BAR (सब्जेक्ट्स और टाइमर के बीच की जगह का उपयोग)
+                // 🎛️ TIMER, STOPWATCH & POMODORO MODE SELECTOR BAR
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = cardBg,
@@ -457,7 +455,6 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // Pomodoro / Custom Duration Controls if Pomodoro is Selected
                         if (selectedFocusMode == 2) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -488,7 +485,7 @@ fun HomeTimerTab(
                     }
                 }
 
-                // WATCH CONTAINER (डिपेंडिंग ऑन मोड)
+                // WATCH CONTAINER
                 when (selectedFocusMode) {
                     0, 2 -> {
                         TimerWatchesContainer(
@@ -517,7 +514,6 @@ fun HomeTimerTab(
                         )
                     }
                     1 -> {
-                        // Stopwatch Mode View
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -573,7 +569,7 @@ fun HomeTimerTab(
                 }
             }
         } else {
-            // 🎯 MASTER FOCUS SCREEN (जब टाइमर चल रहा हो)
+            // 🎯 MASTER FOCUS SCREEN
             if (!isLandscape) {
                 Column(
                     modifier = Modifier
