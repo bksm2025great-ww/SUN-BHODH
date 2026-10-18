@@ -140,8 +140,8 @@ fun ForestScreen() {
             modifier = Modifier.padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            InfoChip("LEVELS", nodes.size.toString(), panelColor, textColorWhite)
-            InfoChip("SELECTED", selectedId.toString(), panelColor, textColorWhite)
+            InfoChip("LEVELS", nodes.size.toString(), panelColor, textColorWhite, modifier = Modifier.weight(1f))
+            InfoChip("SELECTED", selectedId.toString(), panelColor, textColorWhite, modifier = Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(10.dp))
@@ -171,15 +171,15 @@ fun ForestScreen() {
                     val mapWidth = maxWidth
                     val totalHeight = mapHeight.dp
 
-                    // 🌲 प्योर कोटलिन कैनवास से बना हुआ फॉरेस्ट बैकग्राउंड, नदी और पत्थर की पग-डंडी (Path)
+                    // 🌲 कैनवास से बना फॉरेस्ट बैकग्राउंड, नदी और पत्थर की पग-डंडी
                     Canvas(Modifier.fillMaxSize()) {
                         val w = size.width
                         val h = size.height
 
-                        // 1. गहरा हरा घना जंगल बैकग्राउंड (Deep Forest Green Gradient feel)
+                        // 1. गहरा हरा घना जंगल बैकग्राउंड
                         drawRect(color = Color(0xFF0F2618))
 
-                        // 2. नदी की घुमावदार नीली धारियाँ (Winding River stream)
+                        // 2. नदी की घुमावदार नीली धारियाँ
                         val riverPath = Path().apply {
                             moveTo(w * 0.2f, 0f)
                             cubicTo(w * 0.8f, h * 0.25f, w * 0.1f, h * 0.5f, w * 0.7f, h * 0.75f)
@@ -191,7 +191,7 @@ fun ForestScreen() {
                         }
                         drawPath(riverPath, color = Color(0xFF1B4D3E).copy(alpha = 0.6f))
 
-                        // 3. बीच की खूबसूरत घुमावदार पत्थर की पग-डंडी (Winding Stone Path / Stair system)
+                        // 3. बीच की खूबसूरत घुमावदार पत्थर की पग-डंडी (Stone Path)
                         if (nodes.size > 1) {
                             val stonePath = Path()
                             nodes.forEachIndexed { index, node ->
@@ -206,7 +206,7 @@ fun ForestScreen() {
                                 }
                             }
 
-                            // रास्ते की चौड़ी बेस लाइन (पत्थर का रंग)
+                            // रास्ते की चौड़ी बेस लाइन
                             drawPath(
                                 path = stonePath,
                                 color = Color(0xFFD8C18A),
@@ -399,10 +399,11 @@ private fun InfoChip(
     label: String,
     value: String,
     background: Color,
-    foreground: Color
+    foreground: Color,
+    modifier: Modifier = Modifier // <--- यह ठीक कर दिया गया है!
 ) {
     Surface(
-        modifier = Modifier.weight(1f),
+        modifier = modifier,
         color = background,
         shape = RoundedCornerShape(12.dp)
     ) {
