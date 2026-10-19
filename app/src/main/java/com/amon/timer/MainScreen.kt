@@ -170,7 +170,11 @@ fun MainScreen() {
                     isPaused = isPaused,
                     isFocusActive = isFocusActive
                 )
-                1 -> ForestScreen()
+                // 🌲 फ़ोटो के अनुसार खूबसूरत Amon Garden Coming Soon कार्ड
+                1 -> AmonGardenComingSoonTab(
+                    goldColor = goldColor,
+                    isDark = isDark
+                )
                 2 -> StatsScreen()
                 3 -> ProfileScreen()
             }
@@ -188,6 +192,130 @@ fun MainScreen() {
                         showWhatsNew = false
                     }
                 )
+            }
+        }
+    }
+}
+
+// =============================================================================
+// 🌲 AMON GARDEN • COMING SOON TAB (REFERENCE PHOTO DESIGN)
+// =============================================================================
+@Composable
+fun AmonGardenComingSoonTab(
+    goldColor: Color,
+    isDark: Boolean
+) {
+    val gardenBg = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFF132D1B),
+            Color(0xFF0A1C10),
+            Color(0xFF061009)
+        )
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(gardenBg)
+            .padding(20.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // 🪵 ऊपर का "Amon Garden" लकड़ी जैसा साइनबोर्ड
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF422E1B),
+                border = BorderStroke(2.dp, Color(0xFF6E5030)),
+                shadowElevation = 8.dp,
+                modifier = Modifier.padding(bottom = 28.dp)
+            ) {
+                Text(
+                    text = "Amon Garden",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFF3E5AB),
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 10.dp)
+                )
+            }
+
+            // 🌿 मुख्य "Coming Soon" ग्लास कार्ड
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(32.dp),
+                color = Color(0xFF131A15).copy(alpha = 0.94f),
+                border = BorderStroke(1.2.dp, Color(0xFF334B3B)),
+                shadowElevation = 12.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // सुंदर पेड़
+                    Text(text = "🌲", fontSize = 54.sp)
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Text(
+                        text = "FOREST EXPEDITION",
+                        color = Color(0xFF65C887),
+                        fontSize = 11.5.sp,
+                        letterSpacing = 2.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Coming Soon ✨",
+                        color = Color(0xFFFFD56A),
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Black
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Text(
+                        text = "We are hand-crafting deep focus landscapes & lush garden ecosystems.",
+                        color = Color(0xFFE2E8F0),
+                        fontSize = 13.5.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "Stay focused and build your study discipline while the forest grows!",
+                        color = Color(0xFFA0AEC0),
+                        fontSize = 12.5.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 18.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // 🚀 एक्टिव डेवलपमेंट बैज
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFF1E2820),
+                        border = BorderStroke(1.dp, Color(0xFF8D733E))
+                    ) {
+                        Text(
+                            text = "🚀 In Active Development",
+                            color = Color(0xFFE8C576),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
+                        )
+                    }
+                }
             }
         }
     }
