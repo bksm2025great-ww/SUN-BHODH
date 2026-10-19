@@ -11,7 +11,6 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +24,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -32,15 +34,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -170,7 +173,6 @@ fun MainScreen() {
                     isPaused = isPaused,
                     isFocusActive = isFocusActive
                 )
-                // 🌲 फ़ोटो के अनुसार खूबसूरत Amon Garden Coming Soon कार्ड
                 1 -> AmonGardenComingSoonTab(
                     goldColor = goldColor,
                     isDark = isDark
@@ -198,7 +200,7 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🌲 AMON GARDEN • COMING SOON TAB (REFERENCE PHOTO DESIGN)
+// 🌲 AMON GARDEN • COMING SOON TAB
 // =============================================================================
 @Composable
 fun AmonGardenComingSoonTab(
@@ -224,7 +226,6 @@ fun AmonGardenComingSoonTab(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // 🪵 ऊपर का "Amon Garden" लकड़ी जैसा साइनबोर्ड
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = Color(0xFF422E1B),
@@ -242,7 +243,6 @@ fun AmonGardenComingSoonTab(
                 )
             }
 
-            // 🌿 मुख्य "Coming Soon" ग्लास कार्ड
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(32.dp),
@@ -256,7 +256,6 @@ fun AmonGardenComingSoonTab(
                         .padding(horizontal = 24.dp, vertical = 32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // सुंदर पेड़
                     Text(text = "🌲", fontSize = 54.sp)
 
                     Spacer(modifier = Modifier.height(18.dp))
@@ -301,7 +300,6 @@ fun AmonGardenComingSoonTab(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // 🚀 एक्टिव डेवलपमेंट बैज
                     Surface(
                         shape = RoundedCornerShape(50),
                         color = Color(0xFF1E2820),
@@ -1407,7 +1405,91 @@ fun WhatsNewDialog(
 }
 
 // =============================================================================
-// 🟢 4. CURVED BOTTOM BAR
+// 🟢 4. SIMPLE VECTOR ICON COMPOSABLE (बिना किसी इमेज फाइल के)
+// =============================================================================
+@Composable
+private fun SimpleNavIcon(
+    index: Int,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    when (index) {
+        0 -> {
+            Icon(
+                imageVector = Icons.Default.Home,
+                contentDescription = "Home",
+                tint = tint,
+                modifier = modifier
+            )
+        }
+        1 -> {
+            // 🌲 सिंपल और क्रिस्प मिनिमल ट्री आइकन (प्योर कैनवास)
+            Canvas(modifier = modifier) {
+                val w = size.width
+                val h = size.height
+
+                // पेड़ का तना
+                drawRect(
+                    color = tint,
+                    topLeft = Offset(w * 0.42f, h * 0.72f),
+                    size = Size(w * 0.16f, h * 0.22f)
+                )
+
+                // पेड़ के पत्ते (त्रिकोण)
+                val treePath = Path().apply {
+                    moveTo(w * 0.5f, h * 0.10f)
+                    lineTo(w * 0.85f, h * 0.70f)
+                    lineTo(w * 0.15f, h * 0.70f)
+                    close()
+                }
+                drawPath(treePath, color = tint)
+            }
+        }
+        2 -> {
+            // 📊 सिंपल और क्लीन 3-बार एनालिटिक्स चार्ट (प्योर कैनवास)
+            Canvas(modifier = modifier) {
+                val w = size.width
+                val h = size.height
+                val barW = w * 0.20f
+                val gap = w * 0.12f
+                val startX = w * 0.10f
+
+                // बार 1 (मध्यम)
+                drawRoundRect(
+                    color = tint,
+                    topLeft = Offset(startX, h * 0.45f),
+                    size = Size(barW, h * 0.50f),
+                    cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                )
+                // बार 2 (ऊँचा)
+                drawRoundRect(
+                    color = tint,
+                    topLeft = Offset(startX + barW + gap, h * 0.15f),
+                    size = Size(barW, h * 0.80f),
+                    cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                )
+                // बार 3 (छोटा)
+                drawRoundRect(
+                    color = tint,
+                    topLeft = Offset(startX + (barW + gap) * 2f, h * 0.60f),
+                    size = Size(barW, h * 0.35f),
+                    cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                )
+            }
+        }
+        3 -> {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = "Profile",
+                tint = tint,
+                modifier = modifier
+            )
+        }
+    }
+}
+
+// =============================================================================
+// 🟢 5. CURVED BOTTOM BAR (WITH SIMPLE ICONS & FLOATING BUBBLE)
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
@@ -1419,12 +1501,7 @@ fun AmonCurvedBottomBar(
     borderCol: Color,
     hasNewUpdate: Boolean = false
 ) {
-    val tabItems = listOf(
-        Triple("Home", R.drawable.ic_nav_home, 0),
-        Triple("Forest", R.drawable.ic_nav_forest, 1),
-        Triple("Stats", R.drawable.ic_nav_stats, 2),
-        Triple("Profile", R.drawable.ic_nav_profile, 3)
-    )
+    val tabTitles = listOf("Home", "Forest", "Stats", "Profile")
 
     val animatedIndex by animateFloatAsState(
         targetValue = selectedIndex.toFloat(),
@@ -1439,6 +1516,7 @@ fun AmonCurvedBottomBar(
             .fillMaxWidth()
             .height(84.dp)
     ) {
+        // स्मूथ कर्व पाथ
         Canvas(modifier = Modifier.fillMaxSize()) {
             val barHeight = 64.dp.toPx()
             val startY = size.height - barHeight
@@ -1472,6 +1550,7 @@ fun AmonCurvedBottomBar(
             val bubbleSize = 54.dp
             val bubbleX = (tabWidth * animatedIndex) + (tabWidth / 2) - (bubbleSize / 2)
 
+            // ऊपर उठता हुआ फ्लोटिंग बबल
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -1481,15 +1560,11 @@ fun AmonCurvedBottomBar(
                     .background(if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC))
                     .border(2.6.dp, goldColor, CircleShape)
             ) {
-                val activeIconRes = tabItems[selectedIndex].second
                 Box(contentAlignment = Alignment.TopEnd) {
-                    Image(
-                        painter = painterResource(id = activeIconRes),
-                        contentDescription = tabItems[selectedIndex].first,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp)),
-                        contentScale = ContentScale.Fit
+                    SimpleNavIcon(
+                        index = selectedIndex,
+                        tint = goldColor,
+                        modifier = Modifier.size(26.dp)
                     )
 
                     if (hasNewUpdate && selectedIndex == 3) {
@@ -1505,6 +1580,7 @@ fun AmonCurvedBottomBar(
                 }
             }
 
+            // नीचे के सामान्य इन-एक्टिव टैब्स
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1513,7 +1589,7 @@ fun AmonCurvedBottomBar(
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                tabItems.forEachIndexed { index, item ->
+                tabTitles.forEachIndexed { index, title ->
                     val isSelected = index == selectedIndex
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1526,13 +1602,10 @@ fun AmonCurvedBottomBar(
                     ) {
                         if (!isSelected) {
                             Box(contentAlignment = Alignment.TopEnd) {
-                                Image(
-                                    painter = painterResource(id = item.second),
-                                    contentDescription = item.first,
-                                    modifier = Modifier
-                                        .size(26.dp)
-                                        .clip(RoundedCornerShape(7.dp)),
-                                    contentScale = ContentScale.Fit
+                                SimpleNavIcon(
+                                    index = index,
+                                    tint = inactiveColor,
+                                    modifier = Modifier.size(22.dp)
                                 )
 
                                 if (hasNewUpdate && index == 3) {
@@ -1546,9 +1619,9 @@ fun AmonCurvedBottomBar(
                                     )
                                 }
                             }
-                            Spacer(modifier = Modifier.height(3.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = item.first,
+                                text = title,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = inactiveColor
@@ -1556,7 +1629,7 @@ fun AmonCurvedBottomBar(
                         } else {
                             Spacer(modifier = Modifier.height(26.dp))
                             Text(
-                                text = item.first,
+                                text = title,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = goldColor
@@ -1570,7 +1643,7 @@ fun AmonCurvedBottomBar(
 }
 
 // -----------------------------------------------------------------------------
-// 🔥 5. STREAK CALCULATOR
+// 🔥 6. STREAK CALCULATOR
 // -----------------------------------------------------------------------------
 private fun calculateStreakDays(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
