@@ -49,7 +49,6 @@ import kotlin.math.*
 
 /**
  * 👑 AMON CENTRAL WATCH CONTAINER
- * तीनों घड़ियों को एक ही मॉड्यूलर हब में कंट्रोल करता है
  */
 @Composable
 fun TimerWatchesContainer(
@@ -70,7 +69,9 @@ fun TimerWatchesContainer(
     timeFormatted: String,
     hours: Int,
     selectedSubjectName: String = "Focus",
-    onTogglePlayPause: () -> Unit = {}
+    onTogglePlayPause: () -> Unit = {},
+    isBreakActive: Boolean = false,
+    isPomodoroMode: Boolean = false
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -84,21 +85,25 @@ fun TimerWatchesContainer(
         mutableIntStateOf(watchPrefs.getInt("selected_watch_style", 0))
     }
 
+    // पोमोडोरो में केवल रिंग (0) और रोटरी (1) स्टाइल
+    val effectiveStyle = if (isPomodoroMode && selectedWatchStyle == 2) 0 else selectedWatchStyle
+
     val onPrevStyle = {
-        selectedWatchStyle = if (selectedWatchStyle > 0) selectedWatchStyle - 1 else 2
+        val maxIndex = if (isPomodoroMode) 1 else 2
+        selectedWatchStyle = if (selectedWatchStyle > 0) selectedWatchStyle - 1 else maxIndex
         watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
     }
 
     val onNextStyle = {
-        selectedWatchStyle = if (selectedWatchStyle < 2) selectedWatchStyle + 1 else 0
+        val maxIndex = if (isPomodoroMode) 1 else 2
+        selectedWatchStyle = if (selectedWatchStyle < maxIndex) selectedWatchStyle + 1 else 0
         watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
     }
 
-    // 🎯 फ्लिप वॉच में ठीक दोनों कार्ड्स के बीच वाले गैप (Seam) पर (105dp), और डायल पर सेंटर में (111dp)
     val targetArrowY = if (isLandscape) {
-        if (selectedWatchStyle == 2) 72.dp else 95.dp
+        if (effectiveStyle == 2) 72.dp else 95.dp
     } else {
-        if (selectedWatchStyle == 2) 105.dp else 111.dp
+        if (effectiveStyle == 2) 105.dp else 111.dp
     }
 
     val animatedArrowY by animateDpAsState(
@@ -135,7 +140,7 @@ fun TimerWatchesContainer(
             contentAlignment = Alignment.TopCenter
         ) {
             AnimatedContent(
-                targetState = selectedWatchStyle,
+                targetState = effectiveStyle,
                 transitionSpec = {
                     if (targetState > initialState) {
                         slideInHorizontally { width -> width } + fadeIn() togetherWith
@@ -164,7 +169,9 @@ fun TimerWatchesContainer(
                         textMuted = textMuted,
                         isDark = isDark,
                         timeFormatted = timeFormatted,
-                        hours = hours
+                        hours = hours,
+                        isBreakActive = isBreakActive,
+                        isPomodoroMode = isPomodoroMode
                     )
 
                     1 -> RotaryDialWatch(
@@ -182,7 +189,8 @@ fun TimerWatchesContainer(
                         textMuted = textMuted,
                         isDark = isDark,
                         timeFormatted = timeFormatted,
-                        hours = hours
+                        hours = hours,
+                        isPomodoroMode = isPomodoroMode
                     )
 
                     2 -> RetroFlipClockWatch(
@@ -202,7 +210,6 @@ fun TimerWatchesContainer(
                 }
             }
 
-            // 🏹 100% बिना सर्कल के, केवल तैरते हुए खुले शेवरॉन एरो
             if (!isRunning) {
                 Box(
                     modifier = Modifier
@@ -233,7 +240,7 @@ fun TimerWatchesContainer(
 }
 
 // =============================================================================
-// 🏹 PURE FLOATING CHEVRON BUTTON (NO CIRCLE, NO BORDER, PURE VECTOR)
+// 🏹 PURE FLOATING CHEVRON BUTTON
 // =============================================================================
 @Composable
 private fun WatchNavArrowButton(
@@ -319,7 +326,9 @@ private fun ClassicRingWatch(
     textMuted: Color,
     isDark: Boolean,
     timeFormatted: String,
-    hours: Int
+    hours: Int,
+    isBreakActive: Boolean = false,
+    isPomodoroMode: Boolean = false
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
@@ -377,21 +386,25 @@ private fun ClassicRingWatch(
                 )
             }
 
-            // 🎯 सेंटर टाइम टैप
+            // सेंटर टाइम और टारगेट/टी-कप आइकन
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier
                     .clip(RoundedCornerShape(18.dp))
                     .clickable(
-                        enabled = !isRunning,
+                        enabled = !isRunning && !isPomodoroMode,
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onCustomModeToggle
                     )
                     .padding(8.dp)
             ) {
-                FocusTargetIcon(tint = goldColor, modifier = Modifier.size(26.dp))
+                if (isBreakActive) {
+                    WatchCleanTeaCupIcon(tint = goldColor, modifier = Modifier.size(26.dp))
+                } else {
+                    FocusTargetIcon(tint = goldColor, modifier = Modifier.size(26.dp))
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = timeFormatted,
@@ -403,8 +416,8 @@ private fun ClassicRingWatch(
             }
         }
 
-        // 🔘 PRESET BUTTONS
-        if (!isRunning) {
+        // 🔘 PRESET BUTTONS (पोमोडोरो में यह छिप जाएंगे)
+        if (!isRunning && !isPomodoroMode) {
             Spacer(modifier = Modifier.height(14.dp))
             Row(
                 modifier = Modifier
@@ -555,7 +568,8 @@ private fun RotaryDialWatch(
     textMuted: Color,
     isDark: Boolean,
     timeFormatted: String,
-    hours: Int
+    hours: Int,
+    isPomodoroMode: Boolean = false
 ) {
     var centerOffset by remember { mutableStateOf(Offset.Zero) }
 
@@ -671,14 +685,13 @@ private fun RotaryDialWatch(
                 }
             }
 
-            // 🎯 सेंटर टाइम टैप
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier
                     .clip(RoundedCornerShape(18.dp))
                     .clickable(
-                        enabled = !isRunning,
+                        enabled = !isRunning && !isPomodoroMode,
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onCustomModeToggle
@@ -704,7 +717,7 @@ private fun RotaryDialWatch(
             }
         }
 
-        if (!isRunning) {
+        if (!isRunning && !isPomodoroMode) {
             Spacer(modifier = Modifier.height(14.dp))
             Row(
                 modifier = Modifier
@@ -876,7 +889,6 @@ private fun RetroFlipClockWatch(
             }
         }
 
-        // 🔘 PRESET BUTTONS
         if (!isRunning) {
             Spacer(modifier = Modifier.height(14.dp))
             Row(
@@ -1154,7 +1166,6 @@ private fun AuthenticSplitFlapCard(
             }
         }
 
-        // Seam Line
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1352,7 +1363,7 @@ private fun CustomHorizontalSlider(
 }
 
 // =============================================================================
-// ✨ FOCUS TARGET ICON (FIXED: TWO-ARGUMENT OFFSET ON LINE 1390)
+// ✨ FOCUS TARGET ICON
 // =============================================================================
 @Composable
 private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
@@ -1387,5 +1398,38 @@ private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
         drawLine(tint, Offset(center.x, center.y + w * 0.44f - crossLen), Offset(center.x, center.y + w * 0.44f), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x - w * 0.44f, center.y), Offset(center.x - w * 0.44f + crossLen, center.y), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f, center.y), stroke, StrokeCap.Round)
+    }
+}
+
+// =============================================================================
+// ☕ CLEAN TEA CUP ICON (प्योर कैनवास से, नो एरर)
+// =============================================================================
+@Composable
+private fun WatchCleanTeaCupIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val w = size.width
+        val h = size.height
+
+        val cupPath = Path().apply {
+            moveTo(w * 0.18f, h * 0.30f)
+            lineTo(w * 0.72f, h * 0.30f)
+            cubicTo(w * 0.72f, h * 0.68f, w * 0.64f, h * 0.82f, w * 0.45f, h * 0.82f)
+            cubicTo(w * 0.26f, h * 0.82f, w * 0.18f, h * 0.68f, w * 0.18f, h * 0.30f)
+            close()
+        }
+        drawPath(cupPath, color = tint)
+
+        val handlePath = Path().apply {
+            moveTo(w * 0.70f, h * 0.38f)
+            cubicTo(w * 0.92f, h * 0.38f, w * 0.92f, h * 0.65f, w * 0.68f, h * 0.65f)
+        }
+        drawPath(handlePath, color = tint, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
+
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(w * 0.12f, h * 0.86f),
+            size = Size(w * 0.66f, h * 0.08f),
+            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+        )
     }
 }
