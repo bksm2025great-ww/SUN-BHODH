@@ -3,15 +3,14 @@ package com.amon.timer
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +24,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -39,11 +41,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -54,6 +54,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -72,10 +73,8 @@ fun MainScreen() {
     val isDark = ThemeManager.isDarkTheme.value
     val isRunning = TimerService.isTimerRunning.value
     val isPaused = TimerService.isTimerPaused.value
-
     val isFocusActive = isRunning || isPaused
 
-    // 🚀 Update Check for Green Dot Notification on Profile Tab
     val updateManager = remember { UpdateManager(context) }
     var hasNewUpdate by remember { mutableStateOf(false) }
 
@@ -88,7 +87,6 @@ fun MainScreen() {
         } catch (_: Exception) {}
     }
 
-    // 🔕 Immersive Mode + ऑटो-रोटेशन सेंसर
     DisposableEffect(isFocusActive) {
         val window = activity?.window
         if (window != null) {
@@ -97,10 +95,10 @@ fun MainScreen() {
                 insetsController.hide(WindowInsetsCompat.Type.systemBars())
                 insetsController.systemBarsBehavior =
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
             } else {
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
-                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             }
         }
         onDispose {
@@ -120,9 +118,7 @@ fun MainScreen() {
     val glassBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
     val glowBorder = goldColor.copy(alpha = 0.6f)
 
-    val appPrefs = remember {
-        context.getSharedPreferences("amon_app_prefs", Context.MODE_PRIVATE)
-    }
+    val appPrefs = remember { context.getSharedPreferences("amon_app_prefs", Context.MODE_PRIVATE) }
     val currentVersion = remember {
         try {
             @Suppress("DEPRECATION")
@@ -162,9 +158,7 @@ fun MainScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .background(bgColor)
-                .then(
-                    if (!isFocusActive) Modifier.padding(paddingValues) else Modifier
-                )
+                .then(if (!isFocusActive) Modifier.padding(paddingValues) else Modifier)
         ) {
             when (currentNavIndex) {
                 0 -> HomeTimerTab(
@@ -180,7 +174,10 @@ fun MainScreen() {
                     isPaused = isPaused,
                     isFocusActive = isFocusActive
                 )
-                1 -> ForestScreen()
+                1 -> AmonGardenComingSoonTab(
+                    goldColor = goldColor,
+                    isDark = isDark
+                )
                 2 -> StatsScreen()
                 3 -> ProfileScreen()
             }
@@ -204,7 +201,163 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🟢 1. HOME TAB (TIMER, DYNAMIC SUBJECTS & CONTROLS)
+// 🌲 AMON GARDEN • COMING SOON TAB
+// =============================================================================
+@Composable
+fun AmonGardenComingSoonTab(
+    goldColor: Color,
+    isDark: Boolean
+) {
+    val gardenBg = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFF132D1B),
+            Color(0xFF0A1C10),
+            Color(0xFF061009)
+        )
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(gardenBg)
+            .padding(20.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF422E1B),
+                border = BorderStroke(2.dp, Color(0xFF6E5030)),
+                shadowElevation = 8.dp,
+                modifier = Modifier.padding(bottom = 28.dp)
+            ) {
+                Text(
+                    text = "Amon Garden",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFF3E5AB),
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 10.dp)
+                )
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(32.dp),
+                color = Color(0xFF131A15).copy(alpha = 0.94f),
+                border = BorderStroke(1.2.dp, Color(0xFF334B3B)),
+                shadowElevation = 12.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(text = "🌲", fontSize = 54.sp)
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Text(
+                        text = "FOREST EXPEDITION",
+                        color = Color(0xFF65C887),
+                        fontSize = 11.5.sp,
+                        letterSpacing = 2.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Coming Soon ✨",
+                        color = Color(0xFFFFD56A),
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Black
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Text(
+                        text = "We are hand-crafting deep focus landscapes & lush garden ecosystems.",
+                        color = Color(0xFFE2E8F0),
+                        fontSize = 13.5.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "Stay focused and build your study discipline while the forest grows!",
+                        color = Color(0xFFA0AEC0),
+                        fontSize = 12.5.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 18.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFF1E2820),
+                        border = BorderStroke(1.dp, Color(0xFF8D733E))
+                    ) {
+                        Text(
+                            text = "🚀 In Active Development",
+                            color = Color(0xFFE8C576),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// =============================================================================
+// ☕ CLEAN CANVASS TEA / BREAK ICON
+// =============================================================================
+@Composable
+fun CleanTeaCupIcon(
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        val cupPath = Path().apply {
+            moveTo(w * 0.18f, h * 0.32f)
+            lineTo(w * 0.72f, h * 0.32f)
+            cubicTo(w * 0.72f, h * 0.68f, w * 0.64f, h * 0.82f, w * 0.45f, h * 0.82f)
+            cubicTo(w * 0.26f, h * 0.82f, w * 0.18f, h * 0.68f, w * 0.18f, h * 0.32f)
+            close()
+        }
+        drawPath(cupPath, color = tint)
+
+        val handlePath = Path().apply {
+            moveTo(w * 0.70f, h * 0.40f)
+            cubicTo(w * 0.90f, h * 0.40f, w * 0.90f, h * 0.65f, w * 0.68f, h * 0.65f)
+        }
+        drawPath(handlePath, color = tint, style = Stroke(width = 2.2.dp.toPx()))
+
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(w * 0.12f, h * 0.86f),
+            size = Size(w * 0.66f, h * 0.08f),
+            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+        )
+    }
+}
+
+// =============================================================================
+// 🟢 1. HOME TAB (TIMER, INDEPENDENT STOPWATCH, POMODORO DESIGN-A)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
@@ -230,9 +383,33 @@ fun HomeTimerTab(
     var showGiveUpDialog by remember { mutableStateOf(false) }
     var newSubjectInput by remember { mutableStateOf("") }
 
-    val subjectPrefs = remember {
-        context.getSharedPreferences("amon_subject_prefs", Context.MODE_PRIVATE)
+    // 🌟 मोड्स स्टेट (0 = Timer, 1 = Stopwatch, 2 = Pomodoro)
+    var selectedFocusMode by rememberSaveable { mutableIntStateOf(0) }
+
+    // ⏱️ स्वतंत्र स्टॉपवॉच स्टेट्स (टाइमर से 100% अलग)
+    var isStopwatchRunning by rememberSaveable { mutableStateOf(false) }
+    var stopwatchSeconds by rememberSaveable { mutableIntStateOf(0) }
+
+    LaunchedEffect(isStopwatchRunning) {
+        while (isStopwatchRunning) {
+            delay(1000)
+            stopwatchSeconds++
+        }
     }
+
+    // 🎯 पोमोडोरो स्टेट्स (डिज़ाइन A)
+    var pomodoroFocusMinutes by rememberSaveable { mutableIntStateOf(25) }
+    var pomodoroShortBreakMinutes by rememberSaveable { mutableIntStateOf(5) }
+    var pomodoroLongBreakMinutes by rememberSaveable { mutableIntStateOf(15) }
+    var pomodoroTotalSessions by rememberSaveable { mutableIntStateOf(4) }
+    var pomodoroConfigTab by rememberSaveable { mutableIntStateOf(0) } // 0: Focus, 1: Short, 2: Long
+
+    var isBreakActive by rememberSaveable { mutableStateOf(false) }
+    var currentSessionIndex by rememberSaveable { mutableIntStateOf(1) }
+    var isOvertimeActive by rememberSaveable { mutableStateOf(false) }
+    var overtimeSeconds by rememberSaveable { mutableIntStateOf(0) }
+
+    val subjectPrefs = remember { context.getSharedPreferences("amon_subject_prefs", Context.MODE_PRIVATE) }
 
     var hiddenSubjects by remember {
         val saved = subjectPrefs.getStringSet("hidden_subjects", null)
@@ -245,11 +422,7 @@ fun HomeTimerTab(
         }
     }
 
-    var isSoundOn by rememberSaveable { mutableStateOf(false) }
-    var showSoundPanel by remember { mutableStateOf(false) }
-    var selectedSound by rememberSaveable { mutableStateOf("Rain") }
-
-    BackHandler(enabled = isFocusActive) {
+    BackHandler(enabled = isFocusActive || isStopwatchRunning) {
         showGiveUpDialog = true
     }
 
@@ -263,6 +436,20 @@ fun HomeTimerTab(
 
     val totalSeconds = TimerService.remainingSeconds.intValue
 
+    // ⏱️ ओवरटाइम counter: जब टाइमर 0 हो जाए तब +00:01 शुरू होगा
+    LaunchedEffect(isRunning, totalSeconds, isBreakActive) {
+        if (isRunning && totalSeconds == 0 && !isBreakActive) {
+            isOvertimeActive = true
+            while (isRunning && isOvertimeActive) {
+                delay(1000)
+                overtimeSeconds++
+            }
+        } else if (!isRunning) {
+            isOvertimeActive = false
+            overtimeSeconds = 0
+        }
+    }
+
     var streakDays by remember { mutableIntStateOf(0) }
     LaunchedEffect(isFocusActive) {
         if (!isFocusActive) {
@@ -274,7 +461,12 @@ fun HomeTimerTab(
     val hours = totalSeconds / 3600
     val displayMinutes = (totalSeconds % 3600) / 60
     val displaySeconds = totalSeconds % 60
-    val timeFormatted = if (hours > 0) {
+
+    val timeFormatted = if (isOvertimeActive) {
+        val otM = overtimeSeconds / 60
+        val otS = overtimeSeconds % 60
+        String.format("+%02d:%02d", otM, otS)
+    } else if (hours > 0) {
         String.format("%02d:%02d:%02d", hours, displayMinutes, displaySeconds)
     } else {
         String.format("%02d:%02d", displayMinutes, displaySeconds)
@@ -312,7 +504,6 @@ fun HomeTimerTab(
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (!isFocusActive) {
-            // ----------------- NORMAL MODE (TIMER OFF) -----------------
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -320,7 +511,7 @@ fun HomeTimerTab(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // 👑 TOP HEADER: CLEAN AMON TEXT + STREAK PILL
+                // 1. TOP HEADER: AMON + STREAK
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -328,7 +519,6 @@ fun HomeTimerTab(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 👈 बाईं तरफ़: केवल साफ़ वाइट AMON टेक्स्ट
                     Text(
                         text = "AMON",
                         fontSize = 21.sp,
@@ -337,7 +527,6 @@ fun HomeTimerTab(
                         letterSpacing = 2.5.sp
                     )
 
-                    // 👉 दाईं तरफ़: स्ट्रीक (फ़ायर) कैप्सूल
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -361,153 +550,366 @@ fun HomeTimerTab(
                     }
                 }
 
-                // DYNAMIC SUBJECT RIBBON
+                // 2. DYNAMIC SUBJECT RIBBON
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Row(
+                    LazyRow(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        contentPadding = PaddingValues(horizontal = 2.dp)
                     ) {
-                        LazyRow(
+                        item {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(goldColor)
+                                    .clickable { showAddDialog = true }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "+ Subject",
+                                    color = Color.Black,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
+
+                        item {
+                            val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isSelected) goldColor else cardBg)
+                                    .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                                    .clickable { selectedSubjectName = "All" }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "All",
+                                    color = if (isSelected) Color.White else textMuted,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        items(activeSortedSubjects) { subj ->
+                            val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isSelected) goldColor else cardBg)
+                                    .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                                    .clickable { selectedSubjectName = subj }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = subj,
+                                    color = if (isSelected) Color.White else textMuted,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 3. MODE SELECTOR PANEL (Timer, Stopwatch, Pomodoro)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = cardBg,
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, glassBorder)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            contentPadding = PaddingValues(horizontal = 2.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            item {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .background(goldColor)
-                                        .clickable { showAddDialog = true }
-                                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                            val modes = listOf("Timer", "Stopwatch", "Pomodoro")
+                            modes.forEachIndexed { index, modeName ->
+                                val isSelected = selectedFocusMode == index
+                                Button(
+                                    onClick = { selectedFocusMode = index },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isSelected) goldColor else (if (isDark) Color(0xFF22222A) else Color(0xFFE2E8F0))
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(vertical = 4.dp)
                                 ) {
                                     Text(
-                                        text = "+ Subject",
-                                        color = Color.Black,
-                                        fontSize = 12.sp,
+                                        text = modeName,
+                                        color = if (isSelected) Color.Black else textMain,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        // 🎯 POMODORO DESIGN-A CONTROLS (Only visible in Pomodoro mode)
+                        if (selectedFocusMode == 2) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                val pTabs = listOf(
+                                    "Focus ${pomodoroFocusMinutes}m",
+                                    "Short ${pomodoroShortBreakMinutes}m",
+                                    "Long ${pomodoroLongBreakMinutes}m"
+                                )
+                                pTabs.forEachIndexed { idx, title ->
+                                    val isTabSelected = pomodoroConfigTab == idx
+                                    Surface(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(50))
+                                            .clickable { pomodoroConfigTab = idx },
+                                        color = if (isTabSelected) goldColor.copy(alpha = 0.22f) else Color.Transparent,
+                                        border = BorderStroke(1.dp, if (isTabSelected) goldColor else glassBorder),
+                                        shape = RoundedCornerShape(50)
+                                    ) {
+                                        Text(
+                                            text = title,
+                                            color = if (isTabSelected) goldColor else textMuted,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.padding(vertical = 5.dp, horizontal = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    TextButton(onClick = {
+                                        when (pomodoroConfigTab) {
+                                            0 -> if (pomodoroFocusMinutes > 1) pomodoroFocusMinutes--
+                                            1 -> if (pomodoroShortBreakMinutes > 1) pomodoroShortBreakMinutes--
+                                            2 -> if (pomodoroLongBreakMinutes > 1) pomodoroLongBreakMinutes--
+                                        }
+                                    }) {
+                                        Text("-", color = goldColor, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    val currVal = when (pomodoroConfigTab) {
+                                        0 -> pomodoroFocusMinutes
+                                        1 -> pomodoroShortBreakMinutes
+                                        else -> pomodoroLongBreakMinutes
+                                    }
+                                    Text(
+                                        text = "${currVal}m",
+                                        color = textMain,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 13.sp
+                                    )
+
+                                    TextButton(onClick = {
+                                        when (pomodoroConfigTab) {
+                                            0 -> pomodoroFocusMinutes++
+                                            1 -> pomodoroShortBreakMinutes++
+                                            2 -> pomodoroLongBreakMinutes++
+                                        }
+                                    }) {
+                                        Text("+", color = goldColor, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (isDark) Color(0xFF1E1E26) else Color(0xFFF1F5F9))
+                                        .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Text("Sessions:", color = textMuted, fontSize = 10.5.sp, fontWeight = FontWeight.Medium)
+                                    TextButton(
+                                        onClick = { if (pomodoroTotalSessions > 1) pomodoroTotalSessions-- },
+                                        contentPadding = PaddingValues(0.dp),
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Text("-", color = goldColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Text(
+                                        text = "$pomodoroTotalSessions",
+                                        color = textMain,
+                                        fontSize = 11.5.sp,
                                         fontWeight = FontWeight.ExtraBold
                                     )
-                                }
-                            }
-
-                            item {
-                                val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .background(if (isSelected) goldColor else cardBg)
-                                        .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                                        .clickable { selectedSubjectName = "All" }
-                                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                                ) {
-                                    Text(
-                                        text = "All",
-                                        color = if (isSelected) Color.White else textMuted,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            items(activeSortedSubjects) { subj ->
-                                val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .background(if (isSelected) goldColor else cardBg)
-                                        .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                                        .clickable { selectedSubjectName = subj }
-                                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                                ) {
-                                    Text(
-                                        text = subj,
-                                        color = if (isSelected) Color.White else textMuted,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    TextButton(
+                                        onClick = { if (pomodoroTotalSessions < 12) pomodoroTotalSessions++ },
+                                        contentPadding = PaddingValues(0.dp),
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Text("+", color = goldColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                // WATCH CONTAINER
-                TimerWatchesContainer(
-                    dialMinutes = dialMinutes,
-                    onDialMinutesChange = { nextMins ->
-                        dialMinutes = nextMins
-                        val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
-                        TimerService.remainingSeconds.intValue = secs
-                        initialTotalSeconds = if (secs > 0) secs else 60
-                    },
-                    totalSeconds = totalSeconds,
-                    initialTotalSeconds = initialTotalSeconds,
-                    isRunning = false,
-                    isCustomMode = isCustomMode,
-                    onCustomModeToggle = { isCustomMode = !isCustomMode },
-                    goldColor = goldColor,
-                    glowYellow = glowYellow,
-                    cardBg = cardBg,
-                    glassBorder = glassBorder,
-                    textMain = textMain,
-                    textMuted = textMuted,
-                    isDark = isDark,
-                    timeFormatted = timeFormatted,
-                    hours = hours,
-                    selectedSubjectName = selectedSubjectName
-                )
-
-                // START FOCUS BUTTON
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .fillMaxWidth(0.92f)
-                        .height(44.dp)
-                        .shadow(12.dp, RoundedCornerShape(50), spotColor = goldColor, ambientColor = goldColor)
-                        .clip(RoundedCornerShape(50))
-                        .background(goldColor)
-                        .border(1.dp, glowYellow, RoundedCornerShape(50))
-                        .clickable {
-                            val intent = Intent(context, TimerService::class.java).apply {
-                                action = TimerService.ACTION_START
-                                initialTotalSeconds = if (totalSeconds > 0) totalSeconds else (dialMinutes.toInt() * 60)
-                                putExtra(TimerService.EXTRA_SECONDS, totalSeconds)
-                                putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
-                            }
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                context.startForegroundService(intent)
-                            } else {
-                                context.startService(intent)
-                            }
-                        }
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(text = "▶", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Black)
-                        Text(
-                            text = "Start Focus",
-                            color = Color.Black,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp
+                // 4. WATCH OR STOPWATCH DISPLAY
+                when (selectedFocusMode) {
+                    0, 2 -> {
+                        TimerWatchesContainer(
+                            dialMinutes = if (selectedFocusMode == 2) pomodoroFocusMinutes.toFloat() else dialMinutes,
+                            onDialMinutesChange = { nextMins ->
+                                dialMinutes = nextMins
+                                val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
+                                TimerService.remainingSeconds.intValue = secs
+                                initialTotalSeconds = if (secs > 0) secs else 60
+                            },
+                            totalSeconds = if (selectedFocusMode == 2) (pomodoroFocusMinutes * 60) else totalSeconds,
+                            initialTotalSeconds = initialTotalSeconds,
+                            isRunning = false,
+                            isCustomMode = isCustomMode,
+                            onCustomModeToggle = { isCustomMode = !isCustomMode },
+                            goldColor = goldColor,
+                            glowYellow = glowYellow,
+                            cardBg = cardBg,
+                            glassBorder = glassBorder,
+                            textMain = textMain,
+                            textMuted = textMuted,
+                            isDark = isDark,
+                            timeFormatted = if (selectedFocusMode == 2) String.format("%02d:00", pomodoroFocusMinutes) else timeFormatted,
+                            hours = hours,
+                            selectedSubjectName = selectedSubjectName,
+                            isBreakActive = isBreakActive,
+                            isPomodoroMode = (selectedFocusMode == 2)
                         )
                     }
+                    1 -> {
+                        // ⏱️ INDEPENDENT STOPWATCH INTERFACE
+                        val swH = stopwatchSeconds / 3600
+                        val swM = (stopwatchSeconds % 3600) / 60
+                        val swS = stopwatchSeconds % 60
+                        val swFormatted = if (swH > 0) {
+                            String.format("%02d:%02d:%02d", swH, swM, swS)
+                        } else {
+                            String.format("%02d:%02d", swM, swS)
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(250.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "STOPWATCH",
+                                    color = goldColor,
+                                    fontSize = 11.5.sp,
+                                    letterSpacing = 2.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = swFormatted,
+                                    color = textMain,
+                                    fontSize = if (swH > 0) 42.sp else 54.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Spacer(modifier = Modifier.height(18.dp))
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    Button(
+                                        onClick = { isStopwatchRunning = !isStopwatchRunning },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isStopwatchRunning) Color(0xFFEF4444) else goldColor
+                                        ),
+                                        shape = RoundedCornerShape(50)
+                                    ) {
+                                        Text(
+                                            text = if (isStopwatchRunning) "Pause" else "Start",
+                                            color = Color.Black,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            isStopwatchRunning = false
+                                            stopwatchSeconds = 0
+                                        },
+                                        shape = RoundedCornerShape(50)
+                                    ) {
+                                        Text("Reset", color = textMain, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 5. START BUTTON (For Timer / Pomodoro)
+                if (selectedFocusMode != 1) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .height(44.dp)
+                            .shadow(12.dp, RoundedCornerShape(50), spotColor = goldColor, ambientColor = goldColor)
+                            .clip(RoundedCornerShape(50))
+                            .background(goldColor)
+                            .border(1.dp, glowYellow, RoundedCornerShape(50))
+                            .clickable {
+                                val targetSecs = if (selectedFocusMode == 2) (pomodoroFocusMinutes * 60) else totalSeconds
+                                val intent = Intent(context, TimerService::class.java).apply {
+                                    action = TimerService.ACTION_START
+                                    putExtra(TimerService.EXTRA_SECONDS, if (targetSecs > 0) targetSecs else 1500)
+                                    putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                }
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    context.startForegroundService(intent)
+                                } else {
+                                    context.startService(intent)
+                                }
+                            }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(text = "▶", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                            Text(
+                                text = "Start Focus",
+                                color = Color.Black,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
             }
         } else {
-            // =================================================================
-            // 🎯 MASTER FOCUS SCREEN
-            // =================================================================
+            // 🎯 MASTER FOCUS SCREEN (चलते हुए टाइमर की स्क्रीन)
             if (!isLandscape) {
-                // 📱 PORTRAIT MODE
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -516,32 +918,55 @@ fun HomeTimerTab(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // 1. TOP: Subject Pill
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(7.dp),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
-                            .border(1.dp, glassBorder, RoundedCornerShape(50))
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
                             modifier = Modifier
-                                .size(7.5.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF22C55E))
-                        )
-                        Text(
-                            text = selectedSubjectName,
-                            color = textMain,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.5.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF22C55E))
+                            )
+                            Text(
+                                text = selectedSubjectName,
+                                color = textMain,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+
+                        if (isBreakActive) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(goldColor.copy(alpha = 0.2f))
+                                    .border(1.dp, goldColor, RoundedCornerShape(50))
+                                    .padding(horizontal = 12.dp, vertical = 5.dp)
+                            ) {
+                                CleanTeaCupIcon(tint = goldColor, modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = "Break",
+                                    color = goldColor,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
 
-                    // 2. CENTER: Central Watch
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -570,15 +995,50 @@ fun HomeTimerTab(
                             isDark = isDark,
                             timeFormatted = timeFormatted,
                             hours = hours,
-                            selectedSubjectName = selectedSubjectName
+                            selectedSubjectName = selectedSubjectName,
+                            isBreakActive = isBreakActive,
+                            isPomodoroMode = (selectedFocusMode == 2)
                         )
                     }
 
-                    // 3. BOTTOM: Pause & Stop Controls
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // ओवर-टाइम (+00:01) होने पर ब्रेक शुरू करने का विकल्प
+                        if (isOvertimeActive) {
+                            Button(
+                                onClick = {
+                                    isOvertimeActive = false
+                                    isBreakActive = true
+                                    val breakMins = if (currentSessionIndex >= pomodoroTotalSessions) pomodoroLongBreakMinutes else pomodoroShortBreakMinutes
+                                    val intent = Intent(context, TimerService::class.java).apply {
+                                        action = TimerService.ACTION_START
+                                        putExtra(TimerService.EXTRA_SECONDS, breakMins * 60)
+                                        putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                    }
+                                    context.startService(intent)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.height(44.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    CleanTeaCupIcon(tint = Color.Black, modifier = Modifier.size(16.dp))
+                                    Text(
+                                        text = "Start Break",
+                                        color = Color.Black,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 13.5.sp
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
+                        }
+
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(24.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -643,13 +1103,12 @@ fun HomeTimerTab(
                     }
                 }
             } else {
-                // 🔄 LANDSCAPE MODE
+                // LANDSCAPE MODE
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 24.dp, vertical = 12.dp)
                 ) {
-                    // 1. LEFT: Subject Pill
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
@@ -681,7 +1140,6 @@ fun HomeTimerTab(
                         }
                     }
 
-                    // 2. CENTER: Large Watch
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -710,11 +1168,12 @@ fun HomeTimerTab(
                             isDark = isDark,
                             timeFormatted = timeFormatted,
                             hours = hours,
-                            selectedSubjectName = selectedSubjectName
+                            selectedSubjectName = selectedSubjectName,
+                            isBreakActive = isBreakActive,
+                            isPomodoroMode = (selectedFocusMode == 2)
                         )
                     }
 
-                    // 3. RIGHT: Controls
                     Column(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
@@ -729,12 +1188,12 @@ fun HomeTimerTab(
                                 .clip(CircleShape)
                                 .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                 .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                .clickable {
-                                    val intent = Intent(context, TimerService::class.java).apply {
-                                        action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
-                                    }
-                                    context.startService(intent)
+                            .clickable {
+                                val intent = Intent(context, TimerService::class.java).apply {
+                                    action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
                                 }
+                                context.startService(intent)
+                            }
                         ) {
                             if (isRunning) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
@@ -770,138 +1229,12 @@ fun HomeTimerTab(
                                     .background(textMuted)
                             )
                         }
-
-                        if (isPaused) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "PAUSED",
-                                color = textMuted.copy(alpha = 0.65f),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
-                                letterSpacing = 1.5.sp
-                            )
-                        }
                     }
                 }
             }
         }
 
-        // =====================================================================
-        // 🎧 SOUND OVERLAY PANEL
-        // =====================================================================
-        if (showSoundPanel) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { showSoundPanel = false }
-            )
-        }
-
-        AnimatedVisibility(
-            visible = showSoundPanel,
-            enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
-            exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 114.dp, end = 12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(108.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(cardBg)
-                    .border(1.5.dp, glassBorder, RoundedCornerShape(26.dp))
-                    .padding(vertical = 12.dp, horizontal = 8.dp)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(50))
-                            .background(
-                                if (isSoundOn) goldColor.copy(alpha = 0.25f)
-                                else (if (isDark) Color(0xFF2A2A32) else Color(0xFFE2E8F0))
-                            )
-                            .clickable { isSoundOn = !isSoundOn }
-                            .padding(horizontal = 8.dp, vertical = 5.dp)
-                    ) {
-                        Text(
-                            text = if (isSoundOn) "ON" else "OFF",
-                            color = if (isSoundOn) goldColor else textMuted,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(if (isSoundOn) Color(0xFF22C55E) else Color(0xFFEF4444))
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    val soundOptions = listOf(
-                        Pair("Rain", "🌧️"),
-                        Pair("Forest", "🌲"),
-                        Pair("Clock Tick", "⏱️"),
-                        Pair("White Noise", "🌊"),
-                        Pair("Focus Piano", "🎹")
-                    )
-
-                    soundOptions.forEach { (name, icon) ->
-                        val isSelected = isSoundOn && selectedSound == name
-                        val tileBg = if (isSelected) {
-                            goldColor
-                        } else {
-                            if (isDark) Color(0xFF24242A) else Color(0xFFF1F5F9)
-                        }
-
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(tileBg)
-                                .border(
-                                    1.dp,
-                                    if (isSelected) glowYellow else glassBorder,
-                                    RoundedCornerShape(14.dp)
-                                )
-                                .clickable {
-                                    selectedSound = name
-                                    isSoundOn = true
-                                }
-                                .padding(vertical = 7.dp, horizontal = 4.dp)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(text = icon, fontSize = 16.sp)
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = name,
-                                    color = if (isSelected) Color.Black else textMain,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // =====================================================================
-        // 🎨 FROSTED TRANSLUCENT POPUP (MANAGE SUBJECTS)
-        // =====================================================================
+        // 6. POPUPS & DIALOGS
         if (showAddDialog) {
             Dialog(onDismissRequest = {
                 showAddDialog = false
@@ -1086,9 +1419,6 @@ fun HomeTimerTab(
             }
         }
 
-        // =====================================================================
-        // ⚠️ DISCIPLINE WARNING POPUP (END SESSION)
-        // =====================================================================
         if (showGiveUpDialog) {
             Dialog(onDismissRequest = { showGiveUpDialog = false }) {
                 Box(
@@ -1134,6 +1464,7 @@ fun HomeTimerTab(
                                     .border(1.dp, glassBorder, RoundedCornerShape(50))
                                     .clickable {
                                         showGiveUpDialog = false
+                                        isStopwatchRunning = false
                                         val intent = Intent(context, TimerService::class.java).apply {
                                             action = TimerService.ACTION_STOP
                                         }
@@ -1219,21 +1550,13 @@ private fun AnimatedLivingFlame(modifier: Modifier = Modifier) {
         val bottomRed = Color(0xFFE53935)
 
         val outerBrush = Brush.verticalGradient(
-            colors = listOf(
-                topYellow.copy(alpha = 0.95f),
-                midOrange,
-                bottomRed
-            ),
+            colors = listOf(topYellow.copy(alpha = 0.95f), midOrange, bottomRed),
             startY = (h * 0.15f) * (1f - colorPhase),
             endY = h
         )
 
         val innerBrush = Brush.verticalGradient(
-            colors = listOf(
-                Color(0xFFFFFDE7),
-                Color(0xFFFFEE58),
-                Color(0xFFFFA726)
-            ),
+            colors = listOf(Color(0xFFFFFDE7), Color(0xFFFFEE58), Color(0xFFFFA726)),
             startY = h * 0.35f,
             endY = h * 0.95f
         )
@@ -1316,61 +1639,7 @@ fun WhatsNewDialog(
                     textAlign = TextAlign.Center
                 )
 
-                Text(
-                    text = "Built for deeper focus & zero distractions",
-                    color = textMuted,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
-
                 Spacer(modifier = Modifier.height(18.dp))
-
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    WhatsNewItem(
-                        icon = "👑",
-                        title = "3 Luxury Watch Styles",
-                        description = "Swipe between Classic Ring, Rotary Dial, and Retro Desk Flip Clock.",
-                        textMain = textMain,
-                        textMuted = textMuted
-                    )
-
-                    WhatsNewItem(
-                        icon = "🎛️",
-                        title = "Silent Rotary 0–180m Dial",
-                        description = "Smooth circular touch with zero noise and a clean minimal display.",
-                        textMain = textMain,
-                        textMuted = textMuted
-                    )
-
-                    WhatsNewItem(
-                        icon = "📜",
-                        title = "3D Split-Flap Desk Clock",
-                        description = "Authentic mechanical flip simulation with tap-to-type input and minimal Play/Stop controls.",
-                        textMain = textMain,
-                        textMuted = textMuted
-                    )
-
-                    WhatsNewItem(
-                        icon = "🍩",
-                        title = "Subject Breakdown Chart",
-                        description = "Modern donut analytics in Stats to track your study balance across days, weeks & months.",
-                        textMain = textMain,
-                        textMuted = textMuted
-                    )
-
-                    WhatsNewItem(
-                        icon = "📦",
-                        title = "Direct APK Share",
-                        description = "Share Amon directly to WhatsApp & Quick Share without external links.",
-                        textMain = textMain,
-                        textMuted = textMuted
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(22.dp))
 
                 Box(
                     contentAlignment = Alignment.Center,
@@ -1394,40 +1663,85 @@ fun WhatsNewDialog(
     }
 }
 
+// =============================================================================
+// 🟢 4. SIMPLE VECTOR ICON COMPOSABLE
+// =============================================================================
 @Composable
-private fun WhatsNewItem(
-    icon: String,
-    title: String,
-    description: String,
-    textMain: Color,
-    textMuted: Color
+private fun SimpleNavIcon(
+    index: Int,
+    tint: Color,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(text = icon, fontSize = 20.sp)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                color = textMain,
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.Bold
+    when (index) {
+        0 -> {
+            Icon(
+                imageVector = Icons.Default.Home,
+                contentDescription = "Home",
+                tint = tint,
+                modifier = modifier
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = description,
-                color = textMuted,
-                fontSize = 11.5.sp,
-                lineHeight = 16.sp
+        }
+        1 -> {
+            Canvas(modifier = modifier) {
+                val w = size.width
+                val h = size.height
+
+                drawRect(
+                    color = tint,
+                    topLeft = Offset(w * 0.42f, h * 0.72f),
+                    size = Size(w * 0.16f, h * 0.22f)
+                )
+
+                val treePath = Path().apply {
+                    moveTo(w * 0.5f, h * 0.10f)
+                    lineTo(w * 0.85f, h * 0.70f)
+                    lineTo(w * 0.15f, h * 0.70f)
+                    close()
+                }
+                drawPath(treePath, color = tint)
+            }
+        }
+        2 -> {
+            Canvas(modifier = modifier) {
+                val w = size.width
+                val h = size.height
+                val barW = w * 0.20f
+                val gap = w * 0.12f
+                val startX = w * 0.10f
+
+                drawRoundRect(
+                    color = tint,
+                    topLeft = Offset(startX, h * 0.45f),
+                    size = Size(barW, h * 0.50f),
+                    cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                )
+                drawRoundRect(
+                    color = tint,
+                    topLeft = Offset(startX + barW + gap, h * 0.15f),
+                    size = Size(barW, h * 0.80f),
+                    cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                )
+                drawRoundRect(
+                    color = tint,
+                    topLeft = Offset(startX + (barW + gap) * 2f, h * 0.60f),
+                    size = Size(barW, h * 0.35f),
+                    cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                )
+            }
+        }
+        3 -> {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = "Profile",
+                tint = tint,
+                modifier = modifier
             )
         }
     }
 }
 
 // =============================================================================
-// 🟢 4. CURVED BOTTOM BAR (WITH GREEN DOT UPDATE BADGE)
+// 🟢 5. CURVED BOTTOM BAR
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
@@ -1439,12 +1753,7 @@ fun AmonCurvedBottomBar(
     borderCol: Color,
     hasNewUpdate: Boolean = false
 ) {
-    val tabItems = listOf(
-        Triple("Home", R.drawable.ic_nav_home, 0),
-        Triple("Forest", R.drawable.ic_nav_forest, 1),
-        Triple("Stats", R.drawable.ic_nav_stats, 2),
-        Triple("Profile", R.drawable.ic_nav_profile, 3)
-    )
+    val tabTitles = listOf("Home", "Forest", "Stats", "Profile")
 
     val animatedIndex by animateFloatAsState(
         targetValue = selectedIndex.toFloat(),
@@ -1474,16 +1783,8 @@ fun AmonCurvedBottomBar(
                 val right = notchCenterX + notchRadius
 
                 lineTo(left - shoulderWidth, startY)
-                cubicTo(
-                    left, startY,
-                    left, startY + notchRadius * 0.95f,
-                    notchCenterX, startY + notchRadius * 0.95f
-                )
-                cubicTo(
-                    right, startY + notchRadius * 0.95f,
-                    right, startY,
-                    right + shoulderWidth, startY
-                )
+                cubicTo(left, startY, left, startY + notchRadius * 0.95f, notchCenterX, startY + notchRadius * 0.95f)
+                cubicTo(right, startY + notchRadius * 0.95f, right, startY, right + shoulderWidth, startY)
 
                 lineTo(size.width, startY)
                 lineTo(size.width, size.height)
@@ -1497,9 +1798,9 @@ fun AmonCurvedBottomBar(
 
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val tabWidth = maxWidth / 4
-
             val bubbleSize = 54.dp
             val bubbleX = (tabWidth * animatedIndex) + (tabWidth / 2) - (bubbleSize / 2)
+
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -1509,15 +1810,11 @@ fun AmonCurvedBottomBar(
                     .background(if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC))
                     .border(2.6.dp, goldColor, CircleShape)
             ) {
-                val activeIconRes = tabItems[selectedIndex].second
                 Box(contentAlignment = Alignment.TopEnd) {
-                    Image(
-                        painter = painterResource(id = activeIconRes),
-                        contentDescription = tabItems[selectedIndex].first,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp)),
-                        contentScale = ContentScale.Fit
+                    SimpleNavIcon(
+                        index = selectedIndex,
+                        tint = goldColor,
+                        modifier = Modifier.size(26.dp)
                     )
 
                     if (hasNewUpdate && selectedIndex == 3) {
@@ -1541,7 +1838,7 @@ fun AmonCurvedBottomBar(
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                tabItems.forEachIndexed { index, item ->
+                tabTitles.forEachIndexed { index, title ->
                     val isSelected = index == selectedIndex
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1554,13 +1851,10 @@ fun AmonCurvedBottomBar(
                     ) {
                         if (!isSelected) {
                             Box(contentAlignment = Alignment.TopEnd) {
-                                Image(
-                                    painter = painterResource(id = item.second),
-                                    contentDescription = item.first,
-                                    modifier = Modifier
-                                        .size(26.dp)
-                                        .clip(RoundedCornerShape(7.dp)),
-                                    contentScale = ContentScale.Fit
+                                SimpleNavIcon(
+                                    index = index,
+                                    tint = inactiveColor,
+                                    modifier = Modifier.size(22.dp)
                                 )
 
                                 if (hasNewUpdate && index == 3) {
@@ -1574,9 +1868,9 @@ fun AmonCurvedBottomBar(
                                     )
                                 }
                             }
-                            Spacer(modifier = Modifier.height(3.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = item.first,
+                                text = title,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = inactiveColor
@@ -1584,7 +1878,7 @@ fun AmonCurvedBottomBar(
                         } else {
                             Spacer(modifier = Modifier.height(26.dp))
                             Text(
-                                text = item.first,
+                                text = title,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = goldColor
@@ -1598,7 +1892,7 @@ fun AmonCurvedBottomBar(
 }
 
 // -----------------------------------------------------------------------------
-// 🔥 5. STREAK CALCULATOR
+// 🔥 6. STREAK CALCULATOR
 // -----------------------------------------------------------------------------
 private fun calculateStreakDays(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
