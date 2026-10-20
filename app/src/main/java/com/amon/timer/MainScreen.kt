@@ -217,10 +217,7 @@ fun MainScreen() {
                         stopwatchElapsedMillis = 0L
                     }
                 )
-                1 -> AmonGardenComingSoonTab(
-                    goldColor = goldColor,
-                    isDark = isDark
-                )
+                1 -> ForestScreen() // 🌲 सीधे नया लेवलिंग पाथ खुलेगा
                 2 -> StatsScreen()
                 3 -> ProfileScreen()
             }
@@ -238,126 +235,6 @@ fun MainScreen() {
                         showWhatsNew = false
                     }
                 )
-            }
-        }
-    }
-}
-
-// =============================================================================
-// 🌲 AMON GARDEN • COMING SOON TAB
-// =============================================================================
-@Composable
-fun AmonGardenComingSoonTab(
-    goldColor: Color,
-    isDark: Boolean
-) {
-    val gardenBg = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF132D1B),
-            Color(0xFF0A1C10),
-            Color(0xFF061009)
-        )
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(gardenBg)
-            .padding(20.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = Color(0xFF422E1B),
-                border = BorderStroke(2.dp, Color(0xFF6E5030)),
-                shadowElevation = 8.dp,
-                modifier = Modifier.padding(bottom = 28.dp)
-            ) {
-                Text(
-                    text = "Amon Garden",
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFF3E5AB),
-                    letterSpacing = 1.sp,
-                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 10.dp)
-                )
-            }
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(32.dp),
-                color = Color(0xFF131A15).copy(alpha = 0.94f),
-                border = BorderStroke(1.2.dp, Color(0xFF334B3B)),
-                shadowElevation = 12.dp
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(text = "🌲", fontSize = 54.sp)
-
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    Text(
-                        text = "FOREST EXPEDITION",
-                        color = Color(0xFF65C887),
-                        fontSize = 11.5.sp,
-                        letterSpacing = 2.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = "Coming Soon ✨",
-                        color = Color(0xFFFFD56A),
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Black
-                    )
-
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    Text(
-                        text = "We are hand-crafting deep focus landscapes & lush garden ecosystems.",
-                        color = Color(0xFFE2E8F0),
-                        fontSize = 13.5.sp,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 20.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Text(
-                        text = "Stay focused and build your study discipline while the forest grows!",
-                        color = Color(0xFFA0AEC0),
-                        fontSize = 12.5.sp,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 18.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = Color(0xFF1E2820),
-                        border = BorderStroke(1.dp, Color(0xFF8D733E))
-                    ) {
-                        Text(
-                            text = "🚀 In Active Development",
-                            color = Color(0xFFE8C576),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
-                        )
-                    }
-                }
             }
         }
     }
@@ -752,7 +629,7 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // 4. CENTER STAGE: WATCH / STOPWATCH (PERFECT CENTER)
+                // 4. CENTER STAGE: WATCH / STOPWATCH
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -800,7 +677,7 @@ fun HomeTimerTab(
                                 timeFormatted = if (selectedFocusMode == 2) String.format("%02d:00", activeMins.toInt()) else timeFormatted,
                                 hours = hours,
                                 selectedSubjectName = selectedSubjectName,
-                                showPresets = (selectedFocusMode == 0) // पोमोडोरो में 25m/45m बटन छिप जाएँगे
+                                showPresets = (selectedFocusMode == 0)
                             )
                         }
                         1 -> {
@@ -848,7 +725,6 @@ fun HomeTimerTab(
                 ) {
                     when (selectedFocusMode) {
                         2 -> {
-                            // 🎯 केवल पोमोडोरो में यह रो 25m/45m की जगह लेगा
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -886,7 +762,6 @@ fun HomeTimerTab(
                                     }
                                 }
 
-                                // 🎚️ 2 LINES + 2 DOTS PREFERENCE BUTTON
                                 Box(
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
@@ -909,7 +784,6 @@ fun HomeTimerTab(
                             )
                         }
                         else -> {
-                            // Timer मोड में 25m, 45m डायल के साथ ही रेंडर होते हैं, इसलिए यह खाली रहेगा
                             Spacer(modifier = Modifier.fillMaxSize())
                         }
                     }
@@ -1330,152 +1204,151 @@ fun HomeTimerTab(
                                         .clip(CircleShape)
                                         .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                         .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                        .clickable { showGiveUpDialog = true }
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(16.dp)
-                                            .clip(RoundedCornerShape(3.dp))
-                                            .background(textMuted)
-                                    )
-                                }
-                            }
-
-                            if (isPaused) {
-                                Text(
-                                    text = "PAUSED",
-                                    color = textMuted.copy(alpha = 0.65f),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    letterSpacing = 2.sp
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 24.dp, vertical = 12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .fillMaxHeight(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
-                                    .border(1.dp, glassBorder, RoundedCornerShape(50))
-                                    .padding(horizontal = 14.dp, vertical = 6.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(7.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF22C55E))
-                                )
-                                Text(
-                                    text = selectedSubjectName,
-                                    color = textMain,
-                                    fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.5.sp
-                                )
-                            }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 90.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            TimerWatchesContainer(
-                                dialMinutes = dialMinutes,
-                                onDialMinutesChange = { nextMins ->
-                                    dialMinutes = nextMins
-                                    val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
-                                    TimerService.remainingSeconds.intValue = secs
-                                    initialTotalSeconds = if (secs > 0) secs else 60
-                                },
-                                totalSeconds = totalSeconds,
-                                initialTotalSeconds = initialTotalSeconds,
-                                isRunning = true,
-                                isCustomMode = isCustomMode,
-                                onCustomModeToggle = { },
-                                goldColor = goldColor,
-                                glowYellow = glowYellow,
-                                cardBg = cardBg,
-                                glassBorder = glassBorder,
-                                textMain = textMain,
-                                textMuted = textMuted,
-                                isDark = isDark,
-                                timeFormatted = timeFormatted,
-                                hours = hours,
-                                selectedSubjectName = selectedSubjectName
-                            )
-                        }
-
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .fillMaxHeight(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable {
-                                        val intent = Intent(context, TimerService::class.java).apply {
-                                            action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
-                                        }
-                                        context.startService(intent)
-                                    }
-                            ) {
-                                if (isRunning) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
-                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                    }
-                                } else {
-                                    Text(
-                                        text = "▶",
-                                        color = textMain,
-                                        fontSize = 17.sp,
-                                        fontWeight = FontWeight.Black,
-                                        modifier = Modifier.offset(x = 1.2.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(18.dp))
-
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
                                     .clickable { showGiveUpDialog = true }
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(15.dp)
+                                        .size(16.dp)
                                         .clip(RoundedCornerShape(3.dp))
                                         .background(textMuted)
                                 )
                             }
+                        }
+
+                        if (isPaused) {
+                            Text(
+                                text = "PAUSED",
+                                color = textMuted.copy(alpha = 0.65f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = 2.sp
+                            )
+                        }
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .fillMaxHeight(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF22C55E))
+                            )
+                            Text(
+                                text = selectedSubjectName,
+                                color = textMain,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 90.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        TimerWatchesContainer(
+                            dialMinutes = dialMinutes,
+                            onDialMinutesChange = { nextMins ->
+                                dialMinutes = nextMins
+                                val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
+                                TimerService.remainingSeconds.intValue = secs
+                                initialTotalSeconds = if (secs > 0) secs else 60
+                            },
+                            totalSeconds = totalSeconds,
+                            initialTotalSeconds = initialTotalSeconds,
+                            isRunning = true,
+                            isCustomMode = isCustomMode,
+                            onCustomModeToggle = { },
+                            goldColor = goldColor,
+                            glowYellow = glowYellow,
+                            cardBg = cardBg,
+                            glassBorder = glassBorder,
+                            textMain = textMain,
+                            textMuted = textMuted,
+                            isDark = isDark,
+                            timeFormatted = timeFormatted,
+                            hours = hours,
+                            selectedSubjectName = selectedSubjectName
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                            .clickable {
+                                val intent = Intent(context, TimerService::class.java).apply {
+                                    action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
+                                }
+                                context.startService(intent)
+                            }
+                        ) {
+                            if (isRunning) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
+                                    Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                    Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                }
+                            } else {
+                                Text(
+                                    text = "▶",
+                                    color = textMain,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.offset(x = 1.2.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                            .clickable { showGiveUpDialog = true }
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(15.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(textMuted)
+                            )
                         }
                     }
                 }
@@ -1648,7 +1521,7 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // 5. Auto Start Options (100% English)
+                        // 5. Auto Start Options
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(
                                 modifier = Modifier
