@@ -41,6 +41,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -399,7 +400,50 @@ fun CleanTeaCupIcon(
 }
 
 // =============================================================================
-// 🟢 1. HOME TAB (TIMER, INDEPENDENT 00:00:00.00 STOPWATCH, SLEEK CAPSULE BAR)
+// 🎚️ 2 LINES + 2 DOTS PREFERENCE ICON (SLIDERS / EQUALIZER)
+// =============================================================================
+@Composable
+fun SlidersPreferenceIcon(
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 2.dp.toPx()
+
+        // लाइन 1 (ऊपर) + डॉट (बाईं ओर 35%)
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.10f, h * 0.32f),
+            end = Offset(w * 0.90f, h * 0.32f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawCircle(
+            color = tint,
+            radius = 3.2.dp.toPx(),
+            center = Offset(w * 0.35f, h * 0.32f)
+        )
+
+        // लाइन 2 (नीचे) + डॉट (दाईं ओर 68%)
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.10f, h * 0.68f),
+            end = Offset(w * 0.90f, h * 0.68f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawCircle(
+            color = tint,
+            radius = 3.2.dp.toPx(),
+            center = Offset(w * 0.68f, h * 0.68f)
+        )
+    }
+}
+
+// =============================================================================
+// 🟢 1. HOME TAB (ROCK-SOLID ZERO-JITTER LAYOUT)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
@@ -434,11 +478,16 @@ fun HomeTimerTab(
 
     var selectedFocusMode by rememberSaveable { mutableIntStateOf(0) }
 
+    // 🎯 पोमोडोरो स्टेट्स
     var pomodoroFocusMinutes by rememberSaveable { mutableIntStateOf(25) }
     var pomodoroShortBreakMinutes by rememberSaveable { mutableIntStateOf(5) }
     var pomodoroLongBreakMinutes by rememberSaveable { mutableIntStateOf(15) }
     var pomodoroTotalSessions by rememberSaveable { mutableIntStateOf(4) }
-    var pomodoroConfigTab by rememberSaveable { mutableIntStateOf(0) }
+    var pomodoroAutoStartBreak by rememberSaveable { mutableStateOf(false) }
+    var pomodoroAutoStartFocus by rememberSaveable { mutableStateOf(false) }
+
+    var showPomodoroSettingsDialog by remember { mutableStateOf(false) }
+    var pomodoroActiveTab by rememberSaveable { mutableIntStateOf(0) } // 0: Focus, 1: Short, 2: Long
 
     var isBreakActive by rememberSaveable { mutableStateOf(false) }
     var currentSessionIndex by rememberSaveable { mutableIntStateOf(1) }
@@ -549,15 +598,15 @@ fun HomeTimerTab(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 20.dp, vertical = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp, bottom = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // TOP HEADER: AMON + STREAK
+                // 1. TOP HEADER: AMON + 0 DAYS (FIXED POSITION)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 4.dp),
+                        .height(36.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -583,7 +632,7 @@ fun HomeTimerTab(
                         ) {
                             AnimatedLivingFlame()
                             Text(
-                                text = "$streakDays",
+                                text = "$streakDays Days",
                                 color = if (streakDays > 0) Color(0xFFFB923C) else textMuted,
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.ExtraBold
@@ -592,13 +641,12 @@ fun HomeTimerTab(
                     }
                 }
 
-                // DYNAMIC SUBJECT RIBBON
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 2. DYNAMIC SUBJECT RIBBON (FIXED HEIGHT)
+                Box(modifier = Modifier.fillMaxWidth().height(38.dp)) {
                     LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxSize(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         contentPadding = PaddingValues(horizontal = 2.dp)
@@ -663,157 +711,109 @@ fun HomeTimerTab(
                     }
                 }
 
-                // 🌟 SLEEK COMPACT CAPSULE BAR
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 3. SLEEK MODE SELECTOR CAPSULE (100% FIXED POSITION & HEIGHT)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (isDark) Color(0xFF181820) else Color(0xFFE2E8F0))
+                        .border(1.dp, glassBorder, RoundedCornerShape(50))
+                        .padding(3.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(38.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(if (isDark) Color(0xFF181820) else Color(0xFFE2E8F0))
-                            .border(1.dp, glassBorder, RoundedCornerShape(50))
-                            .padding(3.dp)
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val modes = listOf("Timer", "Stopwatch", "Pomodoro")
-                            modes.forEachIndexed { index, modeName ->
-                                val isSelected = selectedFocusMode == index
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                        .clip(RoundedCornerShape(50))
-                                        .background(if (isSelected) goldColor else Color.Transparent)
-                                        .clickable { selectedFocusMode = index }
-                                ) {
-                                    Text(
-                                        text = modeName,
-                                        color = if (isSelected) Color.Black else textMuted,
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        letterSpacing = 0.3.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    if (selectedFocusMode == 2) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                val pTabs = listOf(
-                                    "Focus ${pomodoroFocusMinutes}m",
-                                    "Short ${pomodoroShortBreakMinutes}m",
-                                    "Long ${pomodoroLongBreakMinutes}m"
-                                )
-                                pTabs.forEachIndexed { idx, title ->
-                                    val isTabSelected = pomodoroConfigTab == idx
-                                    Surface(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(50))
-                                            .clickable { pomodoroConfigTab = idx },
-                                        color = if (isTabSelected) goldColor.copy(alpha = 0.22f) else Color.Transparent,
-                                        border = BorderStroke(1.dp, if (isTabSelected) goldColor else glassBorder),
-                                        shape = RoundedCornerShape(50)
-                                    ) {
-                                        Text(
-                                            text = title,
-                                            color = if (isTabSelected) goldColor else textMuted,
-                                            fontSize = 9.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 7.dp)
-                                        )
-                                    }
-                                }
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        val modes = listOf("Timer", "Stopwatch", "Pomodoro")
+                        modes.forEachIndexed { index, modeName ->
+                            val isSelected = selectedFocusMode == index
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isSelected) goldColor else Color.Transparent)
+                                    .clickable { selectedFocusMode = index }
                             ) {
-                                TextButton(
-                                    onClick = {
-                                        when (pomodoroConfigTab) {
-                                            0 -> if (pomodoroFocusMinutes > 1) pomodoroFocusMinutes--
-                                            1 -> if (pomodoroShortBreakMinutes > 1) pomodoroShortBreakMinutes--
-                                            2 -> if (pomodoroLongBreakMinutes > 1) pomodoroLongBreakMinutes--
-                                        }
-                                    },
-                                    contentPadding = PaddingValues(0.dp),
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Text("-", color = goldColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                }
-                                TextButton(
-                                    onClick = {
-                                        when (pomodoroConfigTab) {
-                                            0 -> pomodoroFocusMinutes++
-                                            1 -> pomodoroShortBreakMinutes++
-                                            2 -> pomodoroLongBreakMinutes++
-                                        }
-                                    },
-                                    contentPadding = PaddingValues(0.dp),
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Text("+", color = goldColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                }
+                                Text(
+                                    text = modeName,
+                                    color = if (isSelected) Color.Black else textMuted,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.3.sp
+                                )
                             }
                         }
                     }
                 }
 
-                // WATCH OR STOPWATCH PREVIEW DISPLAY
-                when (selectedFocusMode) {
-                    0, 2 -> {
-                        TimerWatchesContainer(
-                            dialMinutes = if (selectedFocusMode == 2) pomodoroFocusMinutes.toFloat() else dialMinutes,
-                            onDialMinutesChange = { nextMins ->
-                                dialMinutes = nextMins
-                                val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
-                                TimerService.remainingSeconds.intValue = secs
-                                initialTotalSeconds = if (secs > 0) secs else 60
-                            },
-                            totalSeconds = if (selectedFocusMode == 2) (pomodoroFocusMinutes * 60) else totalSeconds,
-                            initialTotalSeconds = initialTotalSeconds,
-                            isRunning = false,
-                            isCustomMode = isCustomMode,
-                            onCustomModeToggle = { isCustomMode = !isCustomMode },
-                            goldColor = goldColor,
-                            glowYellow = glowYellow,
-                            cardBg = cardBg,
-                            glassBorder = glassBorder,
-                            textMain = textMain,
-                            textMuted = textMuted,
-                            isDark = isDark,
-                            timeFormatted = if (selectedFocusMode == 2) String.format("%02d:00", pomodoroFocusMinutes) else timeFormatted,
-                            hours = hours,
-                            selectedSubjectName = selectedSubjectName
-                        )
-                    }
-                    1 -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(230.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 4. CENTER STAGE: WATCH / STOPWATCH (PERFECTLY CENTERED, NEVER DROPS)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    when (selectedFocusMode) {
+                        0, 2 -> {
+                            val activeMins = if (selectedFocusMode == 2) {
+                                when (pomodoroActiveTab) {
+                                    0 -> pomodoroFocusMinutes
+                                    1 -> pomodoroShortBreakMinutes
+                                    else -> pomodoroLongBreakMinutes
+                                }.toFloat()
+                            } else dialMinutes
+
+                            TimerWatchesContainer(
+                                dialMinutes = activeMins,
+                                onDialMinutesChange = { nextMins ->
+                                    if (selectedFocusMode == 2) {
+                                        when (pomodoroActiveTab) {
+                                            0 -> pomodoroFocusMinutes = nextMins.toInt()
+                                            1 -> pomodoroShortBreakMinutes = nextMins.toInt()
+                                            else -> pomodoroLongBreakMinutes = nextMins.toInt()
+                                        }
+                                    } else {
+                                        dialMinutes = nextMins
+                                        val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
+                                        TimerService.remainingSeconds.intValue = secs
+                                        initialTotalSeconds = if (secs > 0) secs else 60
+                                    }
+                                },
+                                totalSeconds = if (selectedFocusMode == 2) (activeMins.toInt() * 60) else totalSeconds,
+                                initialTotalSeconds = initialTotalSeconds,
+                                isRunning = false,
+                                isCustomMode = isCustomMode,
+                                onCustomModeToggle = { isCustomMode = !isCustomMode },
+                                goldColor = goldColor,
+                                glowYellow = glowYellow,
+                                cardBg = cardBg,
+                                glassBorder = glassBorder,
+                                textMain = textMain,
+                                textMuted = textMuted,
+                                isDark = isDark,
+                                timeFormatted = if (selectedFocusMode == 2) String.format("%02d:00", activeMins.toInt()) else timeFormatted,
+                                hours = hours,
+                                selectedSubjectName = selectedSubjectName
+                            )
+                        }
+                        1 -> {
+                            // ⏱️ 00:00:00.00 STOPWATCH (EXACT CENTER POSITION)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
                                 Text(
                                     text = "STOPWATCH PRECISION",
                                     color = goldColor,
-                                    fontSize = 11.sp,
+                                    fontSize = 11.5.sp,
                                     letterSpacing = 2.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -825,7 +825,7 @@ fun HomeTimerTab(
                                     Text(
                                         text = swMainTime,
                                         color = textMain,
-                                        fontSize = 44.sp,
+                                        fontSize = 46.sp,
                                         fontWeight = FontWeight.Black
                                     )
                                     Text(
@@ -841,7 +841,83 @@ fun HomeTimerTab(
                     }
                 }
 
-                // START BUTTON
+                // 5. SUB-CONTROL SLOT (FIXED 44dp HEIGHT, ELIMINATES ALL JUMPING)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    when (selectedFocusMode) {
+                        2 -> {
+                            // 🎯 POMODORO TABS + 🎚️ PREFERENCE ICON
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val pTabs = listOf(
+                                        "Focus ${pomodoroFocusMinutes}m",
+                                        "Short ${pomodoroShortBreakMinutes}m",
+                                        "Long ${pomodoroLongBreakMinutes}m"
+                                    )
+                                    pTabs.forEachIndexed { idx, title ->
+                                        val isTabSelected = pomodoroActiveTab == idx
+                                        Surface(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(50))
+                                                .clickable { pomodoroActiveTab = idx },
+                                            color = if (isTabSelected) goldColor else cardBg,
+                                            border = BorderStroke(1.dp, if (isTabSelected) glowYellow else glassBorder),
+                                            shape = RoundedCornerShape(50)
+                                        ) {
+                                            Text(
+                                                text = title,
+                                                color = if (isTabSelected) Color.Black else textMain,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 10.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // 🎚️ 2 LINES + 2 DOTS PREFERENCE BUTTON
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isDark) Color(0xFF1E1E26) else Color(0xFFF1F5F9))
+                                        .border(1.2.dp, goldColor, CircleShape)
+                                        .clickable { showPomodoroSettingsDialog = true }
+                                ) {
+                                    SlidersPreferenceIcon(tint = goldColor)
+                                }
+                            }
+                        }
+                        1 -> {
+                            Text(
+                                text = "Zero-Drift Hardware Monotonic Clock",
+                                color = textMuted.copy(alpha = 0.7f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        else -> {
+                            // Timer Mode (खाली स्लॉट, लेआउट को हिलने नहीं देता)
+                            Spacer(modifier = Modifier.fillMaxSize())
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 6. MAIN START BUTTON (100% FIXED BOTTOM POSITION)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -855,7 +931,10 @@ fun HomeTimerTab(
                             if (selectedFocusMode == 1) {
                                 onStartStopwatch()
                             } else {
-                                val targetSecs = if (selectedFocusMode == 2) (pomodoroFocusMinutes * 60) else totalSeconds
+                                val targetSecs = if (selectedFocusMode == 2) {
+                                    pomodoroFocusMinutes * 60
+                                } else totalSeconds
+
                                 val intent = Intent(context, TimerService::class.java).apply {
                                     action = TimerService.ACTION_START
                                     putExtra(TimerService.EXTRA_SECONDS, if (targetSecs > 0) targetSecs else 1500)
@@ -885,9 +964,9 @@ fun HomeTimerTab(
                 }
             }
         } else {
-            // 🎯 MASTER FOCUS SCREEN
+            // 🎯 MASTER FOCUS SCREEN (FULLSCREEN IMMERSIVE)
             if (isStopwatchFocusActive) {
-                // STOPWATCH FULLSCREEN FOCUS
+                // STOPWATCH FULLSCREEN
                 if (!isLandscape) {
                     Column(
                         modifier = Modifier
@@ -1253,7 +1332,7 @@ fun HomeTimerTab(
                                         .clip(CircleShape)
                                         .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                         .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable { showGiveUpDialog = true }
+                                        .clickable { showGiveUpDialog = true }
                                 ) {
                                     Box(
                                         modifier = Modifier
@@ -1295,117 +1374,336 @@ fun HomeTimerTab(
                                     .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
                                     .border(1.dp, glassBorder, RoundedCornerShape(50))
                                     .padding(horizontal = 14.dp, vertical = 6.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(7.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF22C55E))
-                                )
-                                Text(
-                                    text = selectedSubjectName,
-                                    color = textMain,
-                                    fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.5.sp
-                                )
-                            }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 90.dp),
-                            contentAlignment = Alignment.Center
                         ) {
-                            TimerWatchesContainer(
-                                dialMinutes = dialMinutes,
-                                onDialMinutesChange = { nextMins ->
-                                    dialMinutes = nextMins
-                                    val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
-                                    TimerService.remainingSeconds.intValue = secs
-                                    initialTotalSeconds = if (secs > 0) secs else 60
-                                },
-                                totalSeconds = totalSeconds,
-                                initialTotalSeconds = initialTotalSeconds,
-                                isRunning = true,
-                                isCustomMode = isCustomMode,
-                                onCustomModeToggle = { },
-                                goldColor = goldColor,
-                                glowYellow = glowYellow,
-                                cardBg = cardBg,
-                                glassBorder = glassBorder,
-                                textMain = textMain,
-                                textMuted = textMuted,
-                                isDark = isDark,
-                                timeFormatted = timeFormatted,
-                                hours = hours,
-                                selectedSubjectName = selectedSubjectName
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF22C55E))
+                            )
+                            Text(
+                                text = selectedSubjectName,
+                                color = textMain,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
                             )
                         }
+                    }
 
-                        Column(
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 90.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        TimerWatchesContainer(
+                            dialMinutes = dialMinutes,
+                            onDialMinutesChange = { nextMins ->
+                                dialMinutes = nextMins
+                                val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
+                                TimerService.remainingSeconds.intValue = secs
+                                initialTotalSeconds = if (secs > 0) secs else 60
+                            },
+                            totalSeconds = totalSeconds,
+                            initialTotalSeconds = initialTotalSeconds,
+                            isRunning = true,
+                            isCustomMode = isCustomMode,
+                            onCustomModeToggle = { },
+                            goldColor = goldColor,
+                            glowYellow = glowYellow,
+                            cardBg = cardBg,
+                            glassBorder = glassBorder,
+                            textMain = textMain,
+                            textMuted = textMuted,
+                            isDark = isDark,
+                            timeFormatted = timeFormatted,
+                            hours = hours,
+                            selectedSubjectName = selectedSubjectName
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .fillMaxHeight(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable {
-                                        val intent = Intent(context, TimerService::class.java).apply {
-                                            action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
-                                        }
-                                        context.startService(intent)
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                .clickable {
+                                    val intent = Intent(context, TimerService::class.java).apply {
+                                        action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
                                     }
-                            ) {
-                                if (isRunning) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
-                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                    }
-                                } else {
-                                    Text(
-                                        text = "▶",
-                                        color = textMain,
-                                        fontSize = 17.sp,
-                                        fontWeight = FontWeight.Black,
-                                        modifier = Modifier.offset(x = 1.2.dp)
-                                    )
+                                    context.startService(intent)
                                 }
-                            }
-
-                            Spacer(modifier = Modifier.height(18.dp))
-
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable { showGiveUpDialog = true }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(15.dp)
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(textMuted)
+                        ) {
+                            if (isRunning) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
+                                    Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                    Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                }
+                            } else {
+                                Text(
+                                    text = "▶",
+                                    color = textMain,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.offset(x = 1.2.dp)
                                 )
                             }
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                .clickable { showGiveUpDialog = true }
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(15.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(textMuted)
+                            )
                         }
                     }
                 }
             }
         }
 
-        // POPUPS & DIALOGS
+        // =====================================================================
+        // 🎚️ POMODORO SETTINGS FLOATING CARD (SCREENSHOT BASED)
+        // =====================================================================
+        if (showPomodoroSettingsDialog) {
+            Dialog(onDismissRequest = { showPomodoroSettingsDialog = false }) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(28.dp)),
+                    color = if (isDark) Color(0xFA161620) else Color(0xFDF8FAFC),
+                    border = BorderStroke(1.4.dp, goldColor.copy(alpha = 0.5f)),
+                    shadowElevation = 18.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(22.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Title Bar
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Pomodoro Settings",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = textMain
+                                )
+                                Text(
+                                    text = "Suggested defaults — यूज़र इन्हें बदल सके।",
+                                    fontSize = 11.5.sp,
+                                    color = textMuted
+                                )
+                            }
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
+                                    .clickable { showPomodoroSettingsDialog = false }
+                            ) {
+                                Text("✕", color = textMuted, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+
+                        // 1. Focus duration Slider
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Focus duration", fontWeight = FontWeight.Bold, color = textMain, fontSize = 13.5.sp)
+                                Text("${pomodoroFocusMinutes} min", fontWeight = FontWeight.Black, color = goldColor, fontSize = 14.sp)
+                            }
+                            Slider(
+                                value = pomodoroFocusMinutes.toFloat(),
+                                onValueChange = { pomodoroFocusMinutes = it.toInt() },
+                                valueRange = 1f..90f,
+                                colors = SliderDefaults.colors(thumbColor = goldColor, activeTrackColor = goldColor)
+                            )
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                listOf(5, 25, 60, 90).forEach { tick ->
+                                    Text(
+                                        text = "${tick}m",
+                                        color = if (pomodoroFocusMinutes == tick) goldColor else textMuted,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clickable { pomodoroFocusMinutes = tick }
+                                    )
+                                }
+                            }
+                        }
+
+                        // 2. Short Break Slider
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Short Break", fontWeight = FontWeight.Bold, color = textMain, fontSize = 13.5.sp)
+                                Text("${pomodoroShortBreakMinutes} min", fontWeight = FontWeight.Black, color = goldColor, fontSize = 14.sp)
+                            }
+                            Slider(
+                                value = pomodoroShortBreakMinutes.toFloat(),
+                                onValueChange = { pomodoroShortBreakMinutes = it.toInt() },
+                                valueRange = 1f..15f,
+                                colors = SliderDefaults.colors(thumbColor = goldColor, activeTrackColor = goldColor)
+                            )
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                listOf(1, 5, 10, 15).forEach { tick ->
+                                    Text(
+                                        text = "${tick}m",
+                                        color = if (pomodoroShortBreakMinutes == tick) goldColor else textMuted,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clickable { pomodoroShortBreakMinutes = tick }
+                                    )
+                                }
+                            }
+                        }
+
+                        // 3. Long Break Slider
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Long Break", fontWeight = FontWeight.Bold, color = textMain, fontSize = 13.5.sp)
+                                Text("${pomodoroLongBreakMinutes} min", fontWeight = FontWeight.Black, color = goldColor, fontSize = 14.sp)
+                            }
+                            Slider(
+                                value = pomodoroLongBreakMinutes.toFloat(),
+                                onValueChange = { pomodoroLongBreakMinutes = it.toInt() },
+                                valueRange = 5f..45f,
+                                colors = SliderDefaults.colors(thumbColor = goldColor, activeTrackColor = goldColor)
+                            )
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                listOf(5, 15, 30, 45).forEach { tick ->
+                                    Text(
+                                        text = "${tick}m",
+                                        color = if (pomodoroLongBreakMinutes == tick) goldColor else textMuted,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clickable { pomodoroLongBreakMinutes = tick }
+                                    )
+                                }
+                            }
+                        }
+
+                        // 4. Focus sessions before Long Break
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Focus sessions before Long Break", fontWeight = FontWeight.Bold, color = textMain, fontSize = 13.sp)
+                                Text("$pomodoroTotalSessions", fontWeight = FontWeight.Black, color = goldColor, fontSize = 14.sp)
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                listOf(2, 3, 4, 5, 6).forEach { num ->
+                                    val isSelected = pomodoroTotalSessions == num
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSelected) goldColor else (if (isDark) Color(0xFF22222E) else Color(0xFFE2E8F0)))
+                                            .border(1.dp, if (isSelected) glowYellow else glassBorder, CircleShape)
+                                            .clickable { pomodoroTotalSessions = num }
+                                    ) {
+                                        Text(
+                                            text = "$num",
+                                            color = if (isSelected) Color.Black else textMain,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 5. Auto Start Options
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { pomodoroAutoStartBreak = !pomodoroAutoStartBreak },
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Switch(
+                                    checked = pomodoroAutoStartBreak,
+                                    onCheckedChange = { pomodoroAutoStartBreak = it },
+                                    colors = SwitchDefaults.colors(checkedThumbColor = goldColor, checkedTrackColor = goldColor.copy(alpha = 0.4f))
+                                )
+                                Text("Focus खत्म होने पर अगला Break अपने-आप शुरू हो", fontSize = 12.sp, color = textMain)
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { pomodoroAutoStartFocus = !pomodoroAutoStartFocus },
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Switch(
+                                    checked = pomodoroAutoStartFocus,
+                                    onCheckedChange = { pomodoroAutoStartFocus = it },
+                                    colors = SwitchDefaults.colors(checkedThumbColor = goldColor, checkedTrackColor = goldColor.copy(alpha = 0.4f))
+                                )
+                                Text("Break खत्म होने पर अगला Focus अपने-आप शुरू हो", fontSize = 12.sp, color = textMain)
+                            }
+                        }
+
+                        // 6. Save & Apply Button
+                        Button(
+                            onClick = { showPomodoroSettingsDialog = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                        ) {
+                            Text("Save & Apply 🎯", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        // POPUPS (SUBJECTS & GIVE UP)
         if (showAddDialog) {
             Dialog(onDismissRequest = {
                 showAddDialog = false
