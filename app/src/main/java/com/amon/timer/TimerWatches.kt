@@ -406,7 +406,7 @@ private fun ClassicRingWatch(
             }
         }
 
-        // 🔘 PRESET BUTTONS (पोमोडोरो में यह छिप जाएंगे)
+        // 🔘 PRESET BUTTONS (पोमोडोरो में यह छिप जाएँगे)
         if (!isRunning && showPresets) {
             Spacer(modifier = Modifier.height(14.dp))
             Row(
@@ -1357,7 +1357,7 @@ private fun CustomHorizontalSlider(
 }
 
 // =============================================================================
-// ✨ FOCUS TARGET ICON
+// ✨ FOCUS TARGET ICON (दोनों Offset में X और Y दोनों मौजूद हैं)
 // =============================================================================
 @Composable
 private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
@@ -1391,6 +1391,6 @@ private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
         drawLine(tint, Offset(center.x, center.y - w * 0.44f), Offset(center.x, center.y - w * 0.44f + crossLen), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x, center.y + w * 0.44f - crossLen), Offset(center.x, center.y + w * 0.44f), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x - w * 0.44f, center.y), Offset(center.x - w * 0.44f + crossLen, center.y), stroke, StrokeCap.Round)
-        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f), stroke, StrokeCap.Round)
+        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f, center.y), stroke, StrokeCap.Round)
     }
 }
