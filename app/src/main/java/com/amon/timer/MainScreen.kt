@@ -53,6 +53,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -440,7 +441,7 @@ fun SlidersPreferenceIcon(
 }
 
 // =============================================================================
-// 🟢 1. HOME TAB (ROCK-SOLID ZERO-JITTER LAYOUT)
+// 🟢 1. HOME TAB (CLEAN SINGLE ROW UNDER DIAL, FIXED LAYOUT)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
@@ -475,6 +476,7 @@ fun HomeTimerTab(
 
     var selectedFocusMode by rememberSaveable { mutableIntStateOf(0) }
 
+    // 🎯 Pomodoro Settings
     var pomodoroFocusMinutes by rememberSaveable { mutableIntStateOf(25) }
     var pomodoroShortBreakMinutes by rememberSaveable { mutableIntStateOf(5) }
     var pomodoroLongBreakMinutes by rememberSaveable { mutableIntStateOf(15) }
@@ -750,7 +752,7 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // 4. CENTER STAGE: WATCH / STOPWATCH
+                // 4. CENTER STAGE: WATCH / STOPWATCH (PERFECT CENTER)
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -797,7 +799,8 @@ fun HomeTimerTab(
                                 isDark = isDark,
                                 timeFormatted = if (selectedFocusMode == 2) String.format("%02d:00", activeMins.toInt()) else timeFormatted,
                                 hours = hours,
-                                selectedSubjectName = selectedSubjectName
+                                selectedSubjectName = selectedSubjectName,
+                                showPresets = (selectedFocusMode == 0) // पोमोडोरो में 25m/45m बटन छिप जाएँगे
                             )
                         }
                         1 -> {
@@ -836,7 +839,7 @@ fun HomeTimerTab(
                     }
                 }
 
-                // 5. SUB-CONTROL SLOT
+                // 5. SUB-CONTROL SLOT (डायल के नीचे का सिंगल रो)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -845,8 +848,11 @@ fun HomeTimerTab(
                 ) {
                     when (selectedFocusMode) {
                         2 -> {
+                            // 🎯 केवल पोमोडोरो में यह रो 25m/45m की जगह लेगा
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -874,16 +880,17 @@ fun HomeTimerTab(
                                                 color = if (isTabSelected) Color.Black else textMain,
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.ExtraBold,
-                                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 10.dp)
+                                                modifier = Modifier.padding(vertical = 7.dp, horizontal = 11.dp)
                                             )
                                         }
                                     }
                                 }
 
+                                // 🎚️ 2 LINES + 2 DOTS PREFERENCE BUTTON
                                 Box(
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
-                                        .size(36.dp)
+                                        .size(38.dp)
                                         .clip(CircleShape)
                                         .background(if (isDark) Color(0xFF1E1E26) else Color(0xFFF1F5F9))
                                         .border(1.2.dp, goldColor, CircleShape)
@@ -902,6 +909,7 @@ fun HomeTimerTab(
                             )
                         }
                         else -> {
+                            // Timer मोड में 25m, 45m डायल के साथ ही रेंडर होते हैं, इसलिए यह खाली रहेगा
                             Spacer(modifier = Modifier.fillMaxSize())
                         }
                     }
@@ -1475,43 +1483,39 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎚️ POMODORO SETTINGS FLOATING CARD
+        // 🎚️ POMODORO SETTINGS FLOATING CARD (100% ENGLISH & NO SHADOW BLEED)
         // =====================================================================
         if (showPomodoroSettingsDialog) {
-            Dialog(onDismissRequest = { showPomodoroSettingsDialog = false }) {
-                Surface(
+            Dialog(
+                onDismissRequest = { showPomodoroSettingsDialog = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(28.dp)),
-                    color = if (isDark) Color(0xFA161620) else Color(0xFDF8FAFC),
-                    border = BorderStroke(1.4.dp, goldColor.copy(alpha = 0.5f)),
-                    shadowElevation = 18.dp
+                        .fillMaxWidth(0.92f)
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(if (isDark) Color(0xFF161622) else Color(0xFFFFFFFF))
+                        .border(1.2.dp, if (isDark) Color(0x33FFFFFF) else Color(0x1F000000), RoundedCornerShape(26.dp))
+                        .padding(22.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(22.dp)
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        // Title Bar
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Text(
-                                    text = "Pomodoro Settings",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = textMain
-                                )
-                                Text(
-                                    text = "Suggested defaults — यूज़र इन्हें बदल सके।",
-                                    fontSize = 11.5.sp,
-                                    color = textMuted
-                                )
-                            }
+                            Text(
+                                text = "Pomodoro Settings",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Black,
+                                color = textMain
+                            )
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -1524,6 +1528,7 @@ fun HomeTimerTab(
                             }
                         }
 
+                        // 1. Focus duration
                         Column {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1551,6 +1556,7 @@ fun HomeTimerTab(
                             }
                         }
 
+                        // 2. Short Break
                         Column {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1578,6 +1584,7 @@ fun HomeTimerTab(
                             }
                         }
 
+                        // 3. Long Break
                         Column {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1605,6 +1612,7 @@ fun HomeTimerTab(
                             }
                         }
 
+                        // 4. Focus sessions before Long Break
                         Column {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1640,20 +1648,21 @@ fun HomeTimerTab(
                             }
                         }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // 5. Auto Start Options (100% English)
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { pomodoroAutoStartBreak = !pomodoroAutoStartBreak },
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
+                                Text("Auto-start Break after Focus", fontSize = 12.5.sp, color = textMain, fontWeight = FontWeight.Medium)
                                 Switch(
                                     checked = pomodoroAutoStartBreak,
                                     onCheckedChange = { pomodoroAutoStartBreak = it },
                                     colors = SwitchDefaults.colors(checkedThumbColor = goldColor, checkedTrackColor = goldColor.copy(alpha = 0.4f))
                                 )
-                                Text("Focus खत्म होने पर अगला Break अपने-आप शुरू हो", fontSize = 12.sp, color = textMain)
                             }
 
                             Row(
@@ -1661,17 +1670,18 @@ fun HomeTimerTab(
                                     .fillMaxWidth()
                                     .clickable { pomodoroAutoStartFocus = !pomodoroAutoStartFocus },
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
+                                Text("Auto-start Focus after Break", fontSize = 12.5.sp, color = textMain, fontWeight = FontWeight.Medium)
                                 Switch(
                                     checked = pomodoroAutoStartFocus,
                                     onCheckedChange = { pomodoroAutoStartFocus = it },
                                     colors = SwitchDefaults.colors(checkedThumbColor = goldColor, checkedTrackColor = goldColor.copy(alpha = 0.4f))
                                 )
-                                Text("Break खत्म होने पर अगला Focus अपने-आप शुरू हो", fontSize = 12.sp, color = textMain)
                             }
                         }
 
+                        // 6. Save & Apply Button
                         Button(
                             onClick = { showPomodoroSettingsDialog = false },
                             colors = ButtonDefaults.buttonColors(containerColor = goldColor),
@@ -1680,13 +1690,14 @@ fun HomeTimerTab(
                                 .fillMaxWidth()
                                 .height(46.dp)
                         ) {
-                            Text("Save & Apply 🎯", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                            Text("Save & Apply", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 14.sp)
                         }
                     }
                 }
             }
         }
 
+        // POPUPS (SUBJECTS & GIVE UP)
         if (showAddDialog) {
             Dialog(onDismissRequest = {
                 showAddDialog = false
