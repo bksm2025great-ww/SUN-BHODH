@@ -76,7 +76,6 @@ fun MainScreen() {
     val isRunning = TimerService.isTimerRunning.value
     val isPaused = TimerService.isTimerPaused.value
 
-    // ⏱️ स्वतंत्र स्टॉपवॉच स्टेट्स (SystemClock आधारित)
     var isStopwatchRunning by rememberSaveable { mutableStateOf(false) }
     var isStopwatchFocusActive by rememberSaveable { mutableStateOf(false) }
     var stopwatchBaseTime by rememberSaveable { mutableStateOf(0L) }
@@ -412,7 +411,6 @@ fun SlidersPreferenceIcon(
         val h = size.height
         val stroke = 2.dp.toPx()
 
-        // लाइन 1 (ऊपर) + डॉट (बाईं ओर 35%)
         drawLine(
             color = tint,
             start = Offset(w * 0.10f, h * 0.32f),
@@ -426,7 +424,6 @@ fun SlidersPreferenceIcon(
             center = Offset(w * 0.35f, h * 0.32f)
         )
 
-        // लाइन 2 (नीचे) + डॉट (दाईं ओर 68%)
         drawLine(
             color = tint,
             start = Offset(w * 0.10f, h * 0.68f),
@@ -478,7 +475,6 @@ fun HomeTimerTab(
 
     var selectedFocusMode by rememberSaveable { mutableIntStateOf(0) }
 
-    // 🎯 पोमोडोरो स्टेट्स
     var pomodoroFocusMinutes by rememberSaveable { mutableIntStateOf(25) }
     var pomodoroShortBreakMinutes by rememberSaveable { mutableIntStateOf(5) }
     var pomodoroLongBreakMinutes by rememberSaveable { mutableIntStateOf(15) }
@@ -487,7 +483,7 @@ fun HomeTimerTab(
     var pomodoroAutoStartFocus by rememberSaveable { mutableStateOf(false) }
 
     var showPomodoroSettingsDialog by remember { mutableStateOf(false) }
-    var pomodoroActiveTab by rememberSaveable { mutableIntStateOf(0) } // 0: Focus, 1: Short, 2: Long
+    var pomodoroActiveTab by rememberSaveable { mutableIntStateOf(0) }
 
     var isBreakActive by rememberSaveable { mutableStateOf(false) }
     var currentSessionIndex by rememberSaveable { mutableIntStateOf(1) }
@@ -602,7 +598,7 @@ fun HomeTimerTab(
                     .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 1. TOP HEADER: AMON + 0 DAYS (FIXED POSITION)
+                // 1. TOP HEADER: AMON + 0 DAYS
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -643,7 +639,7 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 2. DYNAMIC SUBJECT RIBBON (FIXED HEIGHT)
+                // 2. DYNAMIC SUBJECT RIBBON
                 Box(modifier = Modifier.fillMaxWidth().height(38.dp)) {
                     LazyRow(
                         modifier = Modifier.fillMaxSize(),
@@ -713,7 +709,7 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 3. SLEEK MODE SELECTOR CAPSULE (100% FIXED POSITION & HEIGHT)
+                // 3. SLEEK MODE SELECTOR CAPSULE
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -754,7 +750,7 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // 4. CENTER STAGE: WATCH / STOPWATCH (PERFECTLY CENTERED, NEVER DROPS)
+                // 4. CENTER STAGE: WATCH / STOPWATCH
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -805,7 +801,6 @@ fun HomeTimerTab(
                             )
                         }
                         1 -> {
-                            // ⏱️ 00:00:00.00 STOPWATCH (EXACT CENTER POSITION)
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
@@ -841,7 +836,7 @@ fun HomeTimerTab(
                     }
                 }
 
-                // 5. SUB-CONTROL SLOT (FIXED 44dp HEIGHT, ELIMINATES ALL JUMPING)
+                // 5. SUB-CONTROL SLOT
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -850,7 +845,6 @@ fun HomeTimerTab(
                 ) {
                     when (selectedFocusMode) {
                         2 -> {
-                            // 🎯 POMODORO TABS + 🎚️ PREFERENCE ICON
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -886,7 +880,6 @@ fun HomeTimerTab(
                                     }
                                 }
 
-                                // 🎚️ 2 LINES + 2 DOTS PREFERENCE BUTTON
                                 Box(
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
@@ -909,7 +902,6 @@ fun HomeTimerTab(
                             )
                         }
                         else -> {
-                            // Timer Mode (खाली स्लॉट, लेआउट को हिलने नहीं देता)
                             Spacer(modifier = Modifier.fillMaxSize())
                         }
                     }
@@ -917,7 +909,7 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 6. MAIN START BUTTON (100% FIXED BOTTOM POSITION)
+                // 6. MAIN START BUTTON
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -964,9 +956,8 @@ fun HomeTimerTab(
                 }
             }
         } else {
-            // 🎯 MASTER FOCUS SCREEN (FULLSCREEN IMMERSIVE)
+            // 🎯 MASTER FOCUS SCREEN
             if (isStopwatchFocusActive) {
-                // STOPWATCH FULLSCREEN
                 if (!isLandscape) {
                     Column(
                         modifier = Modifier
@@ -1163,7 +1154,6 @@ fun HomeTimerTab(
                     }
                 }
             } else {
-                // TIMER FOCUS SCREEN
                 if (!isLandscape) {
                     Column(
                         modifier = Modifier
@@ -1374,109 +1364,110 @@ fun HomeTimerTab(
                                     .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
                                     .border(1.dp, glassBorder, RoundedCornerShape(50))
                                     .padding(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF22C55E))
-                            )
-                            Text(
-                                text = selectedSubjectName,
-                                color = textMain,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 90.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        TimerWatchesContainer(
-                            dialMinutes = dialMinutes,
-                            onDialMinutesChange = { nextMins ->
-                                dialMinutes = nextMins
-                                val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
-                                TimerService.remainingSeconds.intValue = secs
-                                initialTotalSeconds = if (secs > 0) secs else 60
-                            },
-                            totalSeconds = totalSeconds,
-                            initialTotalSeconds = initialTotalSeconds,
-                            isRunning = true,
-                            isCustomMode = isCustomMode,
-                            onCustomModeToggle = { },
-                            goldColor = goldColor,
-                            glowYellow = glowYellow,
-                            cardBg = cardBg,
-                            glassBorder = glassBorder,
-                            textMain = textMain,
-                            textMuted = textMuted,
-                            isDark = isDark,
-                            timeFormatted = timeFormatted,
-                            hours = hours,
-                            selectedSubjectName = selectedSubjectName
-                        )
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .fillMaxHeight(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(CircleShape)
-                                .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                .clickable {
-                                    val intent = Intent(context, TimerService::class.java).apply {
-                                        action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
-                                    }
-                                    context.startService(intent)
-                                }
-                        ) {
-                            if (isRunning) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
-                                    Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                    Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                }
-                            } else {
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF22C55E))
+                                )
                                 Text(
-                                    text = "▶",
+                                    text = selectedSubjectName,
                                     color = textMain,
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Black,
-                                    modifier = Modifier.offset(x = 1.2.dp)
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(18.dp))
-
                         Box(
-                            contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(52.dp)
-                                .clip(CircleShape)
-                                .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                .clickable { showGiveUpDialog = true }
+                                .fillMaxSize()
+                                .padding(horizontal = 90.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            TimerWatchesContainer(
+                                dialMinutes = dialMinutes,
+                                onDialMinutesChange = { nextMins ->
+                                    dialMinutes = nextMins
+                                    val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
+                                    TimerService.remainingSeconds.intValue = secs
+                                    initialTotalSeconds = if (secs > 0) secs else 60
+                                },
+                                totalSeconds = totalSeconds,
+                                initialTotalSeconds = initialTotalSeconds,
+                                isRunning = true,
+                                isCustomMode = isCustomMode,
+                                onCustomModeToggle = { },
+                                goldColor = goldColor,
+                                glowYellow = glowYellow,
+                                cardBg = cardBg,
+                                glassBorder = glassBorder,
+                                textMain = textMain,
+                                textMuted = textMuted,
+                                isDark = isDark,
+                                timeFormatted = timeFormatted,
+                                hours = hours,
+                                selectedSubjectName = selectedSubjectName
+                            )
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Box(
+                                contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .size(15.dp)
-                                    .clip(RoundedCornerShape(3.dp))
-                                    .background(textMuted)
-                            )
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                    .clickable {
+                                        val intent = Intent(context, TimerService::class.java).apply {
+                                            action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
+                                        }
+                                        context.startService(intent)
+                                    }
+                            ) {
+                                if (isRunning) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
+                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                    }
+                                } else {
+                                    Text(
+                                        text = "▶",
+                                        color = textMain,
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Black,
+                                        modifier = Modifier.offset(x = 1.2.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(18.dp))
+
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                    .clickable { showGiveUpDialog = true }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(15.dp)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(textMuted)
+                                )
+                            }
                         }
                     }
                 }
@@ -1484,7 +1475,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎚️ POMODORO SETTINGS FLOATING CARD (SCREENSHOT BASED)
+        // 🎚️ POMODORO SETTINGS FLOATING CARD
         // =====================================================================
         if (showPomodoroSettingsDialog) {
             Dialog(onDismissRequest = { showPomodoroSettingsDialog = false }) {
@@ -1503,7 +1494,6 @@ fun HomeTimerTab(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Title Bar
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1534,7 +1524,6 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // 1. Focus duration Slider
                         Column {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1562,7 +1551,6 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // 2. Short Break Slider
                         Column {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1590,7 +1578,6 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // 3. Long Break Slider
                         Column {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1618,7 +1605,6 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // 4. Focus sessions before Long Break
                         Column {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1654,7 +1640,6 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // 5. Auto Start Options
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(
                                 modifier = Modifier
@@ -1687,7 +1672,6 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // 6. Save & Apply Button
                         Button(
                             onClick = { showPomodoroSettingsDialog = false },
                             colors = ButtonDefaults.buttonColors(containerColor = goldColor),
@@ -1703,7 +1687,6 @@ fun HomeTimerTab(
             }
         }
 
-        // POPUPS (SUBJECTS & GIVE UP)
         if (showAddDialog) {
             Dialog(onDismissRequest = {
                 showAddDialog = false
