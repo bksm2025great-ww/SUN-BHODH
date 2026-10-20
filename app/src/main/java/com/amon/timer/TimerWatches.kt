@@ -70,7 +70,8 @@ fun TimerWatchesContainer(
     timeFormatted: String,
     hours: Int,
     selectedSubjectName: String = "Focus",
-    onTogglePlayPause: () -> Unit = {}
+    onTogglePlayPause: () -> Unit = {},
+    showPresets: Boolean = true
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -94,7 +95,6 @@ fun TimerWatchesContainer(
         watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
     }
 
-    // 🎯 फ्लिप वॉच में ठीक दोनों कार्ड्स के बीच वाले गैप (Seam) पर (105dp), और डायल पर सेंटर में (111dp)
     val targetArrowY = if (isLandscape) {
         if (selectedWatchStyle == 2) 72.dp else 95.dp
     } else {
@@ -164,7 +164,8 @@ fun TimerWatchesContainer(
                         textMuted = textMuted,
                         isDark = isDark,
                         timeFormatted = timeFormatted,
-                        hours = hours
+                        hours = hours,
+                        showPresets = showPresets
                     )
 
                     1 -> RotaryDialWatch(
@@ -182,7 +183,8 @@ fun TimerWatchesContainer(
                         textMuted = textMuted,
                         isDark = isDark,
                         timeFormatted = timeFormatted,
-                        hours = hours
+                        hours = hours,
+                        showPresets = showPresets
                     )
 
                     2 -> RetroFlipClockWatch(
@@ -197,12 +199,12 @@ fun TimerWatchesContainer(
                         glassBorder = glassBorder,
                         textMain = textMain,
                         textMuted = textMuted,
-                        isDark = isDark
+                        isDark = isDark,
+                        showPresets = showPresets
                     )
                 }
             }
 
-            // 🏹 100% बिना सर्कल के, केवल तैरते हुए खुले शेवरॉन एरो
             if (!isRunning) {
                 Box(
                     modifier = Modifier
@@ -319,7 +321,8 @@ private fun ClassicRingWatch(
     textMuted: Color,
     isDark: Boolean,
     timeFormatted: String,
-    hours: Int
+    hours: Int,
+    showPresets: Boolean = true
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
@@ -403,8 +406,8 @@ private fun ClassicRingWatch(
             }
         }
 
-        // 🔘 PRESET BUTTONS
-        if (!isRunning) {
+        // 🔘 PRESET BUTTONS (पोमोडोरो में यह छिप जाएंगे)
+        if (!isRunning && showPresets) {
             Spacer(modifier = Modifier.height(14.dp))
             Row(
                 modifier = Modifier
@@ -555,7 +558,8 @@ private fun RotaryDialWatch(
     textMuted: Color,
     isDark: Boolean,
     timeFormatted: String,
-    hours: Int
+    hours: Int,
+    showPresets: Boolean = true
 ) {
     var centerOffset by remember { mutableStateOf(Offset.Zero) }
 
@@ -704,7 +708,7 @@ private fun RotaryDialWatch(
             }
         }
 
-        if (!isRunning) {
+        if (!isRunning && showPresets) {
             Spacer(modifier = Modifier.height(14.dp))
             Row(
                 modifier = Modifier
@@ -754,7 +758,8 @@ private fun RetroFlipClockWatch(
     glassBorder: Color,
     textMain: Color,
     textMuted: Color,
-    isDark: Boolean
+    isDark: Boolean,
+    showPresets: Boolean = true
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -877,7 +882,7 @@ private fun RetroFlipClockWatch(
         }
 
         // 🔘 PRESET BUTTONS
-        if (!isRunning) {
+        if (!isRunning && showPresets) {
             Spacer(modifier = Modifier.height(14.dp))
             Row(
                 modifier = Modifier
@@ -1352,7 +1357,7 @@ private fun CustomHorizontalSlider(
 }
 
 // =============================================================================
-// ✨ FOCUS TARGET ICON (FIXED: TWO-ARGUMENT OFFSET ON LINE 1390)
+// ✨ FOCUS TARGET ICON
 // =============================================================================
 @Composable
 private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
@@ -1386,6 +1391,6 @@ private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
         drawLine(tint, Offset(center.x, center.y - w * 0.44f), Offset(center.x, center.y - w * 0.44f + crossLen), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x, center.y + w * 0.44f - crossLen), Offset(center.x, center.y + w * 0.44f), stroke, StrokeCap.Round)
         drawLine(tint, Offset(center.x - w * 0.44f, center.y), Offset(center.x - w * 0.44f + crossLen, center.y), stroke, StrokeCap.Round)
-        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f, center.y), stroke, StrokeCap.Round)
+        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f), stroke, StrokeCap.Round)
     }
 }
