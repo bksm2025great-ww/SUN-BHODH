@@ -7,6 +7,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -22,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -39,18 +42,19 @@ private data class JourneyRank(
     val firstLevel: Int,
     val color: Color,
     val darkBaseColor: Color,
+    val glowBorderColor: Color,
     val icon: String
 )
 
 private val journeyRanks = listOf(
-    JourneyRank("Bronze", 1, Color(0xFFCD8B56), Color(0xFF7A4A25), "♟"),
-    JourneyRank("Silver", 11, Color(0xFFC5D0D8), Color(0xFF6B7985), "♞"),
-    JourneyRank("Gold", 21, Color(0xFFFFD166), Color(0xFF9E771B), "♜"),
-    JourneyRank("Platinum", 31, Color(0xFF70D8C2), Color(0xFF287C6A), "♝"),
-    JourneyRank("Emerald", 41, Color(0xFF55D68B), Color(0xFF1B7A42), "♛"),
-    JourneyRank("Diamond", 51, Color(0xFF6CCBFF), Color(0xFF206796), "◆"),
-    JourneyRank("Master", 61, Color(0xFFB6A0FF), Color(0xFF5C47A8), "♚"),
-    JourneyRank("Grandmaster", 71, Color(0xFFFF7D9B), Color(0xFF9E2A44), "★")
+    JourneyRank("Bronze", 1, Color(0xFFCD8B56), Color(0xFF6E4322), Color(0xFFE8A87C), "♟"),
+    JourneyRank("Silver", 11, Color(0xFFC5D0D8), Color(0xFF5A6977), Color(0xFFE2E8F0), "♞"),
+    JourneyRank("Gold", 21, Color(0xFFFFD166), Color(0xFF9E771B), Color(0xFFFFE299), "♜"),
+    JourneyRank("Platinum", 31, Color(0xFF70D8C2), Color(0xFF236E5E), Color(0xFFA6EFE0), "♝"),
+    JourneyRank("Emerald", 41, Color(0xFF55D68B), Color(0xFF1B733E), Color(0xFF95EBB7), "♛"),
+    JourneyRank("Diamond", 51, Color(0xFF6CCBFF), Color(0xFF1B5982), Color(0xFFA8E2FF), "◆"),
+    JourneyRank("Master", 61, Color(0xFFB6A0FF), Color(0xFF503A99), Color(0xFFD6C9FF), "♚"),
+    JourneyRank("Grandmaster", 71, Color(0xFFFF7D9B), Color(0xFF8C2037), Color(0xFFFFB5C6), "★")
 )
 
 private fun rankForLevel(level: Int): JourneyRank =
@@ -67,18 +71,18 @@ private fun saveLevelTestState(context: Context, count: Int, completed: Int, xp:
 }
 
 /**
- * डुओलिंगो ज़िग-ज़ैग गणित: सेंटर -> बायाँ -> सेंटर -> दायाँ -> सेंटर
+ * डुओलिंगो स्मूथ 8-स्टेप ज़िग-ज़ैग गणित
  */
 private fun getNodeXFraction(level: Int): Float {
     return when ((level - 1) % 8) {
         0 -> 0.50f
-        1 -> 0.30f
-        2 -> 0.20f
-        3 -> 0.30f
+        1 -> 0.32f
+        2 -> 0.22f
+        3 -> 0.32f
         4 -> 0.50f
-        5 -> 0.70f
-        6 -> 0.80f
-        7 -> 0.70f
+        5 -> 0.68f
+        6 -> 0.78f
+        7 -> 0.68f
         else -> 0.50f
     }
 }
@@ -111,31 +115,32 @@ fun ForestScreen() {
 
     fun persist() = saveLevelTestState(context, levelCount, completedLevel, testXp)
 
+    // एक्टिव लेवल के लिए सांस लेता हुआ ऑरा
     val infiniteTransition = rememberInfiniteTransition(label = "pulse_halo")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1.0f,
-        targetValue = 1.25f,
+        targetValue = 1.28f,
         animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
+            animation = tween(950, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "halo_scale"
     )
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 0.55f,
-        targetValue = 0.08f,
+        targetValue = 0.05f,
         animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
+            animation = tween(950, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "halo_alpha"
     )
 
     val scrollState = rememberScrollState()
-    val stepHeightDp = 92.dp
+    val stepHeightDp = 88.dp
 
     LaunchedEffect(currentLevel, levelCount) {
-        val targetY = ((levelCount - currentLevel) * 92).dp
+        val targetY = ((levelCount - currentLevel) * 88).dp
         val targetPx = with(density) { targetY.toPx() }.toInt()
         scrollState.animateScrollTo(targetPx)
     }
@@ -145,6 +150,7 @@ fun ForestScreen() {
             .fillMaxSize()
             .background(bg)
     ) {
+        // शीर्ष हेडर
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -172,6 +178,7 @@ fun ForestScreen() {
             )
         }
 
+        // स्टेट्स बार
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -185,6 +192,7 @@ fun ForestScreen() {
 
         Spacer(Modifier.height(10.dp))
 
+        // लीग बैनर
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -226,6 +234,7 @@ fun ForestScreen() {
 
         Spacer(Modifier.height(10.dp))
 
+        // टेस्टिंग कंट्रोल्स
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -262,6 +271,7 @@ fun ForestScreen() {
 
         Spacer(Modifier.height(8.dp))
 
+        // 3D इंटरैक्टिव मैप बॉक्स
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -271,7 +281,7 @@ fun ForestScreen() {
                 .border(1.2.dp, panelBorder, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                 .background(Color(0xFF0D141C))
         ) {
-            val mapHeight = (levelCount * 92 + 90).dp
+            val mapHeight = (levelCount * 88 + 90).dp
 
             Box(Modifier.fillMaxSize().verticalScroll(scrollState)) {
                 BoxWithConstraints(
@@ -285,6 +295,7 @@ fun ForestScreen() {
                     val stepPx = stepHeightDp.value * densityVal
                     val bottomPadPx = 54f * densityVal
 
+                    // 1. मास्टर कोऑर्डिनेट पॉइंट्स
                     val points = remember(levelCount, w, h) {
                         (1..levelCount).map { level ->
                             val xFraction = getNodeXFraction(level)
@@ -293,6 +304,7 @@ fun ForestScreen() {
                         }
                     }
 
+                    // 2. कैनवास: 3D स्तरित सड़क
                     Canvas(Modifier.fillMaxSize()) {
                         drawRect(Color(0xFF0D141C))
 
@@ -311,10 +323,12 @@ fun ForestScreen() {
                                 }
                             }
 
-                            drawPath(fullPath, Color(0xFF141F2B), style = Stroke(width = 26.dp.toPx(), cap = StrokeCap.Round))
-                            drawPath(fullPath, Color(0xFF223141), style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round))
-                            drawPath(fullPath, Color(0xFF2D4054), style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round))
+                            // अंडर-शैडो और मेन सड़क
+                            drawPath(fullPath, Color(0xFF141F2B), style = Stroke(width = 24.dp.toPx(), cap = StrokeCap.Round))
+                            drawPath(fullPath, Color(0xFF223141), style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round))
+                            drawPath(fullPath, Color(0xFF2D4054), style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
 
+                            // पूर्ण हो चुका चमकीला ट्रैक
                             if (completedLevel > 0) {
                                 val completedPoints = points.take((completedLevel + 1).coerceAtMost(levelCount))
                                 if (completedPoints.size > 1) {
@@ -325,53 +339,49 @@ fun ForestScreen() {
                                             cubicTo(a.x, midY, b.x, midY, b.x, b.y)
                                         }
                                     }
-                                    drawPath(completedPath, currentRank.color.copy(alpha = 0.4f), style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round))
-                                    drawPath(completedPath, currentRank.color, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round))
+                                    drawPath(completedPath, currentRank.color.copy(alpha = 0.35f), style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round))
+                                    drawPath(completedPath, currentRank.color, style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round))
                                 }
                             }
                         }
                     }
 
+                    // 3. 3D स्प्रिंग-फ़िज़िक्स नोड्स
                     (1..levelCount).forEach { level ->
                         val point = points[level - 1]
                         val isComplete = level <= completedLevel
                         val isCurrent = level == currentLevel
-                        val isMilestone = (level % 4 == 0)
                         val rank = rankForLevel(level)
 
-                        val nodeWidth = if (isMilestone) 68.dp else (if (isCurrent) 58.dp else 52.dp)
-                        val nodeHeight = if (isMilestone) 56.dp else (if (isCurrent) 58.dp else 52.dp)
-
-                        val nodeLeft = with(density) { point.x.toDp() } - (nodeWidth / 2)
-                        val nodeTop = with(density) { point.y.toDp() } - (nodeHeight / 2)
+                        val nodeSize = if (isCurrent) 60.dp else 54.dp
+                        val nodeLeft = with(density) { point.x.toDp() } - (nodeSize / 2)
+                        val nodeTop = with(density) { point.y.toDp() } - (nodeSize / 2)
 
                         Box(
                             modifier = Modifier
                                 .offset(x = nodeLeft, y = nodeTop)
-                                .size(width = nodeWidth, height = nodeHeight + 8.dp)
-                                .clickable {
-                                    selectedLevel = level
-                                    showLevelDetails = true
-                                },
-                            contentAlignment = Alignment.TopCenter
+                                .size(nodeSize + 12.dp),
+                            contentAlignment = Alignment.Center
                         ) {
                             if (isCurrent) {
                                 Box(
                                     modifier = Modifier
-                                        .size(nodeWidth * pulseScale)
+                                        .size(nodeSize * pulseScale)
                                         .clip(CircleShape)
                                         .background(rank.color.copy(alpha = pulseAlpha))
                                 )
                             }
 
-                            Duolingo3DNode(
+                            SpringPhysicsLevelNode(
                                 level = level,
                                 isComplete = isComplete,
                                 isCurrent = isCurrent,
-                                isMilestone = isMilestone,
                                 rank = rank,
-                                width = nodeWidth,
-                                height = nodeHeight
+                                nodeSize = nodeSize,
+                                onClick = {
+                                    selectedLevel = level
+                                    showLevelDetails = true
+                                }
                             )
                         }
                     }
@@ -380,9 +390,9 @@ fun ForestScreen() {
         }
     }
 
+    // लेवल डिटेल्स डायलॉग
     if (showLevelDetails) {
         val rank = rankForLevel(selectedLevel)
-        val isMilestone = (selectedLevel % 4 == 0)
         val status = when {
             selectedLevel <= completedLevel -> "COMPLETED"
             selectedLevel == currentLevel -> "CURRENT LEVEL"
@@ -394,20 +404,17 @@ fun ForestScreen() {
             titleContentColor = textMain,
             textContentColor = textMuted,
             title = {
-                Text(if (isMilestone) "🎁 Milestone Chest • Level $selectedLevel" else "Level $selectedLevel • ${rank.name}")
+                Text("Level $selectedLevel • ${rank.name}")
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(status, color = rank.color, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text("XP Target: ${levelXp(selectedLevel)} XP")
+                    Text("League Theme: ${rank.name}")
                     Text(
-                        if (isMilestone) "Reward: Streak Shield + Bonus ${rank.name} Journey points"
-                        else "Reward: ${rank.name} League Points"
-                    )
-                    Text(
-                        if (selectedLevel <= completedLevel) "This checkpoint is completed!"
-                        else if (selectedLevel == currentLevel) "Focus and earn XP to complete this milestone."
-                        else "Complete earlier levels to unlock."
+                        if (selectedLevel <= completedLevel) "This level is already unlocked and mastered!"
+                        else if (selectedLevel == currentLevel) "Active focus level! Earn XP to advance."
+                        else "Reach this checkpoint by mastering earlier levels."
                     )
                 }
             },
@@ -417,6 +424,7 @@ fun ForestScreen() {
         )
     }
 
+    // रीसेट प्रोग्रेस डायलॉग
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
@@ -440,72 +448,99 @@ fun ForestScreen() {
     }
 }
 
+/**
+ * 🎴 असली स्प्रिंग फ़िज़िक्स (Duolingo-grade Spring Bounce) + 3D रून नोड
+ */
 @Composable
-private fun Duolingo3DNode(
+private fun SpringPhysicsLevelNode(
     level: Int,
     isComplete: Boolean,
     isCurrent: Boolean,
-    isMilestone: Boolean,
     rank: JourneyRank,
-    width: Dp,
-    height: Dp
+    nodeSize: Dp,
+    onClick: () -> Unit
 ) {
-    val depthOffset = 4.dp
-    val shape = if (isMilestone) RoundedCornerShape(16.dp) else CircleShape
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
 
+    // 🌊 असली स्प्रिंग फ़िज़िक्स: छूते ही दबेगा और छोड़ते ही जेली जैसा बाउंस होगा
+    val springScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.88f else 1.0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "node_bounce"
+    )
+
+    val depthOffset = if (isPressed) 1.5.dp else 4.dp
+
+    // कलर्स: लॉक्ड = डोर्मेंट स्लेट स्टोन, कम्प्लीटेड/एक्टिव = लीग मेटैलिक थीम
     val faceColor = when {
-        isComplete -> Color(0xFF55D68B)
         isCurrent -> rank.color
-        else -> Color(0xFF233240)
+        isComplete -> rank.color.copy(alpha = 0.90f)
+        else -> Color(0xFF1B242F) // डोर्मेंट डार्क स्लेट स्टोन
     }
 
     val baseColor = when {
-        isComplete -> Color(0xFF2A8751)
         isCurrent -> rank.darkBaseColor
-        else -> Color(0xFF131D26)
+        isComplete -> rank.darkBaseColor
+        else -> Color(0xFF0F151C) // गहरा स्टोन शैडो
+    }
+
+    val numberColor = when {
+        isCurrent -> Color(0xFF09141B)
+        isComplete -> Color(0xFF09141B)
+        else -> Color(0xFF4C6175) // पत्थर में तराशा हुआ डार्क नंबर
     }
 
     Box(
-        modifier = Modifier.size(width = width, height = height + depthOffset),
+        modifier = Modifier
+            .size(nodeSize)
+            .graphicsLayer {
+                scaleX = springScale
+                scaleY = springScale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
         contentAlignment = Alignment.TopCenter
     ) {
+        // 1. 3D एक्सट्रूडेड बेस (गहराई)
         Box(
             modifier = Modifier
                 .offset(y = depthOffset)
-                .size(width = width, height = height)
-                .clip(shape)
+                .size(nodeSize)
+                .clip(CircleShape)
                 .background(baseColor)
         )
 
+        // 2. टॉप फेस प्लेट (3D बेवेल और ग्लो के साथ)
         Box(
             modifier = Modifier
-                .size(width = width, height = height)
-                .clip(shape)
+                .size(nodeSize)
+                .clip(CircleShape)
                 .background(faceColor)
                 .border(
-                    width = if (isCurrent) 2.6.dp else 1.2.dp,
-                    color = if (isCurrent) Color.White else Color.White.copy(alpha = if (isComplete) 0.35f else 0.12f),
-                    shape = shape
+                    width = if (isCurrent) 2.5.dp else (if (isComplete) 1.8.dp else 1.dp),
+                    color = when {
+                        isCurrent -> Color.White
+                        isComplete -> rank.glowBorderColor
+                        else -> Color(0xFF283646) // हल्का स्टोन एज
+                    },
+                    shape = CircleShape
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (isMilestone) {
-                Text(
-                    text = if (isComplete) "🎁✓" else "🎁",
-                    fontSize = 21.sp
-                )
-            } else {
-                Text(
-                    text = when {
-                        isComplete -> "✓"
-                        isCurrent -> "$level"
-                        else -> "🔒"
-                    },
-                    color = if (isComplete || isCurrent) Color(0xFF091710) else Color(0xFF8697A8),
-                    fontSize = if (isCurrent) 16.sp else 13.5.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
+            Text(
+                text = "$level",
+                color = numberColor,
+                fontSize = if (isCurrent) 17.sp else 15.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-0.5).sp
+            )
         }
     }
 }
