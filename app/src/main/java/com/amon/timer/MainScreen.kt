@@ -217,7 +217,7 @@ fun MainScreen() {
                         stopwatchElapsedMillis = 0L
                     }
                 )
-                1 -> ForestScreen() // 🌲 सीधे नया लेवलिंग पाथ खुलेगा
+                1 -> ForestScreen()
                 2 -> StatsScreen()
                 3 -> ProfileScreen()
             }
@@ -353,7 +353,6 @@ fun HomeTimerTab(
 
     var selectedFocusMode by rememberSaveable { mutableIntStateOf(0) }
 
-    // 🎯 Pomodoro Settings
     var pomodoroFocusMinutes by rememberSaveable { mutableIntStateOf(25) }
     var pomodoroShortBreakMinutes by rememberSaveable { mutableIntStateOf(5) }
     var pomodoroLongBreakMinutes by rememberSaveable { mutableIntStateOf(15) }
@@ -1205,150 +1204,151 @@ fun HomeTimerTab(
                                         .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                         .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
                                     .clickable { showGiveUpDialog = true }
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(textMuted)
+                                    )
+                                }
+                            }
+
+                            if (isPaused) {
+                                Text(
+                                    text = "PAUSED",
+                                    color = textMuted.copy(alpha = 0.65f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    letterSpacing = 2.sp
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .fillMaxHeight(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                    .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(16.dp)
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF22C55E))
+                                )
+                                Text(
+                                    text = selectedSubjectName,
+                                    color = textMain,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 90.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            TimerWatchesContainer(
+                                dialMinutes = dialMinutes,
+                                onDialMinutesChange = { nextMins ->
+                                    dialMinutes = nextMins
+                                    val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
+                                    TimerService.remainingSeconds.intValue = secs
+                                    initialTotalSeconds = if (secs > 0) secs else 60
+                                },
+                                totalSeconds = totalSeconds,
+                                initialTotalSeconds = initialTotalSeconds,
+                                isRunning = true,
+                                isCustomMode = isCustomMode,
+                                onCustomModeToggle = { },
+                                goldColor = goldColor,
+                                glowYellow = glowYellow,
+                                cardBg = cardBg,
+                                glassBorder = glassBorder,
+                                textMain = textMain,
+                                textMuted = textMuted,
+                                isDark = isDark,
+                                timeFormatted = timeFormatted,
+                                hours = hours,
+                                selectedSubjectName = selectedSubjectName
+                            )
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                    .clickable {
+                                        val intent = Intent(context, TimerService::class.java).apply {
+                                            action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
+                                        }
+                                        context.startService(intent)
+                                    }
+                            ) {
+                                if (isRunning) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
+                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                    }
+                                } else {
+                                    Text(
+                                        text = "▶",
+                                        color = textMain,
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Black,
+                                        modifier = Modifier.offset(x = 1.2.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(18.dp))
+
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                    .clickable { showGiveUpDialog = true }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(15.dp)
                                         .clip(RoundedCornerShape(3.dp))
                                         .background(textMuted)
                                 )
                             }
-                        }
-
-                        if (isPaused) {
-                            Text(
-                                text = "PAUSED",
-                                color = textMuted.copy(alpha = 0.65f),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                letterSpacing = 2.sp
-                            )
-                        }
-                    }
-                }
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 24.dp, vertical = 12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .fillMaxHeight(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
-                                .border(1.dp, glassBorder, RoundedCornerShape(50))
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF22C55E))
-                            )
-                            Text(
-                                text = selectedSubjectName,
-                                color = textMain,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 90.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        TimerWatchesContainer(
-                            dialMinutes = dialMinutes,
-                            onDialMinutesChange = { nextMins ->
-                                dialMinutes = nextMins
-                                val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
-                                TimerService.remainingSeconds.intValue = secs
-                                initialTotalSeconds = if (secs > 0) secs else 60
-                            },
-                            totalSeconds = totalSeconds,
-                            initialTotalSeconds = initialTotalSeconds,
-                            isRunning = true,
-                            isCustomMode = isCustomMode,
-                            onCustomModeToggle = { },
-                            goldColor = goldColor,
-                            glowYellow = glowYellow,
-                            cardBg = cardBg,
-                            glassBorder = glassBorder,
-                            textMain = textMain,
-                            textMuted = textMuted,
-                            isDark = isDark,
-                            timeFormatted = timeFormatted,
-                            hours = hours,
-                            selectedSubjectName = selectedSubjectName
-                        )
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .fillMaxHeight(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(CircleShape)
-                                .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                            .clickable {
-                                val intent = Intent(context, TimerService::class.java).apply {
-                                    action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
-                                }
-                                context.startService(intent)
-                            }
-                        ) {
-                            if (isRunning) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
-                                    Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                    Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                }
-                            } else {
-                                Text(
-                                    text = "▶",
-                                    color = textMain,
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Black,
-                                    modifier = Modifier.offset(x = 1.2.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(18.dp))
-
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(CircleShape)
-                                .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                            .clickable { showGiveUpDialog = true }
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(15.dp)
-                                    .clip(RoundedCornerShape(3.dp))
-                                    .background(textMuted)
-                            )
                         }
                     }
                 }
