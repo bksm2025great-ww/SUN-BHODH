@@ -20,11 +20,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -33,16 +35,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.cos
+import kotlin.math.sin
 
 private const val LEVEL_TEST_PREFS = "amon_level_journey_test"
 private const val KEY_LEVEL_COUNT = "level_count"
 private const val KEY_COMPLETED_LEVEL = "completed_level"
 private const val KEY_TEST_XP = "test_xp"
 
+private enum class NodeShapeType {
+    CIRCLE,
+    HEXAGON,
+    OCTAGON,
+    DIAMOND
+}
+
 private data class JourneyRank(
     val name: String,
     val materialName: String,
     val firstLevel: Int,
+    val shapeType: NodeShapeType,
     val primaryColor: Color,
     val darkBaseColor: Color,
     val glowBorderColor: Color,
@@ -54,8 +66,9 @@ private data class JourneyRank(
 private val journeyRanks = listOf(
     JourneyRank(
         name = "Bronze",
-        materialName = "Woodland Timber",
+        materialName = "Woodland Timber Coin",
         firstLevel = 1,
+        shapeType = NodeShapeType.CIRCLE,
         primaryColor = Color(0xFFCD8B56),
         darkBaseColor = Color(0xFF5C381E),
         glowBorderColor = Color(0xFFE5A675),
@@ -65,8 +78,9 @@ private val journeyRanks = listOf(
     ),
     JourneyRank(
         name = "Silver",
-        materialName = "Forged Iron",
+        materialName = "Forged Iron Hexagon",
         firstLevel = 11,
+        shapeType = NodeShapeType.HEXAGON,
         primaryColor = Color(0xFFCBD5E1),
         darkBaseColor = Color(0xFF475569),
         glowBorderColor = Color(0xFFF1F5F9),
@@ -76,8 +90,9 @@ private val journeyRanks = listOf(
     ),
     JourneyRank(
         name = "Gold",
-        materialName = "Solar Amber Gold",
+        materialName = "Solar Amber Octagon",
         firstLevel = 21,
+        shapeType = NodeShapeType.OCTAGON,
         primaryColor = Color(0xFFFFD166),
         darkBaseColor = Color(0xFF997316),
         glowBorderColor = Color(0xFFFFE8A3),
@@ -87,8 +102,9 @@ private val journeyRanks = listOf(
     ),
     JourneyRank(
         name = "Platinum",
-        materialName = "Frosted Mint Titanium",
+        materialName = "Frosted Mint Diamond",
         firstLevel = 31,
+        shapeType = NodeShapeType.DIAMOND,
         primaryColor = Color(0xFF70D8C2),
         darkBaseColor = Color(0xFF1B594D),
         glowBorderColor = Color(0xFFAEF7E8),
@@ -98,8 +114,9 @@ private val journeyRanks = listOf(
     ),
     JourneyRank(
         name = "Emerald",
-        materialName = "Deep Forest Jade",
+        materialName = "Deep Forest Jade Hex",
         firstLevel = 41,
+        shapeType = NodeShapeType.HEXAGON,
         primaryColor = Color(0xFF55D68B),
         darkBaseColor = Color(0xFF186637),
         glowBorderColor = Color(0xFF99F3BD),
@@ -111,6 +128,7 @@ private val journeyRanks = listOf(
         name = "Diamond",
         materialName = "Celestial Diamond",
         firstLevel = 51,
+        shapeType = NodeShapeType.DIAMOND,
         primaryColor = Color(0xFF6CCBFF),
         darkBaseColor = Color(0xFF1B557A),
         glowBorderColor = Color(0xFFBCE6FF),
@@ -120,8 +138,9 @@ private val journeyRanks = listOf(
     ),
     JourneyRank(
         name = "Master",
-        materialName = "Mystic Obsidian",
+        materialName = "Mystic Obsidian Octagon",
         firstLevel = 61,
+        shapeType = NodeShapeType.OCTAGON,
         primaryColor = Color(0xFFB6A0FF),
         darkBaseColor = Color(0xFF4E3794),
         glowBorderColor = Color(0xFFDFD4FF),
@@ -133,6 +152,7 @@ private val journeyRanks = listOf(
         name = "Grandmaster",
         materialName = "Crimson Ruby Star",
         firstLevel = 71,
+        shapeType = NodeShapeType.DIAMOND,
         primaryColor = Color(0xFFFF7D9B),
         darkBaseColor = Color(0xFF7A1D31),
         glowBorderColor = Color(0xFFFFBAC7),
@@ -155,21 +175,85 @@ private fun saveLevelTestState(context: Context, count: Int, completed: Int, xp:
         .apply()
 }
 
-/**
- * डुओलिंगो स्मूथ 8-स्टेप ज़िग-ज़ैग गणित
- */
 private fun getNodeXFraction(level: Int): Float {
     return when ((level - 1) % 8) {
         0 -> 0.50f
-        1 -> 0.32f
-        2 -> 0.22f
-        3 -> 0.32f
+        1 -> 0.33f
+        2 -> 0.23f
+        3 -> 0.33f
         4 -> 0.50f
-        5 -> 0.68f
-        6 -> 0.78f
-        7 -> 0.68f
+        5 -> 0.67f
+        6 -> 0.77f
+        7 -> 0.67f
         else -> 0.50f
     }
+}
+
+private fun buildSmoothRoadPath(points: List<Offset>): Path {
+    val path = Path()
+    if (points.isEmpty()) return path
+    path.moveTo(points.first().x, points.first().y)
+
+    for (i in 0 until points.size - 1) {
+        val p0 = points[i]
+        val p1 = points[i + 1]
+        val deltaY = (p1.y - p0.y)
+
+        val cp1X = p0.x
+        val cp1Y = p0.y + deltaY * 0.45f
+
+        val cp2X = p1.x
+        val cp2Y = p1.y - deltaY * 0.45f
+
+        path.cubicTo(cp1X, cp1Y, cp2X, cp2Y, p1.x, p1.y)
+    }
+    return path
+}
+
+/**
+ * विभिन्न लीग के 3D आकारों के लिए सटीक गणितीय पॉलीगॉन पाथ
+ */
+private fun getPolygonPath(shapeType: NodeShapeType, w: Float, h: Float): Path {
+    val path = Path()
+    val cx = w / 2f
+    val cy = h / 2f
+    val r = minOf(w, h) / 2f
+
+    when (shapeType) {
+        NodeShapeType.CIRCLE -> {
+            path.addOval(Rect(cx - r, cy - r, cx + r, cy + r))
+        }
+        NodeShapeType.HEXAGON -> {
+            val sides = 6
+            val startAngle = -Math.PI / 2.0
+            for (i in 0 until sides) {
+                val angle = startAngle + i * (2.0 * Math.PI / sides)
+                val x = (cx + r * cos(angle)).toFloat()
+                val y = (cy + r * sin(angle)).toFloat()
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            path.close()
+        }
+        NodeShapeType.OCTAGON -> {
+            val sides = 8
+            val startAngle = -Math.PI / 2.0 + (Math.PI / 8.0)
+            for (i in 0 until sides) {
+                val angle = startAngle + i * (2.0 * Math.PI / sides)
+                val x = (cx + r * cos(angle)).toFloat()
+                val y = (cy + r * sin(angle)).toFloat()
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            path.close()
+        }
+        NodeShapeType.DIAMOND -> {
+            path.moveTo(cx, cy - r)
+            path.lineTo(cx + r, cy)
+            path.lineTo(cx, cy + r)
+            path.lineTo(cx - r, cy)
+            path.close()
+        }
+    }
+    return path
 }
 
 @Composable
@@ -200,11 +284,10 @@ fun ForestScreen() {
 
     fun persist() = saveLevelTestState(context, levelCount, completedLevel, testXp)
 
-    // ✨ आउटर ब्लूम और लाइट एमिशन के लिए ब्रीदिंग एनीमेशन
     val infiniteTransition = rememberInfiniteTransition(label = "outer_bloom_anim")
     val bloomScale by infiniteTransition.animateFloat(
         initialValue = 1.0f,
-        targetValue = 1.35f,
+        targetValue = 1.30f,
         animationSpec = infiniteRepeatable(
             animation = tween(1200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -212,7 +295,7 @@ fun ForestScreen() {
         label = "bloom_scale"
     )
     val bloomAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.55f,
+        initialValue = 0.50f,
         targetValue = 0.12f,
         animationSpec = infiniteRepeatable(
             animation = tween(1200, easing = FastOutSlowInEasing),
@@ -222,10 +305,10 @@ fun ForestScreen() {
     )
 
     val scrollState = rememberScrollState()
-    val stepHeightDp = 90.dp
+    val stepHeightDp = 92.dp
 
     LaunchedEffect(currentLevel, levelCount) {
-        val targetY = ((levelCount - currentLevel) * 90).dp
+        val targetY = ((levelCount - currentLevel) * 92).dp
         val targetPx = with(density) { targetY.toPx() }.toInt()
         scrollState.animateScrollTo(targetPx)
     }
@@ -235,7 +318,6 @@ fun ForestScreen() {
             .fillMaxSize()
             .background(bg)
     ) {
-        // शीर्ष हेडर
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -263,7 +345,6 @@ fun ForestScreen() {
             )
         }
 
-        // स्टेट्स बार
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -277,7 +358,6 @@ fun ForestScreen() {
 
         Spacer(Modifier.height(10.dp))
 
-        // लीग बैनर
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -319,7 +399,6 @@ fun ForestScreen() {
 
         Spacer(Modifier.height(10.dp))
 
-        // टेस्टिंग कंट्रोल्स
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -356,7 +435,6 @@ fun ForestScreen() {
 
         Spacer(Modifier.height(8.dp))
 
-        // 3D इंटरैक्टिव मैप बॉक्स
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -364,9 +442,9 @@ fun ForestScreen() {
                 .padding(horizontal = 12.dp)
                 .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                 .border(1.2.dp, panelBorder, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .background(Color(0xFF0C131B))
+                .background(Color(0xFF0B121A))
         ) {
-            val mapHeight = (levelCount * 90 + 90).dp
+            val mapHeight = (levelCount * 92 + 90).dp
 
             Box(Modifier.fillMaxSize().verticalScroll(scrollState)) {
                 BoxWithConstraints(
@@ -380,7 +458,6 @@ fun ForestScreen() {
                     val stepPx = stepHeightDp.value * densityVal
                     val bottomPadPx = 54f * densityVal
 
-                    // 1. मास्टर कोऑर्डिनेट पॉइंट्स
                     val points = remember(levelCount, w, h) {
                         (1..levelCount).map { level ->
                             val xFraction = getNodeXFraction(level)
@@ -389,11 +466,9 @@ fun ForestScreen() {
                         }
                     }
 
-                    // 2. कैनवास: 3D स्तरित सड़क + XP प्रोग्रेसिव पाथ फ़िल
                     Canvas(Modifier.fillMaxSize()) {
-                        drawRect(Color(0xFF0C131B))
+                        drawRect(Color(0xFF0B121A))
 
-                        // बैकग्राउंड डॉट ग्रिड
                         for (dotY in 24..size.height.toInt() step 48) {
                             for (dotX in 16..size.width.toInt() step 32) {
                                 drawCircle(Color.White.copy(alpha = 0.025f), radius = 1.2.dp.toPx(), center = Offset(dotX.toFloat(), dotY.toFloat()))
@@ -401,45 +476,25 @@ fun ForestScreen() {
                         }
 
                         if (points.size > 1) {
-                            // बेस डार्क पाथ (पूरा रास्ता)
-                            val baseFullPath = Path().apply {
-                                moveTo(points.first().x, points.first().y)
-                                points.zipWithNext().forEach { (a, b) ->
-                                    val midY = (a.y + b.y) / 2f
-                                    cubicTo(a.x, midY, b.x, midY, b.x, b.y)
-                                }
-                            }
+                            val baseFullPath = buildSmoothRoadPath(points)
 
-                            // अंडर-शैडो और मेन सड़क
-                            drawPath(baseFullPath, Color(0xFF131B24), style = Stroke(width = 24.dp.toPx(), cap = StrokeCap.Round))
-                            drawPath(baseFullPath, Color(0xFF1D2835), style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round))
-                            drawPath(baseFullPath, Color(0xFF283747), style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
+                            drawPath(baseFullPath, Color(0xFF070B10), style = Stroke(width = 30.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                            drawPath(baseFullPath, Color(0xFF16212D), style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                            drawPath(baseFullPath, Color(0xFF223142), style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                            drawPath(baseFullPath, Color(0xFF2D3E52), style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 
-                            // A. पूर्ण हो चुके सेगमेंट्स (1 से currentLevel तक 100% फुल)
                             if (currentLevel > 1) {
-                                val completedPath = Path().apply {
-                                    moveTo(points[0].x, points[0].y)
-                                    for (i in 0 until (currentLevel - 1)) {
-                                        val a = points[i]
-                                        val b = points[i + 1]
-                                        val midY = (a.y + b.y) / 2f
-                                        cubicTo(a.x, midY, b.x, midY, b.x, b.y)
-                                    }
-                                }
-                                drawPath(completedPath, currentRank.primaryColor.copy(alpha = 0.25f), style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Round))
-                                drawPath(completedPath, currentRank.primaryColor.copy(alpha = 0.60f), style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round))
-                                drawPath(completedPath, Color.White, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
+                                val completedPoints = points.take(currentLevel)
+                                val completedPath = buildSmoothRoadPath(completedPoints)
+
+                                drawPath(completedPath, currentRank.primaryColor.copy(alpha = 0.28f), style = Stroke(width = 24.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                                drawPath(completedPath, currentRank.primaryColor.copy(alpha = 0.70f), style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                                drawPath(completedPath, Color.White.copy(alpha = 0.95f), style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                             }
 
-                            // B. 🌟 XP प्रोग्रेसिव पाथ फ़िल (currentLevel से nextLevel के बीच लाइव % से आगे बढ़ता हुआ)
                             if (currentLevel < levelCount && xpProgress > 0.01f) {
-                                val segStart = points[currentLevel - 1]
-                                val segEnd = points[currentLevel]
-                                val rawSegment = Path().apply {
-                                    moveTo(segStart.x, segStart.y)
-                                    val midY = (segStart.y + segEnd.y) / 2f
-                                    cubicTo(segStart.x, midY, segEnd.x, midY, segEnd.x, segEnd.y)
-                                }
+                                val currentSegmentPoints = listOf(points[currentLevel - 1], points[currentLevel])
+                                val rawSegment = buildSmoothRoadPath(currentSegmentPoints)
 
                                 val pathMeasure = PathMeasure()
                                 pathMeasure.setPath(rawSegment, false)
@@ -447,12 +502,10 @@ fun ForestScreen() {
                                 val targetLength = pathMeasure.length * xpProgress
                                 pathMeasure.getSegment(0f, targetLength, progressiveSegment, true)
 
-                                // चमकता हुआ प्रोग्रेसिव बीम
-                                drawPath(progressiveSegment, currentRank.primaryColor.copy(alpha = 0.35f), style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Round))
-                                drawPath(progressiveSegment, currentRank.flameOuterColor, style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round))
-                                drawPath(progressiveSegment, Color.White, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
+                                drawPath(progressiveSegment, currentRank.primaryColor.copy(alpha = 0.35f), style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                                drawPath(progressiveSegment, currentRank.flameOuterColor, style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                                drawPath(progressiveSegment, Color.White, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 
-                                // पाथ के टिप पर तैरता हुआ चमकीला नियॉन स्पार्क
                                 val tipOffset = pathMeasure.getPosition(targetLength)
                                 drawCircle(currentRank.primaryColor, radius = 6.dp.toPx(), center = tipOffset)
                                 drawCircle(Color.White, radius = 3.dp.toPx(), center = tipOffset)
@@ -460,7 +513,6 @@ fun ForestScreen() {
                         }
                     }
 
-                    // 3. 3D स्प्रिंग-फ़िज़िक्स नोड्स
                     (1..levelCount).forEach { level ->
                         val point = points[level - 1]
                         val isComplete = level <= completedLevel
@@ -468,16 +520,17 @@ fun ForestScreen() {
                         val rank = rankForLevel(level)
 
                         val nodeSize = if (isCurrent) 60.dp else 54.dp
-                        val nodeLeft = with(density) { point.x.toDp() } - (nodeSize / 2)
-                        val nodeTop = with(density) { point.y.toDp() } - (nodeSize / 2)
+                        val containerSize = nodeSize + 36.dp
+
+                        val containerLeft = with(density) { point.x.toDp() } - (containerSize / 2)
+                        val containerTop = with(density) { point.y.toDp() } - (containerSize / 2)
 
                         Box(
                             modifier = Modifier
-                                .offset(x = nodeLeft, y = nodeTop)
-                                .size(nodeSize + 24.dp),
+                                .offset(x = containerLeft, y = containerTop)
+                                .size(containerSize),
                             contentAlignment = Alignment.Center
                         ) {
-                            // 🌟 आउटर ब्लूम / लाइट एमिशन इफ़ेक्ट (सिर्फ करेंट लेवल पर)
                             if (isCurrent) {
                                 Box(
                                     modifier = Modifier
@@ -486,7 +539,7 @@ fun ForestScreen() {
                                         .background(
                                             Brush.radialGradient(
                                                 colors = listOf(
-                                                    rank.primaryColor.copy(alpha = 0.65f),
+                                                    rank.primaryColor.copy(alpha = 0.70f),
                                                     rank.primaryColor.copy(alpha = 0.25f),
                                                     Color.Transparent
                                                 )
@@ -497,35 +550,33 @@ fun ForestScreen() {
 
                                 Box(
                                     modifier = Modifier
-                                        .size(nodeSize * 1.35f)
-                                        .border(2.dp, rank.glowBorderColor.copy(alpha = 0.8f), CircleShape)
+                                        .size(nodeSize * 1.34f)
+                                        .border(2.dp, rank.glowBorderColor.copy(alpha = 0.85f), CircleShape)
                                 )
                             }
 
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                SpringPhysicsLevelNode(
-                                    level = level,
-                                    isComplete = isComplete,
-                                    isCurrent = isCurrent,
-                                    rank = rank,
-                                    nodeSize = nodeSize,
-                                    onClick = {
-                                        selectedLevel = level
-                                        showLevelDetails = true
-                                    }
-                                )
-                                Spacer(Modifier.height(3.dp))
-                                Text(
-                                    text = "LV $level",
-                                    color = if (isCurrent) Color.White else (if (isComplete) rank.primaryColor else Color(0xFF55687C)),
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 0.5.sp
-                                )
-                            }
+                            // 🎯 1. 3D PUSH-BUTTON NODE
+                            SpringPhysicsLevelNode(
+                                level = level,
+                                isComplete = isComplete,
+                                isCurrent = isCurrent,
+                                rank = rank,
+                                nodeSize = nodeSize,
+                                onClick = {
+                                    selectedLevel = level
+                                    showLevelDetails = true
+                                }
+                            )
+
+                            // 🎯 2. LEVEL NUMBER
+                            Text(
+                                text = "LV $level",
+                                color = if (isCurrent) Color.White else (if (isComplete) rank.primaryColor else Color(0xFF55687C)),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.5.sp,
+                                modifier = Modifier.offset(y = (nodeSize / 2) + 8.dp)
+                            )
                         }
                     }
                 }
@@ -533,7 +584,6 @@ fun ForestScreen() {
         }
     }
 
-    // लेवल डिटेल्स डायलॉग
     if (showLevelDetails) {
         val rank = rankForLevel(selectedLevel)
         val status = when {
@@ -552,12 +602,13 @@ fun ForestScreen() {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(status, color = rank.primaryColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text("League Shape: ${rank.shapeType.name.lowercase().replaceFirstChar { it.uppercase() }}")
                     Text("League Material: ${rank.materialName}")
                     Text("XP Target: ${levelXp(selectedLevel)} XP")
                     Text(
-                        if (selectedLevel <= completedLevel) "This level has been fully ignited and conquered!"
-                        else if (selectedLevel == currentLevel) "Active Focus Node: Continue studying to progressively ignite the path to the next level."
-                        else "This dormant stone node will awaken once preceding levels are completed."
+                        if (selectedLevel <= completedLevel) "This level has been fully conquered and ignited!"
+                        else if (selectedLevel == currentLevel) "Active Focus Node: Continue studying to ignite the path to the next checkpoint."
+                        else "This dormant stone node will awaken once preceding levels are mastered."
                     )
                 }
             },
@@ -567,7 +618,6 @@ fun ForestScreen() {
         )
     }
 
-    // रीसेट प्रोग्रेस डायलॉग
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
@@ -592,7 +642,7 @@ fun ForestScreen() {
 }
 
 /**
- * 🎴 असली स्प्रिंग फ़िज़िक्स + 3D रून + कस्टम वेक्टर फ्लेम (Zero Emojis)
+ * 🎴 असली 3D मैकेनिकल पुश-बटन (League Geometric Shape + Spring Compression)
  */
 @Composable
 private fun SpringPhysicsLevelNode(
@@ -606,38 +656,31 @@ private fun SpringPhysicsLevelNode(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    // 🌊 असली स्प्रिंग फ़िज़िक्स: छूते ही दबेगा और छोड़ते ही जेली जैसा बाउंस होगा
-    val springScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.88f else 1.0f,
+    // 🌊 असली मैकेनिकल पुश गहराई (3.5dp नीचे धँसेगा)
+    val pressOffsetY by animateDpAsState(
+        targetValue = if (isPressed) 3.5.dp else 0.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
         ),
-        label = "node_bounce"
+        label = "press_depth"
     )
 
-    val depthOffset = if (isPressed) 1.5.dp else 4.dp
-
-    // कलर्स: लॉक्ड = डोर्मेंट स्लेट स्टोन, कम्प्लीटेड/एक्टिव = लीग मेटैलिक थीम
     val faceColor = when {
         isCurrent -> rank.primaryColor
         isComplete -> rank.primaryColor.copy(alpha = 0.92f)
-        else -> Color(0xFF19222C) // डोर्मेंट डार्क स्लेट स्टोन
+        else -> Color(0xFF19222C)
     }
 
     val baseColor = when {
         isCurrent -> rank.darkBaseColor
         isComplete -> rank.darkBaseColor
-        else -> Color(0xFF0F161E) // गहरा स्टोन शैडो
+        else -> Color(0xFF0D141B)
     }
 
     Box(
         modifier = Modifier
             .size(nodeSize)
-            .graphicsLayer {
-                scaleX = springScale
-                scaleY = springScale
-            }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -645,45 +688,64 @@ private fun SpringPhysicsLevelNode(
             ),
         contentAlignment = Alignment.TopCenter
     ) {
-        // 1. 3D एक्सट्रूडेड बेस (गहराई)
-        Box(
+        // 1. ज़मीन पर लॉक हुआ 3D बेस (Fixed at +4dp)
+        Canvas(
             modifier = Modifier
-                .offset(y = depthOffset)
+                .offset(y = 4.dp)
                 .size(nodeSize)
-                .clip(CircleShape)
-                .background(baseColor)
-        )
+        ) {
+            val basePath = getPolygonPath(rank.shapeType, size.width, size.height)
+            drawPath(basePath, color = baseColor)
+        }
 
-        // 2. टॉप फेस प्लेट (3D बेवेल और ग्लो के साथ)
+        // 2. मूविंग 3D फेस प्लेट (Mechanical Cap that moves down on press)
         Box(
             modifier = Modifier
-                .size(nodeSize)
-                .clip(CircleShape)
-                .background(faceColor)
-                .border(
-                    width = if (isCurrent) 2.5.dp else (if (isComplete) 1.8.dp else 1.dp),
-                    color = when {
-                        isCurrent -> Color.White
-                        isComplete -> rank.glowBorderColor
-                        else -> Color(0xFF273646) // हल्का स्टोन एज
-                    },
-                    shape = CircleShape
-                ),
+                .offset(y = pressOffsetY)
+                .size(nodeSize),
             contentAlignment = Alignment.Center
         ) {
-            // 🔥 नोड्स के अंदर प्योर कस्टम वेक्टर फ्लेम (Zero Emojis)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val facePath = getPolygonPath(rank.shapeType, size.width, size.height)
+
+                val highlightBrush = Brush.verticalGradient(
+                    colors = listOf(
+                        faceColor.copy(alpha = 1f),
+                        faceColor.copy(alpha = 0.85f),
+                        faceColor.copy(alpha = 0.70f)
+                    )
+                )
+
+                drawPath(facePath, brush = highlightBrush)
+
+                val strokeColor = when {
+                    isCurrent -> Color.White
+                    isComplete -> rank.glowBorderColor
+                    else -> Color(0xFF283849)
+                }
+
+                drawPath(
+                    facePath,
+                    color = strokeColor,
+                    style = Stroke(
+                        width = if (isCurrent) 2.4.dp.toPx() else (if (isComplete) 1.8.dp.toPx() else 1.2.dp.toPx())
+                    )
+                )
+            }
+
+            // नोड के अंदर तराशी हुई लपट (Face plate के साथ नीचे दबेगी)
             PureVectorFlameIcon(
-                outerColor = if (isComplete || isCurrent) rank.flameOuterColor else Color(0xFF0F161E),
+                outerColor = if (isComplete || isCurrent) rank.flameOuterColor else Color(0xFF0D141B),
                 innerColor = if (isComplete || isCurrent) rank.flameInnerColor else Color(0xFF243444),
                 isDormant = !isComplete && !isCurrent,
-                modifier = Modifier.size(nodeSize * 0.52f)
+                modifier = Modifier.size(nodeSize * 0.48f)
             )
         }
     }
 }
 
 /**
- * 🔥 100% प्योर कैनवास वेक्टर फ्लेम (डिवाइस इमोजी से पूरी तरह मुक्त)
+ * 100% प्योर कैनवास वेक्टर फ्लेम
  */
 @Composable
 private fun PureVectorFlameIcon(
@@ -697,7 +759,6 @@ private fun PureVectorFlameIcon(
         val h = size.height
 
         if (isDormant) {
-            // सुप्त पत्थर में तराशी हुई रून फ्लेम
             val stoneEngravedPath = Path().apply {
                 moveTo(w * 0.50f, h * 0.10f)
                 cubicTo(w * 0.70f, h * 0.32f, w * 0.90f, h * 0.58f, w * 0.78f, h * 0.86f)
@@ -708,7 +769,6 @@ private fun PureVectorFlameIcon(
             drawPath(stoneEngravedPath, color = outerColor)
             drawPath(stoneEngravedPath, color = innerColor, style = Stroke(width = 1.2.dp.toPx()))
         } else {
-            // जीवंत जादुई लपट (Outer Flame)
             val outerFlamePath = Path().apply {
                 moveTo(w * 0.50f, h * 0.06f)
                 cubicTo(w * 0.72f, h * 0.30f, w * 0.94f, h * 0.56f, w * 0.80f, h * 0.86f)
@@ -718,7 +778,6 @@ private fun PureVectorFlameIcon(
             }
             drawPath(outerFlamePath, color = outerColor)
 
-            // आंतरिक चमकीला कोर (Inner Luminous Spark)
             val innerCorePath = Path().apply {
                 moveTo(w * 0.50f, h * 0.40f)
                 cubicTo(w * 0.66f, h * 0.54f, w * 0.76f, h * 0.72f, w * 0.64f, h * 0.86f)
