@@ -44,8 +44,8 @@ private data class JourneyRank(
     val name: String,
     val materialName: String,
     val firstLevel: Int,
-    val topFaceColor: Color,     // बटन का मुख्य रंग
-    val bottomBaseColor: Color,  // बटन का 3D वज़न (निचला बेस)
+    val topFaceColor: Color,     // CSS: background-color
+    val bottomBaseColor: Color,  // CSS: box-shadow color
     val glowBorderColor: Color,
     val rankSymbol: String
 )
@@ -73,8 +73,8 @@ private val journeyRanks = listOf(
         name = "Gold",
         materialName = "Royal Gold",
         firstLevel = 21,
-        topFaceColor = Color(0xFFFFB800),    // आपका पसंदीदा रॉयल गोल्ड
-        bottomBaseColor = Color(0xFFA06D00), // आपका पसंदीदा गहरा ब्रास वज़न
+        topFaceColor = Color(0xFFFFB800),
+        bottomBaseColor = Color(0xFFA06D00),
         glowBorderColor = Color(0xFFFFE382),
         rankSymbol = "♜"
     ),
@@ -138,7 +138,6 @@ private fun saveLevelTestState(context: Context, count: Int, completed: Int, xp:
         .apply()
 }
 
-// डुओलिंगो स्मूथ 8-स्टेप ज़िग-ज़ैग कोऑर्डिनेट
 private fun getNodeXFraction(level: Int): Float {
     return when ((level - 1) % 8) {
         0 -> 0.50f
@@ -153,7 +152,6 @@ private fun getNodeXFraction(level: Int): Float {
     }
 }
 
-// स्मूथ बेज़ियर सड़क पाथ
 private fun buildSmoothRoadPath(points: List<Offset>): Path {
     val path = Path()
     if (points.isEmpty()) return path
@@ -206,7 +204,7 @@ fun ForestScreen() {
     val infiniteTransition = rememberInfiniteTransition(label = "bloom_anim")
     val bloomScale by infiniteTransition.animateFloat(
         initialValue = 1.0f,
-        targetValue = 1.30f,
+        targetValue = 1.25f,
         animationSpec = infiniteRepeatable(
             animation = tween(1200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -215,7 +213,7 @@ fun ForestScreen() {
     )
     val bloomAlpha by infiniteTransition.animateFloat(
         initialValue = 0.50f,
-        targetValue = 0.10f,
+        targetValue = 0.12f,
         animationSpec = infiniteRepeatable(
             animation = tween(1200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -237,7 +235,7 @@ fun ForestScreen() {
             .fillMaxSize()
             .background(bg)
     ) {
-        // हेडर
+        // Header
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -265,7 +263,7 @@ fun ForestScreen() {
             )
         }
 
-        // स्टेट्स बार
+        // Stats Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -279,7 +277,7 @@ fun ForestScreen() {
 
         Spacer(Modifier.height(10.dp))
 
-        // लीग बैनर
+        // League Milestone Banner
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -309,7 +307,7 @@ fun ForestScreen() {
                 }
                 Spacer(Modifier.height(10.dp))
                 LinearProgressIndicator(
-                    progress = { xpProgress },
+                    progress = xpProgress,
                     modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape),
                     color = currentRank.topFaceColor,
                     trackColor = Color(0xFF243444)
@@ -321,7 +319,7 @@ fun ForestScreen() {
 
         Spacer(Modifier.height(10.dp))
 
-        // टेस्टिंग कंट्रोल्स
+        // Action Testing Buttons
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -358,7 +356,7 @@ fun ForestScreen() {
 
         Spacer(Modifier.height(8.dp))
 
-        // 3D मैप स्क्रीन (बिना किसी डॉट्स के)
+        // 3D Map Viewport (No Grid Dots - Clean Matte)
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -390,20 +388,20 @@ fun ForestScreen() {
                         }
                     }
 
-                    // सड़क और प्रोग्रेसिव पाथ
+                    // Road Canvas
                     Canvas(Modifier.fillMaxSize()) {
                         drawRect(Color(0xFF0B121A))
 
                         if (points.size > 1) {
                             val baseFullPath = buildSmoothRoadPath(points)
 
-                            // डार्क सॉलिड रोड-बेड
+                            // 3D Road Base Layers
                             drawPath(baseFullPath, Color(0xFF070B10), style = Stroke(width = 30.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                             drawPath(baseFullPath, Color(0xFF16212D), style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                             drawPath(baseFullPath, Color(0xFF223142), style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                             drawPath(baseFullPath, Color(0xFF2D3E52), style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 
-                            // कम्प्लीटेड पाथ
+                            // Completed Energy Path
                             if (currentLevel > 1) {
                                 val completedPoints = points.take(currentLevel)
                                 val completedPath = buildSmoothRoadPath(completedPoints)
@@ -413,7 +411,7 @@ fun ForestScreen() {
                                 drawPath(completedPath, Color.White.copy(alpha = 0.95f), style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                             }
 
-                            // लाइव XP प्रोग्रेसिव पाथ (सुधरा हुआ गणित)
+                            // Live XP Progressive Beam
                             if (currentLevel < levelCount && xpProgress > 0.01f) {
                                 val currentSegmentPoints = listOf(points[currentLevel - 1], points[currentLevel])
                                 val rawSegment = buildSmoothRoadPath(currentSegmentPoints)
@@ -428,7 +426,6 @@ fun ForestScreen() {
                                 drawPath(progressiveSegment, currentRank.topFaceColor, style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                                 drawPath(progressiveSegment, Color.White, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 
-                                // ✨ 100% सही गणित (Zero Bug): टिप स्पार्क की लोकेशन
                                 val t = xpProgress
                                 val u = 1f - t
                                 val p0 = currentSegmentPoints[0]
@@ -447,7 +444,7 @@ fun ForestScreen() {
                         }
                     }
 
-                    // 3D गोल ट्रॉफ़ी पुश-बटन्स
+                    // CSS-Styled 3D Push Button Nodes
                     (1..levelCount).forEach { level ->
                         val point = points[level - 1]
                         val isComplete = level <= completedLevel
@@ -490,8 +487,8 @@ fun ForestScreen() {
                                 )
                             }
 
-                            Real3DPushButton(
-                                level = level,
+                            // 🚀 Pure CSS Logic 3D Push Button
+                            Css3DMechanicalButton(
                                 isComplete = isComplete,
                                 isCurrent = isCurrent,
                                 rank = rank,
@@ -574,11 +571,12 @@ fun ForestScreen() {
 }
 
 /**
- * 🏆 असली 3D गोल पुश बटन
+ * 🎯 Pure CSS Replica:
+ * - .container: box-shadow: 0 .5em #baseColor; transition: all .1s ease;
+ * - .container:has(.button:active): box-shadow: none; margin-top: .5em;
  */
 @Composable
-private fun Real3DPushButton(
-    level: Int,
+private fun Css3DMechanicalButton(
     isComplete: Boolean,
     isCurrent: Boolean,
     rank: JourneyRank,
@@ -588,13 +586,19 @@ private fun Real3DPushButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
+    val shadowDepth = 6.dp
+
+    // CSS: transition: all .1s ease
     val pressOffsetY by animateDpAsState(
-        targetValue = if (isPressed) 4.dp else 0.dp,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "button_push"
+        targetValue = if (isPressed) shadowDepth else 0.dp,
+        animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
+        label = "css_press_offset"
+    )
+
+    val currentShadowAlpha by animateFloatAsState(
+        targetValue = if (isPressed) 0f else 1f,
+        animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
+        label = "css_shadow_fade"
     )
 
     val faceColor = when {
@@ -617,17 +621,20 @@ private fun Real3DPushButton(
             ),
         contentAlignment = Alignment.TopCenter
     ) {
-        // 1. नीचे का 3D वज़न बेस (स्थिर रहता है)
-        Box(
-            modifier = Modifier
-                .offset(y = 5.dp)
-                .size(nodeSize)
-                .clip(CircleShape)
-                .background(baseColor)
-                .border(1.dp, baseColor.copy(alpha = 0.8f), CircleShape)
-        )
+        // 1. CSS: box-shadow: 0 .5em #baseColor
+        if (currentShadowAlpha > 0.05f) {
+            Box(
+                modifier = Modifier
+                    .offset(y = shadowDepth)
+                    .size(nodeSize)
+                    .graphicsLayer { alpha = currentShadowAlpha }
+                    .clip(CircleShape)
+                    .background(baseColor)
+                    .border(1.dp, baseColor, CircleShape)
+            )
+        }
 
-        // 2. ऊपर का 3D बटन कैप (दबाने पर 4dp नीचे धँसता है)
+        // 2. CSS: .container (top face with 1px border) + active margin-top
         Box(
             modifier = Modifier
                 .offset(y = pressOffsetY)
@@ -635,11 +642,11 @@ private fun Real3DPushButton(
                 .clip(CircleShape)
                 .background(faceColor)
                 .border(
-                    width = if (isCurrent) 2.2.dp else 1.2.dp,
+                    width = if (isCurrent) 2.dp else 1.2.dp,
                     color = when {
                         isCurrent -> Color.White
                         isComplete -> rank.glowBorderColor
-                        else -> Color(0xFF334455)
+                        else -> baseColor
                     },
                     shape = CircleShape
                 ),
