@@ -45,7 +45,7 @@ private data class JourneyRank(
     val materialName: String,
     val firstLevel: Int,
     val topFaceColor: Color,     // CSS: background-color
-    val bottomBaseColor: Color,  // CSS: box-shadow color
+    val bottomBaseColor: Color,  // CSS: box-shadow
     val glowBorderColor: Color,
     val rankSymbol: String
 )
@@ -73,8 +73,8 @@ private val journeyRanks = listOf(
         name = "Gold",
         materialName = "Royal Gold",
         firstLevel = 21,
-        topFaceColor = Color(0xFFFFB800),
-        bottomBaseColor = Color(0xFFA06D00),
+        topFaceColor = Color(0xFFFFB800),    // रॉयल गोल्ड
+        bottomBaseColor = Color(0xFFA06D00), // गहरा ब्रास वज़न
         glowBorderColor = Color(0xFFFFE382),
         rankSymbol = "♜"
     ),
@@ -138,6 +138,7 @@ private fun saveLevelTestState(context: Context, count: Int, completed: Int, xp:
         .apply()
 }
 
+// 8-स्टेप स्मूथ ज़िग-ज़ैग कोऑर्डिनेट
 private fun getNodeXFraction(level: Int): Float {
     return when ((level - 1) % 8) {
         0 -> 0.50f
@@ -152,6 +153,7 @@ private fun getNodeXFraction(level: Int): Float {
     }
 }
 
+// स्मूथ बेज़ियर सड़क पाथ
 private fun buildSmoothRoadPath(points: List<Offset>): Path {
     val path = Path()
     if (points.isEmpty()) return path
@@ -235,7 +237,7 @@ fun ForestScreen() {
             .fillMaxSize()
             .background(bg)
     ) {
-        // Header
+        // हेडर
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -263,7 +265,7 @@ fun ForestScreen() {
             )
         }
 
-        // Stats Bar
+        // स्टेट्स बार
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -277,7 +279,7 @@ fun ForestScreen() {
 
         Spacer(Modifier.height(10.dp))
 
-        // League Milestone Banner
+        // लीग माइलस्टोन बैनर
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -319,7 +321,7 @@ fun ForestScreen() {
 
         Spacer(Modifier.height(10.dp))
 
-        // Action Testing Buttons
+        // एक्शन टेस्टिंग बटन्स
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -356,7 +358,7 @@ fun ForestScreen() {
 
         Spacer(Modifier.height(8.dp))
 
-        // 3D Map Viewport (No Grid Dots - Clean Matte)
+        // 3D मैप व्यूपोर्ट (क्लीन मैट बैकग्राउंड - कोई ग्रिड डॉट्स नहीं)
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -388,20 +390,20 @@ fun ForestScreen() {
                         }
                     }
 
-                    // Road Canvas
+                    // सड़क कैनवास
                     Canvas(Modifier.fillMaxSize()) {
                         drawRect(Color(0xFF0B121A))
 
                         if (points.size > 1) {
                             val baseFullPath = buildSmoothRoadPath(points)
 
-                            // 3D Road Base Layers
+                            // 3D रोड बेस लेयर्स
                             drawPath(baseFullPath, Color(0xFF070B10), style = Stroke(width = 30.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                             drawPath(baseFullPath, Color(0xFF16212D), style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                             drawPath(baseFullPath, Color(0xFF223142), style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                             drawPath(baseFullPath, Color(0xFF2D3E52), style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 
-                            // Completed Energy Path
+                            // पूरा किया गया रास्ता
                             if (currentLevel > 1) {
                                 val completedPoints = points.take(currentLevel)
                                 val completedPath = buildSmoothRoadPath(completedPoints)
@@ -411,7 +413,7 @@ fun ForestScreen() {
                                 drawPath(completedPath, Color.White.copy(alpha = 0.95f), style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                             }
 
-                            // Live XP Progressive Beam
+                            // लाइव XP प्रोग्रेसिव बीम
                             if (currentLevel < levelCount && xpProgress > 0.01f) {
                                 val currentSegmentPoints = listOf(points[currentLevel - 1], points[currentLevel])
                                 val rawSegment = buildSmoothRoadPath(currentSegmentPoints)
@@ -426,6 +428,7 @@ fun ForestScreen() {
                                 drawPath(progressiveSegment, currentRank.topFaceColor, style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                                 drawPath(progressiveSegment, Color.White, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 
+                                // टिप स्पार्क (Zero Error Bezier Math)
                                 val t = xpProgress
                                 val u = 1f - t
                                 val p0 = currentSegmentPoints[0]
@@ -444,15 +447,17 @@ fun ForestScreen() {
                         }
                     }
 
-                    // CSS-Styled 3D Push Button Nodes
+                    // CSS 3D पुश बटन नोड्स (4.5 : 4 Oval Shape)
                     (1..levelCount).forEach { level ->
                         val point = points[level - 1]
                         val isComplete = level <= completedLevel
                         val isCurrent = level == currentLevel
                         val rank = rankForLevel(level)
 
-                        val nodeSize = if (isCurrent) 60.dp else 54.dp
-                        val containerSize = nodeSize + 36.dp
+                        // 4.5em : 4em के अनुपात में चौड़ा 3D आकार
+                        val nodeWidth = if (isCurrent) 64.dp else 58.dp
+                        val nodeHeight = if (isCurrent) 56.dp else 50.dp
+                        val containerSize = nodeWidth + 36.dp
 
                         val containerLeft = with(density) { point.x.toDp() } - (containerSize / 2)
                         val containerTop = with(density) { point.y.toDp() } - (containerSize / 2)
@@ -466,7 +471,7 @@ fun ForestScreen() {
                             if (isCurrent) {
                                 Box(
                                     modifier = Modifier
-                                        .size(nodeSize * 2.2f * bloomScale)
+                                        .size(nodeWidth * 2.1f * bloomScale, nodeHeight * 2.1f * bloomScale)
                                         .graphicsLayer { alpha = bloomAlpha }
                                         .background(
                                             Brush.radialGradient(
@@ -482,30 +487,32 @@ fun ForestScreen() {
 
                                 Box(
                                     modifier = Modifier
-                                        .size(nodeSize * 1.34f)
+                                        .size(nodeWidth * 1.25f, nodeHeight * 1.25f)
                                         .border(2.dp, rank.glowBorderColor.copy(alpha = 0.85f), CircleShape)
                                 )
                             }
 
-                            // 🚀 Pure CSS Logic 3D Push Button
-                            Css3DMechanicalButton(
+                            // 🎯 शुद्ध CSS लॉजिक वाला 3D बटन
+                            CssMechanicalPushButton(
                                 isComplete = isComplete,
                                 isCurrent = isCurrent,
                                 rank = rank,
-                                nodeSize = nodeSize,
+                                nodeWidth = nodeWidth,
+                                nodeHeight = nodeHeight,
                                 onClick = {
                                     selectedLevel = level
                                     showLevelDetails = true
                                 }
                             )
 
+                            // लेवल नंबर
                             Text(
                                 text = "LV $level",
                                 color = if (isCurrent) Color.White else (if (isComplete) rank.topFaceColor else Color(0xFF55687C)),
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 letterSpacing = 0.5.sp,
-                                modifier = Modifier.offset(y = (nodeSize / 2) + 8.dp)
+                                modifier = Modifier.offset(y = (nodeHeight / 2) + 9.dp)
                             )
                         }
                     }
@@ -571,34 +578,39 @@ fun ForestScreen() {
 }
 
 /**
- * 🎯 Pure CSS Replica:
- * - .container: box-shadow: 0 .5em #baseColor; transition: all .1s ease;
- * - .container:has(.button:active): box-shadow: none; margin-top: .5em;
+ * 🏆 CSS 3D Mechanical Button Replica
+ * - width: 4.5em, height: 4em, border-radius: 100%
+ * - box-shadow: 0 .5em #bottomBaseColor
+ * - transition: all .1s ease
+ * - .container:has(.button:active) -> box-shadow: none; margin-top: 2em;
  */
 @Composable
-private fun Css3DMechanicalButton(
+private fun CssMechanicalPushButton(
     isComplete: Boolean,
     isCurrent: Boolean,
     rank: JourneyRank,
-    nodeSize: Dp,
+    nodeWidth: Dp,
+    nodeHeight: Dp,
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val shadowDepth = 6.dp
+    // 0.5em के बराबर 3D गहराई
+    val shadowOffsetDp = 7.dp
 
     // CSS: transition: all .1s ease
     val pressOffsetY by animateDpAsState(
-        targetValue = if (isPressed) shadowDepth else 0.dp,
+        targetValue = if (isPressed) shadowOffsetDp else 0.dp,
         animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
-        label = "css_press_offset"
+        label = "css_press_anim"
     )
 
-    val currentShadowAlpha by animateFloatAsState(
+    // एक्टिव होने पर शैडो का गायब होना (box-shadow: none)
+    val shadowAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0f else 1f,
         animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
-        label = "css_shadow_fade"
+        label = "css_shadow_alpha"
     )
 
     val faceColor = when {
@@ -613,7 +625,7 @@ private fun Css3DMechanicalButton(
 
     Box(
         modifier = Modifier
-            .size(nodeSize)
+            .size(width = nodeWidth, height = nodeHeight + shadowOffsetDp)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -621,24 +633,24 @@ private fun Css3DMechanicalButton(
             ),
         contentAlignment = Alignment.TopCenter
     ) {
-        // 1. CSS: box-shadow: 0 .5em #baseColor
-        if (currentShadowAlpha > 0.05f) {
+        // 1. CSS: box-shadow: 0 .5em (नीचे का ठोस 3D बेस)
+        if (shadowAlpha > 0.05f) {
             Box(
                 modifier = Modifier
-                    .offset(y = shadowDepth)
-                    .size(nodeSize)
-                    .graphicsLayer { alpha = currentShadowAlpha }
+                    .offset(y = shadowOffsetDp)
+                    .size(width = nodeWidth, height = nodeHeight)
+                    .graphicsLayer { alpha = shadowAlpha }
                     .clip(CircleShape)
                     .background(baseColor)
                     .border(1.dp, baseColor, CircleShape)
             )
         }
 
-        // 2. CSS: .container (top face with 1px border) + active margin-top
+        // 2. CSS: .container (मुख्य फेस प्लेट जो दबाने पर नीचे धँसती है)
         Box(
             modifier = Modifier
                 .offset(y = pressOffsetY)
-                .size(nodeSize)
+                .size(width = nodeWidth, height = nodeHeight)
                 .clip(CircleShape)
                 .background(faceColor)
                 .border(
