@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
@@ -48,12 +49,11 @@ private data class JourneyRank(
 )
 
 private val journeyRanks = listOf(
-    // Level 1: Aapka Original CSS Violet Theme
     JourneyRank(
         name = "Genesis",
         firstLevel = 1,
-        topFaceColor = Color(0xFF644DFF),    // Aapke CSS ka exact #644dff
-        bottomBaseColor = Color(0xFF4836BB), // Aapke CSS ka exact #4836bb
+        topFaceColor = Color(0xFF644DFF),    // इलेक्ट्रिक वॉयलेट
+        bottomBaseColor = Color(0xFF4836BB), // गहरा वॉयलेट 3D बेस
         rankSymbol = "✦"
     ),
     JourneyRank(
@@ -113,7 +113,7 @@ private fun saveLevelTestState(context: Context, count: Int, completed: Int, xp:
         .apply()
 }
 
-// 8-step zigzag calculation
+// 8-स्टेप स्मूथ ज़िग-ज़ैग कोऑर्डिनेट्स
 private fun getNodeXFraction(level: Int): Float {
     return when ((level - 1) % 8) {
         0 -> 0.50f
@@ -128,7 +128,7 @@ private fun getNodeXFraction(level: Int): Float {
     }
 }
 
-// Smooth bezier road path
+// स्मूथ बेज़ियर सड़क पाथ
 private fun buildSmoothRoadPath(points: List<Offset>): Path {
     val path = Path()
     if (points.isEmpty()) return path
@@ -165,8 +165,8 @@ fun ForestScreen() {
     var showLevelDetails by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
 
-    val bg = Color(0xFF080C11)
-    val panel = Color(0xFF111721)
+    val bg = Color(0xFF070B10)
+    val panel = Color(0xFF101722)
     val panelBorder = Color(0xFF1E293B)
     val textMain = Color(0xFFF1F5F9)
     val textMuted = Color(0xFF64748B)
@@ -192,11 +192,11 @@ fun ForestScreen() {
             .fillMaxSize()
             .background(bg)
     ) {
-        // 1. Minimal Compact Top Header
+        // मिनिमल कॉम्पैक्ट हेडर बार
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp, vertical = 6.dp),
             color = panel,
             shape = RoundedCornerShape(14.dp),
             border = BorderStroke(1.dp, panelBorder)
@@ -204,7 +204,7 @@ fun ForestScreen() {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -223,7 +223,7 @@ fun ForestScreen() {
             }
         }
 
-        // Minimal Compact Quick Testing Bar
+        // क्विक टेस्टिंग बार (+10 Levels, +100 XP, Reset)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -235,7 +235,7 @@ fun ForestScreen() {
                     levelCount = (levelCount + 10).coerceAtMost(100)
                     persist()
                 },
-                modifier = Modifier.weight(1f).height(34.dp),
+                modifier = Modifier.weight(1f).height(32.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = currentRank.topFaceColor),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(0.dp)
@@ -253,7 +253,7 @@ fun ForestScreen() {
                     }
                     persist()
                 },
-                modifier = Modifier.weight(1f).height(34.dp),
+                modifier = Modifier.weight(1f).height(32.dp),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(0.dp)
             ) {
@@ -262,7 +262,7 @@ fun ForestScreen() {
 
             OutlinedButton(
                 onClick = { showResetDialog = true },
-                modifier = Modifier.height(34.dp),
+                modifier = Modifier.height(32.dp),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
             ) {
@@ -270,16 +270,16 @@ fun ForestScreen() {
             }
         }
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
 
-        // 2. Full Viewport Clean 3D Map (No outer frame limits, maximum scroll space)
+        // 3D मैप व्यूपोर्ट (टोपोग्राफिक बैकग्राउंड + 3D एलिवेटेड पाथ)
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .background(bg)
         ) {
-            val mapHeight = (levelCount * 92 + 80).dp
+            val mapHeight = (levelCount * 92 + 100).dp
 
             Box(Modifier.fillMaxSize().verticalScroll(scrollState)) {
                 BoxWithConstraints(
@@ -291,7 +291,7 @@ fun ForestScreen() {
                     val densityVal = density.density
                     val h = mapHeight.value * densityVal
                     val stepPx = stepHeightDp.value * densityVal
-                    val bottomPadPx = 48f * densityVal
+                    val bottomPadPx = 50f * densityVal
 
                     val points = remember(levelCount, w, h) {
                         (1..levelCount).map { level ->
@@ -301,31 +301,66 @@ fun ForestScreen() {
                         }
                     }
 
-                    // Clean Dark Highway (No wide fuzzy glows)
+                    // 1. टोपोग्राफिक बैकग्राउंड + 3D एलिवेटेड पाथ कैनवास
                     Canvas(Modifier.fillMaxSize()) {
                         drawRect(bg)
 
+                        // टोपोग्राफी बारीक रेखाएँ (Contour Lines)
+                        val topoLinesCount = (h / 70f).toInt()
+                        for (i in 0..topoLinesCount) {
+                            val baseY = i * 70f
+                            val topoPath = Path().apply {
+                                moveTo(0f, baseY)
+                                cubicTo(
+                                    w * 0.28f, baseY - 35f,
+                                    w * 0.65f, baseY + 35f,
+                                    w, baseY
+                                )
+                            }
+                            drawPath(
+                                path = topoPath,
+                                color = Color(0xFF162130).copy(alpha = 0.45f),
+                                style = Stroke(width = 1.2.dp.toPx())
+                            )
+                        }
+
+                        // 3D एलिवेटेड सड़क
                         if (points.size > 1) {
                             val baseFullPath = buildSmoothRoadPath(points)
 
-                            // Clean solid roadbed
+                            // लेयर 1: निचली गहरी 3D परछाईं (Drop Shadow)
+                            val shadowPath = Path().apply {
+                                val offsetPoints = points.map { Offset(it.x, it.y + 12f) }
+                                addPath(buildSmoothRoadPath(offsetPoints))
+                            }
                             drawPath(
-                                baseFullPath,
-                                Color(0xFF0E1520),
-                                style = Stroke(width = 24.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                                shadowPath,
+                                Color(0xFF030508).copy(alpha = 0.85f),
+                                style = Stroke(width = 30.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                             )
+
+                            // लेयर 2: 3D साइड-वॉल थिकनेस (मोटा बेस)
                             drawPath(
                                 baseFullPath,
-                                Color(0xFF1E293B),
-                                style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                                Color(0xFF0E1622),
+                                style = Stroke(width = 26.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                             )
+
+                            // लेयर 3: टॉप मैट रोडबेड
                             drawPath(
                                 baseFullPath,
-                                Color(0xFF334155),
+                                Color(0xFF1E2A3A),
+                                style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                            )
+
+                            // लेयर 4: पाथवे सेंटर ग्रूव लाइन
+                            drawPath(
+                                baseFullPath,
+                                Color(0xFF334458),
                                 style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                             )
 
-                            // Unlocked clean path
+                            // लेयर 5: अनलॉक किया हुआ प्रोग्रेस ट्रैक
                             if (currentLevel > 1) {
                                 val completedPoints = points.take(currentLevel)
                                 val completedPath = buildSmoothRoadPath(completedPoints)
@@ -337,12 +372,12 @@ fun ForestScreen() {
                                 )
                                 drawPath(
                                     completedPath,
-                                    Color.White.copy(alpha = 0.9f),
-                                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                                    Color.White.copy(alpha = 0.92f),
+                                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                                 )
                             }
 
-                            // Active progress pulse line
+                            // लेयर 6: लाइव XP फ्लो बीम
                             if (currentLevel < levelCount && xpProgress > 0.01f) {
                                 val currentSegmentPoints = listOf(points[currentLevel - 1], points[currentLevel])
                                 val rawSegment = buildSmoothRoadPath(currentSegmentPoints)
@@ -361,10 +396,10 @@ fun ForestScreen() {
                                 drawPath(
                                     progressiveSegment,
                                     Color.White,
-                                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                                 )
 
-                                // Tip node spark
+                                // टिप बीम स्पार्क
                                 val t = xpProgress
                                 val u = 1f - t
                                 val p0 = currentSegmentPoints[0]
@@ -381,7 +416,50 @@ fun ForestScreen() {
                         }
                     }
 
-                    // 3. Perfect 3D Circular Buttons (No bottom labels, no floating rings)
+                    // 2. प्रोग्रेसिव साइड माइलस्टोन्स (अनलॉक होने पर कलरफुल)
+                    // माइलस्टोन 1: लेवल 5 (तंबू और अलाव ⛺🔥)
+                    if (points.size >= 5) {
+                        val p5 = points[4]
+                        val isCampUnlocked = completedLevel >= 5
+                        SideCampMilestone(
+                            isUnlocked = isCampUnlocked,
+                            modifier = Modifier
+                                .offset(
+                                    x = with(density) { (p5.x - 110.dp.toPx()).toDp() }.coerceAtLeast(10.dp),
+                                    y = with(density) { (p5.y - 25.dp.toPx()).toDp() }
+                                )
+                        )
+                    }
+
+                    // माइलस्टोन 2: लेवल 10 (किताबें और पौधा 📚🪴)
+                    if (points.size >= 10) {
+                        val p10 = points[9]
+                        val isBooksUnlocked = completedLevel >= 10
+                        SideBooksMilestone(
+                            isUnlocked = isBooksUnlocked,
+                            modifier = Modifier
+                                .offset(
+                                    x = with(density) { (p10.x + 48.dp.toPx()).toDp() }.coerceAtMost((w / densityVal - 90).dp),
+                                    y = with(density) { (p10.y - 25.dp.toPx()).toDp() }
+                                )
+                        )
+                    }
+
+                    // माइलस्टोन 3: लेवल 20 (पोडियम ट्रॉफ़ी व फ़्लैग 🏆🚩)
+                    if (points.size >= 20) {
+                        val p20 = points[19]
+                        val isTrophyUnlocked = completedLevel >= 20
+                        SideTrophyMilestone(
+                            isUnlocked = isTrophyUnlocked,
+                            modifier = Modifier
+                                .offset(
+                                    x = with(density) { (p20.x + 48.dp.toPx()).toDp() }.coerceAtMost((w / densityVal - 90).dp),
+                                    y = with(density) { (p20.y - 25.dp.toPx()).toDp() }
+                                )
+                        )
+                    }
+
+                    // 3. शुद्ध गोल 3D मैकेनिकल बटन्स
                     val buttonSize = 56.dp
                     (1..levelCount).forEach { level ->
                         val point = points[level - 1]
@@ -471,11 +549,10 @@ fun ForestScreen() {
 }
 
 /**
- * 🎯 Exact Uiverse 3D Mechanical Button Replica
- * - Perfect 56dp circle puck (No oval distortion)
- * - Solid bottom 3D base (box-shadow equivalent)
- * - 0.1s instant mechanical sink on press
- * - Clean 1px matching border (No white border, no floating rings)
+ * 🎯 3D Mechanical Button Replica
+ * - 56dp Perfect Circle
+ * - Solid 3D Base (Deep Push Animation)
+ * - Active: 🏆 Trophy | Locked: 🔒 Classic Lock (Option A)
  */
 @Composable
 private fun Uiverse3DMechanicalButton(
@@ -490,18 +567,16 @@ private fun Uiverse3DMechanicalButton(
 
     val shadowDepth = 7.dp
 
-    // CSS: transition: all .1s ease
     val pressOffsetY by animateDpAsState(
         targetValue = if (isPressed) shadowDepth else 0.dp,
         animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
-        label = "uiverse_press_anim"
+        label = "press_anim"
     )
 
-    // Shadow collapse on active press
     val shadowAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0f else 1f,
         animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
-        label = "uiverse_shadow_anim"
+        label = "shadow_anim"
     )
 
     val faceColor = when {
@@ -524,7 +599,7 @@ private fun Uiverse3DMechanicalButton(
             ),
         contentAlignment = Alignment.TopCenter
     ) {
-        // 1. Solid 3D Base (box-shadow)
+        // 1. सॉलिड 3D बेस
         if (shadowAlpha > 0.05f) {
             Box(
                 modifier = Modifier
@@ -537,19 +612,109 @@ private fun Uiverse3DMechanicalButton(
             )
         }
 
-        // 2. Moving Circular Face
+        // 2. मूविंग सर्कुलर फेस
         Box(
             modifier = Modifier
                 .offset(y = pressOffsetY)
                 .size(buttonSize)
                 .clip(CircleShape)
                 .background(faceColor)
-                .border(1.dp, baseColor, CircleShape), // Clean matching 1px border
+                .border(1.dp, baseColor, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = if (isComplete || isCurrent) "🏆" else "🔒",
                 fontSize = 20.sp
+            )
+        }
+    }
+}
+
+// ⛺ माइलस्टोन 1: तंबू और अलाव
+@Composable
+private fun SideCampMilestone(isUnlocked: Boolean, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.width(76.dp),
+        color = if (isUnlocked) Color(0xFF1A1F2C) else Color(0xFF0E131A),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, if (isUnlocked) Color(0xFFFF9800).copy(alpha = 0.5f) else Color(0xFF1C2533))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = if (isUnlocked) "⛺🔥" else "⛺",
+                fontSize = 16.sp,
+                modifier = Modifier.graphicsLayer { alpha = if (isUnlocked) 1f else 0.35f }
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = "Lv 5",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isUnlocked) Color(0xFFFFB74D) else Color(0xFF475569)
+            )
+        }
+    }
+}
+
+// 📚 माइलस्टोन 2: किताबें और पौधा
+@Composable
+private fun SideBooksMilestone(isUnlocked: Boolean, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.width(76.dp),
+        color = if (isUnlocked) Color(0xFF1E1733) else Color(0xFF0E131A),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, if (isUnlocked) Color(0xFFA855F7).copy(alpha = 0.5f) else Color(0xFF1C2533))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = if (isUnlocked) "📚🪴" else "📚",
+                fontSize = 16.sp,
+                modifier = Modifier.graphicsLayer { alpha = if (isUnlocked) 1f else 0.35f }
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = "Lv 10",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isUnlocked) Color(0xFFC084FC) else Color(0xFF475569)
+            )
+        }
+    }
+}
+
+// 🏆 माइलस्टोन 3: पोडियम ट्रॉफ़ी व फ़्लैग
+@Composable
+private fun SideTrophyMilestone(isUnlocked: Boolean, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.width(76.dp),
+        color = if (isUnlocked) Color(0xFF261D0C) else Color(0xFF0E131A),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, if (isUnlocked) Color(0xFFFFB800).copy(alpha = 0.5f) else Color(0xFF1C2533))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = if (isUnlocked) "🏆🚩" else "🏆",
+                fontSize = 16.sp,
+                modifier = Modifier.graphicsLayer { alpha = if (isUnlocked) 1f else 0.35f }
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = "Lv 20",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isUnlocked) Color(0xFFFFD54F) else Color(0xFF475569)
             )
         }
     }
