@@ -20,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
@@ -42,85 +41,61 @@ private const val KEY_TEST_XP = "test_xp"
 
 private data class JourneyRank(
     val name: String,
-    val materialName: String,
     val firstLevel: Int,
     val topFaceColor: Color,     // CSS: background-color
     val bottomBaseColor: Color,  // CSS: box-shadow
-    val glowBorderColor: Color,
     val rankSymbol: String
 )
 
 private val journeyRanks = listOf(
+    // Level 1: Aapka Original CSS Violet Theme
     JourneyRank(
-        name = "Bronze",
-        materialName = "Rustic Copper",
+        name = "Genesis",
         firstLevel = 1,
-        topFaceColor = Color(0xFFD97736),
-        bottomBaseColor = Color(0xFF7A3811),
-        glowBorderColor = Color(0xFFFFB07E),
-        rankSymbol = "♟"
+        topFaceColor = Color(0xFF644DFF),    // Aapke CSS ka exact #644dff
+        bottomBaseColor = Color(0xFF4836BB), // Aapke CSS ka exact #4836bb
+        rankSymbol = "✦"
     ),
     JourneyRank(
-        name = "Silver",
-        materialName = "Forged Steel",
+        name = "Steel",
         firstLevel = 11,
-        topFaceColor = Color(0xFFCBD5E1),
+        topFaceColor = Color(0xFF94A3B8),
         bottomBaseColor = Color(0xFF475569),
-        glowBorderColor = Color(0xFFF8FAFC),
         rankSymbol = "♞"
     ),
     JourneyRank(
         name = "Gold",
-        materialName = "Royal Gold",
         firstLevel = 21,
-        topFaceColor = Color(0xFFFFB800),    // रॉयल गोल्ड
-        bottomBaseColor = Color(0xFFA06D00), // गहरा ब्रास वज़न
-        glowBorderColor = Color(0xFFFFE382),
+        topFaceColor = Color(0xFFFFB800),
+        bottomBaseColor = Color(0xFFA06D00),
         rankSymbol = "♜"
     ),
     JourneyRank(
-        name = "Platinum",
-        materialName = "Mint Titanium",
+        name = "Mint",
         firstLevel = 31,
-        topFaceColor = Color(0xFF70D8C2),
-        bottomBaseColor = Color(0xFF1B594D),
-        glowBorderColor = Color(0xFFAEF7E8),
+        topFaceColor = Color(0xFF34D399),
+        bottomBaseColor = Color(0xFF065F46),
         rankSymbol = "♝"
     ),
     JourneyRank(
-        name = "Emerald",
-        materialName = "Forest Jade",
-        firstLevel = 41,
-        topFaceColor = Color(0xFF55D68B),
-        bottomBaseColor = Color(0xFF186637),
-        glowBorderColor = Color(0xFF99F3BD),
-        rankSymbol = "♛"
-    ),
-    JourneyRank(
         name = "Diamond",
-        materialName = "Celestial Diamond",
-        firstLevel = 51,
-        topFaceColor = Color(0xFF6CCBFF),
-        bottomBaseColor = Color(0xFF1B557A),
-        glowBorderColor = Color(0xFFBCE6FF),
+        firstLevel = 41,
+        topFaceColor = Color(0xFF38BDF8),
+        bottomBaseColor = Color(0xFF0369A1),
         rankSymbol = "◆"
     ),
     JourneyRank(
         name = "Master",
-        materialName = "Mystic Obsidian",
-        firstLevel = 61,
-        topFaceColor = Color(0xFFB6A0FF),
-        bottomBaseColor = Color(0xFF4E3794),
-        glowBorderColor = Color(0xFFDFD4FF),
+        firstLevel = 51,
+        topFaceColor = Color(0xFFA855F7),
+        bottomBaseColor = Color(0xFF581C87),
         rankSymbol = "♚"
     ),
     JourneyRank(
-        name = "Grandmaster",
-        materialName = "Crimson Ruby",
-        firstLevel = 71,
-        topFaceColor = Color(0xFFFF7D9B),
-        bottomBaseColor = Color(0xFF7A1D31),
-        glowBorderColor = Color(0xFFFFBAC7),
+        name = "Ruby",
+        firstLevel = 61,
+        topFaceColor = Color(0xFFF43F5E),
+        bottomBaseColor = Color(0xFF881337),
         rankSymbol = "★"
     )
 )
@@ -138,22 +113,22 @@ private fun saveLevelTestState(context: Context, count: Int, completed: Int, xp:
         .apply()
 }
 
-// 8-स्टेप स्मूथ ज़िग-ज़ैग कोऑर्डिनेट
+// 8-step zigzag calculation
 private fun getNodeXFraction(level: Int): Float {
     return when ((level - 1) % 8) {
         0 -> 0.50f
-        1 -> 0.33f
-        2 -> 0.23f
-        3 -> 0.33f
+        1 -> 0.32f
+        2 -> 0.20f
+        3 -> 0.32f
         4 -> 0.50f
-        5 -> 0.67f
-        6 -> 0.77f
-        7 -> 0.67f
+        5 -> 0.68f
+        6 -> 0.80f
+        7 -> 0.68f
         else -> 0.50f
     }
 }
 
-// स्मूथ बेज़ियर सड़क पाथ
+// Smooth bezier road path
 private fun buildSmoothRoadPath(points: List<Offset>): Path {
     val path = Path()
     if (points.isEmpty()) return path
@@ -190,38 +165,18 @@ fun ForestScreen() {
     var showLevelDetails by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
 
-    val bg = Color(0xFF091017)
-    val panel = Color(0xFF131D27)
-    val panelBorder = Color(0xFF243444)
-    val textMain = Color(0xFFF2F6FA)
-    val textMuted = Color(0xFF8FA1B5)
-    val accent = Color(0xFFFFB800)
+    val bg = Color(0xFF080C11)
+    val panel = Color(0xFF111721)
+    val panelBorder = Color(0xFF1E293B)
+    val textMain = Color(0xFFF1F5F9)
+    val textMuted = Color(0xFF64748B)
+
     val currentLevel = (completedLevel + 1).coerceAtMost(levelCount)
     val currentRank = rankForLevel(currentLevel)
     val xpTarget = levelXp(currentLevel)
     val xpProgress = (testXp.toFloat() / xpTarget).coerceIn(0f, 1f)
 
     fun persist() = saveLevelTestState(context, levelCount, completedLevel, testXp)
-
-    val infiniteTransition = rememberInfiniteTransition(label = "bloom_anim")
-    val bloomScale by infiniteTransition.animateFloat(
-        initialValue = 1.0f,
-        targetValue = 1.25f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bloom_scale"
-    )
-    val bloomAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.50f,
-        targetValue = 0.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bloom_alpha"
-    )
 
     val scrollState = rememberScrollState()
     val stepHeightDp = 92.dp
@@ -237,104 +192,56 @@ fun ForestScreen() {
             .fillMaxSize()
             .background(bg)
     ) {
-        // हेडर
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
-        ) {
-            Text(
-                text = "AMON  /  FOCUS JOURNEY",
-                color = currentRank.topFaceColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.8.sp
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = "Your Level Path",
-                color = textMain,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Black
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = "Material: ${currentRank.materialName}",
-                color = textMuted,
-                fontSize = 11.5.sp
-            )
-        }
-
-        // स्टेट्स बार
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            JourneyStat("LEVELS", levelCount.toString(), panel, textMain, Modifier.weight(1f))
-            JourneyStat("COMPLETED", completedLevel.toString(), panel, accent, Modifier.weight(1f))
-            JourneyStat("TEST XP", testXp.toString(), panel, Color(0xFFFFD166), Modifier.weight(1f))
-        }
-
-        Spacer(Modifier.height(10.dp))
-
-        // लीग माइलस्टोन बैनर
+        // 1. Minimal Compact Top Header
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 14.dp, vertical = 8.dp),
             color = panel,
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(14.dp),
             border = BorderStroke(1.dp, panelBorder)
         ) {
-            Column(Modifier.padding(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(currentRank.topFaceColor.copy(alpha = 0.16f))
-                            .border(1.dp, currentRank.topFaceColor.copy(alpha = 0.8f), RoundedCornerShape(14.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(currentRank.rankSymbol, color = currentRank.topFaceColor, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("${currentRank.name} League", color = currentRank.topFaceColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text("Level $currentLevel • Next milestone", color = textMain, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Text("$testXp XP", color = Color(0xFFFFD166), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(10.dp))
-                LinearProgressIndicator(
-                    progress = xpProgress,
-                    modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${currentRank.name} • Level $currentLevel",
                     color = currentRank.topFaceColor,
-                    trackColor = Color(0xFF243444)
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(Modifier.height(6.dp))
-                Text("$testXp / $xpTarget XP for current level", color = textMuted, fontSize = 11.sp)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = "$testXp / $xpTarget XP",
+                    color = textMuted,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
 
-        Spacer(Modifier.height(10.dp))
-
-        // एक्शन टेस्टिंग बटन्स
+        // Minimal Compact Quick Testing Bar
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Button(
                 onClick = {
                     levelCount = (levelCount + 10).coerceAtMost(100)
                     persist()
                 },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = currentRank.topFaceColor, contentColor = Color(0xFF09141B)),
-                shape = RoundedCornerShape(12.dp)
-            ) { Text("+10 Levels", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                modifier = Modifier.weight(1f).height(34.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = currentRank.topFaceColor),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text("+10 Levels", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
 
             OutlinedButton(
                 onClick = {
@@ -346,29 +253,33 @@ fun ForestScreen() {
                     }
                     persist()
                 },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp)
-            ) { Text("+100 XP", fontSize = 12.sp) }
+                modifier = Modifier.weight(1f).height(34.dp),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text("+100 XP", fontSize = 11.sp)
+            }
 
             OutlinedButton(
                 onClick = { showResetDialog = true },
-                shape = RoundedCornerShape(12.dp)
-            ) { Text("Reset", fontSize = 12.sp) }
+                modifier = Modifier.height(34.dp),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+            ) {
+                Text("Reset", fontSize = 11.sp)
+            }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
 
-        // 3D मैप व्यूपोर्ट (क्लीन मैट बैकग्राउंड - कोई ग्रिड डॉट्स नहीं)
+        // 2. Full Viewport Clean 3D Map (No outer frame limits, maximum scroll space)
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .border(1.2.dp, panelBorder, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .background(Color(0xFF0B121A))
+                .background(bg)
         ) {
-            val mapHeight = (levelCount * 92 + 90).dp
+            val mapHeight = (levelCount * 92 + 80).dp
 
             Box(Modifier.fillMaxSize().verticalScroll(scrollState)) {
                 BoxWithConstraints(
@@ -380,7 +291,7 @@ fun ForestScreen() {
                     val densityVal = density.density
                     val h = mapHeight.value * densityVal
                     val stepPx = stepHeightDp.value * densityVal
-                    val bottomPadPx = 54f * densityVal
+                    val bottomPadPx = 48f * densityVal
 
                     val points = remember(levelCount, w, h) {
                         (1..levelCount).map { level ->
@@ -390,30 +301,48 @@ fun ForestScreen() {
                         }
                     }
 
-                    // सड़क कैनवास
+                    // Clean Dark Highway (No wide fuzzy glows)
                     Canvas(Modifier.fillMaxSize()) {
-                        drawRect(Color(0xFF0B121A))
+                        drawRect(bg)
 
                         if (points.size > 1) {
                             val baseFullPath = buildSmoothRoadPath(points)
 
-                            // 3D रोड बेस लेयर्स
-                            drawPath(baseFullPath, Color(0xFF070B10), style = Stroke(width = 30.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-                            drawPath(baseFullPath, Color(0xFF16212D), style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-                            drawPath(baseFullPath, Color(0xFF223142), style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-                            drawPath(baseFullPath, Color(0xFF2D3E52), style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                            // Clean solid roadbed
+                            drawPath(
+                                baseFullPath,
+                                Color(0xFF0E1520),
+                                style = Stroke(width = 24.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                            )
+                            drawPath(
+                                baseFullPath,
+                                Color(0xFF1E293B),
+                                style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                            )
+                            drawPath(
+                                baseFullPath,
+                                Color(0xFF334155),
+                                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                            )
 
-                            // पूरा किया गया रास्ता
+                            // Unlocked clean path
                             if (currentLevel > 1) {
                                 val completedPoints = points.take(currentLevel)
                                 val completedPath = buildSmoothRoadPath(completedPoints)
 
-                                drawPath(completedPath, currentRank.topFaceColor.copy(alpha = 0.28f), style = Stroke(width = 24.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-                                drawPath(completedPath, currentRank.topFaceColor.copy(alpha = 0.70f), style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-                                drawPath(completedPath, Color.White.copy(alpha = 0.95f), style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                                drawPath(
+                                    completedPath,
+                                    currentRank.topFaceColor,
+                                    style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                                )
+                                drawPath(
+                                    completedPath,
+                                    Color.White.copy(alpha = 0.9f),
+                                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                                )
                             }
 
-                            // लाइव XP प्रोग्रेसिव बीम
+                            // Active progress pulse line
                             if (currentLevel < levelCount && xpProgress > 0.01f) {
                                 val currentSegmentPoints = listOf(points[currentLevel - 1], points[currentLevel])
                                 val rawSegment = buildSmoothRoadPath(currentSegmentPoints)
@@ -424,11 +353,18 @@ fun ForestScreen() {
                                 val targetLength = pathMeasure.length * xpProgress
                                 pathMeasure.getSegment(0f, targetLength, progressiveSegment, true)
 
-                                drawPath(progressiveSegment, currentRank.topFaceColor.copy(alpha = 0.35f), style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-                                drawPath(progressiveSegment, currentRank.topFaceColor, style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-                                drawPath(progressiveSegment, Color.White, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                                drawPath(
+                                    progressiveSegment,
+                                    currentRank.topFaceColor,
+                                    style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                                )
+                                drawPath(
+                                    progressiveSegment,
+                                    Color.White,
+                                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                                )
 
-                                // टिप स्पार्क (Zero Error Bezier Math)
+                                // Tip node spark
                                 val t = xpProgress
                                 val u = 1f - t
                                 val p0 = currentSegmentPoints[0]
@@ -439,80 +375,38 @@ fun ForestScreen() {
 
                                 val tipX = u * u * u * p0.x + 3f * u * u * t * p1.x + 3f * u * t * t * p2.x + t * t * t * p3.x
                                 val tipY = u * u * u * p0.y + 3f * u * u * t * p1.y + 3f * u * t * t * p2.y + t * t * t * p3.y
-                                val tipOffset = Offset(tipX, tipY)
-
-                                drawCircle(currentRank.topFaceColor, radius = 6.dp.toPx(), center = tipOffset)
-                                drawCircle(Color.White, radius = 3.dp.toPx(), center = tipOffset)
+                                drawCircle(currentRank.topFaceColor, radius = 5.dp.toPx(), center = Offset(tipX, tipY))
+                                drawCircle(Color.White, radius = 2.5.dp.toPx(), center = Offset(tipX, tipY))
                             }
                         }
                     }
 
-                    // CSS 3D पुश बटन नोड्स (4.5 : 4 Oval Shape)
+                    // 3. Perfect 3D Circular Buttons (No bottom labels, no floating rings)
+                    val buttonSize = 56.dp
                     (1..levelCount).forEach { level ->
                         val point = points[level - 1]
                         val isComplete = level <= completedLevel
                         val isCurrent = level == currentLevel
                         val rank = rankForLevel(level)
 
-                        // 4.5em : 4em के अनुपात में चौड़ा 3D आकार
-                        val nodeWidth = if (isCurrent) 64.dp else 58.dp
-                        val nodeHeight = if (isCurrent) 56.dp else 50.dp
-                        val containerSize = nodeWidth + 36.dp
-
-                        val containerLeft = with(density) { point.x.toDp() } - (containerSize / 2)
-                        val containerTop = with(density) { point.y.toDp() } - (containerSize / 2)
+                        val buttonLeft = with(density) { point.x.toDp() } - (buttonSize / 2)
+                        val buttonTop = with(density) { point.y.toDp() } - (buttonSize / 2)
 
                         Box(
                             modifier = Modifier
-                                .offset(x = containerLeft, y = containerTop)
-                                .size(containerSize),
+                                .offset(x = buttonLeft, y = buttonTop)
+                                .size(buttonSize),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (isCurrent) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(nodeWidth * 2.1f * bloomScale, nodeHeight * 2.1f * bloomScale)
-                                        .graphicsLayer { alpha = bloomAlpha }
-                                        .background(
-                                            Brush.radialGradient(
-                                                colors = listOf(
-                                                    rank.topFaceColor.copy(alpha = 0.70f),
-                                                    rank.topFaceColor.copy(alpha = 0.25f),
-                                                    Color.Transparent
-                                                )
-                                            ),
-                                            shape = CircleShape
-                                        )
-                                )
-
-                                Box(
-                                    modifier = Modifier
-                                        .size(nodeWidth * 1.25f, nodeHeight * 1.25f)
-                                        .border(2.dp, rank.glowBorderColor.copy(alpha = 0.85f), CircleShape)
-                                )
-                            }
-
-                            // 🎯 शुद्ध CSS लॉजिक वाला 3D बटन
-                            CssMechanicalPushButton(
+                            Uiverse3DMechanicalButton(
                                 isComplete = isComplete,
                                 isCurrent = isCurrent,
                                 rank = rank,
-                                nodeWidth = nodeWidth,
-                                nodeHeight = nodeHeight,
+                                buttonSize = buttonSize,
                                 onClick = {
                                     selectedLevel = level
                                     showLevelDetails = true
                                 }
-                            )
-
-                            // लेवल नंबर
-                            Text(
-                                text = "LV $level",
-                                color = if (isCurrent) Color.White else (if (isComplete) rank.topFaceColor else Color(0xFF55687C)),
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 0.5.sp,
-                                modifier = Modifier.offset(y = (nodeHeight / 2) + 9.dp)
                             )
                         }
                     }
@@ -525,8 +419,8 @@ fun ForestScreen() {
         val rank = rankForLevel(selectedLevel)
         val status = when {
             selectedLevel <= completedLevel -> "COMPLETED"
-            selectedLevel == currentLevel -> "CURRENT ACTIVE LEVEL"
-            else -> "LOCKED STAGE"
+            selectedLevel == currentLevel -> "ACTIVE STAGE"
+            else -> "LOCKED"
         }
         AlertDialog(
             onDismissRequest = { showLevelDetails = false },
@@ -537,19 +431,18 @@ fun ForestScreen() {
                 Text("Level $selectedLevel • ${rank.name}")
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(status, color = rank.topFaceColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("League Material: ${rank.materialName}")
-                    Text("XP Target: ${levelXp(selectedLevel)} XP")
+                    Text("Target: ${levelXp(selectedLevel)} XP")
                     Text(
-                        if (selectedLevel <= completedLevel) "This level has been conquered! Trophy claimed."
-                        else if (selectedLevel == currentLevel) "Active Focus Level: Complete sessions to ignite the path to the next level."
-                        else "Reach this stage by completing preceding levels."
+                        if (selectedLevel <= completedLevel) "Trophy unlocked for this level!"
+                        else if (selectedLevel == currentLevel) "Current focus target: Complete sessions to unlock next path."
+                        else "Reach this stage by finishing preceding levels."
                     )
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showLevelDetails = false }) { Text("Close", color = accent) }
+                TextButton(onClick = { showLevelDetails = false }) { Text("Close", color = currentRank.topFaceColor) }
             }
         )
     }
@@ -558,8 +451,8 @@ fun ForestScreen() {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
             containerColor = panel,
-            title = { Text("Reset test progress?", color = textMain) },
-            text = { Text("This resets level count to 20 and clears test XP and completed checkpoints.", color = textMuted) },
+            title = { Text("Reset Progress?", color = textMain) },
+            text = { Text("This will reset back to Level 1 and 0 XP.", color = textMuted) },
             confirmButton = {
                 TextButton(onClick = {
                     levelCount = 20
@@ -568,64 +461,62 @@ fun ForestScreen() {
                     selectedLevel = 1
                     persist()
                     showResetDialog = false
-                }) { Text("Reset", color = Color(0xFFFF8B8B)) }
+                }) { Text("Reset", color = Color(0xFFFF6B6B)) }
             },
             dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) { Text("Cancel", color = accent) }
+                TextButton(onClick = { showResetDialog = false }) { Text("Cancel", color = Color.White) }
             }
         )
     }
 }
 
 /**
- * 🏆 CSS 3D Mechanical Button Replica
- * - width: 4.5em, height: 4em, border-radius: 100%
- * - box-shadow: 0 .5em #bottomBaseColor
- * - transition: all .1s ease
- * - .container:has(.button:active) -> box-shadow: none; margin-top: 2em;
+ * 🎯 Exact Uiverse 3D Mechanical Button Replica
+ * - Perfect 56dp circle puck (No oval distortion)
+ * - Solid bottom 3D base (box-shadow equivalent)
+ * - 0.1s instant mechanical sink on press
+ * - Clean 1px matching border (No white border, no floating rings)
  */
 @Composable
-private fun CssMechanicalPushButton(
+private fun Uiverse3DMechanicalButton(
     isComplete: Boolean,
     isCurrent: Boolean,
     rank: JourneyRank,
-    nodeWidth: Dp,
-    nodeHeight: Dp,
+    buttonSize: Dp,
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    // 0.5em के बराबर 3D गहराई
-    val shadowOffsetDp = 7.dp
+    val shadowDepth = 7.dp
 
     // CSS: transition: all .1s ease
     val pressOffsetY by animateDpAsState(
-        targetValue = if (isPressed) shadowOffsetDp else 0.dp,
+        targetValue = if (isPressed) shadowDepth else 0.dp,
         animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
-        label = "css_press_anim"
+        label = "uiverse_press_anim"
     )
 
-    // एक्टिव होने पर शैडो का गायब होना (box-shadow: none)
+    // Shadow collapse on active press
     val shadowAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0f else 1f,
         animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
-        label = "css_shadow_alpha"
+        label = "uiverse_shadow_anim"
     )
 
     val faceColor = when {
         isCurrent || isComplete -> rank.topFaceColor
-        else -> Color(0xFF243242)
+        else -> Color(0xFF1E293B)
     }
 
     val baseColor = when {
         isCurrent || isComplete -> rank.bottomBaseColor
-        else -> Color(0xFF131B24)
+        else -> Color(0xFF0F172A)
     }
 
     Box(
         modifier = Modifier
-            .size(width = nodeWidth, height = nodeHeight + shadowOffsetDp)
+            .size(width = buttonSize, height = buttonSize + shadowDepth)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -633,12 +524,12 @@ private fun CssMechanicalPushButton(
             ),
         contentAlignment = Alignment.TopCenter
     ) {
-        // 1. CSS: box-shadow: 0 .5em (नीचे का ठोस 3D बेस)
+        // 1. Solid 3D Base (box-shadow)
         if (shadowAlpha > 0.05f) {
             Box(
                 modifier = Modifier
-                    .offset(y = shadowOffsetDp)
-                    .size(width = nodeWidth, height = nodeHeight)
+                    .offset(y = shadowDepth)
+                    .size(buttonSize)
                     .graphicsLayer { alpha = shadowAlpha }
                     .clip(CircleShape)
                     .background(baseColor)
@@ -646,50 +537,20 @@ private fun CssMechanicalPushButton(
             )
         }
 
-        // 2. CSS: .container (मुख्य फेस प्लेट जो दबाने पर नीचे धँसती है)
+        // 2. Moving Circular Face
         Box(
             modifier = Modifier
                 .offset(y = pressOffsetY)
-                .size(width = nodeWidth, height = nodeHeight)
+                .size(buttonSize)
                 .clip(CircleShape)
                 .background(faceColor)
-                .border(
-                    width = if (isCurrent) 2.dp else 1.2.dp,
-                    color = when {
-                        isCurrent -> Color.White
-                        isComplete -> rank.glowBorderColor
-                        else -> baseColor
-                    },
-                    shape = CircleShape
-                ),
+                .border(1.dp, baseColor, CircleShape), // Clean matching 1px border
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = if (isComplete || isCurrent) "🏆" else "🔒",
-                fontSize = if (isCurrent) 22.sp else 19.sp
+                fontSize = 20.sp
             )
-        }
-    }
-}
-
-@Composable
-private fun JourneyStat(
-    label: String,
-    value: String,
-    background: Color,
-    valueColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        color = background,
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, Color(0xFF243444))
-    ) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
-            Text(label, color = Color(0xFF8FA1B5), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
-            Spacer(Modifier.height(2.dp))
-            Text(value, color = valueColor, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
         }
     }
 }
