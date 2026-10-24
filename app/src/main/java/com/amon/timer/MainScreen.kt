@@ -174,10 +174,8 @@ fun MainScreen() {
                     isPaused = isPaused,
                     isFocusActive = isFocusActive
                 )
-                1 -> AmonGardenComingSoonTab(
-                    goldColor = goldColor,
-                    isDark = isDark
-                )
+                // 🏛️ नया 'Universal Library' पेज यहाँ कनेक्ट हो गया
+                1 -> ForestScreen()
                 2 -> StatsScreen()
                 3 -> ProfileScreen()
             }
@@ -195,126 +193,6 @@ fun MainScreen() {
                         showWhatsNew = false
                     }
                 )
-            }
-        }
-    }
-}
-
-// =============================================================================
-// 🌲 AMON GARDEN • COMING SOON TAB
-// =============================================================================
-@Composable
-fun AmonGardenComingSoonTab(
-    goldColor: Color,
-    isDark: Boolean
-) {
-    val gardenBg = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF132D1B),
-            Color(0xFF0A1C10),
-            Color(0xFF061009)
-        )
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(gardenBg)
-            .padding(20.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = Color(0xFF422E1B),
-                border = BorderStroke(2.dp, Color(0xFF6E5030)),
-                shadowElevation = 8.dp,
-                modifier = Modifier.padding(bottom = 28.dp)
-            ) {
-                Text(
-                    text = "Amon Garden",
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFF3E5AB),
-                    letterSpacing = 1.sp,
-                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 10.dp)
-                )
-            }
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(32.dp),
-                color = Color(0xFF131A15).copy(alpha = 0.94f),
-                border = BorderStroke(1.2.dp, Color(0xFF334B3B)),
-                shadowElevation = 12.dp
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(text = "🌲", fontSize = 54.sp)
-
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    Text(
-                        text = "FOREST EXPEDITION",
-                        color = Color(0xFF65C887),
-                        fontSize = 11.5.sp,
-                        letterSpacing = 2.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = "Coming Soon ✨",
-                        color = Color(0xFFFFD56A),
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Black
-                    )
-
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    Text(
-                        text = "We are hand-crafting deep focus landscapes & lush garden ecosystems.",
-                        color = Color(0xFFE2E8F0),
-                        fontSize = 13.5.sp,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 20.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Text(
-                        text = "Stay focused and build your study discipline while the forest grows!",
-                        color = Color(0xFFA0AEC0),
-                        fontSize = 12.5.sp,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 18.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = Color(0xFF1E2820),
-                        border = BorderStroke(1.dp, Color(0xFF8D733E))
-                    ) {
-                        Text(
-                            text = "🚀 In Active Development",
-                            color = Color(0xFFE8C576),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
-                        )
-                    }
-                }
             }
         }
     }
@@ -386,7 +264,7 @@ fun HomeTimerTab(
     // 🌟 मोड्स स्टेट (0 = Timer, 1 = Stopwatch, 2 = Pomodoro)
     var selectedFocusMode by rememberSaveable { mutableIntStateOf(0) }
 
-    // ⏱️ स्वतंत्र स्टॉपवॉच स्टेट्स (टाइमर से 100% अलग)
+    // ⏱️ स्वतंत्र स्टॉपवॉच स्टेट्स
     var isStopwatchRunning by rememberSaveable { mutableStateOf(false) }
     var stopwatchSeconds by rememberSaveable { mutableIntStateOf(0) }
 
@@ -402,7 +280,7 @@ fun HomeTimerTab(
     var pomodoroShortBreakMinutes by rememberSaveable { mutableIntStateOf(5) }
     var pomodoroLongBreakMinutes by rememberSaveable { mutableIntStateOf(15) }
     var pomodoroTotalSessions by rememberSaveable { mutableIntStateOf(4) }
-    var pomodoroConfigTab by rememberSaveable { mutableIntStateOf(0) } // 0: Focus, 1: Short, 2: Long
+    var pomodoroConfigTab by rememberSaveable { mutableIntStateOf(0) }
 
     var isBreakActive by rememberSaveable { mutableStateOf(false) }
     var currentSessionIndex by rememberSaveable { mutableIntStateOf(1) }
@@ -436,7 +314,6 @@ fun HomeTimerTab(
 
     val totalSeconds = TimerService.remainingSeconds.intValue
 
-    // ⏱️ ओवरटाइम counter: जब टाइमर 0 हो जाए तब +00:01 शुरू होगा
     LaunchedEffect(isRunning, totalSeconds, isBreakActive) {
         if (isRunning && totalSeconds == 0 && !isBreakActive) {
             isOvertimeActive = true
@@ -621,7 +498,7 @@ fun HomeTimerTab(
                     }
                 }
 
-                // 3. MODE SELECTOR PANEL (Timer, Stopwatch, Pomodoro)
+                // 3. MODE SELECTOR PANEL
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = cardBg,
@@ -658,7 +535,7 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // 🎯 POMODORO DESIGN-A CONTROLS (Only visible in Pomodoro mode)
+                        // POMODORO CONTROLS
                         if (selectedFocusMode == 2) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -801,7 +678,6 @@ fun HomeTimerTab(
                         )
                     }
                     1 -> {
-                        // ⏱️ INDEPENDENT STOPWATCH INTERFACE
                         val swH = stopwatchSeconds / 3600
                         val swM = (stopwatchSeconds % 3600) / 60
                         val swS = stopwatchSeconds % 60
@@ -864,7 +740,7 @@ fun HomeTimerTab(
                     }
                 }
 
-                // 5. START BUTTON (For Timer / Pomodoro)
+                // 5. START BUTTON
                 if (selectedFocusMode != 1) {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -908,7 +784,7 @@ fun HomeTimerTab(
                 }
             }
         } else {
-            // 🎯 MASTER FOCUS SCREEN (चलते हुए टाइमर की स्क्रीन)
+            // 🎯 MASTER FOCUS SCREEN
             if (!isLandscape) {
                 Column(
                     modifier = Modifier
@@ -1005,7 +881,6 @@ fun HomeTimerTab(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // ओवर-टाइम (+00:01) होने पर ब्रेक शुरू करने का विकल्प
                         if (isOvertimeActive) {
                             Button(
                                 onClick = {
@@ -1188,12 +1063,12 @@ fun HomeTimerTab(
                                 .clip(CircleShape)
                                 .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                 .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                            .clickable {
-                                val intent = Intent(context, TimerService::class.java).apply {
-                                    action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
+                                .clickable {
+                                    val intent = Intent(context, TimerService::class.java).apply {
+                                        action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
+                                    }
+                                    context.startService(intent)
                                 }
-                                context.startService(intent)
-                            }
                         ) {
                             if (isRunning) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
@@ -1220,7 +1095,7 @@ fun HomeTimerTab(
                                 .clip(CircleShape)
                                 .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                 .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                            .clickable { showGiveUpDialog = true }
+                                .clickable { showGiveUpDialog = true }
                         ) {
                             Box(
                                 modifier = Modifier
@@ -1664,7 +1539,7 @@ fun WhatsNewDialog(
 }
 
 // =============================================================================
-// 🟢 4. SIMPLE VECTOR ICON COMPOSABLE
+// 🟢 4. SIMPLE VECTOR ICON COMPOSABLE (HOME, LIBRARY, STATS, PROFILE)
 // =============================================================================
 @Composable
 private fun SimpleNavIcon(
@@ -1682,23 +1557,30 @@ private fun SimpleNavIcon(
             )
         }
         1 -> {
+            // 📖 खुली किताब / लाइब्रेरी का क्लीन वेक्टर आइकॉन
             Canvas(modifier = modifier) {
                 val w = size.width
                 val h = size.height
+                val strokeW = 1.6.dp.toPx()
 
-                drawRect(
-                    color = tint,
-                    topLeft = Offset(w * 0.42f, h * 0.72f),
-                    size = Size(w * 0.16f, h * 0.22f)
-                )
-
-                val treePath = Path().apply {
-                    moveTo(w * 0.5f, h * 0.10f)
-                    lineTo(w * 0.85f, h * 0.70f)
-                    lineTo(w * 0.15f, h * 0.70f)
+                val bookPath = Path().apply {
+                    moveTo(w * 0.5f, h * 0.78f)
+                    cubicTo(w * 0.35f, h * 0.70f, w * 0.20f, h * 0.72f, w * 0.12f, h * 0.76f)
+                    lineTo(w * 0.12f, h * 0.30f)
+                    cubicTo(w * 0.20f, h * 0.26f, w * 0.35f, h * 0.24f, w * 0.5f, h * 0.32f)
+                    cubicTo(w * 0.65f, h * 0.24f, w * 0.80f, h * 0.26f, w * 0.88f, h * 0.30f)
+                    lineTo(w * 0.88f, h * 0.76f)
+                    cubicTo(w * 0.80f, h * 0.72f, w * 0.65f, h * 0.70f, w * 0.5f, h * 0.78f)
                     close()
                 }
-                drawPath(treePath, color = tint)
+                drawPath(bookPath, color = tint, style = Stroke(width = strokeW))
+
+                drawLine(
+                    color = tint,
+                    start = Offset(w * 0.5f, h * 0.32f),
+                    end = Offset(w * 0.5f, h * 0.78f),
+                    strokeWidth = strokeW
+                )
             }
         }
         2 -> {
@@ -1741,7 +1623,7 @@ private fun SimpleNavIcon(
 }
 
 // =============================================================================
-// 🟢 5. CURVED BOTTOM BAR
+// 🟢 5. CURVED BOTTOM BAR ("HOME", "LIBRARY", "STATS", "PROFILE")
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
@@ -1753,7 +1635,8 @@ fun AmonCurvedBottomBar(
     borderCol: Color,
     hasNewUpdate: Boolean = false
 ) {
-    val tabTitles = listOf("Home", "Forest", "Stats", "Profile")
+    // 🏷️ "Forest" को बदलकर "Library" कर दिया गया
+    val tabTitles = listOf("Home", "Library", "Stats", "Profile")
 
     val animatedIndex by animateFloatAsState(
         targetValue = selectedIndex.toFloat(),
