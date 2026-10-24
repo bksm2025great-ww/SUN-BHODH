@@ -1,721 +1,823 @@
 package com.amon.timer
 
-import android.content.Context
-import androidx.compose.animation.core.*
+import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathMeasure
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private const val LEVEL_TEST_PREFS = "amon_level_journey_test"
-private const val KEY_LEVEL_COUNT = "level_count"
-private const val KEY_COMPLETED_LEVEL = "completed_level"
-private const val KEY_TEST_XP = "test_xp"
-
-private data class JourneyRank(
+// --- डमी डेटा मॉडल्स ---
+private data class StudyGroup(
+    val id: String,
     val name: String,
-    val firstLevel: Int,
-    val topFaceColor: Color,     // CSS: background-color
-    val bottomBaseColor: Color,  // CSS: box-shadow
-    val rankSymbol: String
+    val membersCount: String,
+    val activeCount: String,
+    val isPublic: Boolean,
+    val tagIcon: String,
+    val tagColor: Color,
+    val subtitle: String
 )
 
-private val journeyRanks = listOf(
-    JourneyRank(
-        name = "Genesis",
-        firstLevel = 1,
-        topFaceColor = Color(0xFF644DFF),    // इलेक्ट्रिक वॉयलेट
-        bottomBaseColor = Color(0xFF4836BB), // गहरा वॉयलेट 3D बेस
-        rankSymbol = "✦"
-    ),
-    JourneyRank(
-        name = "Steel",
-        firstLevel = 11,
-        topFaceColor = Color(0xFF94A3B8),
-        bottomBaseColor = Color(0xFF475569),
-        rankSymbol = "♞"
-    ),
-    JourneyRank(
-        name = "Gold",
-        firstLevel = 21,
-        topFaceColor = Color(0xFFFFB800),
-        bottomBaseColor = Color(0xFFA06D00),
-        rankSymbol = "♜"
-    ),
-    JourneyRank(
-        name = "Mint",
-        firstLevel = 31,
-        topFaceColor = Color(0xFF34D399),
-        bottomBaseColor = Color(0xFF065F46),
-        rankSymbol = "♝"
-    ),
-    JourneyRank(
-        name = "Diamond",
-        firstLevel = 41,
-        topFaceColor = Color(0xFF38BDF8),
-        bottomBaseColor = Color(0xFF0369A1),
-        rankSymbol = "◆"
-    ),
-    JourneyRank(
-        name = "Master",
-        firstLevel = 51,
-        topFaceColor = Color(0xFFA855F7),
-        bottomBaseColor = Color(0xFF581C87),
-        rankSymbol = "♚"
-    ),
-    JourneyRank(
-        name = "Ruby",
-        firstLevel = 61,
-        topFaceColor = Color(0xFFF43F5E),
-        bottomBaseColor = Color(0xFF881337),
-        rankSymbol = "★"
-    )
+private data class LeaderboardStudent(
+    val rank: Int,
+    val name: String,
+    val studyDuration: String,
+    val isCurrentUser: Boolean = false,
+    val avatarLetter: String,
+    val avatarBgColor: Color
 )
 
-private fun rankForLevel(level: Int): JourneyRank =
-    journeyRanks.lastOrNull { level >= it.firstLevel } ?: journeyRanks.first()
-
-private fun levelXp(level: Int): Int = 100 + (level - 1) * 25
-
-private fun saveLevelTestState(context: Context, count: Int, completed: Int, xp: Int) {
-    context.getSharedPreferences(LEVEL_TEST_PREFS, Context.MODE_PRIVATE).edit()
-        .putInt(KEY_LEVEL_COUNT, count)
-        .putInt(KEY_COMPLETED_LEVEL, completed)
-        .putInt(KEY_TEST_XP, xp)
-        .apply()
-}
-
-// 8-स्टेप स्मूथ ज़िग-ज़ैग कोऑर्डिनेट्स
-private fun getNodeXFraction(level: Int): Float {
-    return when ((level - 1) % 8) {
-        0 -> 0.50f
-        1 -> 0.32f
-        2 -> 0.20f
-        3 -> 0.32f
-        4 -> 0.50f
-        5 -> 0.68f
-        6 -> 0.80f
-        7 -> 0.68f
-        else -> 0.50f
-    }
-}
-
-// स्मूथ बेज़ियर सड़क पाथ
-private fun buildSmoothRoadPath(points: List<Offset>): Path {
-    val path = Path()
-    if (points.isEmpty()) return path
-    path.moveTo(points.first().x, points.first().y)
-
-    for (i in 0 until points.size - 1) {
-        val p0 = points[i]
-        val p1 = points[i + 1]
-        val deltaY = (p1.y - p0.y)
-
-        val cp1X = p0.x
-        val cp1Y = p0.y + deltaY * 0.45f
-
-        val cp2X = p1.x
-        val cp2Y = p1.y - deltaY * 0.45f
-
-        path.cubicTo(cp1X, cp1Y, cp2X, cp2Y, p1.x, p1.y)
-    }
-    return path
-}
+private data class ActiveStudent(
+    val name: String,
+    val liveFocusTime: String,
+    val avatarLetter: String,
+    val avatarBgColor: Color
+)
 
 @Composable
 fun ForestScreen() {
-    val context = LocalContext.current
-    val density = LocalDensity.current
-    val prefs = remember(context) {
-        context.getSharedPreferences(LEVEL_TEST_PREFS, Context.MODE_PRIVATE)
-    }
+    // बैकग्राउंड और थीम कलर्स
+    val darkBg = Color(0xFF090D14)
+    val cardBg = Color(0xFF121824)
+    val cardBorder = Color(0xFF1E2638)
+    val primaryAccent = Color(0xFF644DFF) // आपका इलेक्ट्रिक वॉयलेट
+    val liveGreen = Color(0xFF22C55E)
 
-    var levelCount by remember { mutableIntStateOf(prefs.getInt(KEY_LEVEL_COUNT, 20).coerceIn(10, 100)) }
-    var completedLevel by remember { mutableIntStateOf(prefs.getInt(KEY_COMPLETED_LEVEL, 0).coerceIn(0, 100)) }
-    var testXp by remember { mutableIntStateOf(prefs.getInt(KEY_TEST_XP, 0).coerceAtLeast(0)) }
-    var selectedLevel by remember { mutableIntStateOf(1) }
-    var showLevelDetails by remember { mutableStateOf(false) }
-    var showResetDialog by remember { mutableStateOf(false) }
+    // नेविगेशन स्टेट: कौन सा ग्रुप खुला हुआ है (null मतलब ग्रुप्स की लिस्ट दिखेगी)
+    var activeGroup by remember { mutableStateOf<StudyGroup?>(null) }
 
-    val bg = Color(0xFF070B10)
-    val panel = Color(0xFF101722)
-    val panelBorder = Color(0xFF1E293B)
-    val textMain = Color(0xFFF1F5F9)
-    val textMuted = Color(0xFF64748B)
-
-    val currentLevel = (completedLevel + 1).coerceAtMost(levelCount)
-    val currentRank = rankForLevel(currentLevel)
-    val xpTarget = levelXp(currentLevel)
-    val xpProgress = (testXp.toFloat() / xpTarget).coerceIn(0f, 1f)
-
-    fun persist() = saveLevelTestState(context, levelCount, completedLevel, testXp)
-
-    val scrollState = rememberScrollState()
-    val stepHeightDp = 92.dp
-
-    LaunchedEffect(currentLevel, levelCount) {
-        val targetY = ((levelCount - currentLevel) * 92).dp
-        val targetPx = with(density) { targetY.toPx() }.toInt()
-        scrollState.animateScrollTo(targetPx)
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(bg)
-    ) {
-        // मिनिमल कॉम्पैक्ट हेडर बार
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 6.dp),
-            color = panel,
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, panelBorder)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${currentRank.name} • Level $currentLevel",
-                    color = currentRank.topFaceColor,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = "$testXp / $xpTarget XP",
-                    color = textMuted,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-
-        // क्विक टेस्टिंग बार (+10 Levels, +100 XP, Reset)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Button(
-                onClick = {
-                    levelCount = (levelCount + 10).coerceAtMost(100)
-                    persist()
-                },
-                modifier = Modifier.weight(1f).height(32.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = currentRank.topFaceColor),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text("+10 Levels", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            }
-
-            OutlinedButton(
-                onClick = {
-                    testXp += 100
-                    val currentTarget = levelXp(currentLevel)
-                    if (testXp >= currentTarget && completedLevel < levelCount) {
-                        testXp -= currentTarget
-                        completedLevel++
-                    }
-                    persist()
-                },
-                modifier = Modifier.weight(1f).height(32.dp),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text("+100 XP", fontSize = 11.sp)
-            }
-
-            OutlinedButton(
-                onClick = { showResetDialog = true },
-                modifier = Modifier.height(32.dp),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-            ) {
-                Text("Reset", fontSize = 11.sp)
-            }
-        }
-
-        Spacer(Modifier.height(4.dp))
-
-        // 3D मैप व्यूपोर्ट (टोपोग्राफिक बैकग्राउंड + 3D एलिवेटेड पाथ)
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .background(bg)
-        ) {
-            val mapHeight = (levelCount * 92 + 100).dp
-
-            Box(Modifier.fillMaxSize().verticalScroll(scrollState)) {
-                BoxWithConstraints(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(mapHeight)
-                ) {
-                    val w = constraints.maxWidth.toFloat()
-                    val densityVal = density.density
-                    val h = mapHeight.value * densityVal
-                    val stepPx = stepHeightDp.value * densityVal
-                    val bottomPadPx = 50f * densityVal
-
-                    val points = remember(levelCount, w, h) {
-                        (1..levelCount).map { level ->
-                            val xFraction = getNodeXFraction(level)
-                            val y = h - ((level - 1) * stepPx) - bottomPadPx
-                            Offset(w * xFraction, y)
-                        }
-                    }
-
-                    // 1. टोपोग्राफिक बैकग्राउंड + 3D एलिवेटेड पाथ कैनवास
-                    Canvas(Modifier.fillMaxSize()) {
-                        drawRect(bg)
-
-                        // टोपोग्राफी बारीक रेखाएँ (Contour Lines)
-                        val topoLinesCount = (h / 70f).toInt()
-                        for (i in 0..topoLinesCount) {
-                            val baseY = i * 70f
-                            val topoPath = Path().apply {
-                                moveTo(0f, baseY)
-                                cubicTo(
-                                    w * 0.28f, baseY - 35f,
-                                    w * 0.65f, baseY + 35f,
-                                    w, baseY
-                                )
-                            }
-                            drawPath(
-                                path = topoPath,
-                                color = Color(0xFF162130).copy(alpha = 0.45f),
-                                style = Stroke(width = 1.2.dp.toPx())
-                            )
-                        }
-
-                        // 3D एलिवेटेड सड़क
-                        if (points.size > 1) {
-                            val baseFullPath = buildSmoothRoadPath(points)
-
-                            // लेयर 1: निचली गहरी 3D परछाईं (Drop Shadow)
-                            val shadowPath = Path().apply {
-                                val offsetPoints = points.map { Offset(it.x, it.y + 12f) }
-                                addPath(buildSmoothRoadPath(offsetPoints))
-                            }
-                            drawPath(
-                                shadowPath,
-                                Color(0xFF030508).copy(alpha = 0.85f),
-                                style = Stroke(width = 30.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-                            )
-
-                            // लेयर 2: 3D साइड-वॉल थिकनेस (मोटा बेस)
-                            drawPath(
-                                baseFullPath,
-                                Color(0xFF0E1622),
-                                style = Stroke(width = 26.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-                            )
-
-                            // लेयर 3: टॉप मैट रोडबेड
-                            drawPath(
-                                baseFullPath,
-                                Color(0xFF1E2A3A),
-                                style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-                            )
-
-                            // लेयर 4: पाथवे सेंटर ग्रूव लाइन
-                            drawPath(
-                                baseFullPath,
-                                Color(0xFF334458),
-                                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-                            )
-
-                            // लेयर 5: अनलॉक किया हुआ प्रोग्रेस ट्रैक
-                            if (currentLevel > 1) {
-                                val completedPoints = points.take(currentLevel)
-                                val completedPath = buildSmoothRoadPath(completedPoints)
-
-                                drawPath(
-                                    completedPath,
-                                    currentRank.topFaceColor,
-                                    style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-                                )
-                                drawPath(
-                                    completedPath,
-                                    Color.White.copy(alpha = 0.92f),
-                                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-                                )
-                            }
-
-                            // लेयर 6: लाइव XP फ्लो बीम
-                            if (currentLevel < levelCount && xpProgress > 0.01f) {
-                                val currentSegmentPoints = listOf(points[currentLevel - 1], points[currentLevel])
-                                val rawSegment = buildSmoothRoadPath(currentSegmentPoints)
-
-                                val pathMeasure = PathMeasure()
-                                pathMeasure.setPath(rawSegment, false)
-                                val progressiveSegment = Path()
-                                val targetLength = pathMeasure.length * xpProgress
-                                pathMeasure.getSegment(0f, targetLength, progressiveSegment, true)
-
-                                drawPath(
-                                    progressiveSegment,
-                                    currentRank.topFaceColor,
-                                    style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-                                )
-                                drawPath(
-                                    progressiveSegment,
-                                    Color.White,
-                                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-                                )
-
-                                // टिप बीम स्पार्क
-                                val t = xpProgress
-                                val u = 1f - t
-                                val p0 = currentSegmentPoints[0]
-                                val p3 = currentSegmentPoints[1]
-                                val deltaY = p3.y - p0.y
-                                val p1 = Offset(p0.x, p0.y + deltaY * 0.45f)
-                                val p2 = Offset(p3.x, p3.y - deltaY * 0.45f)
-
-                                val tipX = u * u * u * p0.x + 3f * u * u * t * p1.x + 3f * u * t * t * p2.x + t * t * t * p3.x
-                                val tipY = u * u * u * p0.y + 3f * u * u * t * p1.y + 3f * u * t * t * p2.y + t * t * t * p3.y
-                                drawCircle(currentRank.topFaceColor, radius = 5.dp.toPx(), center = Offset(tipX, tipY))
-                                drawCircle(Color.White, radius = 2.5.dp.toPx(), center = Offset(tipX, tipY))
-                            }
-                        }
-                    }
-
-                    // 2. प्रोग्रेसिव साइड माइलस्टोन्स (अनलॉक होने पर कलरफुल)
-                    // माइलस्टोन 1: लेवल 5 (तंबू और अलाव ⛺🔥)
-                    if (points.size >= 5) {
-                        val p5 = points[4]
-                        val isCampUnlocked = completedLevel >= 5
-                        SideCampMilestone(
-                            isUnlocked = isCampUnlocked,
-                            modifier = Modifier
-                                .offset(
-                                    x = with(density) { (p5.x - 110.dp.toPx()).toDp() }.coerceAtLeast(10.dp),
-                                    y = with(density) { (p5.y - 25.dp.toPx()).toDp() }
-                                )
-                        )
-                    }
-
-                    // माइलस्टोन 2: लेवल 10 (किताबें और पौधा 📚🪴)
-                    if (points.size >= 10) {
-                        val p10 = points[9]
-                        val isBooksUnlocked = completedLevel >= 10
-                        SideBooksMilestone(
-                            isUnlocked = isBooksUnlocked,
-                            modifier = Modifier
-                                .offset(
-                                    x = with(density) { (p10.x + 48.dp.toPx()).toDp() }.coerceAtMost((w / densityVal - 90).dp),
-                                    y = with(density) { (p10.y - 25.dp.toPx()).toDp() }
-                                )
-                        )
-                    }
-
-                    // माइलस्टोन 3: लेवल 20 (पोडियम ट्रॉफ़ी व फ़्लैग 🏆🚩)
-                    if (points.size >= 20) {
-                        val p20 = points[19]
-                        val isTrophyUnlocked = completedLevel >= 20
-                        SideTrophyMilestone(
-                            isUnlocked = isTrophyUnlocked,
-                            modifier = Modifier
-                                .offset(
-                                    x = with(density) { (p20.x + 48.dp.toPx()).toDp() }.coerceAtMost((w / densityVal - 90).dp),
-                                    y = with(density) { (p20.y - 25.dp.toPx()).toDp() }
-                                )
-                        )
-                    }
-
-                    // 3. शुद्ध गोल 3D मैकेनिकल बटन्स
-                    val buttonSize = 56.dp
-                    (1..levelCount).forEach { level ->
-                        val point = points[level - 1]
-                        val isComplete = level <= completedLevel
-                        val isCurrent = level == currentLevel
-                        val rank = rankForLevel(level)
-
-                        val buttonLeft = with(density) { point.x.toDp() } - (buttonSize / 2)
-                        val buttonTop = with(density) { point.y.toDp() } - (buttonSize / 2)
-
-                        Box(
-                            modifier = Modifier
-                                .offset(x = buttonLeft, y = buttonTop)
-                                .size(buttonSize),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Uiverse3DMechanicalButton(
-                                isComplete = isComplete,
-                                isCurrent = isCurrent,
-                                rank = rank,
-                                buttonSize = buttonSize,
-                                onClick = {
-                                    selectedLevel = level
-                                    showLevelDetails = true
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (showLevelDetails) {
-        val rank = rankForLevel(selectedLevel)
-        val status = when {
-            selectedLevel <= completedLevel -> "COMPLETED"
-            selectedLevel == currentLevel -> "ACTIVE STAGE"
-            else -> "LOCKED"
-        }
-        AlertDialog(
-            onDismissRequest = { showLevelDetails = false },
-            containerColor = panel,
-            titleContentColor = textMain,
-            textContentColor = textMuted,
-            title = {
-                Text("Level $selectedLevel • ${rank.name}")
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(status, color = rank.topFaceColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("Target: ${levelXp(selectedLevel)} XP")
-                    Text(
-                        if (selectedLevel <= completedLevel) "Trophy unlocked for this level!"
-                        else if (selectedLevel == currentLevel) "Current focus target: Complete sessions to unlock next path."
-                        else "Reach this stage by finishing preceding levels."
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showLevelDetails = false }) { Text("Close", color = currentRank.topFaceColor) }
-            }
+    // डमी ग्रुप्स की सूची
+    val myGroups = remember {
+        listOf(
+            StudyGroup(
+                id = "univ_lib",
+                name = "Universal Library",
+                membersCount = "225k+ members",
+                activeCount = "3.8k",
+                isPublic = true,
+                tagIcon = "🏛️",
+                tagColor = primaryAccent,
+                subtitle = "Global 24/7 silent focus hub for students worldwide"
+            ),
+            StudyGroup(
+                id = "coding_arena",
+                name = "Code & Algorithms",
+                membersCount = "14k+ members",
+                activeCount = "210",
+                isPublic = true,
+                tagIcon = "💻",
+                tagColor = Color(0xFF0EA5E9),
+                subtitle = "DSA, Development & late night deep builds"
+            )
         )
     }
 
-    if (showResetDialog) {
-        AlertDialog(
-            onDismissRequest = { showResetDialog = false },
-            containerColor = panel,
-            title = { Text("Reset Progress?", color = textMain) },
-            text = { Text("This will reset back to Level 1 and 0 XP.", color = textMuted) },
-            confirmButton = {
-                TextButton(onClick = {
-                    levelCount = 20
-                    completedLevel = 0
-                    testXp = 0
-                    selectedLevel = 1
-                    persist()
-                    showResetDialog = false
-                }) { Text("Reset", color = Color(0xFFFF6B6B)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) { Text("Cancel", color = Color.White) }
-            }
+    val suggestedGroups = remember {
+        listOf(
+            StudyGroup(
+                id = "upsc_prep",
+                name = "UPSC & Civil Aspirants",
+                membersCount = "48k+ members",
+                activeCount = "1.2k",
+                isPublic = true,
+                tagIcon = "📖",
+                tagColor = Color(0xFFF59E0B),
+                subtitle = "GS, Answer Writing & Revision streak"
+            ),
+            StudyGroup(
+                id = "exam_warriors",
+                name = "CA & Finance Cohort",
+                membersCount = "8.5k+ members",
+                activeCount = "95",
+                isPublic = false,
+                tagIcon = "📊",
+                tagColor = Color(0xFFEC4899),
+                subtitle = "Strict accountability room"
+            )
         )
-    }
-}
-
-/**
- * 🎯 3D Mechanical Button Replica
- * - 56dp Perfect Circle
- * - Solid 3D Base (Deep Push Animation)
- * - Active: 🏆 Trophy | Locked: 🔒 Classic Lock (Option A)
- */
-@Composable
-private fun Uiverse3DMechanicalButton(
-    isComplete: Boolean,
-    isCurrent: Boolean,
-    rank: JourneyRank,
-    buttonSize: Dp,
-    onClick: () -> Unit
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    val shadowDepth = 7.dp
-
-    val pressOffsetY by animateDpAsState(
-        targetValue = if (isPressed) shadowDepth else 0.dp,
-        animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
-        label = "press_anim"
-    )
-
-    val shadowAlpha by animateFloatAsState(
-        targetValue = if (isPressed) 0f else 1f,
-        animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
-        label = "shadow_anim"
-    )
-
-    val faceColor = when {
-        isCurrent || isComplete -> rank.topFaceColor
-        else -> Color(0xFF1E293B)
-    }
-
-    val baseColor = when {
-        isCurrent || isComplete -> rank.bottomBaseColor
-        else -> Color(0xFF0F172A)
     }
 
     Box(
         modifier = Modifier
-            .size(width = buttonSize, height = buttonSize + shadowDepth)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            ),
-        contentAlignment = Alignment.TopCenter
+            .fillMaxSize()
+            .background(darkBg)
     ) {
-        // 1. सॉलिड 3D बेस
-        if (shadowAlpha > 0.05f) {
-            Box(
-                modifier = Modifier
-                    .offset(y = shadowDepth)
-                    .size(buttonSize)
-                    .graphicsLayer { alpha = shadowAlpha }
-                    .clip(CircleShape)
-                    .background(baseColor)
-                    .border(1.dp, baseColor, CircleShape)
+        AnimatedContent(
+            targetState = activeGroup,
+            label = "screen_transition"
+        ) { group ->
+            if (group == null) {
+                // पेज 1: ग्रुप्स की मुख्य सूची (Hub)
+                GroupsListHubScreen(
+                    myGroups = myGroups,
+                    suggestedGroups = suggestedGroups,
+                    darkBg = darkBg,
+                    cardBg = cardBg,
+                    cardBorder = cardBorder,
+                    primaryAccent = primaryAccent,
+                    liveGreen = liveGreen,
+                    onGroupClick = { clickedGroup ->
+                        activeGroup = clickedGroup
+                    }
+                )
+            } else {
+                // पेज 2: ग्रुप के अंदर का पेज (Leaderboard + Active Tabs)
+                GroupDetailViewScreen(
+                    group = group,
+                    darkBg = darkBg,
+                    cardBg = cardBg,
+                    cardBorder = cardBorder,
+                    primaryAccent = primaryAccent,
+                    liveGreen = liveGreen,
+                    onBackClick = { activeGroup = null }
+                )
+            }
+        }
+    }
+}
+
+// ==========================================
+// 1. ग्रुप्स हब स्क्रीन (Groups List View)
+// ==========================================
+@Composable
+private fun GroupsListHubScreen(
+    myGroups: List<StudyGroup>,
+    suggestedGroups: List<StudyGroup>,
+    darkBg: Color,
+    cardBg: Color,
+    cardBorder: Color,
+    primaryAccent: Color,
+    liveGreen: Color,
+    onGroupClick: (StudyGroup) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Focus Groups",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = primaryAccent.copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, primaryAccent.copy(alpha = 0.4f)),
+                    modifier = Modifier.clickable { /* डमी क्रिएट ग्रुप */ }
+                ) {
+                    Text(
+                        text = "+ Create Group",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = primaryAccent,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        }
+
+        // Your Groups हेडर
+        item {
+            Text(
+                text = "YOUR ROOMS",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF64748B),
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
 
-        // 2. मूविंग सर्कुलर फेस
+        // यूज़र के जॉइन किए हुए ग्रुप्स
+        items(myGroups) { group ->
+            GroupCardItem(
+                group = group,
+                cardBg = cardBg,
+                cardBorder = cardBorder,
+                liveGreen = liveGreen,
+                onClick = { onGroupClick(group) }
+            )
+        }
+
+        // Suggested Groups हेडर
+        item {
+            Text(
+                text = "SUGGESTED DISCOVERY",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF64748B),
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(top = 12.dp)
+            )
+        }
+
+        // सजेस्टेड ग्रुप्स
+        items(suggestedGroups) { group ->
+            SuggestedGroupCardItem(
+                group = group,
+                cardBg = cardBg,
+                cardBorder = cardBorder,
+                primaryAccent = primaryAccent,
+                onClick = { onGroupClick(group) }
+            )
+        }
+
+        item {
+            Spacer(Modifier.height(30.dp))
+        }
+    }
+}
+
+@Composable
+private fun GroupCardItem(
+    group: StudyGroup,
+    cardBg: Color,
+    cardBorder: Color,
+    liveGreen: Color,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = cardBg,
+        border = BorderStroke(1.dp, cardBorder)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // ग्रुप अवतार आइकॉन
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(group.tagColor.copy(alpha = 0.2f))
+                        .border(1.dp, group.tagColor.copy(alpha = 0.5f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = group.tagIcon, fontSize = 20.sp)
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = group.name,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "${group.membersCount} • ${if (group.isPublic) "Public" else "Private"}",
+                        fontSize = 12.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+
+                Text(
+                    text = "›",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Light,
+                    color = Color(0xFF64748B)
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // लाइव फ़ोकस इंडिकेटर स्ट्रिप
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF090D14))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(liveGreen)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "${group.activeCount} focusing right now",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = liveGreen
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SuggestedGroupCardItem(
+    group: StudyGroup,
+    cardBg: Color,
+    cardBorder: Color,
+    primaryAccent: Color,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = cardBg,
+        border = BorderStroke(1.dp, cardBorder)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF1E2638)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = group.tagIcon, fontSize = 18.sp)
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = group.name,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = group.membersCount,
+                    fontSize = 11.sp,
+                    color = Color(0xFF64748B)
+                )
+            }
+
+            Button(
+                onClick = onClick,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                shape = RoundedCornerShape(20.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.height(32.dp)
+            ) {
+                Text("Join", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+// ==========================================
+// 2. ग्रुप डिटेल स्क्रीन (Leaderboard & Active)
+// ==========================================
+@Composable
+private fun GroupDetailViewScreen(
+    group: StudyGroup,
+    darkBg: Color,
+    cardBg: Color,
+    cardBorder: Color,
+    primaryAccent: Color,
+    liveGreen: Color,
+    onBackClick: () -> Unit
+) {
+    var selectedTab by remember { mutableIntStateOf(0) } // 0 = Leaderboard, 1 = Active
+
+    // डमी लीडरबोर्ड डेटा
+    val leaderboardData = remember {
+        listOf(
+            LeaderboardStudent(1, "Abhinav S.", "142h 30m", false, "A", Color(0xFFE11D48)),
+            LeaderboardStudent(2, "Aryan K.", "139h 15m", false, "A", Color(0xFF2563EB)),
+            LeaderboardStudent(3, "Neha Sharma", "135h 40m", false, "N", Color(0xFFD97706)),
+            LeaderboardStudent(4, "Rahul Verma", "118h 10m", false, "R", Color(0xFF059669)),
+            LeaderboardStudent(5, "Rohan Mehra", "95h 25m", false, "R", Color(0xFF7C3AED)),
+            LeaderboardStudent(6, "Bhanu Sharma", "14h 25m", true, "B", Color(0xFFFFB800)), // You!
+            LeaderboardStudent(7, "Vikram Singh", "12h 10m", false, "V", Color(0xFF0D9488)),
+            LeaderboardStudent(8, "Kashish P.", "8h 50m", false, "K", Color(0xFFDB2777))
+        )
+    }
+
+    // डमी एक्टिव (लाइव) छात्र
+    val activeMembers = remember {
+        listOf(
+            ActiveStudent("Humzaa", "10h 56m", "H", Color(0xFFEC4899)),
+            ActiveStudent("Samanwita", "10h 55m", "S", Color(0xFFF43F5E)),
+            ActiveStudent("AJ", "10h 55m", "A", Color(0xFF38BDF8)),
+            ActiveStudent("Nitesh", "10h 55m", "N", Color(0xFF60A5FA)),
+            ActiveStudent("Sameer", "10h 55m", "S", Color(0xFF4ADE80)),
+            ActiveStudent("Yogesh", "10h 55m", "Y", Color(0xFF818CF8)),
+            ActiveStudent("Vidyakulian", "10h 54m", "V", Color(0xFFFBBF24)),
+            ActiveStudent("Nirmal", "10h 55m", "N", Color(0xFFFDE047))
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // टॉप नेविगेशन बार
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clickable(onClick = onBackClick),
+                shape = CircleShape,
+                color = cardBg,
+                border = BorderStroke(1.dp, cardBorder)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(text = "←", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = group.name,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = "${group.membersCount} • ${if (group.isPublic) "Public" else "Private"}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF94A3B8)
+                )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF16202E),
+                border = BorderStroke(1.dp, Color(0xFF223046)),
+                modifier = Modifier.clickable { /* इनवाइट फ़ीचर */ }
+            ) {
+                Text(
+                    text = "+ Invite",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
+        }
+
+        // टैब स्विचर (Leaderboard vs Active)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF101520))
+                .padding(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (selectedTab == 0) cardBg else Color.Transparent)
+                    .border(
+                        1.dp,
+                        if (selectedTab == 0) cardBorder else Color.Transparent,
+                        RoundedCornerShape(10.dp)
+                    )
+                    .clickable { selectedTab = 0 }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Leaderboard",
+                    fontSize = 13.sp,
+                    fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
+                    color = if (selectedTab == 0) Color.White else Color(0xFF64748B)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (selectedTab == 1) cardBg else Color.Transparent)
+                    .border(
+                        1.dp,
+                        if (selectedTab == 1) cardBorder else Color.Transparent,
+                        RoundedCornerShape(10.dp)
+                    )
+                    .clickable { selectedTab = 1 }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(liveGreen)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Active (${group.activeCount})",
+                        fontSize = 13.sp,
+                        fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium,
+                        color = if (selectedTab == 1) Color.White else Color(0xFF64748B)
+                    )
+                }
+            }
+        }
+
+        // टैब 1: LEADERBOARD CONTENT
+        if (selectedTab == 0) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item {
+                        // टाइमर और लीग पट्टी
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Weekly Reset • Ends in 1 day",
+                                fontSize = 12.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                            Text(
+                                text = "Top 10 League",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = primaryAccent
+                            )
+                        }
+                    }
+
+                    items(leaderboardData) { student ->
+                        LeaderboardRowItem(
+                            student = student,
+                            cardBg = cardBg,
+                            cardBorder = cardBorder,
+                            primaryAccent = primaryAccent
+                        )
+                    }
+
+                    item {
+                        Spacer(Modifier.height(80.dp))
+                    }
+                }
+
+                // नीचे तैरता हुआ पिल बटन: "Scroll to your position"
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 16.dp)
+                        .clickable { /* यूज़र की रैंक पर स्क्रोल */ },
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color(0xFF1E2638),
+                    border = BorderStroke(1.dp, Color(0xFF334155))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFFB800)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("B", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Scroll to your position (#6)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(text = "↓", fontSize = 13.sp, color = Color(0xFF94A3B8))
+                    }
+                }
+            }
+        }
+
+        // टैब 2: ACTIVE (LIVE ROOM GRID)
+        if (selectedTab == 1) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    items(activeMembers) { member ->
+                        ActiveMemberGridCard(member = member)
+                    }
+
+                    item {
+                        Spacer(Modifier.height(80.dp))
+                    }
+                }
+
+                // नीचे बड़ा "Start Focus" बटन
+                Button(
+                    onClick = { /* टाइमर शुरू करें */ },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(25.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                ) {
+                    Text(
+                        text = "Start Focus",
+                        color = Color.Black,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+// लीडरबोर्ड की एक कतार (Row)
+@Composable
+private fun LeaderboardRowItem(
+    student: LeaderboardStudent,
+    cardBg: Color,
+    cardBorder: Color,
+    primaryAccent: Color
+) {
+    // अगर यूज़र खुद है तो अलग वॉयलेट हाइलाइट शेड
+    val rowBg = if (student.isCurrentUser) primaryAccent.copy(alpha = 0.18f) else cardBg
+    val rowBorder = if (student.isCurrentUser) primaryAccent else cardBorder
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = rowBg,
+        border = BorderStroke(1.dp, rowBorder)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // रैंक नंबर या मेडल
+            Box(
+                modifier = Modifier.width(28.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                when (student.rank) {
+                    1 -> Text("🥇", fontSize = 16.sp)
+                    2 -> Text("🥈", fontSize = 16.sp)
+                    3 -> Text("🥉", fontSize = 16.sp)
+                    else -> Text(
+                        text = "${student.rank}",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (student.isCurrentUser) primaryAccent else Color(0xFF64748B)
+                    )
+                }
+            }
+
+            // छात्र का अवतार
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(student.avatarBgColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = student.avatarLetter,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            // छात्र का नाम
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = student.name,
+                    fontSize = 14.sp,
+                    fontWeight = if (student.isCurrentUser) FontWeight.Bold else FontWeight.SemiBold,
+                    color = if (student.isCurrentUser) Color.White else Color(0xFFE2E8F0)
+                )
+                if (student.isCurrentUser) {
+                    Text(
+                        text = "You",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = primaryAccent
+                    )
+                }
+            }
+
+            // कुल पढ़ाई का समय
+            Text(
+                text = student.studyDuration,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (student.isCurrentUser) primaryAccent else Color(0xFF94A3B8)
+            )
+        }
+    }
+}
+
+// एक्टिव ग्रिड का एक छात्र कार्ड
+@Composable
+private fun ActiveMemberGridCard(member: ActiveStudent) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFF121824))
+            .border(1.dp, Color(0xFF1E2638), RoundedCornerShape(14.dp))
+            .padding(vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Box(
             modifier = Modifier
-                .offset(y = pressOffsetY)
-                .size(buttonSize)
+                .size(46.dp)
                 .clip(CircleShape)
-                .background(faceColor)
-                .border(1.dp, baseColor, CircleShape),
+                .background(member.avatarBgColor),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = if (isComplete || isCurrent) "🏆" else "🔒",
-                fontSize = 20.sp
-            )
-        }
-    }
-}
-
-// ⛺ माइलस्टोन 1: तंबू और अलाव
-@Composable
-private fun SideCampMilestone(isUnlocked: Boolean, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.width(76.dp),
-        color = if (isUnlocked) Color(0xFF1A1F2C) else Color(0xFF0E131A),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, if (isUnlocked) Color(0xFFFF9800).copy(alpha = 0.5f) else Color(0xFF1C2533))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = if (isUnlocked) "⛺🔥" else "⛺",
-                fontSize = 16.sp,
-                modifier = Modifier.graphicsLayer { alpha = if (isUnlocked) 1f else 0.35f }
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = "Lv 5",
-                fontSize = 10.sp,
+                text = member.avatarLetter,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isUnlocked) Color(0xFFFFB74D) else Color(0xFF475569)
+                color = Color.White
             )
         }
-    }
-}
 
-// 📚 माइलस्टोन 2: किताबें और पौधा
-@Composable
-private fun SideBooksMilestone(isUnlocked: Boolean, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.width(76.dp),
-        color = if (isUnlocked) Color(0xFF1E1733) else Color(0xFF0E131A),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, if (isUnlocked) Color(0xFFA855F7).copy(alpha = 0.5f) else Color(0xFF1C2533))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = if (isUnlocked) "📚🪴" else "📚",
-                fontSize = 16.sp,
-                modifier = Modifier.graphicsLayer { alpha = if (isUnlocked) 1f else 0.35f }
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = "Lv 10",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isUnlocked) Color(0xFFC084FC) else Color(0xFF475569)
-            )
-        }
-    }
-}
+        Spacer(Modifier.height(8.dp))
 
-// 🏆 माइलस्टोन 3: पोडियम ट्रॉफ़ी व फ़्लैग
-@Composable
-private fun SideTrophyMilestone(isUnlocked: Boolean, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.width(76.dp),
-        color = if (isUnlocked) Color(0xFF261D0C) else Color(0xFF0E131A),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, if (isUnlocked) Color(0xFFFFB800).copy(alpha = 0.5f) else Color(0xFF1C2533))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = if (isUnlocked) "🏆🚩" else "🏆",
-                fontSize = 16.sp,
-                modifier = Modifier.graphicsLayer { alpha = if (isUnlocked) 1f else 0.35f }
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = "Lv 20",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isUnlocked) Color(0xFFFFD54F) else Color(0xFF475569)
-            )
-        }
+        Text(
+            text = member.name,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        Text(
+            text = member.liveFocusTime,
+            fontSize = 11.sp,
+            color = Color(0xFF22C55E),
+            fontWeight = FontWeight.Medium
+        )
     }
 }
