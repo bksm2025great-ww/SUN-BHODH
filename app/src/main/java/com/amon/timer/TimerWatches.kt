@@ -80,18 +80,28 @@ fun TimerWatchesContainer(
         context.getSharedPreferences("amon_watch_prefs", Context.MODE_PRIVATE)
     }
 
+    // 🛡️ सुरक्षित SharedPreferences लोड (पुराने डेटा के टकराव से ऐप कभी क्रैश नहीं होगा)
     var selectedWatchStyle by rememberSaveable {
-        mutableIntStateOf(watchPrefs.getInt("selected_watch_style", 0))
+        val saved = try {
+            watchPrefs.getInt("selected_watch_style", 0)
+        } catch (_: Exception) {
+            0
+        }
+        mutableIntStateOf(saved)
     }
 
     val onPrevStyle = {
         selectedWatchStyle = if (selectedWatchStyle > 0) selectedWatchStyle - 1 else 2
-        watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
+        try {
+            watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
+        } catch (_: Exception) {}
     }
 
     val onNextStyle = {
         selectedWatchStyle = if (selectedWatchStyle < 2) selectedWatchStyle + 1 else 0
-        watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
+        try {
+            watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
+        } catch (_: Exception) {}
     }
 
     val targetArrowY = if (isLandscape) {
@@ -419,7 +429,6 @@ private fun RotaryDialWatch(
                                 angleDeg = (angleDeg + 90f + 360f) % 360f
 
                                 val computedMins = (angleDeg / 360f) * 180f
-                                // 🛑 न्यूनतम 5 मिनट पर लॉक (0-Stopwatch खत्म)
                                 val snappedMins = (round(computedMins / 5f) * 5f).coerceIn(5f, 180f)
 
                                 if (snappedMins != dialMinutes) {
@@ -1009,7 +1018,6 @@ fun CustomHorizontalSlider(
             .fillMaxWidth()
             .height(54.dp)
             .clip(RoundedCornerShape(14.dp))
-            // ✨ कड़क पर्पल बॉर्डर हटाकर क्लीन स्लेट डार्क ग्लास ट्रैक
             .background(Color(0xFF13131A))
             .pointerInput(Unit) {
                 val spacing = 22.dp.toPx()
@@ -1043,7 +1051,6 @@ fun CustomHorizontalSlider(
             val centerY = canvasHeight / 2f
             val spacing = 22.dp.toPx()
 
-            // 🛑 0 हट गया, 5 से 180 तक टिक मार्क्स चलेंगे
             for (m in 5..180 step 5) {
                 val x = centerX + ((m - rawMinutes) / 5f) * spacing
                 if (x >= -20f && x <= canvasWidth + 20f) {
