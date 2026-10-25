@@ -27,13 +27,13 @@ fun WelcomeScreen(
     onStartClick: () -> Unit
 ) {
     val darkBg = Color(0xFF090D14)
-    val purpleAccent = Color(0xFF8B5CF6) // Uiverse electric purple
+    val purpleAccent = Color(0xFF8B5CF6)
 
     // 🌟 Word roller ke 4 words
     val words = remember { listOf("Focus", "Consistency", "Discipline", "Goal") }
     var currentWordIndex by remember { mutableIntStateOf(0) }
 
-    // ⚡ Har 1.3 second me word automatically upar slide hokar badlega
+    // ⚡ 1.3 second delay
     LaunchedEffect(Unit) {
         while (true) {
             delay(1300)
@@ -63,7 +63,6 @@ fun WelcomeScreen(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Niche ka smooth gradient (taaki photo aur background aapas me ghul jayein)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -77,7 +76,7 @@ fun WelcomeScreen(
                 )
             }
 
-            // ✍️ 2. CONTENT & ROTATING WORD LOADER (Bottom area)
+            // ✍️ 2. CONTENT & ROTATING WORD LOADER
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -92,7 +91,6 @@ fun WelcomeScreen(
                 ) {
                     Spacer(Modifier.height(8.dp))
 
-                    // 🔄 CLEAN & STABLE ROTATING WORD COMPONENT
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
@@ -109,7 +107,7 @@ fun WelcomeScreen(
 
                         Spacer(Modifier.width(8.dp))
 
-                        // 🔒 150dp Fixed-Width Box: Isse Master your bilkul bhi nahi hilega
+                        // 🔒 150dp Box taaki text vibrate na kare
                         Box(
                             modifier = Modifier
                                 .height(34.dp)
@@ -154,4 +152,31 @@ fun WelcomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding
+                        .padding(bottom = 26.dp)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .clip(RoundedCornerShape(25.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(Color(0xFFF5A524), Color(0xFFFFC043))
+                                )
+                            )
+                            .clickable { onStartClick() }
+                    ) {
+                        Text(
+                            text = "Let's Begin ➔",
+                            color = Color.Black,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
