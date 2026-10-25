@@ -48,13 +48,27 @@ class UpdateManager(private val context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("amon_update_prefs", Context.MODE_PRIVATE)
 
+    // 🛡️ पहला ताला: नए यूजर के लिए पूरी शांति + सिर्फ एक बार पॉपअप दिखाने का सटीक नियम
     fun shouldShowOneTimePopup(version: String): Boolean {
+        val isFirstLaunch = !prefs.getBoolean("has_initialized_app", false)
+        if (isFirstLaunch) {
+            // पहली बार ऐप खुली है तो इसे तुरंत 'देखा हुआ' मार्क कर दो (नए यूजर को कभी पॉपअप नहीं दिखेगा)
+            prefs.edit()
+                .putBoolean("has_initialized_app", true)
+                .putString("dismissed_version", version)
+                .apply()
+            return false
+        }
+
         val lastDismissedVersion = prefs.getString("dismissed_version", "")
         return lastDismissedVersion != version
     }
 
     fun markPopupAsDismissed(version: String) {
-        prefs.edit().putString("dismissed_version", version).apply()
+        prefs.edit()
+            .putBoolean("has_initialized_app", true)
+            .putString("dismissed_version", version)
+            .apply()
     }
 
     // 🌐 ताज़ा अपडेट बैकग्राउंड में ढूँढना
@@ -193,7 +207,6 @@ class UpdateManager(private val context: Context) {
             context.startActivity(installIntent)
 
         } catch (e: Exception) {
-            // कोई भी रुकावट आने पर भी GitHub पर रीडायरेक्ट नहीं होगा
             e.printStackTrace()
         }
     }

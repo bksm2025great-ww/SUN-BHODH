@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -156,7 +157,16 @@ fun ForestScreen() {
         )
     }
 
-    Box(
+    val scrollState = rememberScrollState()
+    val stepHeightDp = 92.dp
+
+    LaunchedEffect(currentLevel, levelCount) {
+        val targetY = ((levelCount - currentLevel) * 92).dp
+        val targetPx = with(density) { targetY.toPx() }.toInt()
+        scrollState.animateScrollTo(targetPx)
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(darkBg)
@@ -858,6 +868,7 @@ private fun GroupDetailViewScreen(
                 }
             }
         }
+    }
 
         // टैब 2: केवल ACTIVE छात्र
         if (selectedTab == 1) {
@@ -1086,6 +1097,99 @@ private fun MetallicLeaderboardRow(
                 Spacer(Modifier.width(8.dp))
                 CleanRemoveUserVectorIcon(tint = Color(0xFFEF4444).copy(alpha = 0.8f), modifier = Modifier.size(14.dp))
             }
+        )
+    }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            containerColor = panel,
+            title = { Text("Reset test progress?", color = textMain) },
+            text = { Text("This resets level count to 20 and clears test XP and completed checkpoints.", color = textMuted) },
+            confirmButton = {
+                TextButton(onClick = {
+                    levelCount = 20
+                    completedLevel = 0
+                    testXp = 0
+                    selectedLevel = 1
+                    persist()
+                    showResetDialog = false
+                }) { Text("Reset", color = Color(0xFFFF8B8B)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) { Text("Cancel", color = accent) }
+            }
+        )
+    }
+}
+
+/**
+ * 🏆 CSS 3D Mechanical Button Replica
+ * - width: 4.5em, height: 4em, border-radius: 100%
+ * - box-shadow: 0 .5em #bottomBaseColor
+ * - transition: all .1s ease
+ * - .container:has(.button:active) -> box-shadow: none; margin-top: 2em;
+ */
+@Composable
+private fun CssMechanicalPushButton(
+    isComplete: Boolean,
+    isCurrent: Boolean,
+    rank: JourneyRank,
+    nodeWidth: Dp,
+    nodeHeight: Dp,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // 0.5em के बराबर 3D गहराई
+    val shadowOffsetDp = 7.dp
+
+    // CSS: transition: all .1s ease
+    val pressOffsetY by animateDpAsState(
+        targetValue = if (isPressed) shadowOffsetDp else 0.dp,
+        animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
+        label = "css_press_anim"
+    )
+
+    // एक्टिव होने पर शैडो का गायब होना (box-shadow: none)
+    val shadowAlpha by animateFloatAsState(
+        targetValue = if (isPressed) 0f else 1f,
+        animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
+        label = "css_shadow_alpha"
+    )
+
+    val faceColor = when {
+        isCurrent || isComplete -> rank.topFaceColor
+        else -> Color(0xFF243242)
+    }
+
+    val baseColor = when {
+        isCurrent || isComplete -> rank.bottomBaseColor
+        else -> Color(0xFF131B24)
+    }
+
+    Box(
+        modifier = Modifier
+            .size(width = nodeWidth, height = nodeHeight + shadowOffsetDp)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        // 1. CSS: box-shadow: 0 .5em (नीचे का ठोस 3D बेस)
+        if (shadowAlpha > 0.05f) {
+            Box(
+                modifier = Modifier
+                    .offset(y = shadowOffsetDp)
+                    .size(width = nodeWidth, height = nodeHeight)
+                    .graphicsLayer { alpha = shadowAlpha }
+                    .clip(CircleShape)
+                    .background(baseColor)
+                    .border(1.dp, baseColor, CircleShape)
+            )
         }
     }
 }
