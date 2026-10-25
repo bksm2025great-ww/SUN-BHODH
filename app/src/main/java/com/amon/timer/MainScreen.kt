@@ -69,8 +69,10 @@ fun MainScreen() {
     var currentNavIndex by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
-        ThemeManager.loadTheme(context)
-        TimerService.syncRemainingTime(context)
+        try {
+            ThemeManager.loadTheme(context)
+            TimerService.syncRemainingTime(context)
+        } catch (_: Exception) {}
     }
 
     val isDark = ThemeManager.isDarkTheme.value
@@ -151,7 +153,11 @@ fun MainScreen() {
         }
     }
     var showWhatsNew by remember {
-        val lastSeenVersion = appPrefs.getString("whats_new_seen_version", "")
+        val lastSeenVersion = try {
+            appPrefs.getString("whats_new_seen_version", "")
+        } catch (_: Exception) {
+            ""
+        }
         mutableStateOf(lastSeenVersion != currentVersion)
     }
 
@@ -231,7 +237,9 @@ fun MainScreen() {
                     textMain = textMain,
                     textMuted = textMuted,
                     onDismiss = {
-                        appPrefs.edit().putString("whats_new_seen_version", currentVersion).apply()
+                        try {
+                            appPrefs.edit().putString("whats_new_seen_version", currentVersion).apply()
+                        } catch (_: Exception) {}
                         showWhatsNew = false
                     }
                 )
@@ -509,11 +517,26 @@ fun HomeTimerTab(
 
     val subjectPrefs = remember { context.getSharedPreferences("amon_subject_prefs", Context.MODE_PRIVATE) }
 
+    // 🛡️ क्रैश-प्रूफ़ SharedPreferences लोडिंग (पुराने डेटा के टकराव से ऐप कभी क्रैश नहीं होगा)
     var hiddenSubjects by remember {
-        val saved = subjectPrefs.getStringSet("hidden_subjects", null)
+        val saved: Set<String>? = try {
+            subjectPrefs.getStringSet("hidden_subjects", null)
+        } catch (_: Exception) {
+            try {
+                subjectPrefs.edit().remove("hidden_subjects").apply()
+            } catch (_: Exception) {}
+            null
+        }
+
         if (saved == null) {
-            val initialHidden = SubjectManager.getUserSubjects(context).toSet()
-            subjectPrefs.edit().putStringSet("hidden_subjects", initialHidden).apply()
+            val initialHidden = try {
+                SubjectManager.getUserSubjects(context).toSet()
+            } catch (_: Exception) {
+                emptySet()
+            }
+            try {
+                subjectPrefs.edit().putStringSet("hidden_subjects", initialHidden).apply()
+            } catch (_: Exception) {}
             mutableStateOf(initialHidden)
         } else {
             mutableStateOf(saved)
@@ -525,7 +548,11 @@ fun HomeTimerTab(
     }
 
     LaunchedEffect(Unit) {
-        userSubjects = SubjectManager.getUserSubjects(context)
+        userSubjects = try {
+            SubjectManager.getUserSubjects(context)
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     var dialMinutes by rememberSaveable { mutableFloatStateOf(25f) }
@@ -550,7 +577,11 @@ fun HomeTimerTab(
     var streakDays by remember { mutableIntStateOf(0) }
     LaunchedEffect(isFocusActive) {
         if (!isFocusActive) {
-            val sessions = FocusSessionManager.getAllSessions(context)
+            val sessions = try {
+                FocusSessionManager.getAllSessions(context)
+            } catch (_: Exception) {
+                emptyList()
+            }
             streakDays = calculateStreakDays(sessions)
         }
     }
@@ -576,7 +607,13 @@ fun HomeTimerTab(
     val swMainTime = String.format("%02d:%02d:%02d", swH, swM, swS)
     val swMilliText = String.format(".%02d", swMs)
 
-    val allSessions = remember(isFocusActive) { FocusSessionManager.getAllSessions(context) }
+    val allSessions = remember(isFocusActive) {
+        try {
+            FocusSessionManager.getAllSessions(context)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
     val subjectMinutesMap = remember(allSessions) {
         allSessions.groupBy { it.subject }
             .mapValues { entry -> entry.value.sumOf { it.durationMinutes } }
