@@ -1,65 +1,99 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="72dp"
-    android:background="@drawable/bg_notification_box"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:gravity="center_vertical">
+    android:layout_height="64dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@android:color/transparent"
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
 
-    <ImageView
-        android:id="@+id/notif_logo"
-        android:layout_width="38dp"
-        android:layout_height="38dp"
-        android:layout_alignParentStart="true"
-        android:layout_centerVertical="true"
-        android:src="@drawable/ic_launcher"
-        android:scaleType="fitCenter"
-        android:contentDescription="App Logo" />
-
-    <Chronometer
-        android:id="@+id/notif_timer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:textColor="#F59E0B"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        android:fontFamily="sans-serif-rounded"
-        android:countDown="true" />
-
+    <!-- 1. बायाँ भाग: ऊपर छोटा लोगो + नीचे सिस्टम-स्टाइल मोड टैग -->
     <LinearLayout
-        android:id="@+id/btn_notif_cancel"
+        android:id="@+id/notif_logo_container"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
-        android:layout_centerVertical="true"
-        android:gravity="center"
+        android:layout_height="match_parent"
         android:orientation="vertical"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
-        android:background="@drawable/bg_notification_box"
-        android:clickable="true"
-        android:focusable="true">
+        android:gravity="center"
+        android:paddingEnd="10dp">
+
+        <ImageView
+            android:id="@+id/notif_logo"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_launcher"
+            android:scaleType="fitCenter"
+            android:contentDescription="Amon Logo" />
 
         <TextView
+            android:id="@+id/notif_mode_tag"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="✕"
-            android:textColor="#E2E8F0"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Give Up"
-            android:textColor="#94A3B8"
-            android:textSize="10sp"
-            android:textStyle="normal"
-            android:includeFontPadding="false" />
+            android:text="STOPWATCH"
+            android:textSize="8.5sp"
+            android:textStyle="bold"
+            android:textColor="#8B5CF6"
+            android:letterSpacing="0.08"
+            android:singleLine="true"
+            android:layout_marginTop="2dp" />
     </LinearLayout>
 
-</RelativeLayout>
+    <!-- 2. बीच का भाग: सिस्टम-थीम्ड ऑटो-कंट्रास्ट टाइमर -->
+    <Chronometer
+        android:id="@+id/notif_timer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="26sp"
+        android:textStyle="bold"
+        android:textColor="?android:attr/textColorPrimary"
+        android:fontFamily="sans-serif-rounded"
+        android:gravity="center_vertical"
+        android:paddingStart="4dp"
+        android:singleLine="true" />
+
+    <!-- 3. दायाँ भाग: सिस्टम-स्टाइल स्लीक एक्शन बटन्स -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- PAUSE / RESUME बटन -->
+        <TextView
+            android:id="@+id/btn_notif_pause"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:minWidth="56dp"
+            android:gravity="center"
+            android:text="PAUSE"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="?android:attr/textColorPrimary"
+            android:background="?android:attr/selectableItemBackground"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp" />
+
+        <Space
+            android:layout_width="6dp"
+            android:layout_height="wrap_content" />
+
+        <!-- STOP बटन -->
+        <TextView
+            android:id="@+id/btn_notif_stop"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:minWidth="50dp"
+            android:gravity="center"
+            android:text="STOP"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="#EF4444"
+            android:background="?android:attr/selectableItemBackground"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp" />
+    </LinearLayout>
+
+</LinearLayout>
