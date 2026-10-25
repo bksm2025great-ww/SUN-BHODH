@@ -1,5 +1,6 @@
 package com.amon.timer
 
+import com.airbnb.lottie.compose.*
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
@@ -262,7 +263,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ----------------- 4. PREFERENCES & CONTROLS (OPENS PREFERENCES SCREEN) -----------------
+        // ----------------- 4. PREFERENCES & CONTROLS -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -977,6 +978,23 @@ fun ProfileScreen() {
                 }
             }
         }
+
+        // ----------------- 9. BOTTOM LOTTIE ANIMATION -----------------
+        val lottieComposition by rememberLottieComposition(
+            LottieCompositionSpec.RawRes(R.raw.profile_anim)
+        )
+        val lottieProgress by animateLottieCompositionAsState(
+            composition = lottieComposition,
+            iterations = LottieConstants.IterateForever
+        )
+
+        LottieAnimation(
+            composition = lottieComposition,
+            progress = { lottieProgress },
+            modifier = Modifier
+                .size(160.dp)
+                .padding(bottom = 16.dp)
+        )
 
         Spacer(modifier = Modifier.height(18.dp))
     }
