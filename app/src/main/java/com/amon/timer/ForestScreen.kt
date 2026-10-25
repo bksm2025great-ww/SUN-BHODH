@@ -18,23 +18,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -157,15 +153,6 @@ fun ForestScreen() {
         )
     }
 
-    val scrollState = rememberScrollState()
-    val stepHeightDp = 92.dp
-
-    LaunchedEffect(currentLevel, levelCount) {
-        val targetY = ((levelCount - currentLevel) * 92).dp
-        val targetPx = with(density) { targetY.toPx() }.toInt()
-        scrollState.animateScrollTo(targetPx)
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -232,7 +219,7 @@ fun ForestScreen() {
                         membersCount = "1 member",
                         activeCount = "1",
                         isPublic = isPublic,
-                        isCreatedByMe = true, // यूज़र एडमिन है
+                        isCreatedByMe = true,
                         iconType = RoomIconType.CUSTOM,
                         tagColor = primaryAccent,
                         subtitle = if (isPublic) "Public community room" else "Private study circle"
@@ -365,7 +352,6 @@ private fun GroupCardItem(
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // क्लीन वेक्टर आइकॉन
                 Box(
                     modifier = Modifier
                         .size(44.dp)
@@ -517,7 +503,7 @@ private fun SuggestedGroupCardItem(
 }
 
 // ==========================================
-// 2. ग्रुप डिटेल स्क्रीन (3-डॉट्स मेनू + लीव + डिलीट)
+// 2. ग्रुप डिटेल स्क्रीन
 // ==========================================
 @Composable
 private fun GroupDetailViewScreen(
@@ -542,7 +528,6 @@ private fun GroupDetailViewScreen(
 
     val isUniversalLibrary = group.id == "univ_lib"
 
-    // 🌟 50 छात्र (रिमूवल सपोर्ट के साथ)
     val leaderboard50 = remember {
         val names = listOf(
             "Abhinav S.", "Aryan K.", "Neha Sharma", "Rahul Verma", "Rohan Mehra",
@@ -603,7 +588,6 @@ private fun GroupDetailViewScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // 🌟 खुला और सुव्यवस्थित टॉप हेडर (बैक + नाम + इनवाइट + 3-डॉट्स मेनू)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -640,7 +624,6 @@ private fun GroupDetailViewScreen(
                 )
             }
 
-            // इनवाइट बटन
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = Color(0xFF16202E),
@@ -664,7 +647,6 @@ private fun GroupDetailViewScreen(
 
             Spacer(Modifier.width(8.dp))
 
-            // 🌟 WhatsApp स्टाइल 3-डॉट्स मेनू (⋮)
             Box {
                 Surface(
                     modifier = Modifier
@@ -868,9 +850,8 @@ private fun GroupDetailViewScreen(
                 }
             }
         }
-    }
 
-        // टैब 2: केवल ACTIVE छात्र
+        // टैब 2: ACTIVE छात्र
         if (selectedTab == 1) {
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyVerticalGrid(
@@ -1097,99 +1078,6 @@ private fun MetallicLeaderboardRow(
                 Spacer(Modifier.width(8.dp))
                 CleanRemoveUserVectorIcon(tint = Color(0xFFEF4444).copy(alpha = 0.8f), modifier = Modifier.size(14.dp))
             }
-        )
-    }
-
-    if (showResetDialog) {
-        AlertDialog(
-            onDismissRequest = { showResetDialog = false },
-            containerColor = panel,
-            title = { Text("Reset test progress?", color = textMain) },
-            text = { Text("This resets level count to 20 and clears test XP and completed checkpoints.", color = textMuted) },
-            confirmButton = {
-                TextButton(onClick = {
-                    levelCount = 20
-                    completedLevel = 0
-                    testXp = 0
-                    selectedLevel = 1
-                    persist()
-                    showResetDialog = false
-                }) { Text("Reset", color = Color(0xFFFF8B8B)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) { Text("Cancel", color = accent) }
-            }
-        )
-    }
-}
-
-/**
- * 🏆 CSS 3D Mechanical Button Replica
- * - width: 4.5em, height: 4em, border-radius: 100%
- * - box-shadow: 0 .5em #bottomBaseColor
- * - transition: all .1s ease
- * - .container:has(.button:active) -> box-shadow: none; margin-top: 2em;
- */
-@Composable
-private fun CssMechanicalPushButton(
-    isComplete: Boolean,
-    isCurrent: Boolean,
-    rank: JourneyRank,
-    nodeWidth: Dp,
-    nodeHeight: Dp,
-    onClick: () -> Unit
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    // 0.5em के बराबर 3D गहराई
-    val shadowOffsetDp = 7.dp
-
-    // CSS: transition: all .1s ease
-    val pressOffsetY by animateDpAsState(
-        targetValue = if (isPressed) shadowOffsetDp else 0.dp,
-        animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
-        label = "css_press_anim"
-    )
-
-    // एक्टिव होने पर शैडो का गायब होना (box-shadow: none)
-    val shadowAlpha by animateFloatAsState(
-        targetValue = if (isPressed) 0f else 1f,
-        animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
-        label = "css_shadow_alpha"
-    )
-
-    val faceColor = when {
-        isCurrent || isComplete -> rank.topFaceColor
-        else -> Color(0xFF243242)
-    }
-
-    val baseColor = when {
-        isCurrent || isComplete -> rank.bottomBaseColor
-        else -> Color(0xFF131B24)
-    }
-
-    Box(
-        modifier = Modifier
-            .size(width = nodeWidth, height = nodeHeight + shadowOffsetDp)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            ),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        // 1. CSS: box-shadow: 0 .5em (नीचे का ठोस 3D बेस)
-        if (shadowAlpha > 0.05f) {
-            Box(
-                modifier = Modifier
-                    .offset(y = shadowOffsetDp)
-                    .size(width = nodeWidth, height = nodeHeight)
-                    .graphicsLayer { alpha = shadowAlpha }
-                    .clip(CircleShape)
-                    .background(baseColor)
-                    .border(1.dp, baseColor, CircleShape)
-            )
         }
     }
 }
@@ -1555,7 +1443,6 @@ private fun CleanRemoveUserVectorIcon(tint: Color, modifier: Modifier = Modifier
         }
         drawPath(bodyPath, color = tint, style = Stroke(strokeW, cap = StrokeCap.Round))
 
-        // छोटा माइनस / क्रॉस
         drawLine(color = tint, start = Offset(w * 0.72f, h * 0.45f), end = Offset(w * 0.92f, h * 0.45f), strokeWidth = strokeW, cap = StrokeCap.Round)
     }
 }
@@ -1570,7 +1457,6 @@ private fun CleanCategoryVectorIcon(type: RoomIconType, tint: Color, modifier: M
 
         when (type) {
             RoomIconType.LIBRARY -> {
-                // बुक आइकॉन
                 val book = Path().apply {
                     moveTo(w * 0.5f, h * 0.80f)
                     cubicTo(w * 0.35f, h * 0.72f, w * 0.20f, h * 0.74f, w * 0.12f, h * 0.78f)
@@ -1585,7 +1471,6 @@ private fun CleanCategoryVectorIcon(type: RoomIconType, tint: Color, modifier: M
                 drawLine(color = tint, start = Offset(w * 0.5f, h * 0.30f), end = Offset(w * 0.5f, h * 0.80f), strokeWidth = strokeW)
             }
             RoomIconType.CODE -> {
-                // कोड ब्रैकेट्स </ >
                 drawLine(color = tint, start = Offset(w * 0.36f, h * 0.30f), end = Offset(w * 0.18f, h * 0.50f), strokeWidth = strokeW, cap = StrokeCap.Round)
                 drawLine(color = tint, start = Offset(w * 0.18f, h * 0.50f), end = Offset(w * 0.36f, h * 0.70f), strokeWidth = strokeW, cap = StrokeCap.Round)
 
@@ -1595,7 +1480,6 @@ private fun CleanCategoryVectorIcon(type: RoomIconType, tint: Color, modifier: M
                 drawLine(color = tint, start = Offset(w * 0.56f, h * 0.24f), end = Offset(w * 0.44f, h * 0.76f), strokeWidth = strokeW, cap = StrokeCap.Round)
             }
             RoomIconType.CIVIL -> {
-                // पिलर / स्तंभ आइकॉन
                 drawLine(color = tint, start = Offset(w * 0.20f, h * 0.22f), end = Offset(w * 0.80f, h * 0.22f), strokeWidth = strokeW, cap = StrokeCap.Round)
                 drawLine(color = tint, start = Offset(w * 0.32f, h * 0.22f), end = Offset(w * 0.32f, h * 0.78f), strokeWidth = strokeW, cap = StrokeCap.Round)
                 drawLine(color = tint, start = Offset(w * 0.50f, h * 0.22f), end = Offset(w * 0.50f, h * 0.78f), strokeWidth = strokeW, cap = StrokeCap.Round)
@@ -1603,13 +1487,11 @@ private fun CleanCategoryVectorIcon(type: RoomIconType, tint: Color, modifier: M
                 drawLine(color = tint, start = Offset(w * 0.20f, h * 0.78f), end = Offset(w * 0.80f, h * 0.78f), strokeWidth = strokeW, cap = StrokeCap.Round)
             }
             RoomIconType.FINANCE -> {
-                // ट्रेंडिंग चार्ट बार्स
                 drawLine(color = tint, start = Offset(w * 0.25f, h * 0.75f), end = Offset(w * 0.25f, h * 0.50f), strokeWidth = strokeW * 1.5f, cap = StrokeCap.Round)
                 drawLine(color = tint, start = Offset(w * 0.50f, h * 0.75f), end = Offset(w * 0.50f, h * 0.32f), strokeWidth = strokeW * 1.5f, cap = StrokeCap.Round)
                 drawLine(color = tint, start = Offset(w * 0.75f, h * 0.75f), end = Offset(w * 0.75f, h * 0.18f), strokeWidth = strokeW * 1.5f, cap = StrokeCap.Round)
             }
             RoomIconType.CUSTOM -> {
-                // शील्ड / रूम स्टार
                 val shield = Path().apply {
                     moveTo(w * 0.50f, h * 0.18f)
                     lineTo(w * 0.82f, h * 0.30f)
