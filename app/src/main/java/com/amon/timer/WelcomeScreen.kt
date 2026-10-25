@@ -4,7 +4,6 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,8 +27,7 @@ fun WelcomeScreen(
     onStartClick: () -> Unit
 ) {
     val darkBg = Color(0xFF090D14)
-    val purpleAccent = Color(0xFF8B5CF6) // Uiverse wala electric purple
-    val goldAccent = Color(0xFFF5A524)
+    val purpleAccent = Color(0xFF8B5CF6) // Uiverse electric purple
 
     // 🌟 Word roller ke 4 words
     val words = remember { listOf("Focus", "Consistency", "Discipline", "Goal") }
@@ -58,8 +56,6 @@ fun WelcomeScreen(
                     .fillMaxWidth()
                     .weight(1.35f)
             ) {
-                // Note: Agar aapne image ka naam 'welcome_hero' rakha hai:
-                // res/drawable/welcome_hero.webp ya res/raw/welcome_hero
                 Image(
                     painter = painterResource(id = R.drawable.welcome_hero),
                     contentDescription = "Amon Study Scene",
@@ -94,31 +90,28 @@ fun WelcomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(8.dp))
 
-                    // 🔄 UIVERSE ROTATING WORD COMPONENT
+                    // 🔄 CLEAN ROTATING WORD COMPONENT (Box aur Border hata diya gaya)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFF121620))
-                            .border(1.dp, Color(0xFF1E2638), RoundedCornerShape(16.dp))
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                            .padding(vertical = 6.dp)
                     ) {
                         Text(
                             text = "Master your",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 20.sp,
+                            color = Color(0xFFE2E8F0),
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
 
                         Spacer(Modifier.width(8.dp))
 
-                        // Uiverse jaisa vertical sliding slot effect
+                        // Vertical sliding slot effect
                         Box(
-                            modifier = Modifier.height(30.dp),
+                            modifier = Modifier.height(34.dp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             AnimatedContent(
@@ -134,7 +127,7 @@ fun WelcomeScreen(
                                 Text(
                                     text = word,
                                     color = purpleAccent,
-                                    fontSize = 21.sp,
+                                    fontSize = 23.sp,
                                     fontWeight = FontWeight.Black,
                                     letterSpacing = 0.5.sp
                                 )
@@ -147,7 +140,7 @@ fun WelcomeScreen(
                     Text(
                         text = "Build deep study discipline, protect your focus streak, and transform your daily learning journey.",
                         fontSize = 12.5.sp,
-                        color = Color(0xFF64748B),
+                        color = Color(0xFF94A3B8),
                         textAlign = TextAlign.Center,
                         lineHeight = 18.sp,
                         modifier = Modifier.padding(horizontal = 10.dp)
