@@ -20,9 +20,9 @@ class AmonReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val reminderType = intent.getStringExtra("REMINDER_TYPE") ?: return
 
-        // 🛡️ चेक 1: अगर यूजर अभी Amon में पढ़ाई कर रहा है, तो कोई नोटिफिकेशन नहीं जाएगा
-        if (TimerService.isTimerRunning.value) {
-            Log.d("AmonReminder", "Active study session running. Notification suppressed.")
+        // 🛡️ चेक 1: अगर यूजर अभी पढ़ाई कर रहा है (रनिंग या पॉज्ड), तो कोई रिमाइंडर नहीं जाएगा
+        if (TimerService.isTimerRunning.value || TimerService.isTimerPaused.value) {
+            Log.d("AmonReminder", "Active study session in progress. Notification suppressed.")
             return
         }
 
@@ -33,7 +33,7 @@ class AmonReminderReceiver : BroadcastReceiver() {
             return
         }
 
-        // 🎲 25+ गंभीर और प्रेरक संदेशों की लाइब्रेरी (पहरो के अनुसार)
+        // 🎲 25+ गंभीर और प्रेरक संदेशों की लाइब्रेरी (पुल)
         val (title, message) = when (reminderType) {
             "MORNING" -> {
                 val morningPool = listOf(
@@ -88,7 +88,7 @@ class AmonReminderReceiver : BroadcastReceiver() {
             else -> return
         }
 
-        // नोटिफिकेशन दिखाना
+        // रिमाइंडर नोटिफिकेशन दिखाना
         AmonReminderManager.showNotification(context, title, message)
 
         // अगले दिन के लिए लचीले समय पर दोबारा शेड्यूल करना
@@ -97,16 +97,18 @@ class AmonReminderReceiver : BroadcastReceiver() {
 }
 
 // =============================================================================
-// ⏰ 2. मुंशी (MANAGER): दिन में ठीक 5 लचीले स्लॉट और 9 PM कर्फ्यू
+// ⏰ 2. मुंशी (MANAGER): दिन में ठीक 5 स्लॉट और 9 PM कर्फ्यू
 // =============================================================================
 object AmonReminderManager {
-    private const val CHANNEL_ID = "amon_daily_reminders"
+    private const val CHANNEL_ID = "amon_daily_reminders_v2"
     private const val CHANNEL_NAME = "Daily Study & Focus Reminders"
-    private const val SINGLE_NOTIFICATION_ID = 1001 // एकल ID: ट्रे में कभी नोटिफिकेशन्स का ढेर नहीं लगेगा
+    
+    // 🌟 ID 2001: टाइमर (1001) से अलग ताकि लाइव टाइमर कभी न कटे, और सिंगल ID से नोटिफिकेशन्स का ढेर भी न लगे
+    private const val SINGLE_NOTIFICATION_ID = 2001
 
     fun scheduleAllReminders(context: Context) {
         try {
-            // 1. 🌅 सुबह: 6:25 AM से 7:45 AM के बीच (6-8 AM विंडो में लचीला)
+            // 1. 🌅 सुबह: 6:25 AM से 7:45 AM के बीच
             val morningMinute = Random.nextInt(25, 55)
             scheduleSafeReminder(context, 6, morningMinute, "MORNING", 101)
 
@@ -209,7 +211,7 @@ object AmonReminderManager {
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_mascot_amon)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -218,7 +220,7 @@ object AmonReminderManager {
             .setContentIntent(contentPendingIntent)
             .build()
 
-        // 🌟 सिंगल ID: नया नोटिफिकेशन आने पर पुराना रिप्लेस होगा, बार-बार ढेर नहीं लगेगा
+        // 🌟 सिंगल ID (2001): नया रिमाइंडर आने पर पिछला ओवरराइट होगा, स्टेटस बार में कभी ढेर नहीं लगेगा
         notificationManager.notify(SINGLE_NOTIFICATION_ID, notification)
     }
 }
