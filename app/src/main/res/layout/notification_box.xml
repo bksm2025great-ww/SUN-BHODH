@@ -4,13 +4,13 @@
     android:layout_height="64dp"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:background="@android:color/transparent"
-    android:paddingStart="10dp"
-    android:paddingEnd="10dp"
+    android:background="#16161E"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
     android:paddingTop="4dp"
     android:paddingBottom="4dp">
 
-    <!-- 1. बायाँ भाग: ऊपर छोटा लोगो + नीचे सिस्टम-स्टाइल मोड टैग -->
+    <!-- 1. बायाँ भाग: लोगो (@drawable/ic_launcher) + मोड टैग -->
     <LinearLayout
         android:id="@+id/notif_logo_container"
         android:layout_width="wrap_content"
@@ -31,7 +31,7 @@
             android:id="@+id/notif_mode_tag"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="STOPWATCH"
+            android:text="FOCUS"
             android:textSize="8.5sp"
             android:textStyle="bold"
             android:textColor="#8B5CF6"
@@ -40,7 +40,7 @@
             android:layout_marginTop="2dp" />
     </LinearLayout>
 
-    <!-- 2. बीच का भाग: सिस्टम-थीम्ड ऑटो-कंट्रास्ट टाइमर -->
+    <!-- 2. बीच का भाग: टाइमर डिस्प्ले -->
     <Chronometer
         android:id="@+id/notif_timer"
         android:layout_width="0dp"
@@ -48,20 +48,20 @@
         android:layout_weight="1"
         android:textSize="26sp"
         android:textStyle="bold"
-        android:textColor="?android:attr/textColorPrimary"
+        android:textColor="#FFFFFF"
         android:fontFamily="sans-serif-rounded"
         android:gravity="center_vertical"
-        android:paddingStart="4dp"
+        android:paddingStart="6dp"
         android:singleLine="true" />
 
-    <!-- 3. दायाँ भाग: सिस्टम-स्टाइल स्लीक एक्शन बटन्स -->
+    <!-- 3. दायाँ भाग: एक्शन बटन्स (बिना Space टैग के) -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <!-- PAUSE / RESUME बटन -->
+        <!-- PAUSE / RESUME बटन (मार्जिन के ज़रिए 8dp दूरी दी गई) -->
         <TextView
             android:id="@+id/btn_notif_pause"
             android:layout_width="wrap_content"
@@ -71,14 +71,11 @@
             android:text="PAUSE"
             android:textSize="11sp"
             android:textStyle="bold"
-            android:textColor="?android:attr/textColorPrimary"
-            android:background="?android:attr/selectableItemBackground"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp" />
-
-        <Space
-            android:layout_width="6dp"
-            android:layout_height="wrap_content" />
+            android:textColor="#FFFFFF"
+            android:background="#262634"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:layout_marginEnd="8dp" />
 
         <!-- STOP बटन -->
         <TextView
@@ -91,9 +88,9 @@
             android:textSize="11sp"
             android:textStyle="bold"
             android:textColor="#EF4444"
-            android:background="?android:attr/selectableItemBackground"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp" />
+            android:background="#262634"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp" />
     </LinearLayout>
 
 </LinearLayout>
