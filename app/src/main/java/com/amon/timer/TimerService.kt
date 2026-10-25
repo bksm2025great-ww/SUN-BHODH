@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.graphics.Color as AndroidColor
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
@@ -30,7 +31,7 @@ class TimerService : Service() {
     private var timerJob: Job? = null
 
     companion object {
-        const val CHANNEL_ID = "amon_focus_active_v2"
+        const val CHANNEL_ID = "amon_focus_live_v4"
         const val NOTIFICATION_ID = 1001
 
         const val ACTION_START = "com.amon.timer.START"
@@ -65,7 +66,6 @@ class TimerService : Service() {
         var sessionTargetElapsedRealtime: Long = 0L
             private set
 
-        // 🛡️ हार्डवेयर टिक काउंटर (Time-Zone Cheat Proof)
         var accumulatedActiveMillis: Long = 0L
             private set
         var sessionResumeElapsedRealtime: Long = 0L
@@ -305,7 +305,6 @@ class TimerService : Service() {
 
         clearPersistedState(this)
 
-        // 🔄 00:00 पर खत्म होने के बाद घड़ी को तुरंत मूल समय पर रीसेट करना (ताकि लूप न बने)
         remainingSeconds.intValue = if (originalTimerSeconds > 0) originalTimerSeconds else 25 * 60
 
         triggerGentleVibration()
@@ -324,7 +323,6 @@ class TimerService : Service() {
                 rawSeconds
             }
 
-            // 🛑 5 MINUTE RULE: 300 सेकंड से कम की पढ़ाई डायरी में नहीं जाएगी (सुरक्षित)
             if (completedSeconds < 300) {
                 return
             }
@@ -352,7 +350,6 @@ class TimerService : Service() {
                 durationMinutes = minutes,
                 earnedTrees = trees
             )
-            // 📁 लोकल डिवाइस स्टोरेज में तुरंत (माइक्रोसेकंड में) सुरक्षित सेव
             FocusSessionManager.saveSession(this, session)
 
             CloudSyncManager.syncSession(
@@ -401,35 +398,75 @@ class TimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val cancelIntent = Intent(this, TimerService::class.java).apply {
-            action = ACTION_CANCEL
+        val stopIntent = Intent(this, TimerService::class.java).apply {
+            action = ACTION_STOP
         }
-        val cancelPendingIntent = PendingIntent.getService(
+        val stopPendingIntent = PendingIntent.getService(
             this,
             1,
-            cancelIntent,
+            stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val pauseResumeIntent = Intent(this, TimerService::class.java).apply {
+            action = if (isPaused) ACTION_RESUME else ACTION_PAUSE
+        }
+        val pauseResumePendingIntent = PendingIntent.getService(
+            this,
+            2,
+            pauseResumeIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // 🏷️ मोड का नाम जो लोगो के नीचे दिखेगा
+        val modeText = when {
+            isStopwatch -> "STOPWATCH"
+            originalTimerSeconds == 25 * 60 -> "POMODORO"
+            else -> "TIMER"
+        }
+
         val customLayout = RemoteViews(packageName, R.layout.notification_box).apply {
+            // लोगो के नीचे मोड सेट करना
+            setTextViewText(R.id.notif_mode_tag, modeText)
+
+            // टाइमर सेट करना
             setChronometer(R.id.notif_timer, chronometerBase, null, !isPaused)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 setChronometerCountDown(R.id.notif_timer, !isStopwatch)
             }
-            setOnClickPendingIntent(R.id.btn_notif_cancel, cancelPendingIntent)
+
+            // Pause / Resume बटन
+            if (isPaused) {
+                setTextViewText(R.id.btn_notif_pause, "RESUME")
+                setTextColor(R.id.btn_notif_pause, AndroidColor.parseColor("#22C55E")) // हरा रंग
+            } else {
+                setTextViewText(R.id.btn_notif_pause, "PAUSE")
+                setTextColor(R.id.btn_notif_pause, AndroidColor.parseColor("#E2E8F0")) // सफ़ेद रंग
+            }
+            setOnClickPendingIntent(R.id.btn_notif_pause, pauseResumePendingIntent)
+
+            // Stop बटन
+            setOnClickPendingIntent(R.id.btn_notif_stop, stopPendingIntent)
+
+            // लोगो पर क्लिक करने पर ऐप खुलना
             setOnClickPendingIntent(R.id.notif_logo, openAppPendingIntent)
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_media_play)
+            .setContentTitle("Amon $modeText")
+            .setContentText(if (isPaused) "Paused" else "Focus session active")
             .setOngoing(true)
             .setContentIntent(openAppPendingIntent)
             .setCustomContentView(customLayout)
             .setCustomBigContentView(customLayout)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOnlyAlertOnce(true)
+            // ⚡ 15 सेकंड का डिले खत्म (तुरंत नोटिफिकेशन)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
     }
 
@@ -438,9 +475,9 @@ class TimerService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Amon Focus Timer",
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Shows live focus countdown timer"
+                description = "Shows live focus countdown & stopwatch timer"
                 setShowBadge(false)
                 setSound(null, null)
                 enableVibration(false)
