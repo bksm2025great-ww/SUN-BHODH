@@ -33,10 +33,10 @@ fun WelcomeScreen(
     val words = remember { listOf("Focus", "Consistency", "Discipline", "Goal") }
     var currentWordIndex by remember { mutableIntStateOf(0) }
 
-    // Har 2 second me word automatically upar slide hokar badlega
+    // ⚡ Har 1.3 second me word automatically upar slide hokar badlega
     LaunchedEffect(Unit) {
         while (true) {
-            delay(2000)
+            delay(1300)
             currentWordIndex = (currentWordIndex + 1) % words.size
         }
     }
@@ -92,7 +92,7 @@ fun WelcomeScreen(
                 ) {
                     Spacer(Modifier.height(8.dp))
 
-                    // 🔄 CLEAN ROTATING WORD COMPONENT (Box aur Border hata diya gaya)
+                    // 🔄 CLEAN & STABLE ROTATING WORD COMPONENT
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
@@ -109,17 +109,19 @@ fun WelcomeScreen(
 
                         Spacer(Modifier.width(8.dp))
 
-                        // Vertical sliding slot effect
+                        // 🔒 150dp Fixed-Width Box: Isse Master your bilkul bhi nahi hilega
                         Box(
-                            modifier = Modifier.height(34.dp),
+                            modifier = Modifier
+                                .height(34.dp)
+                                .width(150.dp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             AnimatedContent(
                                 targetState = words[currentWordIndex],
                                 transitionSpec = {
-                                    (slideInVertically(animationSpec = tween(450)) { height -> height } + fadeIn(tween(450)))
+                                    (slideInVertically(animationSpec = tween(350)) { height -> height } + fadeIn(tween(350)))
                                         .togetherWith(
-                                            slideOutVertically(animationSpec = tween(450)) { height -> -height } + fadeOut(tween(450))
+                                            slideOutVertically(animationSpec = tween(350)) { height -> -height } + fadeOut(tween(350))
                                         )
                                 },
                                 label = "word_roller_anim"
@@ -152,31 +154,4 @@ fun WelcomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 26.dp)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .clip(RoundedCornerShape(25.dp))
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(Color(0xFFF5A524), Color(0xFFFFC043))
-                                )
-                            )
-                            .clickable { onStartClick() }
-                    ) {
-                        Text(
-                            text = "Let's Begin ➔",
-                            color = Color.Black,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
+                        .padding
