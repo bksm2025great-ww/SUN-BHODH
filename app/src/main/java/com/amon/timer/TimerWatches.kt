@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -49,6 +48,7 @@ import kotlin.math.*
 
 /**
  * 👑 AMON CENTRAL WATCH CONTAINER
+ * तीनों घड़ियों को एक ही मॉड्यूलर हब में कंट्रोल करता है
  */
 @Composable
 fun TimerWatchesContainer(
@@ -70,8 +70,7 @@ fun TimerWatchesContainer(
     hours: Int,
     selectedSubjectName: String = "Focus",
     onTogglePlayPause: () -> Unit = {},
-    isBreakActive: Boolean = false,
-    isPomodoroMode: Boolean = false
+    showPresets: Boolean = true
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -81,29 +80,34 @@ fun TimerWatchesContainer(
         context.getSharedPreferences("amon_watch_prefs", Context.MODE_PRIVATE)
     }
 
+    // 🛡️ सुरक्षित SharedPreferences लोड (पुराने डेटा के टकराव से ऐप कभी क्रैश नहीं होगा)
     var selectedWatchStyle by rememberSaveable {
-        mutableIntStateOf(watchPrefs.getInt("selected_watch_style", 0))
+        val saved = try {
+            watchPrefs.getInt("selected_watch_style", 0)
+        } catch (_: Exception) {
+            0
+        }
+        mutableIntStateOf(saved)
     }
 
-    // पोमोडोरो में केवल रिंग (0) और रोटरी (1) स्टाइल
-    val effectiveStyle = if (isPomodoroMode && selectedWatchStyle == 2) 0 else selectedWatchStyle
-
     val onPrevStyle = {
-        val maxIndex = if (isPomodoroMode) 1 else 2
-        selectedWatchStyle = if (selectedWatchStyle > 0) selectedWatchStyle - 1 else maxIndex
-        watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
+        selectedWatchStyle = if (selectedWatchStyle > 0) selectedWatchStyle - 1 else 2
+        try {
+            watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
+        } catch (_: Exception) {}
     }
 
     val onNextStyle = {
-        val maxIndex = if (isPomodoroMode) 1 else 2
-        selectedWatchStyle = if (selectedWatchStyle < maxIndex) selectedWatchStyle + 1 else 0
-        watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
+        selectedWatchStyle = if (selectedWatchStyle < 2) selectedWatchStyle + 1 else 0
+        try {
+            watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
+        } catch (_: Exception) {}
     }
 
     val targetArrowY = if (isLandscape) {
-        if (effectiveStyle == 2) 72.dp else 95.dp
+        if (selectedWatchStyle == 2) 72.dp else 95.dp
     } else {
-        if (effectiveStyle == 2) 105.dp else 111.dp
+        if (selectedWatchStyle == 2) 105.dp else 111.dp
     }
 
     val animatedArrowY by animateDpAsState(
@@ -140,7 +144,7 @@ fun TimerWatchesContainer(
             contentAlignment = Alignment.TopCenter
         ) {
             AnimatedContent(
-                targetState = effectiveStyle,
+                targetState = selectedWatchStyle,
                 transitionSpec = {
                     if (targetState > initialState) {
                         slideInHorizontally { width -> width } + fadeIn() togetherWith
@@ -154,24 +158,15 @@ fun TimerWatchesContainer(
             ) { style ->
                 when (style) {
                     0 -> ClassicRingWatch(
-                        dialMinutes = dialMinutes,
-                        onDialMinutesChange = onDialMinutesChange,
                         totalSeconds = totalSeconds,
                         initialTotalSeconds = initialTotalSeconds,
                         isRunning = isRunning,
-                        isCustomMode = isCustomMode,
                         onCustomModeToggle = onCustomModeToggle,
                         goldColor = goldColor,
-                        glowYellow = glowYellow,
-                        cardBg = cardBg,
-                        glassBorder = glassBorder,
                         textMain = textMain,
-                        textMuted = textMuted,
                         isDark = isDark,
                         timeFormatted = timeFormatted,
-                        hours = hours,
-                        isBreakActive = isBreakActive,
-                        isPomodoroMode = isPomodoroMode
+                        hours = hours
                     )
 
                     1 -> RotaryDialWatch(
@@ -182,15 +177,10 @@ fun TimerWatchesContainer(
                         isRunning = isRunning,
                         onCustomModeToggle = onCustomModeToggle,
                         goldColor = goldColor,
-                        glowYellow = glowYellow,
-                        cardBg = cardBg,
-                        glassBorder = glassBorder,
                         textMain = textMain,
-                        textMuted = textMuted,
                         isDark = isDark,
                         timeFormatted = timeFormatted,
-                        hours = hours,
-                        isPomodoroMode = isPomodoroMode
+                        hours = hours
                     )
 
                     2 -> RetroFlipClockWatch(
@@ -200,11 +190,6 @@ fun TimerWatchesContainer(
                         isRunning = isRunning,
                         subjectName = selectedSubjectName,
                         goldColor = goldColor,
-                        glowYellow = glowYellow,
-                        cardBg = cardBg,
-                        glassBorder = glassBorder,
-                        textMain = textMain,
-                        textMuted = textMuted,
                         isDark = isDark
                     )
                 }
@@ -307,28 +292,19 @@ private fun SleekWideChevronRight(tint: Color, modifier: Modifier = Modifier) {
 }
 
 // =============================================================================
-// ⏱ WATCH STYLE 1: CLASSIC LUXE RING
+// ⏱ WATCH STYLE 1: CLASSIC LUXE RING (CENTRAL CLEAN TIME)
 // =============================================================================
 @Composable
 private fun ClassicRingWatch(
-    dialMinutes: Float,
-    onDialMinutesChange: (Float) -> Unit,
     totalSeconds: Int,
     initialTotalSeconds: Int,
     isRunning: Boolean,
-    isCustomMode: Boolean,
     onCustomModeToggle: () -> Unit,
     goldColor: Color,
-    glowYellow: Color,
-    cardBg: Color,
-    glassBorder: Color,
     textMain: Color,
-    textMuted: Color,
     isDark: Boolean,
     timeFormatted: String,
-    hours: Int,
-    isBreakActive: Boolean = false,
-    isPomodoroMode: Boolean = false
+    hours: Int
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
@@ -386,171 +362,34 @@ private fun ClassicRingWatch(
                 )
             }
 
-            // सेंटर टाइम और टारगेट/टी-कप आइकन
+            // 🎯 सेंटर टाइम: फोकस आइकॉन हटा दिया गया है, सिर्फ़ क्रिस्प बोल्ड टाइमर रहेगा
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier
                     .clip(RoundedCornerShape(18.dp))
                     .clickable(
-                        enabled = !isRunning && !isPomodoroMode,
+                        enabled = !isRunning,
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onCustomModeToggle
                     )
                     .padding(8.dp)
             ) {
-                if (isBreakActive) {
-                    WatchCleanTeaCupIcon(tint = goldColor, modifier = Modifier.size(26.dp))
-                } else {
-                    FocusTargetIcon(tint = goldColor, modifier = Modifier.size(26.dp))
-                }
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = timeFormatted,
-                    fontSize = if (hours > 0) 36.sp else 43.sp,
+                    fontSize = if (hours > 0) 38.sp else 46.sp,
                     fontWeight = FontWeight.Black,
                     color = textMain,
                     letterSpacing = if (hours > 0) (-0.5).sp else 0.sp
                 )
             }
         }
-
-        // 🔘 PRESET BUTTONS (पोमोडोरो में यह छिप जाएंगे)
-        if (!isRunning && !isPomodoroMode) {
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                listOf(25f, 45f, 60f).forEach { mins ->
-                    val isSelected = !isCustomMode && dialMinutes == mins
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(if (isSelected) goldColor else cardBg)
-                            .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                            .clickable { onDialMinutesChange(mins) }
-                    ) {
-                        Text(
-                            text = "${mins.toInt()}m",
-                            color = if (isSelected) Color.White else textMain,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(if (isCustomMode) goldColor else cardBg)
-                        .border(1.dp, if (isCustomMode) glowYellow else glassBorder, RoundedCornerShape(50))
-                        .clickable { onCustomModeToggle() }
-                ) {
-                    Text(
-                        text = "Custom",
-                        color = if (isCustomMode) Color.White else textMain,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-
-    if (isCustomMode) {
-        Dialog(onDismissRequest = { onCustomModeToggle() }) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(cardBg)
-                    .border(1.6.dp, goldColor, RoundedCornerShape(24.dp))
-                    .padding(20.dp)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Set Custom Time ⏱️",
-                        color = goldColor,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Slide smoothly to adjust (0 - 180 min)",
-                        color = textMuted,
-                        fontSize = 12.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    val mins = dialMinutes.toInt()
-                    val displayTitle = when {
-                        mins == 0 -> "0 min (Stopwatch)"
-                        mins >= 60 -> {
-                            val h = mins / 60
-                            val m = mins % 60
-                            if (m > 0) "$mins min ($h h $m m)" else "$mins min ($h h)"
-                        }
-                        else -> "$mins min"
-                    }
-
-                    Text(
-                        text = displayTitle,
-                        color = textMain,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Black
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    CustomHorizontalSlider(
-                        dialMinutes = dialMinutes,
-                        onDialMinutesChange = onDialMinutesChange,
-                        goldColor = goldColor,
-                        cardBg = cardBg,
-                        textMain = textMain,
-                        textMuted = textMuted
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    Button(
-                        onClick = { onCustomModeToggle() },
-                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
-                        shape = RoundedCornerShape(50),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                    ) {
-                        Text(
-                            text = "Done 🎯",
-                            color = Color.Black,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
 // =============================================================================
-// 🎛 WATCH STYLE 2: ROTARY DIAL
+// 🎛 WATCH STYLE 2: ROTARY DIAL (MINIMUM 5 MIN - ZERO REMOVED)
 // =============================================================================
 @Composable
 private fun RotaryDialWatch(
@@ -561,15 +400,10 @@ private fun RotaryDialWatch(
     isRunning: Boolean,
     onCustomModeToggle: () -> Unit,
     goldColor: Color,
-    glowYellow: Color,
-    cardBg: Color,
-    glassBorder: Color,
     textMain: Color,
-    textMuted: Color,
     isDark: Boolean,
     timeFormatted: String,
-    hours: Int,
-    isPomodoroMode: Boolean = false
+    hours: Int
 ) {
     var centerOffset by remember { mutableStateOf(Offset.Zero) }
 
@@ -595,7 +429,7 @@ private fun RotaryDialWatch(
                                 angleDeg = (angleDeg + 90f + 360f) % 360f
 
                                 val computedMins = (angleDeg / 360f) * 180f
-                                val snappedMins = (round(computedMins / 5f) * 5f).coerceIn(0f, 180f)
+                                val snappedMins = (round(computedMins / 5f) * 5f).coerceIn(5f, 180f)
 
                                 if (snappedMins != dialMinutes) {
                                     onDialMinutesChange(snappedMins)
@@ -617,7 +451,7 @@ private fun RotaryDialWatch(
 
                 if (!isRunning) {
                     val totalMarks = 36
-                    for (i in 0 until totalMarks) {
+                    for (i in 1..totalMarks) {
                         val markMins = i * 5
                         val markAngleDeg = (markMins / 180f) * 360f - 90f
                         val rad = markAngleDeg * (PI.toFloat() / 180f)
@@ -641,7 +475,7 @@ private fun RotaryDialWatch(
                         )
                     }
 
-                    val sweep = (dialMinutes / 180f) * 360f
+                    val sweep = (dialMinutes.coerceIn(5f, 180f) / 180f) * 360f
                     drawArc(
                         color = goldColor,
                         startAngle = -90f,
@@ -691,7 +525,7 @@ private fun RotaryDialWatch(
                 modifier = Modifier
                     .clip(RoundedCornerShape(18.dp))
                     .clickable(
-                        enabled = !isRunning && !isPomodoroMode,
+                        enabled = !isRunning,
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onCustomModeToggle
@@ -716,38 +550,6 @@ private fun RotaryDialWatch(
                 }
             }
         }
-
-        if (!isRunning && !isPomodoroMode) {
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                listOf(25f, 45f, 60f).forEach { mins ->
-                    val isSelected = dialMinutes == mins
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(if (isSelected) goldColor else cardBg)
-                            .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                            .clickable { onDialMinutesChange(mins) }
-                    ) {
-                        Text(
-                            text = "${mins.toInt()}m",
-                            color = if (isSelected) Color.White else textMain,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -762,11 +564,6 @@ private fun RetroFlipClockWatch(
     isRunning: Boolean,
     subjectName: String,
     goldColor: Color,
-    glowYellow: Color,
-    cardBg: Color,
-    glassBorder: Color,
-    textMain: Color,
-    textMuted: Color,
     isDark: Boolean
 ) {
     val configuration = LocalConfiguration.current
@@ -888,56 +685,6 @@ private fun RetroFlipClockWatch(
                 )
             }
         }
-
-        if (!isRunning) {
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(if (isLandscape) 0.75f else 1f)
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                listOf(25f, 45f, 60f).forEach { m ->
-                    val isSelected = (dialMinutes * 60f).roundToInt() == (m * 60).toInt()
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(if (isSelected) goldColor else cardBg)
-                            .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
-                            .clickable { onDialMinutesChange(m) }
-                    ) {
-                        Text(
-                            text = "${m.toInt()}m",
-                            color = if (isSelected) Color.White else textMain,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .weight(1.15f)
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(cardBg)
-                        .border(1.dp, goldColor, RoundedCornerShape(50))
-                        .clickable { showTimeInputDialog = true }
-                ) {
-                    Text(
-                        text = "Custom ⌨️",
-                        color = goldColor,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-            }
-        }
     }
 
     if (showTimeInputDialog) {
@@ -948,7 +695,7 @@ private fun RetroFlipClockWatch(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(cardBg)
+                    .background(if (isDark) Color(0xFF161622) else Color(0xFFFFFFFF))
                     .border(1.5.dp, goldColor, RoundedCornerShape(24.dp))
                     .padding(22.dp)
             ) {
@@ -965,7 +712,7 @@ private fun RetroFlipClockWatch(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Enter minutes (1 - 180 min)",
-                        color = textMuted,
+                        color = Color.Gray,
                         fontSize = 12.sp
                     )
 
@@ -980,13 +727,10 @@ private fun RetroFlipClockWatch(
                             textAlign = TextAlign.Center,
                             fontSize = 28.sp,
                             fontWeight = FontWeight.Black,
-                            color = textMain
+                            color = if (isDark) Color.White else Color.Black
                         ),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = goldColor,
-                            unfocusedBorderColor = glassBorder,
-                            focusedTextColor = textMain,
-                            unfocusedTextColor = textMain,
                             cursorColor = goldColor
                         ),
                         modifier = Modifier
@@ -1007,13 +751,12 @@ private fun RetroFlipClockWatch(
                                     .weight(1f)
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (isDark) Color(0xFF222228) else Color(0xFFF1F5F9))
-                                    .border(1.dp, glassBorder, RoundedCornerShape(8.dp))
                                     .clickable { inputMins = preset.toString() }
                                     .padding(vertical = 6.dp)
                             ) {
                                 Text(
                                     text = "${preset}m",
-                                    color = textMain,
+                                    color = if (isDark) Color.White else Color.Black,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -1031,7 +774,7 @@ private fun RetroFlipClockWatch(
                             onClick = { showTimeInputDialog = false },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Cancel", color = textMuted, fontWeight = FontWeight.Bold)
+                            Text("Cancel", color = Color.Gray, fontWeight = FontWeight.Bold)
                         }
 
                         Button(
@@ -1176,9 +919,6 @@ private fun AuthenticSplitFlapCard(
     }
 }
 
-/**
- * ✂️ MATHEMATICAL 50-50 HALF-PLATE RENDERER
- */
 @Composable
 private fun SplitFlapHalfPlate(
     digit: String,
@@ -1259,10 +999,10 @@ private fun SplitFlapHalfPlate(
 }
 
 // =============================================================================
-// 🌟 CUSTOM HORIZONTAL SLIDER
+// 🌟 CUSTOM HORIZONTAL SLIDER (CLEAN DARK-GLASS SURFACE - NO HARSH BORDER)
 // =============================================================================
 @Composable
-private fun CustomHorizontalSlider(
+fun CustomHorizontalSlider(
     dialMinutes: Float,
     onDialMinutesChange: (Float) -> Unit,
     goldColor: Color,
@@ -1270,7 +1010,7 @@ private fun CustomHorizontalSlider(
     textMain: Color,
     textMuted: Color
 ) {
-    var rawMinutes by remember(dialMinutes) { mutableFloatStateOf(dialMinutes) }
+    var rawMinutes by remember(dialMinutes) { mutableFloatStateOf(dialMinutes.coerceIn(5f, 180f)) }
 
     Box(
         contentAlignment = Alignment.Center,
@@ -1278,13 +1018,12 @@ private fun CustomHorizontalSlider(
             .fillMaxWidth()
             .height(54.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(cardBg)
-            .border(1.2.dp, goldColor.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+            .background(Color(0xFF13131A))
             .pointerInput(Unit) {
                 val spacing = 22.dp.toPx()
                 detectHorizontalDragGestures(
                     onDragEnd = {
-                        val finalSnapped = (round(rawMinutes / 5f) * 5f).coerceIn(0f, 180f)
+                        val finalSnapped = (round(rawMinutes / 5f) * 5f).coerceIn(5f, 180f)
                         rawMinutes = finalSnapped
                         onDialMinutesChange(finalSnapped)
                     },
@@ -1292,9 +1031,9 @@ private fun CustomHorizontalSlider(
                 ) { change, dragAmount ->
                     change.consume()
                     val deltaMinutes = (-dragAmount / spacing) * 5f
-                    rawMinutes = (rawMinutes + deltaMinutes).coerceIn(0f, 180f)
+                    rawMinutes = (rawMinutes + deltaMinutes).coerceIn(5f, 180f)
 
-                    val currentSnapped = (round(rawMinutes / 5f) * 5f).coerceIn(0f, 180f)
+                    val currentSnapped = (round(rawMinutes / 5f) * 5f).coerceIn(5f, 180f)
                     if (currentSnapped != dialMinutes) {
                         onDialMinutesChange(currentSnapped)
                     }
@@ -1312,7 +1051,7 @@ private fun CustomHorizontalSlider(
             val centerY = canvasHeight / 2f
             val spacing = 22.dp.toPx()
 
-            for (m in 0..180 step 5) {
+            for (m in 5..180 step 5) {
                 val x = centerX + ((m - rawMinutes) / 5f) * spacing
                 if (x >= -20f && x <= canvasWidth + 20f) {
                     val distFromCenter = abs(x - centerX)
@@ -1358,78 +1097,6 @@ private fun CustomHorizontalSlider(
                     ambientColor = goldColor
                 )
                 .background(goldColor, RoundedCornerShape(2.dp))
-        )
-    }
-}
-
-// =============================================================================
-// ✨ FOCUS TARGET ICON
-// =============================================================================
-@Composable
-private fun FocusTargetIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val w = size.width
-        val h = size.height
-        val center = Offset(w / 2f, h / 2f)
-        val stroke = 1.8.dp.toPx()
-
-        drawCircle(
-            color = tint.copy(alpha = 0.5f),
-            radius = w * 0.44f,
-            center = center,
-            style = Stroke(width = stroke)
-        )
-
-        drawCircle(
-            color = tint,
-            radius = w * 0.26f,
-            center = center,
-            style = Stroke(width = stroke * 1.15f)
-        )
-
-        drawCircle(
-            color = tint,
-            radius = w * 0.10f,
-            center = center
-        )
-
-        val crossLen = w * 0.10f
-        drawLine(tint, Offset(center.x, center.y - w * 0.44f), Offset(center.x, center.y - w * 0.44f + crossLen), stroke, StrokeCap.Round)
-        drawLine(tint, Offset(center.x, center.y + w * 0.44f - crossLen), Offset(center.x, center.y + w * 0.44f), stroke, StrokeCap.Round)
-        drawLine(tint, Offset(center.x - w * 0.44f, center.y), Offset(center.x - w * 0.44f + crossLen, center.y), stroke, StrokeCap.Round)
-        drawLine(tint, Offset(center.x + w * 0.44f - crossLen, center.y), Offset(center.x + w * 0.44f, center.y), stroke, StrokeCap.Round)
-    }
-}
-
-// =============================================================================
-// ☕ CLEAN TEA CUP ICON (प्योर कैनवास से, नो एरर)
-// =============================================================================
-@Composable
-private fun WatchCleanTeaCupIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val w = size.width
-        val h = size.height
-
-        val cupPath = Path().apply {
-            moveTo(w * 0.18f, h * 0.30f)
-            lineTo(w * 0.72f, h * 0.30f)
-            cubicTo(w * 0.72f, h * 0.68f, w * 0.64f, h * 0.82f, w * 0.45f, h * 0.82f)
-            cubicTo(w * 0.26f, h * 0.82f, w * 0.18f, h * 0.68f, w * 0.18f, h * 0.30f)
-            close()
-        }
-        drawPath(cupPath, color = tint)
-
-        val handlePath = Path().apply {
-            moveTo(w * 0.70f, h * 0.38f)
-            cubicTo(w * 0.92f, h * 0.38f, w * 0.92f, h * 0.65f, w * 0.68f, h * 0.65f)
-        }
-        drawPath(handlePath, color = tint, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
-
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(w * 0.12f, h * 0.86f),
-            size = Size(w * 0.66f, h * 0.08f),
-            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
         )
     }
 }
