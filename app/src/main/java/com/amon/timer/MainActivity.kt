@@ -48,8 +48,10 @@ import com.amon.timer.ui.theme.AmonTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+// 🌟 स्क्रीन स्टेट में WELCOME जोड़ा गया
 private enum class AppScreenState {
     SPLASH,
+    WELCOME,
     MAIN
 }
 
@@ -89,8 +91,16 @@ class MainActivity : ComponentActivity() {
 
                 var currentScreen by remember { mutableStateOf(AppScreenState.SPLASH) }
 
-                val currentStatusBarColor = if (currentScreen == AppScreenState.SPLASH) Color(0xFF0F0F12) else appBgColor
-                val isLightStatusBarIcons = if (currentScreen == AppScreenState.SPLASH) false else !isDark
+                // स्टेटस बार कलर हैंडलिंग
+                val currentStatusBarColor = when (currentScreen) {
+                    AppScreenState.SPLASH -> Color(0xFF0F0F12)
+                    AppScreenState.WELCOME -> Color(0xFF090D14)
+                    AppScreenState.MAIN -> appBgColor
+                }
+                val isLightStatusBarIcons = when (currentScreen) {
+                    AppScreenState.SPLASH, AppScreenState.WELCOME -> false
+                    AppScreenState.MAIN -> !isDark
+                }
 
                 SideEffect {
                     window.statusBarColor = currentStatusBarColor.toArgb()
@@ -101,9 +111,10 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = currentStatusBarColor
                 ) {
+                    // स्प्लैश के 1.5 सेकंड बाद WelcomeScreen पर जाएँ
                     LaunchedEffect(Unit) {
                         delay(1500)
-                        currentScreen = AppScreenState.MAIN
+                        currentScreen = AppScreenState.WELCOME
                     }
 
                     Crossfade(
@@ -114,6 +125,13 @@ class MainActivity : ComponentActivity() {
                         when (screen) {
                             AppScreenState.SPLASH -> {
                                 SplashScreenContent()
+                            }
+                            AppScreenState.WELCOME -> {
+                                WelcomeScreen(
+                                    onStartClick = {
+                                        currentScreen = AppScreenState.MAIN
+                                    }
+                                )
                             }
                             AppScreenState.MAIN -> {
                                 Box(modifier = Modifier.fillMaxSize()) {
