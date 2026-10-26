@@ -101,7 +101,7 @@ fun StatsScreen() {
         selectedBarIndex = null
     }
 
-    // 🧮 Summary Cards Calculation (स्मार्ट फ़ॉर्मूला: 0.1h हटाया गया)
+    // 🧮 Summary Cards Calculation
     val totalMinutes = remember(filteredSessions) {
         filteredSessions.sumOf { it.durationMinutes }
     }
@@ -122,12 +122,12 @@ fun StatsScreen() {
         formatMinutes(avgMinutes)
     }
 
-    // 🔥 Streak Calculation
-    val streakText = remember(allSessions) {
-        calculateStreak(allSessions)
+    // 🔥 Live Streak Number Calculation (Ab seedha Int milega)
+    val streakDaysCount = remember(allSessions) {
+        calculateStreakCount(allSessions)
     }
 
-    // 🥧 पाई/डोनट चार्ट डेटा: हर विषय के कुल मिनट और प्रतिशत
+    // 🥧 Donut Chart Data
     val subjectMinutesList = remember(filteredSessions) {
         filteredSessions.groupBy { it.subject }
             .map { (subject, sessions) ->
@@ -140,18 +140,18 @@ fun StatsScreen() {
         subjectMinutesList.sumOf { it.second }
     }
 
-    // 🎨 हर विषय के लिए 10 अनोखे, शानदार और प्रीमियम रंग
+    // 🎨 Subject Colors
     val subjectColors = listOf(
-        Color(0xFFF59E0B), // गोल्डन एम्बर
-        Color(0xFF38BDF8), // स्काई ब्लू
-        Color(0xFFA855F7), // रॉयल पर्पल
-        Color(0xFF10B981), // एमराल्ड ग्रीन
-        Color(0xFFF43F5E), // कोरल रोज़
-        Color(0xFF6366F1), // इंडिगो
-        Color(0xFFEC4899), // ब्राइट पिंक
-        Color(0xFF14B8A6), // टील
-        Color(0xFFEAB308), // क्लासिक येलो
-        Color(0xFF8B5CF6)  // वॉयलेट
+        Color(0xFFF59E0B),
+        Color(0xFF38BDF8),
+        Color(0xFFA855F7),
+        Color(0xFF10B981),
+        Color(0xFFF43F5E),
+        Color(0xFF6366F1),
+        Color(0xFFEC4899),
+        Color(0xFF14B8A6),
+        Color(0xFFEAB308),
+        Color(0xFF8B5CF6)
     )
 
     Column(
@@ -448,7 +448,7 @@ fun StatsScreen() {
             }
         }
 
-        // 5. 4 SUMMARY CARDS
+        // 5. 4 SUMMARY CARDS (Yahan Current Streak me animated flame laga di hai)
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -485,17 +485,27 @@ fun StatsScreen() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // 🔥 CURRENT STREAK CARD: ANIMATED COLOURED FLAME KE SAATH
                 SummaryCard(
                     modifier = Modifier.weight(1f),
                     title = "Current Streak",
-                    value = streakText,
+                    value = if (streakDaysCount > 0) "$streakDaysCount Days" else "__",
                     subtitle = "Min 30m / day",
                     cardBg = cardBg,
                     cardBorder = cardBorder,
                     textMain = textMain,
                     textMuted = textMuted,
-                    accentColor = goldColor
+                    accentColor = goldColor,
+                    flameContent = if (streakDaysCount > 0) {
+                        {
+                            StreakFlame(
+                                streakDays = streakDaysCount,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    } else null
                 )
+
                 SummaryCard(
                     modifier = Modifier.weight(1f),
                     title = "Daily Avg",
@@ -510,9 +520,7 @@ fun StatsScreen() {
             }
         }
 
-        // =====================================================================
-        // 📊 6. NEW: SUBJECT DISTRIBUTION DONUT CHART & BREAKDOWN LIST
-        // =====================================================================
+        // 6. SUBJECT BREAKDOWN CARD
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -526,7 +534,6 @@ fun StatsScreen() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // कार्ड का शीर्षक
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -548,7 +555,6 @@ fun StatsScreen() {
                 }
 
                 if (subjectMinutesList.isEmpty()) {
-                    // जब कोई पढ़ाई नहीं हुई हो
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -567,7 +573,6 @@ fun StatsScreen() {
                         }
                     }
                 } else {
-                    // 🍩 मॉडर्न डोनट चार्ट
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -597,7 +602,6 @@ fun StatsScreen() {
                             }
                         }
 
-                        // डोनट चार्ट के बीच में कुल समय
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
@@ -618,7 +622,6 @@ fun StatsScreen() {
                         }
                     }
 
-                    // 📋 साफ़-सुथरी सब्जेक्ट और टाइम लिस्ट (नाम, रंग और घंटे)
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -636,7 +639,6 @@ fun StatsScreen() {
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                // बाएँ: रंगीन डॉट + सब्जेक्ट का नाम
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(9.dp)
@@ -655,7 +657,6 @@ fun StatsScreen() {
                                     )
                                 }
 
-                                // दाएँ: कुल पढ़े गए घंटे/मिनट + प्रतिशत
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -684,7 +685,7 @@ fun StatsScreen() {
     }
 }
 
-// 🧮 Summary Cards Composable
+// 🧮 Summary Cards Composable (Flame Icon Support ke saath)
 @Composable
 fun SummaryCard(
     modifier: Modifier = Modifier,
@@ -695,7 +696,8 @@ fun SummaryCard(
     cardBorder: Color,
     textMain: Color,
     textMuted: Color,
-    accentColor: Color
+    accentColor: Color,
+    flameContent: (@Composable () -> Unit)? = null
 ) {
     Box(
         modifier = modifier
@@ -712,12 +714,23 @@ fun SummaryCard(
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = value,
-                color = if (value == "__") textMuted else accentColor,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Black
-            )
+            
+            // Value ke sath animated flame
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (flameContent != null) {
+                    flameContent()
+                }
+                Text(
+                    text = value,
+                    color = if (value == "__") textMuted else accentColor,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+            
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
@@ -733,7 +746,7 @@ data class BarItem(
     val minutes: Int
 )
 
-// 🔍 अचूक तारीख फ़िल्टर
+// 🔍 Period Filter
 private fun filterSessionsByPeriod(
     sessions: List<FocusSession>,
     period: String,
@@ -856,7 +869,6 @@ private fun generateChartBars(
     }
 }
 
-// ⏱️ स्मार्ट फ़ॉर्मैट: 60 मिनट से कम पर सिर्फ 'm', ऊपर जाने पर 'h' और 'm'
 private fun formatMinutes(minutes: Int): String {
     if (minutes <= 0) return "0m"
     if (minutes < 60) return "${minutes}m"
@@ -865,7 +877,7 @@ private fun formatMinutes(minutes: Int): String {
     return if (m == 0) "${h}h" else "${h}h ${m}m"
 }
 
-// 🛡 Bulletproof Universal Date Parser
+// 🛡 Universal Date Parser
 private fun parseDateSafelyUniversal(dateStr: String): Date? {
     if (dateStr.isBlank()) return null
 
@@ -932,8 +944,9 @@ private fun parseDateSafelyUniversal(dateStr: String): Date? {
     return null
 }
 
-private fun calculateStreak(sessions: List<FocusSession>): String {
-    if (sessions.isEmpty()) return "__"
+// 🔥 Int Streak Return karne wala function
+private fun calculateStreakCount(sessions: List<FocusSession>): Int {
+    if (sessions.isEmpty()) return 0
 
     val dayMinutesMap = mutableMapOf<String, Int>()
     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -966,5 +979,5 @@ private fun calculateStreak(sessions: List<FocusSession>): String {
         }
     }
 
-    return if (streak > 0) "$streak Days 🔥" else "__"
+    return streak
 }
