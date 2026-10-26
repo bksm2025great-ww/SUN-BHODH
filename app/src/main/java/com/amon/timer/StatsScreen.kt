@@ -1,11 +1,9 @@
 package com.amon.timer
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -13,15 +11,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -39,6 +38,7 @@ fun StatsScreen() {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
+    // 🎨 Theme Colors
     val isDark = ThemeManager.isDarkTheme.value
     val bgColor = ThemeManager.getBackgroundColor()
     val cardBg = ThemeManager.getCardColor()
@@ -47,6 +47,7 @@ fun StatsScreen() {
     val goldColor = ThemeManager.getAccentColor()
     val cardBorder = if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1)
 
+    // Filter Tabs State
     var selectedTab by remember { mutableStateOf("Weekly") }
     var dateOffset by remember { mutableIntStateOf(0) }
     var showStreakSheet by remember { mutableStateOf(false) }
@@ -55,11 +56,13 @@ fun StatsScreen() {
         dateOffset = 0
     }
 
+    // 📦 Saved Sessions
     var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
     LaunchedEffect(selectedTab, dateOffset) {
         allSessions = FocusSessionManager.getAllSessions(context)
     }
 
+    // 🗓️ Date Display Text
     val dateRangeText = remember(selectedTab, dateOffset) {
         val cal = Calendar.getInstance().apply { firstDayOfWeek = Calendar.MONDAY }
         when (selectedTab) {
@@ -87,10 +90,12 @@ fun StatsScreen() {
         }
     }
 
+    // 🔍 Filter Sessions for selected Tab and Date Offset
     val filteredSessions = remember(allSessions, selectedTab, dateOffset) {
         filterSessionsByPeriod(allSessions, selectedTab, dateOffset)
     }
 
+    // 📊 Chart Bars Data Generator
     val chartBars = remember(filteredSessions, selectedTab, dateOffset) {
         generateChartBars(filteredSessions, selectedTab, dateOffset)
     }
@@ -100,6 +105,7 @@ fun StatsScreen() {
         selectedBarIndex = null
     }
 
+    // 🧮 Summary Cards Calculation
     val totalMinutes = remember(filteredSessions) {
         filteredSessions.sumOf { it.durationMinutes }
     }
@@ -120,10 +126,12 @@ fun StatsScreen() {
         formatMinutes(avgMinutes)
     }
 
+    // 🔥 Live Streak Number
     val streakDaysCount = remember(allSessions) {
         calculateStreakCount(allSessions)
     }
 
+    // 🥧 Donut Chart Data
     val subjectMinutesList = remember(filteredSessions) {
         filteredSessions.groupBy { it.subject }
             .map { (subject, sessions) ->
@@ -136,6 +144,7 @@ fun StatsScreen() {
         subjectMinutesList.sumOf { it.second }
     }
 
+    // 🎨 Subject Colors
     val subjectColors = listOf(
         Color(0xFFF59E0B),
         Color(0xFF38BDF8),
@@ -158,6 +167,7 @@ fun StatsScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // 1. SCREEN HEADER
         Text(
             text = "STATS & ANALYTICS",
             color = textMain,
@@ -167,6 +177,7 @@ fun StatsScreen() {
             modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
         )
 
+        // 2. TIME FILTER TABS
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -197,6 +208,7 @@ fun StatsScreen() {
             }
         }
 
+        // 3. DATE SWITCHER
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -240,9 +252,7 @@ fun StatsScreen() {
             }
         }
 
-        // =====================================================================
-        // 4. BAR CHART (FLAT GROUNDED BASELINE FIX)
-        // =====================================================================
+        // 4. INTERACTIVE BAR CHART (FLAT GROUNDED BASELINE FIX)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -294,7 +304,7 @@ fun StatsScreen() {
                         }
                     } else {
                         Text(
-                            text = "Tap bar to inspect",
+                            text = "Tap bar to inspect ☝️",
                             color = textMuted.copy(alpha = 0.6f),
                             fontSize = 10.5.sp
                         )
@@ -403,7 +413,7 @@ fun StatsScreen() {
                             }
                         }
 
-                        // 📏 सीधी ग्राउंडेड बेसलाइन
+                        // 📏 सीधी ग्राउंडेड बेसलाइन रेखा
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -411,7 +421,7 @@ fun StatsScreen() {
                                 .background(if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1))
                         )
 
-                        // 🏷️ एकसमान 20.dp स्लॉट में लेबल्स
+                        // 🏷️ बराबर 22.dp स्लॉट में डेट लेबल्स
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -477,9 +487,7 @@ fun StatsScreen() {
             }
         }
 
-        // =====================================================================
-        // 5. SUMMARY CARDS (STREAK CARD CLICKABLE)
-        // =====================================================================
+        // 5. 4 SUMMARY CARDS (CURRENT STREAK CARD IS CLICKABLE)
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -516,6 +524,7 @@ fun StatsScreen() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // 🔥 CURRENT STREAK CARD (Clickable to open Streak Journal)
                 SummaryCard(
                     modifier = Modifier
                         .weight(1f)
@@ -552,9 +561,7 @@ fun StatsScreen() {
             }
         }
 
-        // =====================================================================
-        // 6. SUBJECT BREAKDOWN (CLEAN TYPOGRAPHY, NO TARGET EMOJI)
-        // =====================================================================
+        // 6. SUBJECT BREAKDOWN (CLEAN DONUT CHART, NO TARGET EMOJI)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -734,7 +741,7 @@ fun StatsScreen() {
 }
 
 // =============================================================================
-// 🔥 STREAK JOURNAL BOTTOM SHEET (CONNECTOR & FLAME TESTER INCLUDED)
+// 🔥 STREAK JOURNAL BOTTOM SHEET (1-YEAR DYNAMIC NAV + FULL CIRCULAR SHAPES)
 // =============================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -750,17 +757,17 @@ fun StreakJournalBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // 🧪 6-Flame Live Test Switcher State
-    var testStreakDays by remember { mutableIntStateOf(streakDays.coerceAtLeast(1)) }
+    // 🗓️ Calendar Month Offset State (0 = Current Month, -11 = 1 Year Ago)
+    var calendarMonthOffset by remember { mutableIntStateOf(0) }
 
-    val flameTierName = remember(testStreakDays) {
+    val flameTierName = remember(streakDays) {
         when {
-            testStreakDays <= 0 -> "Resting Flame"
-            testStreakDays in 1..6 -> "Classic Ember • 7-Day Target"
-            testStreakDays in 7..20 -> "Volcanic Lava • 21-Day Target"
-            testStreakDays in 21..49 -> "Solar Gold • 50-Day Target"
-            testStreakDays in 50..99 -> "Electric Mystic • 100-Day Target"
-            testStreakDays in 100..199 -> "Cyan Plasma • 200-Day Target"
+            streakDays <= 0 -> "Resting Flame"
+            streakDays in 1..6 -> "Classic Ember • 7-Day Target"
+            streakDays in 7..20 -> "Volcanic Lava • 21-Day Target"
+            streakDays in 21..49 -> "Solar Gold • 50-Day Target"
+            streakDays in 50..99 -> "Electric Mystic • 100-Day Target"
+            streakDays in 100..199 -> "Cyan Plasma • 200-Day Target"
             else -> "Cosmic Nebula • Master Tier"
         }
     }
@@ -810,7 +817,7 @@ fun StreakJournalBottomSheet(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header: Title & Close
+            // Header: Title & Close Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -835,14 +842,14 @@ fun StreakJournalBottomSheet(
                 }
             }
 
-            // Top Flame Showcase Card
+            // Top Flame Showcase Card (Lottie Animation - isLarge = true)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
                     .background(if (isDark) Color(0x22F97316) else Color(0x14EA580C))
                     .border(1.2.dp, Color(0xFFF97316).copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-                .padding(16.dp)
+                    .padding(16.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -855,7 +862,7 @@ fun StreakJournalBottomSheet(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "$testStreakDays",
+                                text = "$streakDays",
                                 fontSize = 42.sp,
                                 fontWeight = FontWeight.Black,
                                 color = textMain
@@ -876,59 +883,16 @@ fun StreakJournalBottomSheet(
                         )
                     }
 
+                    // 🔥 Large Lottie Flame Showcase
                     StreakFlame(
-                        streakDays = testStreakDays,
-                        modifier = Modifier.size(64.dp)
+                        streakDays = streakDays,
+                        isLarge = true,
+                        modifier = Modifier.size(72.dp)
                     )
                 }
             }
 
-            // 🧪 6-Flame Live Tester Selector
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "TEST FLAME TIERS (TAP TO PREVIEW)",
-                    fontSize = 10.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp,
-                    color = textMuted
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val tiers = listOf(
-                        Pair("Ember", 3),
-                        Pair("Lava", 12),
-                        Pair("Gold", 28),
-                        Pair("Mystic", 65),
-                        Pair("Plasma", 130),
-                        Pair("Nebula", 220)
-                    )
-                    tiers.forEach { (name, days) ->
-                        val isSelected = testStreakDays == days
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(32.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) Color(0xFFF97316) else (if (isDark) Color(0x22FFFFFF) else Color(0x11000000)))
-                                .clickable { testStreakDays = days }
-                        ) {
-                            Text(
-                                text = name,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) Color.Black else textMain
-                            )
-                        }
-                    }
-                }
-            }
-
-            // =================================================================
-            // 🔗 THIS WEEK'S FOCUS (TRANSPARENT FLAME CONNECTOR RIBBON)
-            // =================================================================
+            // 🔗 THIS WEEK'S TRACK (TRANSPARENT FLAME CONNECTOR RIBBON)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -946,14 +910,13 @@ fun StreakJournalBottomSheet(
                     color = textMuted
                 )
 
-                // 7-दिनों का कनेक्टेड ट्रैक
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     weekStatus.forEachIndexed { index, pair ->
-                        val (dayKey, mins) = pair
+                        val (_, mins) = pair
                         val isGoalMet = mins >= 30
                         val dayTitle = weekDays[index]
 
@@ -964,7 +927,6 @@ fun StreakJournalBottomSheet(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.weight(1f)
                         ) {
-                            // Left Connector Segment
                             if (index > 0) {
                                 Box(
                                     modifier = Modifier
@@ -980,7 +942,6 @@ fun StreakJournalBottomSheet(
                                 )
                             }
 
-                            // Day Node Circle
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -1030,7 +991,6 @@ fun StreakJournalBottomSheet(
                                 )
                             }
 
-                            // Right Connector Segment
                             if (index < 6) {
                                 Box(
                                     modifier = Modifier
@@ -1050,9 +1010,7 @@ fun StreakJournalBottomSheet(
                 }
             }
 
-            // =================================================================
-            // 🗓️ COMPACT MONTHLY STREAK CALENDAR
-            // =================================================================
+            // 🗓️ ALIVE MONTHLY CALENDAR (1-YEAR DYNAMIC NAV + FULL CIRCULAR SHAPES)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1062,18 +1020,67 @@ fun StreakJournalBottomSheet(
                     .padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                val currentCal = Calendar.getInstance()
-                val currentMonthName = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(currentCal.time)
+                val activeCalendar = remember(calendarMonthOffset) {
+                    Calendar.getInstance().apply {
+                        add(Calendar.MONTH, calendarMonthOffset)
+                    }
+                }
+                val currentMonthName = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(activeCalendar.time)
 
-                Text(
-                    text = currentMonthName.uppercase(),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.8.sp,
-                    color = textMain
-                )
+                // 🔄 Month Switcher Header (Max 1 Year Back, 0 Forward)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Previous Month (Limit: -11 means up to 1 year back)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
+                            .clickable(enabled = calendarMonthOffset > -11) {
+                                calendarMonthOffset--
+                            }
+                    ) {
+                        Text(
+                            text = "◀",
+                            color = if (calendarMonthOffset > -11) Color(0xFFF97316) else textMuted.copy(alpha = 0.3f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
 
-                // Calendar Days Grid (M, T, W, T, F, S, S)
+                    Text(
+                        text = currentMonthName.uppercase(),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.8.sp,
+                        color = textMain
+                    )
+
+                    // Next Month (Cannot exceed current month 0)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
+                            .clickable(enabled = calendarMonthOffset < 0) {
+                                calendarMonthOffset++
+                            }
+                    ) {
+                        Text(
+                            text = "▶",
+                            color = if (calendarMonthOffset < 0) Color(0xFFF97316) else textMuted.copy(alpha = 0.3f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Weekday Labels
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -1090,14 +1097,16 @@ fun StreakJournalBottomSheet(
                     }
                 }
 
-                // Days numbers
-                val monthCal = Calendar.getInstance().apply {
-                    set(Calendar.DAY_OF_MONTH, 1)
+                val monthCal = remember(calendarMonthOffset) {
+                    Calendar.getInstance().apply {
+                        add(Calendar.MONTH, calendarMonthOffset)
+                        set(Calendar.DAY_OF_MONTH, 1)
+                    }
                 }
                 val startDayOfWeek = (monthCal.get(Calendar.DAY_OF_WEEK) + 5) % 7
                 val daysInMonth = monthCal.getActualMaximum(Calendar.DAY_OF_MONTH)
 
-                val dayMinutesMap = remember(allSessions) {
+                val dayMinutesMap = remember(allSessions, calendarMonthOffset) {
                     val map = mutableMapOf<String, Int>()
                     allSessions.forEach { s ->
                         parseDateSafelyUniversal(s.date)?.let { d ->
@@ -1108,6 +1117,7 @@ fun StreakJournalBottomSheet(
                     map
                 }
 
+                // Days Grid with Circular Highlight Nodes
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     var dayCounter = 1
                     for (week in 0..5) {
@@ -1123,17 +1133,19 @@ fun StreakJournalBottomSheet(
                                 } else {
                                     val currentDay = dayCounter
                                     val testCal = Calendar.getInstance().apply {
+                                        add(Calendar.MONTH, calendarMonthOffset)
                                         set(Calendar.DAY_OF_MONTH, currentDay)
                                     }
                                     val dateKey = sdf.format(testCal.time)
                                     val mins = dayMinutesMap[dateKey] ?: 0
                                     val isGoalMet = mins >= 30
 
+                                    // 🟢 Full Circular Shape (Square replaced with CircleShape)
                                     Box(
                                         contentAlignment = Alignment.Center,
                                         modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(RoundedCornerShape(8.dp))
+                                            .size(34.dp)
+                                            .clip(CircleShape)
                                             .background(
                                                 if (isGoalMet) {
                                                     Color(0xFFF97316).copy(alpha = 0.28f)
@@ -1142,9 +1154,9 @@ fun StreakJournalBottomSheet(
                                                 }
                                             )
                                             .border(
-                                                width = if (isGoalMet) 1.dp else 0.dp,
-                                                color = if (isGoalMet) Color(0xFFF97316).copy(alpha = 0.6f) else Color.Transparent,
-                                                shape = RoundedCornerShape(8.dp)
+                                                width = if (isGoalMet) 1.5.dp else 0.dp,
+                                                color = if (isGoalMet) Color(0xFFF97316) else Color.Transparent,
+                                                shape = CircleShape
                                             )
                                     ) {
                                         Text(
@@ -1245,6 +1257,7 @@ data class BarItem(
     val minutes: Int
 )
 
+// 🔍 Period Filter
 private fun filterSessionsByPeriod(
     sessions: List<FocusSession>,
     period: String,
@@ -1375,6 +1388,7 @@ private fun formatMinutes(minutes: Int): String {
     return if (m == 0) "${h}h" else "${h}h ${m}m"
 }
 
+// 🛡 Universal Date Parser
 private fun parseDateSafelyUniversal(dateStr: String): Date? {
     if (dateStr.isBlank()) return null
 
@@ -1441,6 +1455,7 @@ private fun parseDateSafelyUniversal(dateStr: String): Date? {
     return null
 }
 
+// 🔥 Streak Calculation
 private fun calculateStreakCount(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
 
