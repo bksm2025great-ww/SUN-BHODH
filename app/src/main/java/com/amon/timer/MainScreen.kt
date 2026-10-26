@@ -517,7 +517,7 @@ fun HomeTimerTab(
 
     val subjectPrefs = remember { context.getSharedPreferences("amon_subject_prefs", Context.MODE_PRIVATE) }
 
-    // 🛡️ क्रैश-प्रूफ़ SharedPreferences लोडिंग (पुराने डेटा के टकराव से ऐप कभी क्रैश नहीं होगा)
+    // 🛡️ क्रैश-प्रूफ़ SharedPreferences लोडिंग
     var hiddenSubjects by remember {
         val saved: Set<String>? = try {
             subjectPrefs.getStringSet("hidden_subjects", null)
@@ -652,7 +652,7 @@ fun HomeTimerTab(
                     .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 1. TOP HEADER: AMON + 0 DAYS
+                // 1. TOP HEADER: AMON + STREAK
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -901,7 +901,7 @@ fun HomeTimerTab(
                     }
                 }
 
-                // 5. SUB-CONTROL SLOT (घड़ी के ठीक नीचे की साफ़ पट्टी)
+                // 5. SUB-CONTROL SLOT
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -965,7 +965,7 @@ fun HomeTimerTab(
                             }
                         }
                         2 -> {
-                            // 🍅 POMODORO STATUS CHIPS (Read-only) + ⚙️ SETTINGS ICON
+                            // 🍅 POMODORO STATUS CHIPS + SETTINGS ICON
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1073,7 +1073,7 @@ fun HomeTimerTab(
                 }
             }
         } else {
-            // 🎯 MASTER FOCUS SCREEN (Timer or Stopwatch running)
+            // 🎯 MASTER FOCUS SCREEN
             if (isStopwatchFocusActive) {
                 if (!isLandscape) {
                     Column(
@@ -1593,13 +1593,13 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // 🎚️ 1. POMODORO SETTINGS MODAL BOTTOM SHEET (SLIDING PILL + 1 SLIDER)
+        // 🎚️ 1. POMODORO SETTINGS MODAL BOTTOM SHEET
         // =====================================================================
         if (showPomodoroSettingsSheet) {
             PomodoroSettingsBottomSheet(
                 isDark = isDark,
                 goldColor = goldColor,
-                glowYellow = glowYellow,
+                glowYellow = glowBorder,
                 cardBg = cardBg,
                 textMain = textMain,
                 textMuted = textMuted,
@@ -1620,7 +1620,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // ⏱️ 2. CUSTOM TIMER BOTTOM SHEET (TIMER MODE ONLY)
+        // ⏱️ 2. CUSTOM TIMER BOTTOM SHEET
         // =====================================================================
         if (showCustomTimerSheet) {
             CustomTimerBottomSheet(
@@ -1944,7 +1944,7 @@ fun PomodoroSettingsBottomSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var selectedPillTab by remember { mutableIntStateOf(0) } // 0: Focus, 1: Break, 2: Long Break
+    var selectedPillTab by remember { mutableIntStateOf(0) }
     var showEnterMinutesDialog by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
@@ -1971,7 +1971,6 @@ fun PomodoroSettingsBottomSheet(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // Title Bar
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1995,7 +1994,6 @@ fun PomodoroSettingsBottomSheet(
                 }
             }
 
-            // 1. 🌟 SLIDING PILL TAB BAR (CSS inspired)
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2012,7 +2010,6 @@ fun PomodoroSettingsBottomSheet(
                     label = "pill_glide"
                 )
 
-                // Background sliding indicator
                 Box(
                     modifier = Modifier
                         .offset(x = animatedPillOffset)
@@ -2064,7 +2061,6 @@ fun PomodoroSettingsBottomSheet(
                 }
             }
 
-            // 2. 🎚️ DYNAMIC SINGLE SLIDER FOR CURRENT TAB
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val (currentVal, minVal, maxVal, ticks) = when (selectedPillTab) {
                     0 -> Quadruple(focusMinutes.toFloat(), 1f, 90f, listOf(5, 25, 60, 90))
@@ -2127,7 +2123,6 @@ fun PomodoroSettingsBottomSheet(
                 }
             }
 
-            // 3. 🎯 FOCUS SESSIONS BEFORE LONG BREAK
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -2162,7 +2157,6 @@ fun PomodoroSettingsBottomSheet(
                 }
             }
 
-            // 4. ⚡ AUTO START SWITCHES
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier
@@ -2195,7 +2189,6 @@ fun PomodoroSettingsBottomSheet(
                 }
             }
 
-            // 5. SAVE & APPLY BUTTON
             Button(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(containerColor = goldColor),
@@ -2209,7 +2202,6 @@ fun PomodoroSettingsBottomSheet(
         }
     }
 
-    // 🔢 Direct Keyboard Entry Dialog (Max 120 min Guard)
     if (showEnterMinutesDialog) {
         val currentMinutes = when (selectedPillTab) {
             0 -> focusMinutes
@@ -2263,7 +2255,7 @@ fun PomodoroSettingsBottomSheet(
                             val num = digitsOnly.toIntOrNull()
                             inputMinutesText = when {
                                 num == null -> digitsOnly
-                                num > 120 -> "120" // 🛡️ 120 Min Safety Lock
+                                num > 120 -> "120"
                                 else -> digitsOnly
                             }
                         },
@@ -2379,7 +2371,6 @@ fun CustomTimerBottomSheet(
                 fontWeight = FontWeight.Black
             )
 
-            // Clean Dark-Glass Custom Slider
             CustomHorizontalSlider(
                 dialMinutes = dialMinutes,
                 onDialMinutesChange = onDialMinutesChange,
@@ -2568,7 +2559,7 @@ fun WhatsNewDialog(
 }
 
 // =============================================================================
-// 🟢 4. SIMPLE VECTOR ICON COMPOSABLE
+// 🟢 4. SIMPLE VECTOR ICON COMPOSABLE (UPDATED: PEER RING & GLOWING TREND BARS)
 // =============================================================================
 @Composable
 fun SimpleNavIcon(
@@ -2586,50 +2577,93 @@ fun SimpleNavIcon(
             )
         }
         1 -> {
+            // ⭕ 1. PEER RING ICON (साथियों का चक्र - Circle Tab)
             Canvas(modifier = modifier) {
                 val w = size.width
                 val h = size.height
+                val cx = w / 2f
+                val cy = h / 2f
+                val ringRadius = w * 0.32f
+                val strokeWidth = 1.8.dp.toPx()
+                val dotRadius = 2.4.dp.toPx()
 
-                drawRect(
-                    color = tint,
-                    topLeft = Offset(w * 0.42f, h * 0.72f),
-                    size = Size(w * 0.16f, h * 0.22f)
+                // मुख्य गोल चक्र (Outer Ring)
+                drawCircle(
+                    color = tint.copy(alpha = 0.5f),
+                    radius = ringRadius,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = strokeWidth)
                 )
 
-                val treePath = Path().apply {
-                    moveTo(w * 0.5f, h * 0.10f)
-                    lineTo(w * 0.85f, h * 0.70f)
-                    lineTo(w * 0.15f, h * 0.70f)
-                    close()
+                // चक्र पर 4 साथी नोड्स (Top, Right, Bottom, Left)
+                val nodeOffsets = listOf(
+                    Offset(cx, cy - ringRadius),
+                    Offset(cx + ringRadius, cy),
+                    Offset(cx, cy + ringRadius),
+                    Offset(cx - ringRadius, cy)
+                )
+                nodeOffsets.forEach { nodeCenter ->
+                    drawCircle(
+                        color = tint,
+                        radius = dotRadius,
+                        center = nodeCenter
+                    )
                 }
-                drawPath(treePath, color = tint)
+
+                // बीच का हल्का कोर डॉट (Center Focus)
+                drawCircle(
+                    color = tint.copy(alpha = 0.8f),
+                    radius = 1.4.dp.toPx(),
+                    center = Offset(cx, cy)
+                )
             }
         }
         2 -> {
+            // 📈 2. GLOWING TREND LINE + BARS ICON (ग्रोथ व प्रोग्रेस - Stats Tab)
             Canvas(modifier = modifier) {
                 val w = size.width
                 val h = size.height
-                val barW = w * 0.20f
-                val gap = w * 0.12f
-                val startX = w * 0.10f
+                val barWidth = w * 0.18f
+                val barCorner = CornerRadius(2.dp.toPx(), 2.dp.toPx())
 
+                // 1. तीन प्रोग्रेस बार्स (Low, Mid, High)
                 drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(startX, h * 0.45f),
-                    size = Size(barW, h * 0.50f),
-                    cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                    color = tint.copy(alpha = 0.35f),
+                    topLeft = Offset(w * 0.12f, h * 0.58f),
+                    size = Size(barWidth, h * 0.34f),
+                    cornerRadius = barCorner
                 )
                 drawRoundRect(
-                    color = tint,
-                    topLeft = Offset(startX + barW + gap, h * 0.15f),
-                    size = Size(barW, h * 0.80f),
-                    cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                    color = tint.copy(alpha = 0.50f),
+                    topLeft = Offset(w * 0.41f, h * 0.38f),
+                    size = Size(barWidth, h * 0.54f),
+                    cornerRadius = barCorner
                 )
                 drawRoundRect(
+                    color = tint.copy(alpha = 0.70f),
+                    topLeft = Offset(w * 0.70f, h * 0.22f),
+                    size = Size(barWidth, h * 0.70f),
+                    cornerRadius = barCorner
+                )
+
+                // 2. ऊपर चढ़ती हुई ट्रेंड लाइन (Rising Trend Line)
+                val trendPath = Path().apply {
+                    moveTo(w * 0.08f, h * 0.66f)
+                    lineTo(w * 0.21f, h * 0.52f)
+                    lineTo(w * 0.50f, h * 0.34f)
+                    lineTo(w * 0.79f, h * 0.16f)
+                }
+                drawPath(
+                    path = trendPath,
                     color = tint,
-                    topLeft = Offset(startX + (barW + gap) * 2f, h * 0.60f),
-                    size = Size(barW, h * 0.35f),
-                    cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+                )
+
+                // 3. ऊपर का चमकता हुआ पीक नोड (Peak Node)
+                drawCircle(
+                    color = tint,
+                    radius = 2.8.dp.toPx(),
+                    center = Offset(w * 0.79f, h * 0.16f)
                 )
             }
         }
@@ -2645,7 +2679,7 @@ fun SimpleNavIcon(
 }
 
 // =============================================================================
-// 🟢 5. CURVED BOTTOM BAR
+// 🟢 5. CURVED BOTTOM BAR (UPDATED: "Circle" TAB)
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
@@ -2657,7 +2691,7 @@ fun AmonCurvedBottomBar(
     borderCol: Color,
     hasNewUpdate: Boolean = false
 ) {
-    val tabTitles = listOf("Home", "Forest", "Stats", "Profile")
+    val tabTitles = listOf("Home", "Circle", "Stats", "Profile")
 
     val animatedIndex by animateFloatAsState(
         targetValue = selectedIndex.toFloat(),
