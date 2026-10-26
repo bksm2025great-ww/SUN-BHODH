@@ -1,9 +1,11 @@
 package com.amon.timer
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -11,13 +13,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -29,12 +33,12 @@ import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatsScreen() {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
-    // 🎨 Theme Colors
     val isDark = ThemeManager.isDarkTheme.value
     val bgColor = ThemeManager.getBackgroundColor()
     val cardBg = ThemeManager.getCardColor()
@@ -43,21 +47,19 @@ fun StatsScreen() {
     val goldColor = ThemeManager.getAccentColor()
     val cardBorder = if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1)
 
-    // Filter Tabs State
     var selectedTab by remember { mutableStateOf("Weekly") }
     var dateOffset by remember { mutableIntStateOf(0) }
+    var showStreakSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedTab) {
         dateOffset = 0
     }
 
-    // 📦 Saved Sessions
     var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
     LaunchedEffect(selectedTab, dateOffset) {
         allSessions = FocusSessionManager.getAllSessions(context)
     }
 
-    // 🗓️ Date Display Text
     val dateRangeText = remember(selectedTab, dateOffset) {
         val cal = Calendar.getInstance().apply { firstDayOfWeek = Calendar.MONDAY }
         when (selectedTab) {
@@ -85,23 +87,19 @@ fun StatsScreen() {
         }
     }
 
-    // 🔍 Filter Sessions for selected Tab and Date Offset
     val filteredSessions = remember(allSessions, selectedTab, dateOffset) {
         filterSessionsByPeriod(allSessions, selectedTab, dateOffset)
     }
 
-    // 📊 Chart Bars Data Generator
     val chartBars = remember(filteredSessions, selectedTab, dateOffset) {
         generateChartBars(filteredSessions, selectedTab, dateOffset)
     }
 
     var selectedBarIndex by remember { mutableStateOf<Int?>(null) }
-
     LaunchedEffect(selectedTab, dateOffset) {
         selectedBarIndex = null
     }
 
-    // 🧮 Summary Cards Calculation
     val totalMinutes = remember(filteredSessions) {
         filteredSessions.sumOf { it.durationMinutes }
     }
@@ -122,12 +120,10 @@ fun StatsScreen() {
         formatMinutes(avgMinutes)
     }
 
-    // 🔥 Live Streak Number Calculation (Ab seedha Int milega)
     val streakDaysCount = remember(allSessions) {
         calculateStreakCount(allSessions)
     }
 
-    // 🥧 Donut Chart Data
     val subjectMinutesList = remember(filteredSessions) {
         filteredSessions.groupBy { it.subject }
             .map { (subject, sessions) ->
@@ -140,7 +136,6 @@ fun StatsScreen() {
         subjectMinutesList.sumOf { it.second }
     }
 
-    // 🎨 Subject Colors
     val subjectColors = listOf(
         Color(0xFFF59E0B),
         Color(0xFF38BDF8),
@@ -163,7 +158,6 @@ fun StatsScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. SCREEN HEADER
         Text(
             text = "STATS & ANALYTICS",
             color = textMain,
@@ -173,7 +167,6 @@ fun StatsScreen() {
             modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
         )
 
-        // 2. TIME FILTER TABS
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -197,14 +190,13 @@ fun StatsScreen() {
                     Text(
                         text = tab,
                         color = if (isSelected) Color.White else textMuted,
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold
                     )
                 }
             }
         }
 
-        // 3. DATE SWITCHER
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -248,11 +240,13 @@ fun StatsScreen() {
             }
         }
 
-        // 4. INTERACTIVE BAR CHART
+        // =====================================================================
+        // 4. BAR CHART (FLAT GROUNDED BASELINE FIX)
+        // =====================================================================
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(240.dp)
+                .height(246.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
@@ -300,7 +294,7 @@ fun StatsScreen() {
                         }
                     } else {
                         Text(
-                            text = "Tap bar to inspect ☝️",
+                            text = "Tap bar to inspect",
                             color = textMuted.copy(alpha = 0.6f),
                             fontSize = 10.5.sp
                         )
@@ -314,100 +308,76 @@ fun StatsScreen() {
                             .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "🎯", fontSize = 24.sp)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "No study sessions on this day",
-                                color = textMuted,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        Text(
+                            text = "No study sessions in this period",
+                            color = textMuted,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 } else {
                     val maxMinutes = maxOf(chartBars.maxOf { it.minutes }, 60)
-                    val maxBarHeight = 130.dp
+                    val maxBarHeight = 125.dp
 
-                    if (selectedTab == "Today") {
-                        LazyRow(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.Bottom,
-                            contentPadding = PaddingValues(horizontal = 8.dp)
-                        ) {
-                            itemsIndexed(chartBars) { index, bar ->
-                                val isSelected = selectedBarIndex == index
-                                val barHeight = if (bar.minutes == 0) {
-                                    3.dp
-                                } else {
-                                    ((bar.minutes.toFloat() / maxMinutes) * maxBarHeight.value).dp.coerceIn(12.dp, maxBarHeight)
-                                }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.Bottom
+                    ) {
+                        if (selectedTab == "Today") {
+                            LazyRow(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(maxBarHeight),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalAlignment = Alignment.Bottom,
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
+                                itemsIndexed(chartBars) { index, bar ->
+                                    val isSelected = selectedBarIndex == index
+                                    val barHeight = if (bar.minutes == 0) 3.dp else {
+                                        ((bar.minutes.toFloat() / maxMinutes) * maxBarHeight.value).dp.coerceIn(12.dp, maxBarHeight)
+                                    }
 
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Bottom,
-                                    modifier = Modifier
-                                        .clickable {
-                                            selectedBarIndex = if (selectedBarIndex == index) null else index
-                                        }
-                                        .padding(bottom = 2.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .width(28.dp)
-                                            .height(barHeight)
-                                            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-                                            .background(if (isSelected) goldColor else (if (isDark) goldColor.copy(alpha = 0.75f) else goldColor))
-                                            .border(
-                                                width = if (isSelected) 1.5.dp else 0.dp,
-                                                color = if (isSelected) Color.White else Color.Transparent,
-                                                shape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)
-                                            )
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = bar.title,
-                                        color = if (isSelected) goldColor else textMain,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Bottom,
+                                        modifier = Modifier.fillMaxHeight()
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(28.dp)
+                                                .height(barHeight)
+                                                .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                                .background(if (isSelected) goldColor else goldColor.copy(alpha = 0.75f))
+                                                .border(
+                                                    width = if (isSelected) 1.5.dp else 0.dp,
+                                                    color = if (isSelected) Color.White else Color.Transparent,
+                                                    shape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)
+                                                )
+                                                .clickable { selectedBarIndex = if (selectedBarIndex == index) null else index }
+                                        )
+                                    }
                                 }
                             }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .padding(horizontal = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            chartBars.forEachIndexed { index, bar ->
-                                val isSelected = selectedBarIndex == index
-                                val isMonthly = selectedTab == "Monthly"
-                                val barWidth = if (isMonthly) 5.5.dp else 22.dp
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(maxBarHeight)
+                                    .padding(horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Bottom
+                            ) {
+                                chartBars.forEachIndexed { index, bar ->
+                                    val isSelected = selectedBarIndex == index
+                                    val isMonthly = selectedTab == "Monthly"
+                                    val barWidth = if (isMonthly) 5.5.dp else 22.dp
+                                    val barHeight = if (bar.minutes == 0) 3.dp else {
+                                        ((bar.minutes.toFloat() / maxMinutes) * maxBarHeight.value).dp.coerceIn(8.dp, maxBarHeight)
+                                    }
 
-                                val barHeight = if (bar.minutes == 0) {
-                                    3.dp
-                                } else {
-                                    ((bar.minutes.toFloat() / maxMinutes) * maxBarHeight.value).dp.coerceIn(8.dp, maxBarHeight)
-                                }
-
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Bottom,
-                                    modifier = Modifier
-                                        .clickable {
-                                            selectedBarIndex = if (selectedBarIndex == index) null else index
-                                        }
-                                        .padding(bottom = 2.dp)
-                                ) {
                                     Box(
                                         modifier = Modifier
                                             .width(barWidth)
@@ -427,18 +397,77 @@ fun StatsScreen() {
                                                 color = if (isSelected) Color.White else Color.Transparent,
                                                 shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
                                             )
+                                            .clickable { selectedBarIndex = if (selectedBarIndex == index) null else index }
                                     )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    if (!isMonthly || (index + 1) == 1 || (index + 1) % 5 == 0) {
-                                        Text(
-                                            text = bar.title,
-                                            color = if (isSelected) goldColor else textMuted,
-                                            fontSize = if (isMonthly) 9.sp else 11.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    } else {
-                                        Spacer(modifier = Modifier.height(12.dp))
+                                }
+                            }
+                        }
+
+                        // 📏 सीधी ग्राउंडेड बेसलाइन
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.5.dp)
+                                .background(if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1))
+                        )
+
+                        // 🏷️ एकसमान 20.dp स्लॉट में लेबल्स
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(22.dp)
+                                .padding(top = 4.dp)
+                        ) {
+                            if (selectedTab == "Today") {
+                                LazyRow(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp)
+                                ) {
+                                    itemsIndexed(chartBars) { index, bar ->
+                                        val isSelected = selectedBarIndex == index
+                                        Box(
+                                            modifier = Modifier.width(28.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = bar.title,
+                                                color = if (isSelected) goldColor else textMain,
+                                                fontSize = 11.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    chartBars.forEachIndexed { index, bar ->
+                                        val isSelected = selectedBarIndex == index
+                                        val isMonthly = selectedTab == "Monthly"
+                                        val barWidth = if (isMonthly) 5.5.dp else 22.dp
+
+                                        Box(
+                                            modifier = Modifier.width(barWidth),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (!isMonthly || (index + 1) == 1 || (index + 1) % 5 == 0) {
+                                                Text(
+                                                    text = bar.title,
+                                                    color = if (isSelected) goldColor else textMuted,
+                                                    fontSize = if (isMonthly) 9.sp else 11.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -448,7 +477,9 @@ fun StatsScreen() {
             }
         }
 
-        // 5. 4 SUMMARY CARDS (Yahan Current Streak me animated flame laga di hai)
+        // =====================================================================
+        // 5. SUMMARY CARDS (STREAK CARD CLICKABLE)
+        // =====================================================================
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -485,12 +516,13 @@ fun StatsScreen() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // 🔥 CURRENT STREAK CARD: ANIMATED COLOURED FLAME KE SAATH
                 SummaryCard(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { showStreakSheet = true },
                     title = "Current Streak",
                     value = if (streakDaysCount > 0) "$streakDaysCount Days" else "__",
-                    subtitle = "Min 30m / day",
+                    subtitle = "Tap to view streak & calendar",
                     cardBg = cardBg,
                     cardBorder = cardBorder,
                     textMain = textMain,
@@ -520,7 +552,9 @@ fun StatsScreen() {
             }
         }
 
-        // 6. SUBJECT BREAKDOWN CARD
+        // =====================================================================
+        // 6. SUBJECT BREAKDOWN (CLEAN TYPOGRAPHY, NO TARGET EMOJI)
+        // =====================================================================
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -540,7 +574,7 @@ fun StatsScreen() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "SUBJECT BREAKDOWN 📊",
+                        text = "SUBJECT BREAKDOWN",
                         color = textMuted,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -561,16 +595,12 @@ fun StatsScreen() {
                             .height(110.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "📊", fontSize = 24.sp)
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "No subject data for this period",
-                                color = textMuted,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        Text(
+                            text = "No subject data for this period",
+                            color = textMuted,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 } else {
                     Box(
@@ -602,22 +632,24 @@ fun StatsScreen() {
                             }
                         }
 
+                        // 🎯 इमोजी हटाकर साफ़ बोल्ड संख्या व सबटाइटल
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Text(text = "🎯", fontSize = 18.sp)
                             Text(
                                 text = formatMinutes(totalSubjectMinutes),
                                 color = textMain,
-                                fontSize = 15.sp,
+                                fontSize = 17.sp,
                                 fontWeight = FontWeight.Black
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Total Focus",
+                                text = "TOTAL FOCUS",
                                 color = textMuted,
                                 fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.sp
                             )
                         }
                     }
@@ -683,9 +715,477 @@ fun StatsScreen() {
 
         Spacer(modifier = Modifier.height(16.dp))
     }
+
+    // =========================================================================
+    // 🔥 STREAK JOURNAL & CALENDAR MODAL BOTTOM SHEET
+    // =========================================================================
+    if (showStreakSheet) {
+        StreakJournalBottomSheet(
+            streakDays = streakDaysCount,
+            allSessions = allSessions,
+            isDark = isDark,
+            goldColor = goldColor,
+            textMain = textMain,
+            textMuted = textMuted,
+            cardBorder = cardBorder,
+            onDismiss = { showStreakSheet = false }
+        )
+    }
 }
 
-// 🧮 Summary Cards Composable (Flame Icon Support ke saath)
+// =============================================================================
+// 🔥 STREAK JOURNAL BOTTOM SHEET (CONNECTOR & FLAME TESTER INCLUDED)
+// =============================================================================
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StreakJournalBottomSheet(
+    streakDays: Int,
+    allSessions: List<FocusSession>,
+    isDark: Boolean,
+    goldColor: Color,
+    textMain: Color,
+    textMuted: Color,
+    cardBorder: Color,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // 🧪 6-Flame Live Test Switcher State
+    var testStreakDays by remember { mutableIntStateOf(streakDays.coerceAtLeast(1)) }
+
+    val flameTierName = remember(testStreakDays) {
+        when {
+            testStreakDays <= 0 -> "Resting Flame"
+            testStreakDays in 1..6 -> "Classic Ember • 7-Day Target"
+            testStreakDays in 7..20 -> "Volcanic Lava • 21-Day Target"
+            testStreakDays in 21..49 -> "Solar Gold • 50-Day Target"
+            testStreakDays in 50..99 -> "Electric Mystic • 100-Day Target"
+            testStreakDays in 100..199 -> "Cyan Plasma • 200-Day Target"
+            else -> "Cosmic Nebula • Master Tier"
+        }
+    }
+
+    val weekDays = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    val cal = Calendar.getInstance().apply {
+        firstDayOfWeek = Calendar.MONDAY
+        val dow = (get(Calendar.DAY_OF_WEEK) + 5) % 7
+        add(Calendar.DAY_OF_YEAR, -dow)
+    }
+
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val weekStatus = remember(allSessions) {
+        val list = mutableListOf<Pair<String, Int>>()
+        for (i in 0..6) {
+            val key = sdf.format(cal.time)
+            val mins = allSessions.filter { s ->
+                parseDateSafelyUniversal(s.date)?.let { sdf.format(it) == key } ?: false
+            }.sumOf { it.durationMinutes }
+            list.add(Pair(key, mins))
+            cal.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        list
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = if (isDark) Color(0xFF13131C) else Color(0xFFFFFFFF),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 12.dp)
+                    .width(42.dp)
+                    .height(4.5.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(if (isDark) Color(0x44FFFFFF) else Color(0x33000000))
+            )
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header: Title & Close
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "STREAK JOURNAL",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp,
+                    color = textMain
+                )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
+                        .clickable { onDismiss() }
+                ) {
+                    Text("✕", color = textMuted, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+
+            // Top Flame Showcase Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (isDark) Color(0x22F97316) else Color(0x14EA580C))
+                    .border(1.2.dp, Color(0xFFF97316).copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "$testStreakDays",
+                                fontSize = 42.sp,
+                                fontWeight = FontWeight.Black,
+                                color = textMain
+                            )
+                            Text(
+                                text = "days active",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFB923C),
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                        }
+                        Text(
+                            text = flameTierName,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = textMuted
+                        )
+                    }
+
+                    StreakFlame(
+                        streakDays = testStreakDays,
+                        modifier = Modifier.size(64.dp)
+                    )
+                }
+            }
+
+            // 🧪 6-Flame Live Tester Selector
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "TEST FLAME TIERS (TAP TO PREVIEW)",
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp,
+                    color = textMuted
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val tiers = listOf(
+                        Pair("Ember", 3),
+                        Pair("Lava", 12),
+                        Pair("Gold", 28),
+                        Pair("Mystic", 65),
+                        Pair("Plasma", 130),
+                        Pair("Nebula", 220)
+                    )
+                    tiers.forEach { (name, days) ->
+                        val isSelected = testStreakDays == days
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(32.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) Color(0xFFF97316) else (if (isDark) Color(0x22FFFFFF) else Color(0x11000000)))
+                                .clickable { testStreakDays = days }
+                        ) {
+                            Text(
+                                text = name,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) Color.Black else textMain
+                            )
+                        }
+                    }
+                }
+            }
+
+            // =================================================================
+            // 🔗 THIS WEEK'S FOCUS (TRANSPARENT FLAME CONNECTOR RIBBON)
+            // =================================================================
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(if (isDark) Color(0xFF1B1B26) else Color(0xFFF8FAFC))
+                    .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "THIS WEEK'S TRACK (MIN 30M / DAY)",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp,
+                    color = textMuted
+                )
+
+                // 7-दिनों का कनेक्टेड ट्रैक
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    weekStatus.forEachIndexed { index, pair ->
+                        val (dayKey, mins) = pair
+                        val isGoalMet = mins >= 30
+                        val dayTitle = weekDays[index]
+
+                        val isPrevMet = index > 0 && weekStatus[index - 1].second >= 30
+                        val isNextMet = index < 6 && weekStatus[index + 1].second >= 30
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            // Left Connector Segment
+                            if (index > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(4.dp)
+                                        .background(
+                                            if (isGoalMet && isPrevMet) {
+                                                Color(0xFFF97316).copy(alpha = 0.40f)
+                                            } else {
+                                                Color.Transparent
+                                            }
+                                        )
+                                )
+                            }
+
+                            // Day Node Circle
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = dayTitle,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isGoalMet) Color(0xFFFB923C) else textMuted
+                                )
+
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isGoalMet) {
+                                                Color(0xFFF97316).copy(alpha = 0.25f)
+                                            } else {
+                                                if (isDark) Color(0x22FFFFFF) else Color(0x11000000)
+                                            }
+                                        )
+                                        .border(
+                                            width = 1.5.dp,
+                                            color = if (isGoalMet) Color(0xFFF97316) else cardBorder,
+                                            shape = CircleShape
+                                        )
+                                ) {
+                                    if (isGoalMet) {
+                                        Text(text = "✓", fontSize = 13.sp, fontWeight = FontWeight.Black, color = Color(0xFFF97316))
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .clip(CircleShape)
+                                                .background(textMuted.copy(alpha = 0.4f))
+                                        )
+                                    }
+                                }
+
+                                Text(
+                                    text = if (mins > 0) "${mins}m" else "0m",
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isGoalMet) textMain else textMuted
+                                )
+                            }
+
+                            // Right Connector Segment
+                            if (index < 6) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(4.dp)
+                                        .background(
+                                            if (isGoalMet && isNextMet) {
+                                                Color(0xFFF97316).copy(alpha = 0.40f)
+                                            } else {
+                                                Color.Transparent
+                                            }
+                                        )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // =================================================================
+            // 🗓️ COMPACT MONTHLY STREAK CALENDAR
+            // =================================================================
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(if (isDark) Color(0xFF1B1B26) else Color(0xFFF8FAFC))
+                    .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                val currentCal = Calendar.getInstance()
+                val currentMonthName = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(currentCal.time)
+
+                Text(
+                    text = currentMonthName.uppercase(),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.8.sp,
+                    color = textMain
+                )
+
+                // Calendar Days Grid (M, T, W, T, F, S, S)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    listOf("M", "T", "W", "T", "F", "S", "S").forEach {
+                        Text(
+                            text = it,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textMuted,
+                            modifier = Modifier.width(36.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                // Days numbers
+                val monthCal = Calendar.getInstance().apply {
+                    set(Calendar.DAY_OF_MONTH, 1)
+                }
+                val startDayOfWeek = (monthCal.get(Calendar.DAY_OF_WEEK) + 5) % 7
+                val daysInMonth = monthCal.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+                val dayMinutesMap = remember(allSessions) {
+                    val map = mutableMapOf<String, Int>()
+                    allSessions.forEach { s ->
+                        parseDateSafelyUniversal(s.date)?.let { d ->
+                            val key = sdf.format(d)
+                            map[key] = (map[key] ?: 0) + s.durationMinutes
+                        }
+                    }
+                    map
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    var dayCounter = 1
+                    for (week in 0..5) {
+                        if (dayCounter > daysInMonth) break
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            for (dow in 0..6) {
+                                if (week == 0 && dow < startDayOfWeek || dayCounter > daysInMonth) {
+                                    Spacer(modifier = Modifier.width(36.dp))
+                                } else {
+                                    val currentDay = dayCounter
+                                    val testCal = Calendar.getInstance().apply {
+                                        set(Calendar.DAY_OF_MONTH, currentDay)
+                                    }
+                                    val dateKey = sdf.format(testCal.time)
+                                    val mins = dayMinutesMap[dateKey] ?: 0
+                                    val isGoalMet = mins >= 30
+
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(
+                                                if (isGoalMet) {
+                                                    Color(0xFFF97316).copy(alpha = 0.28f)
+                                                } else {
+                                                    Color.Transparent
+                                                }
+                                            )
+                                            .border(
+                                                width = if (isGoalMet) 1.dp else 0.dp,
+                                                color = if (isGoalMet) Color(0xFFF97316).copy(alpha = 0.6f) else Color.Transparent,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                    ) {
+                                        Text(
+                                            text = "$currentDay",
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isGoalMet) FontWeight.Black else FontWeight.Medium,
+                                            color = if (isGoalMet) Color(0xFFFB923C) else textMain
+                                        )
+                                    }
+                                    dayCounter++
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Bottom Rule Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isDark) Color(0x18FFFFFF) else Color(0x0A000000))
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = "Rule: Complete minimum 30 minutes of focus per day to maintain your streak flame.",
+                    fontSize = 11.sp,
+                    color = textMuted,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 15.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+// =============================================================================
+// SUMMARY CARD COMPOSABLE
+// =============================================================================
 @Composable
 fun SummaryCard(
     modifier: Modifier = Modifier,
@@ -714,8 +1214,7 @@ fun SummaryCard(
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(4.dp))
-            
-            // Value ke sath animated flame
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -730,7 +1229,7 @@ fun SummaryCard(
                     fontWeight = FontWeight.Black
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
@@ -746,7 +1245,6 @@ data class BarItem(
     val minutes: Int
 )
 
-// 🔍 Period Filter
 private fun filterSessionsByPeriod(
     sessions: List<FocusSession>,
     period: String,
@@ -877,7 +1375,6 @@ private fun formatMinutes(minutes: Int): String {
     return if (m == 0) "${h}h" else "${h}h ${m}m"
 }
 
-// 🛡 Universal Date Parser
 private fun parseDateSafelyUniversal(dateStr: String): Date? {
     if (dateStr.isBlank()) return null
 
@@ -944,7 +1441,6 @@ private fun parseDateSafelyUniversal(dateStr: String): Date? {
     return null
 }
 
-// 🔥 Int Streak Return karne wala function
 private fun calculateStreakCount(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
 
