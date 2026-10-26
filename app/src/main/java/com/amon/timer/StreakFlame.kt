@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.unit.dp
 import kotlin.random.Random
 
-// --- आग की सेटिंग्स का साफ़ डेटा मॉडल ---
+// 🎨 आग के कॉन्फ़िगरेशन का साफ़ मॉडल (कंपाइलर भ्रमित नहीं होगा)
 private data class FlameConfig(
     val outerColor: Color,
     val midColor: Color,
@@ -19,7 +19,7 @@ private data class FlameConfig(
     val shapeType: Int
 )
 
-// --- चिंगारी (Spark Particle) का डेटा मॉडल ---
+// ✨ चिंगारियों (Sparks) का मॉडल
 private data class SparkParticle(
     val xOffset: Float,
     val startY: Float,
@@ -34,7 +34,7 @@ fun StreakFlame(
     streakDays: Int,
     modifier: Modifier = Modifier.size(54.dp)
 ) {
-    // 🎨 1. स्ट्रीक के हिसाब से रंग और आकार (Shape) का निर्धारण
+    // 1. स्ट्रीक के दिनों के अनुसार रंग और टियर का निर्धारण
     val config = remember(streakDays) {
         when {
             streakDays <= 0 -> FlameConfig(
@@ -43,7 +43,7 @@ fun StreakFlame(
                 innerColor = Color(0xFF94A3B8),
                 shapeType = 1
             )
-            streakDays in 1..6 -> FlameConfig( // Tier 1: Ember
+            streakDays in 1..6 -> FlameConfig( // Tier 1: Classic Ember
                 outerColor = Color(0xFFDC2626),
                 midColor = Color(0xFFF97316),
                 innerColor = Color(0xFFFDE047),
@@ -82,7 +82,7 @@ fun StreakFlame(
         }
     }
 
-    // 🔄 2. धड़कन (Breathing/Pulse) एनिमेशन
+    // 2. सांस लेती हुई धड़कन (Breathing pulse)
     val infiniteTransition = rememberInfiniteTransition(label = "flame_breathe")
     val scale by infiniteTransition.animateFloat(
         initialValue = 0.97f,
@@ -104,7 +104,7 @@ fun StreakFlame(
         label = "flickerY"
     )
 
-    // ✨ 3. चिंगारी (Sparks) एनिमेशन
+    // 3. चिंगारी एनिमेशन
     val frameTimer by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
@@ -128,14 +128,14 @@ fun StreakFlame(
         }
     }
 
-    // 🎨 4. आग का लाइव ड्रॉइंग (Canvas)
+    // 4. कैनवस पर रेंडरिंग
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
         val centerX = w / 2f
         val centerY = h / 2f + flickerY
 
-        // चिंगारियाँ (Floating Sparks)
+        // तैरती हुई चिंगारियां
         if (streakDays > 0) {
             sparks.forEach { spark ->
                 val progress = ((frameTimer + (spark.delay / 2200f)) % 1f) * spark.speed
@@ -153,7 +153,6 @@ fun StreakFlame(
             }
         }
 
-        // पाथ (Paths)
         val outerPath = Path()
         val midPath = Path()
         val innerPath = Path()
@@ -181,7 +180,6 @@ fun StreakFlame(
             }
         }
 
-        // ३ लेयर्स ड्रॉइंग
         drawPath(
             path = outerPath,
             color = config.outerColor.copy(alpha = 0.95f)
@@ -197,9 +195,9 @@ fun StreakFlame(
     }
 }
 
-// =============================================================================
-// 🎨 ४ आकृतियों (Shapes) का पाथ फ़ंक्शन
-// =============================================================================
+// -----------------------------------------------------------------------------
+// 5. आकृतियों (Flame Shapes) के पाथ फ़ंक्शन
+// -----------------------------------------------------------------------------
 
 private fun createShape1(path: Path, w: Float, h: Float, cx: Float, cy: Float, scale: Float, f: Float) {
     val r = (w * 0.38f) * scale * f
