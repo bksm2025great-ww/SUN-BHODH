@@ -393,7 +393,6 @@ fun PomodoroSessionTracker(
                                         .background(goldColor)
                                 )
                             } else {
-                                // Live Pulsing Focus Session
                                 Box(
                                     modifier = Modifier
                                         .size(19.dp)
@@ -420,7 +419,7 @@ fun PomodoroSessionTracker(
                     }
                 }
 
-                // ⚪ 2. CHHOTA GOLA (Break Session - Between Focus sessions)
+                // ⚪ 2. CHHOTA GOLA (Break Session)
                 if (i < totalSessions) {
                     val isBreakCurrent = (i == currentSessionIndex && isBreakActive)
                     val isBreakDone = (i < currentSessionIndex)
@@ -443,7 +442,7 @@ fun PomodoroSessionTracker(
                                 .clip(CircleShape)
                                 .background(
                                     when {
-                                        isBreakCurrent -> Color(0xFF10B981) // 🌿 Mint Green Glow on active break
+                                        isBreakCurrent -> Color(0xFF10B981)
                                         isBreakDone -> goldColor.copy(alpha = 0.6f)
                                         else -> if (isDark) Color(0xFF343446) else Color(0xFF94A3B8)
                                     }
@@ -517,7 +516,6 @@ fun HomeTimerTab(
 
     val subjectPrefs = remember { context.getSharedPreferences("amon_subject_prefs", Context.MODE_PRIVATE) }
 
-    // 🛡️ क्रैश-प्रूफ़ SharedPreferences लोडिंग
     var hiddenSubjects by remember {
         val saved: Set<String>? = try {
             subjectPrefs.getStringSet("hidden_subjects", null)
@@ -652,7 +650,7 @@ fun HomeTimerTab(
                     .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 1. TOP HEADER: AMON + STREAK
+                // 1. TOP HEADER
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -804,7 +802,6 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 🌟 BADA GOLA / CHHOTA GOLA SESSION TRACKER (Only in Pomodoro Mode)
                 if (selectedFocusMode == 2) {
                     PomodoroSessionTracker(
                         totalSessions = pomodoroTotalSessions,
@@ -910,7 +907,6 @@ fun HomeTimerTab(
                 ) {
                     when (selectedFocusMode) {
                         0 -> {
-                            // ⏱️ TIMER PRESETS (25m, 45m, 60m + Custom)
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -965,7 +961,6 @@ fun HomeTimerTab(
                             }
                         }
                         2 -> {
-                            // 🍅 POMODORO STATUS CHIPS + SETTINGS ICON
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1440,7 +1435,7 @@ fun HomeTimerTab(
                                         .clip(CircleShape)
                                         .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                         .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                        .clickable { showGiveUpDialog = true }
+                                    .clickable { showGiveUpDialog = true }
                                 ) {
                                     Box(
                                         modifier = Modifier
@@ -1599,7 +1594,7 @@ fun HomeTimerTab(
             PomodoroSettingsBottomSheet(
                 isDark = isDark,
                 goldColor = goldColor,
-                glowYellow = glowBorder,
+                glowYellow = glowYellow,
                 cardBg = cardBg,
                 textMain = textMain,
                 textMuted = textMuted,
@@ -1620,7 +1615,7 @@ fun HomeTimerTab(
         }
 
         // =====================================================================
-        // ⏱️ 2. CUSTOM TIMER BOTTOM SHEET
+        // ⏱️ 2. CUSTOM TIMER BOTTOM SHEET (FOR TIMER MODE)
         // =====================================================================
         if (showCustomTimerSheet) {
             CustomTimerBottomSheet(
@@ -2144,7 +2139,7 @@ fun PomodoroSettingsBottomSheet(
                                 .clip(CircleShape)
                                 .background(if (isSelected) goldColor else (if (isDark) Color(0xFF22222E) else Color(0xFFE2E8F0)))
                                 .border(1.dp, if (isSelected) glowYellow else (if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)), CircleShape)
-                                .clickable { onSessionsChange(num) }
+                            .clickable { onSessionsChange(num) }
                         ) {
                             Text(
                                 text = "$num",
@@ -2577,7 +2572,7 @@ fun SimpleNavIcon(
             )
         }
         1 -> {
-            // ⭕ 1. PEER RING ICON (साथियों का चक्र - Circle Tab)
+            // ⭕ 1. PEER RING ICON (Circle Tab)
             Canvas(modifier = modifier) {
                 val w = size.width
                 val h = size.height
@@ -2587,7 +2582,6 @@ fun SimpleNavIcon(
                 val strokeWidth = 1.8.dp.toPx()
                 val dotRadius = 2.4.dp.toPx()
 
-                // मुख्य गोल चक्र (Outer Ring)
                 drawCircle(
                     color = tint.copy(alpha = 0.5f),
                     radius = ringRadius,
@@ -2595,7 +2589,6 @@ fun SimpleNavIcon(
                     style = Stroke(width = strokeWidth)
                 )
 
-                // चक्र पर 4 साथी नोड्स (Top, Right, Bottom, Left)
                 val nodeOffsets = listOf(
                     Offset(cx, cy - ringRadius),
                     Offset(cx + ringRadius, cy),
@@ -2610,7 +2603,6 @@ fun SimpleNavIcon(
                     )
                 }
 
-                // बीच का हल्का कोर डॉट (Center Focus)
                 drawCircle(
                     color = tint.copy(alpha = 0.8f),
                     radius = 1.4.dp.toPx(),
@@ -2619,14 +2611,13 @@ fun SimpleNavIcon(
             }
         }
         2 -> {
-            // 📈 2. GLOWING TREND LINE + BARS ICON (ग्रोथ व प्रोग्रेस - Stats Tab)
+            // 📈 2. GLOWING TREND LINE + BARS ICON (Stats Tab)
             Canvas(modifier = modifier) {
                 val w = size.width
                 val h = size.height
                 val barWidth = w * 0.18f
                 val barCorner = CornerRadius(2.dp.toPx(), 2.dp.toPx())
 
-                // 1. तीन प्रोग्रेस बार्स (Low, Mid, High)
                 drawRoundRect(
                     color = tint.copy(alpha = 0.35f),
                     topLeft = Offset(w * 0.12f, h * 0.58f),
@@ -2646,7 +2637,6 @@ fun SimpleNavIcon(
                     cornerRadius = barCorner
                 )
 
-                // 2. ऊपर चढ़ती हुई ट्रेंड लाइन (Rising Trend Line)
                 val trendPath = Path().apply {
                     moveTo(w * 0.08f, h * 0.66f)
                     lineTo(w * 0.21f, h * 0.52f)
@@ -2659,7 +2649,6 @@ fun SimpleNavIcon(
                     style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
                 )
 
-                // 3. ऊपर का चमकता हुआ पीक नोड (Peak Node)
                 drawCircle(
                     color = tint,
                     radius = 2.8.dp.toPx(),
