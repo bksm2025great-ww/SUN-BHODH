@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.ServiceInfo
 import android.graphics.Color as AndroidColor
 import android.os.Build
 import android.os.IBinder
@@ -31,7 +32,8 @@ class TimerService : Service() {
     private var timerJob: Job? = null
 
     companion object {
-        const val CHANNEL_ID = "amon_focus_live_v4"
+        // ⚡ v5 आईडी: ताकि फ़ोन पुरानी साइलेंट सेटिंग भूलकर नया विज़िबल चैनल बनाए
+        const val CHANNEL_ID = "amon_focus_live_v5"
         const val NOTIFICATION_ID = 1001
 
         const val ACTION_START = "com.amon.timer.START"
@@ -193,7 +195,17 @@ class TimerService : Service() {
 
         try {
             val notification = buildNotification(chronometerBase, isStopwatch, isPaused = false)
-            startForeground(NOTIFICATION_ID, notification)
+            
+            // 🚀 Android 14+ Compatibility: सही सर्विस टाइप पास करना
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIFICATION_ID, 
+                    notification, 
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
         } catch (e: Exception) {
             Log.e("AmonTimer", "Safe startForeground catch: ${e.localizedMessage}")
         }
@@ -418,7 +430,6 @@ class TimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // 🏷️ मोड का नाम जो लोगो के नीचे दिखेगा
         val modeText = when {
             isStopwatch -> "STOPWATCH"
             originalTimerSeconds == 25 * 60 -> "POMODORO"
@@ -426,29 +437,21 @@ class TimerService : Service() {
         }
 
         val customLayout = RemoteViews(packageName, R.layout.notification_box).apply {
-            // लोगो के नीचे मोड सेट करना
             setTextViewText(R.id.notif_mode_tag, modeText)
-
-            // टाइमर सेट करना
             setChronometer(R.id.notif_timer, chronometerBase, null, !isPaused)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 setChronometerCountDown(R.id.notif_timer, !isStopwatch)
             }
 
-            // Pause / Resume बटन
             if (isPaused) {
                 setTextViewText(R.id.btn_notif_pause, "RESUME")
-                setTextColor(R.id.btn_notif_pause, AndroidColor.parseColor("#22C55E")) // हरा रंग
+                setTextColor(R.id.btn_notif_pause, AndroidColor.parseColor("#22C55E"))
             } else {
                 setTextViewText(R.id.btn_notif_pause, "PAUSE")
-                setTextColor(R.id.btn_notif_pause, AndroidColor.parseColor("#E2E8F0")) // सफ़ेद रंग
+                setTextColor(R.id.btn_notif_pause, AndroidColor.parseColor("#E2E8F0"))
             }
             setOnClickPendingIntent(R.id.btn_notif_pause, pauseResumePendingIntent)
-
-            // Stop बटन
             setOnClickPendingIntent(R.id.btn_notif_stop, stopPendingIntent)
-
-            // लोगो पर क्लिक करने पर ऐप खुलना
             setOnClickPendingIntent(R.id.notif_logo, openAppPendingIntent)
         }
 
@@ -461,10 +464,10 @@ class TimerService : Service() {
             .setCustomContentView(customLayout)
             .setCustomBigContentView(customLayout)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            // 👁️ PRIORITY_DEFAULT: स्टेटस बार और ट्रे में साफ़ दिखने के लिए
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOnlyAlertOnce(true)
-            // ⚡ 15 सेकंड का डिले खत्म (तुरंत नोटिफिकेशन)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
@@ -475,12 +478,14 @@ class TimerService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Amon Focus Timer",
-                NotificationManager.IMPORTANCE_LOW
+                // 🔊 IMPORTANCE_DEFAULT: ताकि फ़ोन इसे साइलेंट करके छुपाए नहीं
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Shows live focus countdown & stopwatch timer"
                 setShowBadge(false)
                 setSound(null, null)
                 enableVibration(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
