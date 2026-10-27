@@ -68,13 +68,6 @@ fun MainScreen() {
     val activity = context as? Activity
     var currentNavIndex by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(Unit) {
-        try {
-            ThemeManager.loadTheme(context)
-            TimerService.syncRemainingTime(context)
-        } catch (_: Exception) {}
-    }
-
     val isDark = ThemeManager.isDarkTheme.value
     val isRunning = TimerService.isTimerRunning.value
     val isPaused = TimerService.isTimerPaused.value
@@ -84,6 +77,46 @@ fun MainScreen() {
     var stopwatchBaseTime by rememberSaveable { mutableStateOf(0L) }
     var stopwatchAccumulatedMillis by rememberSaveable { mutableStateOf(0L) }
     var stopwatchElapsedMillis by rememberSaveable { mutableStateOf(0L) }
+
+    // 🔄 Sync on Start / Restore
+    LaunchedEffect(Unit) {
+        try {
+            ThemeManager.loadTheme(context)
+            TimerService.syncRemainingTime(context)
+
+            // Agar stopwatch pehle se background service me chal rahi thi
+            if (TimerService.originalTimerSeconds == 0 && (TimerService.isTimerRunning.value || TimerService.isTimerPaused.value)) {
+                isStopwatchFocusActive = true
+                isStopwatchRunning = TimerService.isTimerRunning.value
+                stopwatchAccumulatedMillis = TimerService.accumulatedActiveMillis
+                stopwatchBaseTime = TimerService.sessionResumeElapsedRealtime
+                if (isStopwatchRunning && stopwatchBaseTime > 0L) {
+                    stopwatchElapsedMillis = stopwatchAccumulatedMillis + (SystemClock.elapsedRealtime() - stopwatchBaseTime)
+                } else {
+                    stopwatchElapsedMillis = stopwatchAccumulatedMillis
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    // 🔔 Sync if user taps Pause / Resume / Stop in notification bar
+    LaunchedEffect(isRunning, isPaused) {
+        val isStopwatchService = (TimerService.originalTimerSeconds == 0)
+        if (isStopwatchFocusActive && isStopwatchService) {
+            if (!isRunning && !isPaused) {
+                isStopwatchRunning = false
+                isStopwatchFocusActive = false
+                stopwatchAccumulatedMillis = 0L
+                stopwatchElapsedMillis = 0L
+            } else if (isPaused && isStopwatchRunning) {
+                isStopwatchRunning = false
+                stopwatchAccumulatedMillis = stopwatchElapsedMillis
+            } else if (isRunning && !isStopwatchRunning) {
+                stopwatchBaseTime = SystemClock.elapsedRealtime()
+                isStopwatchRunning = true
+            }
+        }
+    }
 
     LaunchedEffect(isStopwatchRunning) {
         if (isStopwatchRunning) {
@@ -207,6 +240,9 @@ fun MainScreen() {
                     onStartStopwatch = {
                         isStopwatchRunning = true
                         isStopwatchFocusActive = true
+                        stopwatchAccumulatedMillis = 0L
+                        stopwatchElapsedMillis = 0L
+                        stopwatchBaseTime = SystemClock.elapsedRealtime()
                     },
                     onPauseStopwatch = {
                         isStopwatchRunning = false
@@ -650,11 +686,11 @@ fun HomeTimerTab(
                     .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 1. TOP HEADER (COMPACT LOTTIE FLAME_MAIN INTEGRATED)
+                // 1. TOP HEADER (40DP STREAK FLAME - NO CLIPPING)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(36.dp),
+                        .wrapContentHeight(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -672,13 +708,12 @@ fun HomeTimerTab(
                             .clip(RoundedCornerShape(50))
                             .background(if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9))
                             .border(1.dp, glassBorder, RoundedCornerShape(50))
-                            .padding(horizontal = 11.dp, vertical = 5.dp)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            // 🔥 3rd Image: flame_main Lottie Icon in Top Pill
                             StreakFlame(
                                 streakDays = streakDays,
                                 isLarge = false,
@@ -687,7 +722,7 @@ fun HomeTimerTab(
                             Text(
                                 text = "$streakDays Days",
                                 color = if (streakDays > 0) Color(0xFFFB923C) else textMuted,
-                                fontSize = 11.5.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
                         }
@@ -1026,7 +1061,7 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 6. MAIN START BUTTON
+                // 6. MAIN START BUTTON (STOPWATCH NOTIFICATION INTEGRATION)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -1039,6 +1074,17 @@ fun HomeTimerTab(
                         .clickable {
                             if (selectedFocusMode == 1) {
                                 onStartStopwatch()
+                                // 🟢 Start TimerService with 0 seconds for Live Stopwatch Notification
+                                val intent = Intent(context, TimerService::class.java).apply {
+                                    action = TimerService.ACTION_START
+                                    putExtra(TimerService.EXTRA_SECONDS, 0)
+                                    putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                }
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    context.startForegroundService(intent)
+                                } else {
+                                    context.startService(intent)
+                                }
                             } else {
                                 val targetSecs = if (selectedFocusMode == 2) {
                                     pomodoroFocusMinutes * 60
@@ -1140,7 +1186,19 @@ fun HomeTimerTab(
                                     .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                     .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
                                     .clickable {
-                                        if (isStopwatchRunning) onPauseStopwatch() else onResumeStopwatch()
+                                        if (isStopwatchRunning) {
+                                            onPauseStopwatch()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_PAUSE
+                                            }
+                                            context.startService(intent)
+                                        } else {
+                                            onResumeStopwatch()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            }
+                                            context.startService(intent)
+                                        }
                                     }
                             ) {
                                 if (isStopwatchRunning) {
@@ -1236,7 +1294,19 @@ fun HomeTimerTab(
                                     .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                     .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
                                     .clickable {
-                                        if (isStopwatchRunning) onPauseStopwatch() else onResumeStopwatch()
+                                        if (isStopwatchRunning) {
+                                            onPauseStopwatch()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_PAUSE
+                                            }
+                                            context.startService(intent)
+                                        } else {
+                                            onResumeStopwatch()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            }
+                                            context.startService(intent)
+                                        }
                                     }
                             ) {
                                 if (isStopwatchRunning) {
@@ -1410,12 +1480,12 @@ fun HomeTimerTab(
                                         .clip(CircleShape)
                                         .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                         .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable {
-                                        val intent = Intent(context, TimerService::class.java).apply {
-                                            action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
+                                        .clickable {
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
+                                            }
+                                            context.startService(intent)
                                         }
-                                        context.startService(intent)
-                                    }
                                 ) {
                                     if (isRunning) {
                                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1440,7 +1510,7 @@ fun HomeTimerTab(
                                         .clip(CircleShape)
                                         .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                         .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable { showGiveUpDialog = true }
+                                        .clickable { showGiveUpDialog = true }
                                 ) {
                                     Box(
                                         modifier = Modifier
@@ -1849,7 +1919,7 @@ fun HomeTimerTab(
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = if (isStopwatchFocusActive)
-                                "Do you want to stop and reset the stopwatch session?"
+                                "Do you want to stop and save your study progress?"
                             else
                                 "Giving up now will forfeit this focus session. Are you sure you want to stop?",
                             color = textMuted,
@@ -1875,6 +1945,43 @@ fun HomeTimerTab(
                                     .clickable {
                                         showGiveUpDialog = false
                                         if (isStopwatchFocusActive) {
+                                            // 🛑 STOPWATCH SAVE & FINISH:
+                                            val elapsedMins = (stopwatchElapsedMillis / 60000).toInt()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_STOP
+                                            }
+                                            context.startService(intent)
+
+                                            // 5+ mins study time saved in memory & streak
+                                            if (elapsedMins >= 5) {
+                                                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                                                val session = FocusSession(
+                                                    id = System.currentTimeMillis(),
+                                                    date = sdf.format(Date()),
+                                                    subject = if (selectedSubjectName.isBlank() || selectedSubjectName.equals("All", ignoreCase = true)) "General" else selectedSubjectName,
+                                                    durationMinutes = elapsedMins,
+                                                    earnedTrees = when {
+                                                        elapsedMins >= 105 -> 4
+                                                        elapsedMins >= 75 -> 3
+                                                        elapsedMins >= 45 -> 2
+                                                        elapsedMins >= 15 -> 1
+                                                        else -> 0
+                                                    }
+                                                )
+                                                FocusSessionManager.saveSession(context, session)
+                                                try {
+                                                    CloudSyncManager.syncSession(
+                                                        context = context,
+                                                        subject = session.subject,
+                                                        durationMinutes = session.durationMinutes.toLong(),
+                                                        earnedTrees = session.earnedTrees
+                                                    )
+                                                } catch (_: Exception) {}
+
+                                                val sessions = FocusSessionManager.getAllSessions(context)
+                                                streakDays = calculateStreakDays(sessions)
+                                            }
+
                                             onResetStopwatch()
                                         } else {
                                             val intent = Intent(context, TimerService::class.java).apply {
@@ -2400,7 +2507,7 @@ fun CustomTimerBottomSheet(
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 // =============================================================================
-// 🔥 2. ANIMATED LIVING FLAME ICON (COMPATIBILITY FALLBACK TO LOTTIE)
+// 🔥 2. ANIMATED LIVING FLAME ICON
 // =============================================================================
 @Composable
 fun AnimatedLivingFlame(modifier: Modifier = Modifier) {
@@ -2490,7 +2597,7 @@ fun WhatsNewDialog(
 }
 
 // =============================================================================
-// 🟢 4. SIMPLE VECTOR ICON COMPOSABLE
+// 🟢 4. SIMPLE VECTOR ICON COMPOSABLE (UPDATED: 3-PERSON CIRCLE & 4-BAR STATS)
 // =============================================================================
 @Composable
 fun SimpleNavIcon(
@@ -2508,85 +2615,139 @@ fun SimpleNavIcon(
             )
         }
         1 -> {
+            // 🟢 Circle / Focus Groups: 3 People Connected in a Loop
             Canvas(modifier = modifier) {
                 val w = size.width
                 val h = size.height
                 val cx = w / 2f
                 val cy = h / 2f
+
                 val ringRadius = w * 0.32f
-                val strokeWidth = 1.8.dp.toPx()
-                val dotRadius = 2.4.dp.toPx()
+                val strokeW = 1.8.dp.toPx()
 
-                drawCircle(
-                    color = tint.copy(alpha = 0.5f),
-                    radius = ringRadius,
-                    center = Offset(cx, cy),
-                    style = Stroke(width = strokeWidth)
+                val arcRectTopLeft = Offset(cx - ringRadius, cy - ringRadius)
+                val arcRectSize = Size(ringRadius * 2f, ringRadius * 2f)
+
+                // 1. Connecting Arcs
+                drawArc(
+                    color = tint.copy(alpha = 0.8f),
+                    startAngle = 230f,
+                    sweepAngle = 80f,
+                    useCenter = false,
+                    topLeft = arcRectTopLeft,
+                    size = arcRectSize,
+                    style = Stroke(width = strokeW, cap = StrokeCap.Round)
                 )
 
-                val nodeOffsets = listOf(
-                    Offset(cx, cy - ringRadius),
-                    Offset(cx + ringRadius, cy),
-                    Offset(cx, cy + ringRadius),
-                    Offset(cx - ringRadius, cy)
+                drawArc(
+                    color = tint.copy(alpha = 0.8f),
+                    startAngle = 350f,
+                    sweepAngle = 80f,
+                    useCenter = false,
+                    topLeft = arcRectTopLeft,
+                    size = arcRectSize,
+                    style = Stroke(width = strokeW, cap = StrokeCap.Round)
                 )
-                nodeOffsets.forEach { nodeCenter ->
+
+                drawArc(
+                    color = tint.copy(alpha = 0.8f),
+                    startAngle = 110f,
+                    sweepAngle = 80f,
+                    useCenter = false,
+                    topLeft = arcRectTopLeft,
+                    size = arcRectSize,
+                    style = Stroke(width = strokeW, cap = StrokeCap.Round)
+                )
+
+                // 2. 3 Members (Solid Heads & Shoulder Domes)
+                val headR = w * 0.085f
+                val bodyW = w * 0.22f
+                val bodyH = h * 0.14f
+
+                val positions = listOf(
+                    Offset(cx - ringRadius * 0.866f, cy - ringRadius * 0.45f), // Top-Left
+                    Offset(cx + ringRadius * 0.866f, cy - ringRadius * 0.45f), // Top-Right
+                    Offset(cx, cy + ringRadius * 0.95f)                        // Bottom-Center
+                )
+
+                positions.forEach { p ->
+                    // Head
                     drawCircle(
                         color = tint,
-                        radius = dotRadius,
-                        center = nodeCenter
+                        radius = headR,
+                        center = Offset(p.x, p.y - headR * 1.1f)
+                    )
+
+                    // Shoulders Dome
+                    drawArc(
+                        color = tint,
+                        startAngle = 180f,
+                        sweepAngle = 180f,
+                        useCenter = true,
+                        topLeft = Offset(p.x - bodyW / 2f, p.y - bodyH * 0.15f),
+                        size = Size(bodyW, bodyH)
                     )
                 }
-
-                drawCircle(
-                    color = tint.copy(alpha = 0.8f),
-                    radius = 1.4.dp.toPx(),
-                    center = Offset(cx, cy)
-                )
             }
         }
         2 -> {
+            // 🟢 New Stats Icon: 4 Growth Bars with Rising Trend Arrow
             Canvas(modifier = modifier) {
                 val w = size.width
                 val h = size.height
-                val barWidth = w * 0.18f
+
+                // 1. Baseline
+                val baseStroke = 1.8.dp.toPx()
+                drawLine(
+                    color = tint,
+                    start = Offset(w * 0.08f, h * 0.90f),
+                    end = Offset(w * 0.92f, h * 0.90f),
+                    strokeWidth = baseStroke,
+                    cap = StrokeCap.Round
+                )
+
+                // 2. 4 Solid Growth Bars
+                val barW = w * 0.13f
                 val barCorner = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                val barHeights = listOf(0.24f, 0.40f, 0.56f, 0.72f)
+                val barXStarts = listOf(0.13f, 0.33f, 0.53f, 0.73f)
 
-                drawRoundRect(
-                    color = tint.copy(alpha = 0.35f),
-                    topLeft = Offset(w * 0.12f, h * 0.58f),
-                    size = Size(barWidth, h * 0.34f),
-                    cornerRadius = barCorner
-                )
-                drawRoundRect(
-                    color = tint.copy(alpha = 0.50f),
-                    topLeft = Offset(w * 0.41f, h * 0.38f),
-                    size = Size(barWidth, h * 0.54f),
-                    cornerRadius = barCorner
-                )
-                drawRoundRect(
-                    color = tint.copy(alpha = 0.70f),
-                    topLeft = Offset(w * 0.70f, h * 0.22f),
-                    size = Size(barWidth, h * 0.70f),
-                    cornerRadius = barCorner
-                )
+                barHeights.forEachIndexed { i, heightRatio ->
+                    val barH = h * heightRatio
+                    drawRoundRect(
+                        color = tint,
+                        topLeft = Offset(w * barXStarts[i], h * 0.90f - barH),
+                        size = Size(barW, barH),
+                        cornerRadius = barCorner
+                    )
+                }
 
-                val trendPath = Path().apply {
-                    moveTo(w * 0.08f, h * 0.66f)
-                    lineTo(w * 0.21f, h * 0.52f)
-                    lineTo(w * 0.50f, h * 0.34f)
-                    lineTo(w * 0.79f, h * 0.16f)
+                // 3. Curved Rising Arrow
+                val arrowStroke = 2.4.dp.toPx()
+                val arrowCurvePath = Path().apply {
+                    moveTo(w * 0.08f, h * 0.62f)
+                    cubicTo(
+                        w * 0.35f, h * 0.60f,
+                        w * 0.60f, h * 0.45f,
+                        w * 0.86f, h * 0.15f
+                    )
                 }
                 drawPath(
-                    path = trendPath,
+                    path = arrowCurvePath,
                     color = tint,
-                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = arrowStroke, cap = StrokeCap.Round)
                 )
 
-                drawCircle(
+                // 4. Arrow Head
+                val arrowHeadPath = Path().apply {
+                    moveTo(w * 0.62f, h * 0.18f)
+                    lineTo(w * 0.88f, h * 0.14f)
+                    lineTo(w * 0.84f, h * 0.40f)
+                }
+                drawPath(
+                    path = arrowHeadPath,
                     color = tint,
-                    radius = 2.8.dp.toPx(),
-                    center = Offset(w * 0.79f, h * 0.16f)
+                    style = Stroke(width = arrowStroke, cap = StrokeCap.Round)
                 )
             }
         }
@@ -2602,7 +2763,7 @@ fun SimpleNavIcon(
 }
 
 // =============================================================================
-// 🟢 5. CURVED BOTTOM BAR (UPDATED: "Circle" TAB)
+// 🟢 5. CURVED BOTTOM BAR
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
