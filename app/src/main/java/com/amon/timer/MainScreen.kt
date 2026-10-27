@@ -650,7 +650,7 @@ fun HomeTimerTab(
                     .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 1. TOP HEADER
+                // 1. TOP HEADER (COMPACT LOTTIE FLAME_MAIN INTEGRATED)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -678,7 +678,12 @@ fun HomeTimerTab(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
-                            AnimatedLivingFlame()
+                            // 🔥 3rd Image: flame_main Lottie Icon in Top Pill
+                            StreakFlame(
+                                streakDays = streakDays,
+                                isLarge = false,
+                                modifier = Modifier.size(19.dp)
+                            )
                             Text(
                                 text = "$streakDays Days",
                                 color = if (streakDays > 0) Color(0xFFFB923C) else textMuted,
@@ -2395,84 +2400,15 @@ fun CustomTimerBottomSheet(
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 // =============================================================================
-// 🔥 2. ANIMATED LIVING FLAME ICON
+// 🔥 2. ANIMATED LIVING FLAME ICON (COMPATIBILITY FALLBACK TO LOTTIE)
 // =============================================================================
 @Composable
 fun AnimatedLivingFlame(modifier: Modifier = Modifier) {
-    val infiniteTransition = rememberInfiniteTransition(label = "flame_anim")
-
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.90f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(620, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "flame_pulse"
+    StreakFlame(
+        streakDays = 1,
+        isLarge = false,
+        modifier = modifier.size(19.dp)
     )
-
-    val sway by infiniteTransition.animateFloat(
-        initialValue = -1.8f,
-        targetValue = 1.8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(440, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "flame_sway"
-    )
-
-    val colorPhase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(850, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "flame_color"
-    )
-
-    Canvas(modifier = modifier.size(16.dp)) {
-        val w = size.width
-        val h = size.height
-
-        val topYellow = Color(0xFFFFEB3B)
-        val midOrange = Color(0xFFFF9800)
-        val bottomRed = Color(0xFFE53935)
-
-        val outerBrush = Brush.verticalGradient(
-            colors = listOf(topYellow.copy(alpha = 0.95f), midOrange, bottomRed),
-            startY = (h * 0.15f) * (1f - colorPhase),
-            endY = h
-        )
-
-        val innerBrush = Brush.verticalGradient(
-            colors = listOf(Color(0xFFFFFDE7), Color(0xFFFFEE58), Color(0xFFFFA726)),
-            startY = h * 0.35f,
-            endY = h * 0.95f
-        )
-
-        val tipX = (w * 0.5f) + (sway * (w / 16f))
-        val tipY = h * 0.04f * (2f - scale)
-
-        val outerFlame = Path().apply {
-            moveTo(tipX, tipY)
-            cubicTo(w * 0.86f, h * 0.35f, w * 0.96f, h * 0.65f, w * 0.76f, h * 0.90f)
-            cubicTo(w * 0.64f, h * 1.02f, w * 0.36f, h * 1.02f, w * 0.24f, h * 0.90f)
-            cubicTo(w * 0.04f, h * 0.65f, w * 0.14f, h * 0.35f, tipX, tipY)
-            close()
-        }
-        drawPath(path = outerFlame, brush = outerBrush)
-
-        val innerTipX = (w * 0.5f) + (sway * 0.4f * (w / 16f))
-        val innerFlame = Path().apply {
-            moveTo(innerTipX, h * 0.38f)
-            cubicTo(w * 0.70f, h * 0.52f, w * 0.74f, h * 0.72f, w * 0.62f, h * 0.86f)
-            cubicTo(w * 0.56f, h * 0.94f, w * 0.44f, h * 0.94f, w * 0.38f, h * 0.86f)
-            cubicTo(w * 0.26f, h * 0.72f, w * 0.30f, h * 0.52f, innerTipX, h * 0.38f)
-            close()
-        }
-        drawPath(path = innerFlame, brush = innerBrush)
-    }
 }
 
 // =============================================================================
@@ -2554,7 +2490,7 @@ fun WhatsNewDialog(
 }
 
 // =============================================================================
-// 🟢 4. SIMPLE VECTOR ICON COMPOSABLE (UPDATED: PEER RING & GLOWING TREND BARS)
+// 🟢 4. SIMPLE VECTOR ICON COMPOSABLE
 // =============================================================================
 @Composable
 fun SimpleNavIcon(
@@ -2572,7 +2508,6 @@ fun SimpleNavIcon(
             )
         }
         1 -> {
-            // ⭕ 1. PEER RING ICON (Circle Tab)
             Canvas(modifier = modifier) {
                 val w = size.width
                 val h = size.height
@@ -2611,7 +2546,6 @@ fun SimpleNavIcon(
             }
         }
         2 -> {
-            // 📈 2. GLOWING TREND LINE + BARS ICON (Stats Tab)
             Canvas(modifier = modifier) {
                 val w = size.width
                 val h = size.height
