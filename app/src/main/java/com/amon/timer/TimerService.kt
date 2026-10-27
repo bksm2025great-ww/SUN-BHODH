@@ -32,8 +32,7 @@ class TimerService : Service() {
     private var timerJob: Job? = null
 
     companion object {
-        // ⚡ v5 आईडी: ताकि फ़ोन पुरानी साइलेंट सेटिंग भूलकर नया विज़िबल चैनल बनाए
-        const val CHANNEL_ID = "amon_focus_live_v5"
+        const val CHANNEL_ID = "amon_focus_live_v6"
         const val NOTIFICATION_ID = 1001
 
         const val ACTION_START = "com.amon.timer.START"
@@ -195,12 +194,11 @@ class TimerService : Service() {
 
         try {
             val notification = buildNotification(chronometerBase, isStopwatch, isPaused = false)
-            
-            // 🚀 Android 14+ Compatibility: सही सर्विस टाइप पास करना
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 startForeground(
-                    NOTIFICATION_ID, 
-                    notification, 
+                    NOTIFICATION_ID,
+                    notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
                 )
             } else {
@@ -400,6 +398,8 @@ class TimerService : Service() {
     }
 
     private fun buildNotification(chronometerBase: Long, isStopwatch: Boolean, isPaused: Boolean): Notification {
+        createNotificationChannel()
+
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -443,13 +443,13 @@ class TimerService : Service() {
                 setChronometerCountDown(R.id.notif_timer, !isStopwatch)
             }
 
+            // 🟢 FIXED: ImageView पर TextView मेथड्स हटाकर सही आइकॉन सेट किया गया
             if (isPaused) {
-                setTextViewText(R.id.btn_notif_pause, "RESUME")
-                setTextColor(R.id.btn_notif_pause, AndroidColor.parseColor("#22C55E"))
+                setImageViewResource(R.id.btn_notif_pause, android.R.drawable.ic_media_play)
             } else {
-                setTextViewText(R.id.btn_notif_pause, "PAUSE")
-                setTextColor(R.id.btn_notif_pause, AndroidColor.parseColor("#E2E8F0"))
+                setImageViewResource(R.id.btn_notif_pause, R.drawable.ic_notif_pause)
             }
+
             setOnClickPendingIntent(R.id.btn_notif_pause, pauseResumePendingIntent)
             setOnClickPendingIntent(R.id.btn_notif_stop, stopPendingIntent)
             setOnClickPendingIntent(R.id.notif_logo, openAppPendingIntent)
@@ -464,7 +464,6 @@ class TimerService : Service() {
             .setCustomContentView(customLayout)
             .setCustomBigContentView(customLayout)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-            // 👁️ PRIORITY_DEFAULT: स्टेटस बार और ट्रे में साफ़ दिखने के लिए
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOnlyAlertOnce(true)
@@ -478,7 +477,6 @@ class TimerService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Amon Focus Timer",
-                // 🔊 IMPORTANCE_DEFAULT: ताकि फ़ोन इसे साइलेंट करके छुपाए नहीं
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Shows live focus countdown & stopwatch timer"
