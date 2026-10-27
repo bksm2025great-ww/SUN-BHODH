@@ -5,7 +5,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,11 +22,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
-// स्लाइड का डेटा मॉडल
-data class WelcomeSlideData(
+// 🎯 स्लाइड डेटा मॉडल
+data class WelcomeSlideItem(
     val prefix: String,
-    val highlight: String,
-    val description: String
+    val highlightWord: String,
+    val highlightColor: Color,
+    val subtitle: String
 )
 
 @Composable
@@ -39,36 +39,36 @@ fun PreWelcomeScreen(onGetStarted: () -> Unit = {}) {
 fun WelcomeScreen(
     onGetStarted: () -> Unit = {}
 ) {
-    val isDark = ThemeManager.isDarkTheme.value
-    val bgColor = ThemeManager.getBackgroundColor()
     val goldColor = ThemeManager.getAccentColor()
-    val textMain = ThemeManager.getTextColor()
-    val textMuted = ThemeManager.getTextMutedColor()
+    val bgColor = Color(0xFF090A0F) // गहरा प्रीमियम बैकग्राउंड
 
-    // 🎯 वे टेक्स्ट जो बारी-बारी एक साथ बदलेंगे
+    // 🌟 वे टेक्स्ट जो बारी-बारी एक साथ बदलेंगे
     val slides = remember {
         listOf(
-            WelcomeSlideData(
-                prefix = "Mastery over",
-                highlight = "Deep Focus",
-                description = "Train your mind for uninterrupted, distraction-free productivity sessions."
+            WelcomeSlideItem(
+                prefix = "Master your ",
+                highlightWord = "Goal",
+                highlightColor = Color(0xFFA855F7), // इमेज के अनुसार वाइब्रेंट पर्पल
+                subtitle = "Build deep study discipline, protect your focus streak, and transform your daily learning journey."
             ),
-            WelcomeSlideData(
-                prefix = "Mastery over",
-                highlight = "Your Time",
-                description = "Track every second with monotonic hardware accuracy and beautiful dials."
+            WelcomeSlideItem(
+                prefix = "Master your ",
+                highlightWord = "Focus",
+                highlightColor = Color(0xFFEAB308), // ब्राइट गोल्डन
+                subtitle = "Eliminate distractions, enter deep flow states, and accomplish more in every study session."
             ),
-            WelcomeSlideData(
-                prefix = "Mastery over",
-                highlight = "Distractions",
-                description = "Stay disciplined, build your daily streak, and conquer your goals."
+            WelcomeSlideItem(
+                prefix = "Master your ",
+                highlightWord = "Time",
+                highlightColor = Color(0xFF38BDF8), // स्काई ब्लू
+                subtitle = "Track precision sessions with intuitive watches and build unbroken consistency."
             )
         )
     }
 
     var currentSlideIndex by remember { mutableIntStateOf(0) }
 
-    // ⏱️ हर 3 सेकंड में दोनों टेक्स्ट एक साथ बदलेंगे
+    // ⏱️ हर 3.2 सेकंड में दोनों शब्द एक साथ बदलेंगे
     LaunchedEffect(Unit) {
         while (true) {
             delay(3200L)
@@ -82,24 +82,22 @@ fun WelcomeScreen(
             .background(bgColor)
     ) {
         // ---------------------------------------------------------------------
-        // 1. टॉप इमेज: बिना किसी पैडिंग के सीधे स्क्रीन के सबसे ऊपर (Full Edge-to-Edge)
+        // 1. टॉप इमेज: बिना किसी पैडिंग के सीधे टॉप एज तक (Full Edge-to-Edge)
         // ---------------------------------------------------------------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.58f)
+                .fillMaxHeight(0.62f)
                 .align(Alignment.TopCenter)
         ) {
             Image(
-                // ⚠️ ध्यान दें: अगर आपकी वेलकम इमेज का नाम अलग है (जैसे ic_welcome या welcome_art), 
-                // तो यहाँ ic_launcher की जगह अपनी इमेज का नाम लिख लें।
-                painter = painterResource(id = R.drawable.ic_launcher),
-                contentDescription = "Welcome Illustration",
+                painter = painterResource(id = R.drawable.welcome_hero),
+                contentDescription = "Welcome Hero Illustration",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
 
-            // स्मूथ ग्रेडिएंट: ऊपर साफ़ रहेगा और नीचे आते-आते बैकग्राउंड में घुल जाएगा
+            // नीचे का स्मूथ ग्रेडिएंट फ़ेड: इमेज नीचे आते-आते बैकग्राउंड में मिल जाएगी
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -117,7 +115,7 @@ fun WelcomeScreen(
         }
 
         // ---------------------------------------------------------------------
-        // 2. निचला हिस्सा: टेक्स्ट एनीमेशन, डॉट्स और स्टार्ट बटन
+        // 2. निचला हिस्सा: टेक्स्ट एनीमेशन और Let's Begin बटन
         // ---------------------------------------------------------------------
         Column(
             modifier = Modifier
@@ -125,11 +123,11 @@ fun WelcomeScreen(
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 30.dp),
+                .padding(bottom = 34.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {
-            // 🔄 दोनों लाइन्स एक साथ ऊपर-नीचे स्लाइड होकर बदलेंगी
+            // 🔄 दोनों शब्द एक साथ ऊपर-नीचे स्लाइड होकर बदलेंगे
             AnimatedContent(
                 targetState = currentSlideIndex,
                 transitionSpec = {
@@ -140,107 +138,73 @@ fun WelcomeScreen(
                                     fadeOut(animationSpec = tween(350))
                         )
                 },
-                label = "WelcomeSlideTogether"
+                label = "MasterYourSlideTogether"
             ) { targetIndex ->
                 val slide = slides[targetIndex]
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // लाइन 1: Mastery over (कम बोल्डनेस)
+                    // हेडिंग: "Master your" (सॉफ्ट सेमी-बोल्ड) + "Goal" (बोल्ड हाइलाइट)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = slide.prefix,
+                            fontSize = 30.sp,
+                            fontWeight = FontWeight.SemiBold, // 🟢 कम बोल्डनेस (हल्का और प्रीमियम)
+                            color = Color.White,
+                            letterSpacing = (-0.5).sp
+                        )
+                        Text(
+                            text = slide.highlightWord,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Black,
+                            color = slide.highlightColor,
+                            letterSpacing = (-0.5).sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // सब-टाइटल विवरण
                     Text(
-                        text = slide.prefix,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = textMuted,
-                        letterSpacing = 1.2.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(3.dp))
-
-                    // लाइन 2: Focus / Time / Distractions
-                    Text(
-                        text = slide.highlight,
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.Black,
-                        color = goldColor,
-                        letterSpacing = (-0.5).sp
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // लाइन 3: छोटा विवरण
-                    Text(
-                        text = slide.description,
-                        fontSize = 13.sp,
-                        color = textMuted.copy(alpha = 0.85f),
+                        text = slide.subtitle,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color(0xFF94A3B8),
                         textAlign = TextAlign.Center,
-                        lineHeight = 18.sp,
-                        modifier = Modifier.padding(horizontal = 20.dp)
+                        lineHeight = 20.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp)
                     )
                 }
             }
 
-            // ⚪ डॉट्स (Slide Indicators)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                slides.indices.forEach { index ->
-                    val isSelected = index == currentSlideIndex
-                    val dotWidth by animateDpAsState(
-                        targetValue = if (isSelected) 22.dp else 7.dp,
-                        animationSpec = tween(250),
-                        label = "dot_width"
-                    )
-                    Box(
-                        modifier = Modifier
-                            .height(6.5.dp)
-                            .width(dotWidth)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSelected) goldColor
-                                else (if (isDark) Color(0x33FFFFFF) else Color(0x22000000))
-                            )
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.height(10.dp))
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // 🚀 मुख्य 'Get Started' बटन
+            // 🚀 मुख्य 'Let's Begin ➔' बटन
             Button(
                 onClick = onGetStarted,
                 colors = ButtonDefaults.buttonColors(containerColor = goldColor),
                 shape = RoundedCornerShape(50),
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
-                    .height(48.dp)
+                    .height(52.dp)
                     .shadow(
-                        elevation = 12.dp,
+                        elevation = 14.dp,
                         shape = RoundedCornerShape(50),
                         spotColor = goldColor,
                         ambientColor = goldColor
                     )
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Get Started",
-                        color = Color.Black,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.4.sp
-                    )
-                    Text(
-                        text = "▶",
-                        color = Color.Black,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                }
+                Text(
+                    text = "Let's Begin ➔",
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.4.sp
+                )
             }
         }
     }
