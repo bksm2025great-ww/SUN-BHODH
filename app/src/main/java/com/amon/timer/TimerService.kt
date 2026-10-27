@@ -82,38 +82,45 @@ class TimerService : Service() {
                     originalTimerSeconds = prefs.getInt(KEY_ORIGINAL, 25 * 60)
                     currentSubjectName.value = prefs.getString(KEY_SUBJECT, "All") ?: "All"
                     accumulatedActiveMillis = prefs.getLong(KEY_ACCUMULATED_MILLIS, 0L)
+                    val isStopwatch = (originalTimerSeconds == 0)
 
                     if (wasPaused) {
                         isTimerPaused.value = true
                         remainingSeconds.intValue = prefs.getInt(KEY_REMAINING, originalTimerSeconds)
                         sessionResumeElapsedRealtime = 0L
                     } else {
-                        val targetTime = prefs.getLong(KEY_TARGET_ELAPSED, 0L)
-                        sessionTargetElapsedRealtime = targetTime
                         sessionStartElapsedRealtime = prefs.getLong(KEY_START_ELAPSED, 0L)
                         sessionResumeElapsedRealtime = prefs.getLong(KEY_RESUME_ELAPSED, SystemClock.elapsedRealtime())
 
-                        val leftMillis = targetTime - SystemClock.elapsedRealtime()
-                        val left = (leftMillis / 1000L).toInt().coerceAtLeast(0)
-                        if (left > 0) {
-                            remainingSeconds.intValue = left
+                        if (isStopwatch) {
+                            val activeNow = accumulatedActiveMillis + (SystemClock.elapsedRealtime() - sessionResumeElapsedRealtime)
+                            remainingSeconds.intValue = (activeNow / 1000L).toInt().coerceAtLeast(0)
                             isTimerRunning.value = true
                         } else {
-                            clearPersistedState(context)
+                            val targetTime = prefs.getLong(KEY_TARGET_ELAPSED, 0L)
+                            sessionTargetElapsedRealtime = targetTime
+                            val leftMillis = targetTime - SystemClock.elapsedRealtime()
+                            val left = (leftMillis / 1000L).toInt().coerceAtLeast(0)
+                            if (left > 0) {
+                                remainingSeconds.intValue = left
+                                isTimerRunning.value = true
+                            } else {
+                                clearPersistedState(context)
+                            }
                         }
                     }
                 }
             }
 
             if (isTimerRunning.value && !isTimerPaused.value) {
-                if (sessionTargetElapsedRealtime > 0L) {
+                val isStopwatch = (originalTimerSeconds == 0)
+                if (isStopwatch) {
+                    val activeNow = accumulatedActiveMillis + (SystemClock.elapsedRealtime() - sessionResumeElapsedRealtime)
+                    remainingSeconds.intValue = (activeNow / 1000L).toInt().coerceAtLeast(0)
+                } else if (sessionTargetElapsedRealtime > 0L) {
                     val leftMillis = sessionTargetElapsedRealtime - SystemClock.elapsedRealtime()
                     val left = (leftMillis / 1000L).toInt().coerceAtLeast(0)
                     remainingSeconds.intValue = left
-                } else if (sessionStartElapsedRealtime > 0L) {
-                    val elapsedMillis = SystemClock.elapsedRealtime() - sessionStartElapsedRealtime
-                    val elapsed = (elapsedMillis / 1000L).toInt().coerceAtLeast(0)
-                    remainingSeconds.intValue = elapsed
                 }
             }
         }
@@ -138,6 +145,8 @@ class TimerService : Service() {
             prefs.edit().clear().apply()
             accumulatedActiveMillis = 0L
             sessionResumeElapsedRealtime = 0L
+            sessionStartElapsedRealtime = 0L
+            sessionTargetElapsedRealtime = 0L
         }
     }
 
@@ -151,7 +160,7 @@ class TimerService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                val secs = intent.getIntExtra(EXTRA_SECONDS, remainingSeconds.intValue)
+                val secs = intent.getIntExtra(EXTRA_SECONDS, 25 * 60)
                 val subject = intent.getStringExtra(EXTRA_SUBJECT) ?: currentSubjectName.value
                 startTimer(secs, subject, isResume = false)
             }
@@ -179,18 +188,34 @@ class TimerService : Service() {
         }
 
         timerJob?.cancel()
-        remainingSeconds.intValue = seconds
         currentSubjectName.value = subject
         isTimerRunning.value = true
         isTimerPaused.value = false
 
         val isStopwatch = (originalTimerSeconds == 0)
-        val targetElapsed = if (isStopwatch) nowElapsed else nowElapsed + (seconds * 1000L)
-        sessionTargetElapsedRealtime = if (isStopwatch) 0L else targetElapsed
+
+        if (isStopwatch) {
+            val totalActive = accumulatedActiveMillis + (nowElapsed - sessionResumeElapsedRealtime)
+            remainingSeconds.intValue = (totalActive / 1000L).toInt()
+            sessionTargetElapsedRealtime = 0L
+        } else {
+            val targetElapsed = if (isResume) {
+                nowElapsed + (seconds * 1000L)
+            } else {
+                nowElapsed + (originalTimerSeconds * 1000L)
+            }
+            remainingSeconds.intValue = seconds
+            sessionTargetElapsedRealtime = targetElapsed
+        }
 
         persistSessionState(this, isRunning = true, isPaused = false)
 
-        val chronometerBase = if (isStopwatch) nowElapsed else targetElapsed
+        // 🟢 FIX: स्टॉपवॉच के लिए सटीक Chronometer Base (ताकि रीसेट न हो)
+        val chronometerBase = if (isStopwatch) {
+            nowElapsed - accumulatedActiveMillis
+        } else {
+            sessionTargetElapsedRealtime
+        }
 
         try {
             val notification = buildNotification(chronometerBase, isStopwatch, isPaused = false)
@@ -212,10 +237,12 @@ class TimerService : Service() {
             if (isStopwatch) {
                 while (isActive) {
                     delay(1000L)
-                    val elapsed = ((SystemClock.elapsedRealtime() - sessionStartElapsedRealtime) / 1000L).toInt()
-                    remainingSeconds.intValue = elapsed
+                    val activeNow = accumulatedActiveMillis + (SystemClock.elapsedRealtime() - sessionResumeElapsedRealtime)
+                    val elapsedSecs = (activeNow / 1000L).toInt()
+                    remainingSeconds.intValue = elapsedSecs
 
-                    if (elapsed >= 7200) {
+                    // 12 घंटे बाद ऑटो स्टॉप
+                    if (elapsedSecs >= 43200) {
                         onTimerFinished()
                         break
                     }
@@ -247,10 +274,18 @@ class TimerService : Service() {
         isTimerRunning.value = false
         isTimerPaused.value = true
 
+        val isStopwatch = (originalTimerSeconds == 0)
+        if (isStopwatch) {
+            remainingSeconds.intValue = (accumulatedActiveMillis / 1000L).toInt()
+        }
+
         persistSessionState(this, isRunning = false, isPaused = true)
 
-        val isStopwatch = (originalTimerSeconds == 0)
-        val chronometerBase = if (isStopwatch) sessionStartElapsedRealtime else sessionTargetElapsedRealtime
+        val chronometerBase = if (isStopwatch) {
+            now - accumulatedActiveMillis
+        } else {
+            sessionTargetElapsedRealtime
+        }
 
         try {
             val notification = buildNotification(chronometerBase, isStopwatch, isPaused = true)
@@ -263,9 +298,10 @@ class TimerService : Service() {
 
     private fun resumeTimer() {
         if (isTimerRunning.value) return
+        val isStopwatch = (originalTimerSeconds == 0)
         val currentSecs = remainingSeconds.intValue
         val subject = currentSubjectName.value
-        startTimer(currentSecs, subject, isResume = true)
+        startTimer(if (isStopwatch) 0 else currentSecs, subject, isResume = true)
     }
 
     private fun cancelSessionGiveUp() {
@@ -274,8 +310,11 @@ class TimerService : Service() {
             accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
         }
 
+        val isStopwatch = (originalTimerSeconds == 0)
+
+        // 🟢 FIX: स्टॉपवॉच को कभी GiveUp (Cancelled) मत मानो, बल्कि पूरा स्टडी सेशन मानो
         if (isTimerRunning.value || isTimerPaused.value) {
-            saveSessionToDiary(isCancelled = true)
+            saveSessionToDiary(isCancelled = if (isStopwatch) false else true)
         }
 
         timerJob?.cancel()
@@ -288,7 +327,7 @@ class TimerService : Service() {
 
         clearPersistedState(this)
 
-        remainingSeconds.intValue = originalTimerSeconds
+        remainingSeconds.intValue = if (originalTimerSeconds > 0) originalTimerSeconds else 0
 
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -315,7 +354,7 @@ class TimerService : Service() {
 
         clearPersistedState(this)
 
-        remainingSeconds.intValue = if (originalTimerSeconds > 0) originalTimerSeconds else 25 * 60
+        remainingSeconds.intValue = if (originalTimerSeconds > 0) originalTimerSeconds else 0
 
         triggerGentleVibration()
         try {
@@ -333,6 +372,7 @@ class TimerService : Service() {
                 rawSeconds
             }
 
+            // 🛑 5 MINUTE GUARD (300 सेकंड से कम होने पर छोड़ दो)
             if (completedSeconds < 300) {
                 return
             }
@@ -362,12 +402,14 @@ class TimerService : Service() {
             )
             FocusSessionManager.saveSession(this, session)
 
-            CloudSyncManager.syncSession(
-                context = this,
-                subject = currentSubjectName.value,
-                durationMinutes = minutes.toLong(),
-                earnedTrees = trees
-            )
+            try {
+                CloudSyncManager.syncSession(
+                    context = this,
+                    subject = currentSubjectName.value,
+                    durationMinutes = minutes.toLong(),
+                    earnedTrees = trees
+                )
+            } catch (_: Exception) {}
         } catch (e: Exception) {
             Log.e("AmonTimer", "Safe session save catch: ${e.localizedMessage}")
         }
@@ -430,42 +472,35 @@ class TimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // 1. डायनामिक मोड तय करना (तीनों मोड्स के अनुसार सटीक नाम)
         val modeText = when {
             isStopwatch -> "STOPWATCH"
             originalTimerSeconds == 25 * 60 -> "POMODORO"
             else -> "FOCUS TIMER"
         }
 
-        // 2. लाइव सब्जेक्ट का नाम
         val currentSub = if (currentSubjectName.value.isNotBlank()) currentSubjectName.value else "All"
 
         val customLayout = RemoteViews(packageName, R.layout.notification_box).apply {
-            // लाइव मोड और सब्जेक्ट सेट करना
             setTextViewText(R.id.notif_mode_tag, "⚡ $modeText")
             setTextViewText(R.id.notif_subject_tag, "Subject • $currentSub")
 
-            // लाइव टाइमर काउंटडाउन
             setChronometer(R.id.notif_timer, chronometerBase, null, !isPaused)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 setChronometerCountDown(R.id.notif_timer, !isStopwatch)
             }
 
-            // Pause और Resume बटन आइकॉन
             if (isPaused) {
                 setImageViewResource(R.id.btn_notif_pause, android.R.drawable.ic_media_play)
             } else {
                 setImageViewResource(R.id.btn_notif_pause, R.drawable.ic_notif_pause)
             }
 
-            // बटन क्लिक लिसनर्स
             setOnClickPendingIntent(R.id.btn_notif_pause, pauseResumePendingIntent)
             setOnClickPendingIntent(R.id.btn_notif_stop, stopPendingIntent)
             setOnClickPendingIntent(R.id.notif_info_container, openAppPendingIntent)
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            // 🟢 FIXED: ऊपर स्टेटस बार और हेडर के लिए आपका नया पारदर्शी Amon लोगो
             .setSmallIcon(R.drawable.ic_notif_logo)
             .setContentTitle("Amon • $modeText")
             .setContentText(if (isPaused) "Paused • $currentSub" else "$currentSub • Session active")
