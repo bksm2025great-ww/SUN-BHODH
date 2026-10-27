@@ -682,7 +682,7 @@ fun HomeTimerTab(
                             StreakFlame(
                                 streakDays = streakDays,
                                 isLarge = false,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(30.dp)
                             )
                             Text(
                                 text = "$streakDays Days",
