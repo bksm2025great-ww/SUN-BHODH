@@ -10,7 +10,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -22,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
-// 🎯 स्लाइड डेटा मॉडल
 data class WelcomeSlideItem(
     val prefix: String,
     val highlightWord: String,
@@ -31,36 +29,44 @@ data class WelcomeSlideItem(
 )
 
 @Composable
-fun PreWelcomeScreen(onGetStarted: () -> Unit = {}) {
-    WelcomeScreen(onGetStarted = onGetStarted)
+fun PreWelcomeScreen(
+    onStartClick: () -> Unit = {},
+    onGetStarted: () -> Unit = {}
+) {
+    WelcomeScreen(onStartClick = onStartClick, onGetStarted = onGetStarted)
 }
 
 @Composable
 fun WelcomeScreen(
+    onStartClick: () -> Unit = {},
     onGetStarted: () -> Unit = {}
 ) {
-    val goldColor = ThemeManager.getAccentColor()
-    val bgColor = Color(0xFF090A0F) // गहरा प्रीमियम बैकग्राउंड
+    val finalAction = {
+        onStartClick()
+        onGetStarted()
+    }
 
-    // 🌟 वे टेक्स्ट जो बारी-बारी एक साथ बदलेंगे
+    val goldColor = ThemeManager.getAccentColor()
+    val bgColor = Color(0xFF090A0F)
+
     val slides = remember {
         listOf(
             WelcomeSlideItem(
                 prefix = "Master your ",
                 highlightWord = "Goal",
-                highlightColor = Color(0xFFA855F7), // इमेज के अनुसार वाइब्रेंट पर्पल
+                highlightColor = Color(0xFFA855F7),
                 subtitle = "Build deep study discipline, protect your focus streak, and transform your daily learning journey."
             ),
             WelcomeSlideItem(
                 prefix = "Master your ",
                 highlightWord = "Focus",
-                highlightColor = Color(0xFFEAB308), // ब्राइट गोल्डन
+                highlightColor = Color(0xFFEAB308),
                 subtitle = "Eliminate distractions, enter deep flow states, and accomplish more in every study session."
             ),
             WelcomeSlideItem(
                 prefix = "Master your ",
                 highlightWord = "Time",
-                highlightColor = Color(0xFF38BDF8), // स्काई ब्लू
+                highlightColor = Color(0xFF38BDF8),
                 subtitle = "Track precision sessions with intuitive watches and build unbroken consistency."
             )
         )
@@ -68,7 +74,6 @@ fun WelcomeScreen(
 
     var currentSlideIndex by remember { mutableIntStateOf(0) }
 
-    // ⏱️ हर 3.2 सेकंड में दोनों शब्द एक साथ बदलेंगे
     LaunchedEffect(Unit) {
         while (true) {
             delay(3200L)
@@ -81,9 +86,7 @@ fun WelcomeScreen(
             .fillMaxSize()
             .background(bgColor)
     ) {
-        // ---------------------------------------------------------------------
-        // 1. टॉप इमेज: बिना किसी पैडिंग के सीधे टॉप एज तक (Full Edge-to-Edge)
-        // ---------------------------------------------------------------------
+        // 1. टॉप इमेज: बिना किसी पैडिंग के ऊपर स्टेटस बार तक (Full Edge-to-Edge)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -97,7 +100,6 @@ fun WelcomeScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // नीचे का स्मूथ ग्रेडिएंट फ़ेड: इमेज नीचे आते-आते बैकग्राउंड में मिल जाएगी
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -114,9 +116,7 @@ fun WelcomeScreen(
             )
         }
 
-        // ---------------------------------------------------------------------
         // 2. निचला हिस्सा: टेक्स्ट एनीमेशन और Let's Begin बटन
-        // ---------------------------------------------------------------------
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -127,7 +127,6 @@ fun WelcomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {
-            // 🔄 दोनों शब्द एक साथ ऊपर-नीचे स्लाइड होकर बदलेंगे
             AnimatedContent(
                 targetState = currentSlideIndex,
                 transitionSpec = {
@@ -145,7 +144,6 @@ fun WelcomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // हेडिंग: "Master your" (सॉफ्ट सेमी-बोल्ड) + "Goal" (बोल्ड हाइलाइट)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
@@ -153,7 +151,7 @@ fun WelcomeScreen(
                         Text(
                             text = slide.prefix,
                             fontSize = 30.sp,
-                            fontWeight = FontWeight.SemiBold, // 🟢 कम बोल्डनेस (हल्का और प्रीमियम)
+                            fontWeight = FontWeight.SemiBold,
                             color = Color.White,
                             letterSpacing = (-0.5).sp
                         )
@@ -168,7 +166,6 @@ fun WelcomeScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // सब-टाइटल विवरण
                     Text(
                         text = slide.subtitle,
                         fontSize = 13.5.sp,
@@ -183,9 +180,8 @@ fun WelcomeScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 🚀 मुख्य 'Let's Begin ➔' बटन
             Button(
-                onClick = onGetStarted,
+                onClick = finalAction,
                 colors = ButtonDefaults.buttonColors(containerColor = goldColor),
                 shape = RoundedCornerShape(50),
                 modifier = Modifier
