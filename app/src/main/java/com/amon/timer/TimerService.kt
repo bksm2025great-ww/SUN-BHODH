@@ -430,35 +430,45 @@ class TimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // 1. डायनामिक मोड तय करना (तीनों मोड्स के अनुसार सटीक नाम)
         val modeText = when {
             isStopwatch -> "STOPWATCH"
             originalTimerSeconds == 25 * 60 -> "POMODORO"
-            else -> "TIMER"
+            else -> "FOCUS TIMER"
         }
 
+        // 2. लाइव सब्जेक्ट का नाम
+        val currentSub = if (currentSubjectName.value.isNotBlank()) currentSubjectName.value else "All"
+
         val customLayout = RemoteViews(packageName, R.layout.notification_box).apply {
-            setTextViewText(R.id.notif_mode_tag, modeText)
+            // लाइव मोड और सब्जेक्ट सेट करना
+            setTextViewText(R.id.notif_mode_tag, "⚡ $modeText")
+            setTextViewText(R.id.notif_subject_tag, "Subject • $currentSub")
+
+            // लाइव टाइमर काउंटडाउन
             setChronometer(R.id.notif_timer, chronometerBase, null, !isPaused)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 setChronometerCountDown(R.id.notif_timer, !isStopwatch)
             }
 
-            // 🟢 FIXED: ImageView पर TextView मेथड्स हटाकर सही आइकॉन सेट किया गया
+            // Pause और Resume बटन आइकॉन
             if (isPaused) {
                 setImageViewResource(R.id.btn_notif_pause, android.R.drawable.ic_media_play)
             } else {
                 setImageViewResource(R.id.btn_notif_pause, R.drawable.ic_notif_pause)
             }
 
+            // बटन क्लिक लिसनर्स
             setOnClickPendingIntent(R.id.btn_notif_pause, pauseResumePendingIntent)
             setOnClickPendingIntent(R.id.btn_notif_stop, stopPendingIntent)
-            setOnClickPendingIntent(R.id.notif_logo, openAppPendingIntent)
+            setOnClickPendingIntent(R.id.notif_info_container, openAppPendingIntent)
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle("Amon $modeText")
-            .setContentText(if (isPaused) "Paused" else "Focus session active")
+            // 🟢 FIXED: ऊपर स्टेटस बार और हेडर के लिए आपका नया पारदर्शी Amon लोगो
+            .setSmallIcon(R.drawable.ic_notif_logo)
+            .setContentTitle("Amon • $modeText")
+            .setContentText(if (isPaused) "Paused • $currentSub" else "$currentSub • Session active")
             .setOngoing(true)
             .setContentIntent(openAppPendingIntent)
             .setCustomContentView(customLayout)
