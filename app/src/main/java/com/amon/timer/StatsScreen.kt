@@ -524,7 +524,7 @@ fun StatsScreen() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // 🔥 CURRENT STREAK CARD (Clickable to open Streak Journal)
+                // 🔥 CURRENT STREAK CARD (Clickable to open Streak Journal, 2nd Image wali Flame)
                 SummaryCard(
                     modifier = Modifier
                         .weight(1f)
@@ -541,7 +541,8 @@ fun StatsScreen() {
                         {
                             StreakFlame(
                                 streakDays = streakDaysCount,
-                                modifier = Modifier.size(24.dp)
+                                isLarge = true,
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                     } else null
