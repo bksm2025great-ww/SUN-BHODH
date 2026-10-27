@@ -80,7 +80,6 @@ fun TimerWatchesContainer(
         context.getSharedPreferences("amon_watch_prefs", Context.MODE_PRIVATE)
     }
 
-    // 🛡️ सुरक्षित SharedPreferences लोड (पुराने डेटा के टकराव से ऐप कभी क्रैश नहीं होगा)
     var selectedWatchStyle by rememberSaveable {
         val saved = try {
             watchPrefs.getInt("selected_watch_style", 0)
@@ -362,7 +361,6 @@ private fun ClassicRingWatch(
                 )
             }
 
-            // 🎯 सेंटर टाइम: फोकस आइकॉन हटा दिया गया है, सिर्फ़ क्रिस्प बोल्ड टाइमर रहेगा
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
@@ -999,7 +997,7 @@ private fun SplitFlapHalfPlate(
 }
 
 // =============================================================================
-// 🌟 CUSTOM HORIZONTAL SLIDER (CLEAN DARK-GLASS SURFACE - NO HARSH BORDER)
+// 🌟 CUSTOM HORIZONTAL SLIDER (THEME-ADAPTIVE & BRIGHT WHITE NEEDLE)
 // =============================================================================
 @Composable
 fun CustomHorizontalSlider(
@@ -1008,7 +1006,8 @@ fun CustomHorizontalSlider(
     goldColor: Color,
     cardBg: Color,
     textMain: Color,
-    textMuted: Color
+    textMuted: Color,
+    isDark: Boolean = ThemeManager.isDarkTheme.value
 ) {
     var rawMinutes by remember(dialMinutes) { mutableFloatStateOf(dialMinutes.coerceIn(5f, 180f)) }
 
@@ -1018,7 +1017,8 @@ fun CustomHorizontalSlider(
             .fillMaxWidth()
             .height(54.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF13131A))
+            .background(if (isDark) Color(0xFF13131A) else Color(0xFFF1F5F9))
+            .border(1.dp, if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1), RoundedCornerShape(14.dp))
             .pointerInput(Unit) {
                 val spacing = 22.dp.toPx()
                 detectHorizontalDragGestures(
@@ -1069,10 +1069,13 @@ fun CustomHorizontalSlider(
                         isMajor15 -> 1.8.dp.toPx()
                         else -> 1.2.dp.toPx()
                     }
-                    val tickColor = if (isMajor30 || isMajor15) {
-                        textMain.copy(alpha = alpha * 0.9f)
+
+                    val tickColor = if (isDark) {
+                        if (isMajor30 || isMajor15) textMain.copy(alpha = alpha * 0.9f)
+                        else textMuted.copy(alpha = alpha * 0.6f)
                     } else {
-                        textMuted.copy(alpha = alpha * 0.6f)
+                        if (isMajor30 || isMajor15) Color(0xFF64748B).copy(alpha = alpha * 0.9f)
+                        else Color(0xFF94A3B8).copy(alpha = alpha * 0.65f)
                     }
 
                     drawLine(
@@ -1088,15 +1091,21 @@ fun CustomHorizontalSlider(
 
         Box(
             modifier = Modifier
-                .width(3.2.dp)
-                .height(30.dp)
+                .width(3.5.dp)
+                .height(32.dp)
                 .shadow(
-                    elevation = 8.dp,
+                    elevation = 6.dp,
                     shape = RoundedCornerShape(2.dp),
-                    spotColor = goldColor,
-                    ambientColor = goldColor
+                    spotColor = if (isDark) Color.White.copy(alpha = 0.5f) else Color(0x55000000),
+                    ambientColor = if (isDark) Color.White.copy(alpha = 0.3f) else Color(0x33000000)
                 )
-                .background(goldColor, RoundedCornerShape(2.dp))
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color.White)
+                .border(
+                    width = if (isDark) 0.5.dp else 1.dp,
+                    color = if (isDark) Color(0x44FFFFFF) else Color(0x33000000),
+                    shape = RoundedCornerShape(2.dp)
+                )
         )
     }
 }
