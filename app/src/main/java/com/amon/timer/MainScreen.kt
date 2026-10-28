@@ -84,7 +84,6 @@ fun MainScreen() {
             ThemeManager.loadTheme(context)
             TimerService.syncRemainingTime(context)
 
-            // Agar stopwatch pehle se background service me chal rahi thi
             if (TimerService.originalTimerSeconds == 0 && (TimerService.isTimerRunning.value || TimerService.isTimerPaused.value)) {
                 isStopwatchFocusActive = true
                 isStopwatchRunning = TimerService.isTimerRunning.value
@@ -99,7 +98,6 @@ fun MainScreen() {
         } catch (_: Exception) {}
     }
 
-    // 🔔 Sync if user taps Pause / Resume / Stop in notification bar
     LaunchedEffect(isRunning, isPaused) {
         val isStopwatchService = (TimerService.originalTimerSeconds == 0)
         if (isStopwatchFocusActive && isStopwatchService) {
@@ -406,7 +404,6 @@ fun PomodoroSessionTracker(
                 val isCurrent = i == currentSessionIndex
                 val isUpcoming = i > currentSessionIndex
 
-                // 🔴 1. BADA GOLA (Focus Session)
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.size(20.dp)
@@ -455,7 +452,6 @@ fun PomodoroSessionTracker(
                     }
                 }
 
-                // ⚪ 2. CHHOTA GOLA (Break Session)
                 if (i < totalSessions) {
                     val isBreakCurrent = (i == currentSessionIndex && isBreakActive)
                     val isBreakDone = (i < currentSessionIndex)
@@ -533,7 +529,6 @@ fun HomeTimerTab(
 
     var selectedFocusMode by rememberSaveable { mutableIntStateOf(0) }
 
-    // 🎯 Pomodoro Settings States
     var pomodoroFocusMinutes by rememberSaveable { mutableIntStateOf(25) }
     var pomodoroShortBreakMinutes by rememberSaveable { mutableIntStateOf(5) }
     var pomodoroLongBreakMinutes by rememberSaveable { mutableIntStateOf(15) }
@@ -541,7 +536,6 @@ fun HomeTimerTab(
     var pomodoroAutoStartBreak by rememberSaveable { mutableStateOf(false) }
     var pomodoroAutoStartFocus by rememberSaveable { mutableStateOf(false) }
 
-    // 📋 Bottom Sheet Triggers
     var showPomodoroSettingsSheet by remember { mutableStateOf(false) }
     var showCustomTimerSheet by remember { mutableStateOf(false) }
 
@@ -686,11 +680,11 @@ fun HomeTimerTab(
                     .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 1. TOP HEADER (40DP STREAK FLAME - NO CLIPPING)
+                // 1. TOP HEADER (SLIM & BALANCED STREAK PILL)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .wrapContentHeight(),
+                        .height(38.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -705,24 +699,25 @@ fun HomeTimerTab(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
+                            .height(32.dp)
                             .clip(RoundedCornerShape(50))
                             .background(if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9))
                             .border(1.dp, glassBorder, RoundedCornerShape(50))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .padding(horizontal = 10.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             StreakFlame(
                                 streakDays = streakDays,
                                 isLarge = false,
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                             Text(
                                 text = "$streakDays Days",
                                 color = if (streakDays > 0) Color(0xFFFB923C) else textMuted,
-                                fontSize = 12.sp,
+                                fontSize = 11.5.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
                         }
@@ -1061,7 +1056,7 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 6. MAIN START BUTTON (STOPWATCH NOTIFICATION INTEGRATION)
+                // 6. MAIN START BUTTON
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -1074,7 +1069,6 @@ fun HomeTimerTab(
                         .clickable {
                             if (selectedFocusMode == 1) {
                                 onStartStopwatch()
-                                // 🟢 Start TimerService with 0 seconds for Live Stopwatch Notification
                                 val intent = Intent(context, TimerService::class.java).apply {
                                     action = TimerService.ACTION_START
                                     putExtra(TimerService.EXTRA_SECONDS, 0)
@@ -1399,7 +1393,6 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // Running Dial
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -1510,7 +1503,7 @@ fun HomeTimerTab(
                                         .clip(CircleShape)
                                         .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
                                         .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                        .clickable { showGiveUpDialog = true }
+                                    .clickable { showGiveUpDialog = true }
                                 ) {
                                     Box(
                                         modifier = Modifier
@@ -1628,13 +1621,7 @@ fun HomeTimerTab(
                                         Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
                                     }
                                 } else {
-                                    Text(
-                                        text = "▶",
-                                        color = textMain,
-                                        fontSize = 17.sp,
-                                        fontWeight = FontWeight.Black,
-                                        modifier = Modifier.offset(x = 1.2.dp)
-                                    )
+                                    Text(text = "▶", color = textMain, fontSize = 17.sp, fontWeight = FontWeight.Black)
                                 }
                             }
 
@@ -1945,14 +1932,12 @@ fun HomeTimerTab(
                                     .clickable {
                                         showGiveUpDialog = false
                                         if (isStopwatchFocusActive) {
-                                            // 🛑 STOPWATCH SAVE & FINISH:
                                             val elapsedMins = (stopwatchElapsedMillis / 60000).toInt()
                                             val intent = Intent(context, TimerService::class.java).apply {
                                                 action = TimerService.ACTION_STOP
                                             }
                                             context.startService(intent)
 
-                                            // 5+ mins study time saved in memory & streak
                                             if (elapsedMins >= 5) {
                                                 val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                                                 val session = FocusSession(
@@ -2501,9 +2486,6 @@ fun CustomTimerBottomSheet(
     }
 }
 
-// -----------------------------------------------------------------------------
-// 🔥 HELPER DATA CLASS FOR TABS
-// -----------------------------------------------------------------------------
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 // =============================================================================
@@ -2590,323 +2572,6 @@ fun WhatsNewDialog(
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.Black
                     )
-                }
-            }
-        }
-    }
-}
-
-// =============================================================================
-// 🟢 4. SIMPLE VECTOR ICON COMPOSABLE (UPDATED: 3-PERSON CIRCLE & 4-BAR STATS)
-// =============================================================================
-@Composable
-fun SimpleNavIcon(
-    index: Int,
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    when (index) {
-        0 -> {
-            Icon(
-                imageVector = Icons.Default.Home,
-                contentDescription = "Home",
-                tint = tint,
-                modifier = modifier
-            )
-        }
-        1 -> {
-            // 🟢 Circle / Focus Groups: 3 People Connected in a Loop
-            Canvas(modifier = modifier) {
-                val w = size.width
-                val h = size.height
-                val cx = w / 2f
-                val cy = h / 2f
-
-                val ringRadius = w * 0.32f
-                val strokeW = 1.8.dp.toPx()
-
-                val arcRectTopLeft = Offset(cx - ringRadius, cy - ringRadius)
-                val arcRectSize = Size(ringRadius * 2f, ringRadius * 2f)
-
-                // 1. Connecting Arcs
-                drawArc(
-                    color = tint.copy(alpha = 0.8f),
-                    startAngle = 230f,
-                    sweepAngle = 80f,
-                    useCenter = false,
-                    topLeft = arcRectTopLeft,
-                    size = arcRectSize,
-                    style = Stroke(width = strokeW, cap = StrokeCap.Round)
-                )
-
-                drawArc(
-                    color = tint.copy(alpha = 0.8f),
-                    startAngle = 350f,
-                    sweepAngle = 80f,
-                    useCenter = false,
-                    topLeft = arcRectTopLeft,
-                    size = arcRectSize,
-                    style = Stroke(width = strokeW, cap = StrokeCap.Round)
-                )
-
-                drawArc(
-                    color = tint.copy(alpha = 0.8f),
-                    startAngle = 110f,
-                    sweepAngle = 80f,
-                    useCenter = false,
-                    topLeft = arcRectTopLeft,
-                    size = arcRectSize,
-                    style = Stroke(width = strokeW, cap = StrokeCap.Round)
-                )
-
-                // 2. 3 Members (Solid Heads & Shoulder Domes)
-                val headR = w * 0.085f
-                val bodyW = w * 0.22f
-                val bodyH = h * 0.14f
-
-                val positions = listOf(
-                    Offset(cx - ringRadius * 0.866f, cy - ringRadius * 0.45f), // Top-Left
-                    Offset(cx + ringRadius * 0.866f, cy - ringRadius * 0.45f), // Top-Right
-                    Offset(cx, cy + ringRadius * 0.95f)                        // Bottom-Center
-                )
-
-                positions.forEach { p ->
-                    // Head
-                    drawCircle(
-                        color = tint,
-                        radius = headR,
-                        center = Offset(p.x, p.y - headR * 1.1f)
-                    )
-
-                    // Shoulders Dome
-                    drawArc(
-                        color = tint,
-                        startAngle = 180f,
-                        sweepAngle = 180f,
-                        useCenter = true,
-                        topLeft = Offset(p.x - bodyW / 2f, p.y - bodyH * 0.15f),
-                        size = Size(bodyW, bodyH)
-                    )
-                }
-            }
-        }
-        2 -> {
-            // 🟢 New Stats Icon: 4 Growth Bars with Rising Trend Arrow
-            Canvas(modifier = modifier) {
-                val w = size.width
-                val h = size.height
-
-                // 1. Baseline
-                val baseStroke = 1.8.dp.toPx()
-                drawLine(
-                    color = tint,
-                    start = Offset(w * 0.08f, h * 0.90f),
-                    end = Offset(w * 0.92f, h * 0.90f),
-                    strokeWidth = baseStroke,
-                    cap = StrokeCap.Round
-                )
-
-                // 2. 4 Solid Growth Bars
-                val barW = w * 0.13f
-                val barCorner = CornerRadius(2.dp.toPx(), 2.dp.toPx())
-                val barHeights = listOf(0.24f, 0.40f, 0.56f, 0.72f)
-                val barXStarts = listOf(0.13f, 0.33f, 0.53f, 0.73f)
-
-                barHeights.forEachIndexed { i, heightRatio ->
-                    val barH = h * heightRatio
-                    drawRoundRect(
-                        color = tint,
-                        topLeft = Offset(w * barXStarts[i], h * 0.90f - barH),
-                        size = Size(barW, barH),
-                        cornerRadius = barCorner
-                    )
-                }
-
-                // 3. Curved Rising Arrow
-                val arrowStroke = 2.4.dp.toPx()
-                val arrowCurvePath = Path().apply {
-                    moveTo(w * 0.08f, h * 0.62f)
-                    cubicTo(
-                        w * 0.35f, h * 0.60f,
-                        w * 0.60f, h * 0.45f,
-                        w * 0.86f, h * 0.15f
-                    )
-                }
-                drawPath(
-                    path = arrowCurvePath,
-                    color = tint,
-                    style = Stroke(width = arrowStroke, cap = StrokeCap.Round)
-                )
-
-                // 4. Arrow Head
-                val arrowHeadPath = Path().apply {
-                    moveTo(w * 0.62f, h * 0.18f)
-                    lineTo(w * 0.88f, h * 0.14f)
-                    lineTo(w * 0.84f, h * 0.40f)
-                }
-                drawPath(
-                    path = arrowHeadPath,
-                    color = tint,
-                    style = Stroke(width = arrowStroke, cap = StrokeCap.Round)
-                )
-            }
-        }
-        3 -> {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = "Profile",
-                tint = tint,
-                modifier = modifier
-            )
-        }
-    }
-}
-
-// =============================================================================
-// 🟢 5. CURVED BOTTOM BAR
-// =============================================================================
-@Composable
-fun AmonCurvedBottomBar(
-    selectedIndex: Int,
-    onTabSelected: (Int) -> Unit,
-    isDark: Boolean,
-    goldColor: Color,
-    cardBg: Color,
-    borderCol: Color,
-    hasNewUpdate: Boolean = false
-) {
-    val tabTitles = listOf("Home", "Circle", "Stats", "Profile")
-
-    val animatedIndex by animateFloatAsState(
-        targetValue = selectedIndex.toFloat(),
-        animationSpec = tween(durationMillis = 200),
-        label = "notch_slide"
-    )
-
-    val inactiveColor = Color(0xFF9CA3AF)
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(84.dp)
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val barHeight = 64.dp.toPx()
-            val startY = size.height - barHeight
-            val tabWidth = size.width / 4f
-
-            val notchCenterX = (animatedIndex + 0.5f) * tabWidth
-            val notchRadius = 34.dp.toPx()
-            val shoulderWidth = 14.dp.toPx()
-
-            val path = Path().apply {
-                moveTo(0f, startY)
-                val left = notchCenterX - notchRadius
-                val right = notchCenterX + notchRadius
-
-                lineTo(left - shoulderWidth, startY)
-                cubicTo(left, startY, left, startY + notchRadius * 0.95f, notchCenterX, startY + notchRadius * 0.95f)
-                cubicTo(right, startY + notchRadius * 0.95f, right, startY, right + shoulderWidth, startY)
-
-                lineTo(size.width, startY)
-                lineTo(size.width, size.height)
-                lineTo(0f, size.height)
-                close()
-            }
-
-            drawPath(path = path, color = cardBg)
-            drawPath(path = path, color = borderCol, style = Stroke(width = 1.2.dp.toPx()))
-        }
-
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val tabWidth = maxWidth / 4
-            val bubbleSize = 54.dp
-            val bubbleX = (tabWidth * animatedIndex) + (tabWidth / 2) - (bubbleSize / 2)
-
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .offset(x = bubbleX, y = 2.dp)
-                    .size(bubbleSize)
-                    .clip(CircleShape)
-                    .background(if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC))
-                    .border(2.6.dp, goldColor, CircleShape)
-            ) {
-                Box(contentAlignment = Alignment.TopEnd) {
-                    SimpleNavIcon(
-                        index = selectedIndex,
-                        tint = goldColor,
-                        modifier = Modifier.size(26.dp)
-                    )
-
-                    if (hasNewUpdate && selectedIndex == 3) {
-                        Box(
-                            modifier = Modifier
-                                .offset(x = 2.dp, y = (-2).dp)
-                                .size(9.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF10B981))
-                                .border(1.5.dp, if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC), CircleShape)
-                        )
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .height(64.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                tabTitles.forEachIndexed { index, title ->
-                    val isSelected = index == selectedIndex
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clickable { onTabSelected(index) }
-                            .padding(top = 4.dp)
-                    ) {
-                        if (!isSelected) {
-                            Box(contentAlignment = Alignment.TopEnd) {
-                                SimpleNavIcon(
-                                    index = index,
-                                    tint = inactiveColor,
-                                    modifier = Modifier.size(22.dp)
-                                )
-
-                                if (hasNewUpdate && index == 3) {
-                                    Box(
-                                        modifier = Modifier
-                                            .offset(x = 3.dp, y = (-2).dp)
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFF10B981))
-                                            .border(1.dp, cardBg, CircleShape)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = title,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = inactiveColor
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.height(26.dp))
-                            Text(
-                                text = title,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = goldColor
-                            )
-                        }
-                    }
                 }
             }
         }
