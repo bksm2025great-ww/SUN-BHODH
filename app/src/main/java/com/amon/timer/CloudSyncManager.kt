@@ -11,18 +11,20 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 object CloudSyncManager {
 
     private const val TAG = "CloudSyncManager"
     private val client = OkHttpClient()
-private const val SUPABASE_URL = https://mgenghztpcqaqaepvevw.supabase.co
-    private const val SUPABASE_KEY = sb_publishable_flD-UULZ2YGzMrVLw2QHoA_7cXEg7FX
+    private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+
+    // 🔐 Supabase कनेक्शन की चाबियाँ (हमेशा "" के अंदर)
+    private const val SUPABASE_URL = "https://mgenghztpcqaqaepvevw.supabase.co"
+    private const val SUPABASE_KEY = "यहाँ_अपनी_KEY_पेस्ट_करें"
+
     /**
      * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम दर्ज करना
      */
@@ -69,7 +71,8 @@ private const val SUPABASE_URL = https://mgenghztpcqaqaepvevw.supabase.co
             }
         })
     }
-   /**
+
+    /**
      * ⏱️ 2. पढ़ाई पूरी होने पर डेटा Supabase के study_sessions रजिस्टर में भेजना
      */
     fun syncSession(
@@ -115,7 +118,8 @@ private const val SUPABASE_URL = https://mgenghztpcqaqaepvevw.supabase.co
             }
         })
     }
-/**
+
+    /**
      * 📥 3. Supabase से पढ़ाई का पूरा हिसाब वापस मंगाना (GET)
      */
     suspend fun fetchSessions(context: Context): List<FocusSession> = withContext(Dispatchers.IO) {
@@ -134,7 +138,7 @@ private const val SUPABASE_URL = https://mgenghztpcqaqaepvevw.supabase.co
             val responseText = response.body?.string().orEmpty()
 
             if (responseText.isNotBlank()) {
-                val sessionsArray = org.json.JSONArray(responseText)
+                val sessionsArray = JSONArray(responseText)
                 val resultList = mutableListOf<FocusSession>()
 
                 for (i in 0 until sessionsArray.length()) {
@@ -145,7 +149,7 @@ private const val SUPABASE_URL = https://mgenghztpcqaqaepvevw.supabase.co
                             date = item.optString("session_date", ""),
                             subject = item.optString("subject", "General"),
                             durationMinutes = item.optInt("duration_minutes", 0),
-                            earnedTrees = 0 // पेड़ों का झंझट खत्म
+                            earnedTrees = 0
                         )
                     )
                 }
@@ -157,3 +161,4 @@ private const val SUPABASE_URL = https://mgenghztpcqaqaepvevw.supabase.co
 
         return@withContext emptyList()
     }
+}
