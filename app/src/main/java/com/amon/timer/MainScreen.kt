@@ -73,7 +73,6 @@ fun MainScreen() {
     var stopwatchAccumulatedMillis by rememberSaveable { mutableStateOf(0L) }
     var stopwatchElapsedMillis by rememberSaveable { mutableStateOf(0L) }
 
-    // 🔄 Sync on Start / Restore
     LaunchedEffect(Unit) {
         try {
             ThemeManager.loadTheme(context)
@@ -137,7 +136,7 @@ fun MainScreen() {
         } catch (_: Exception) {}
     }
 
-    val onDirectEndSession = {
+    val onDirectEndSession: () -> Unit = {
         if (isStopwatchFocusActive) {
             val elapsedMins = (stopwatchElapsedMillis / 60000).toInt()
             val intent = Intent(context, TimerService::class.java).apply {
@@ -320,9 +319,6 @@ fun MainScreen() {
     }
 }
 
-// =============================================================================
-// ☕ CLEAN CANVASS TEA / BREAK ICON
-// =============================================================================
 @Composable
 fun CleanTeaCupIcon(
     tint: Color,
@@ -356,9 +352,6 @@ fun CleanTeaCupIcon(
     }
 }
 
-// =============================================================================
-// 🎚️ 2 LINES + 2 DOTS PREFERENCE ICON
-// =============================================================================
 @Composable
 fun SlidersPreferenceIcon(
     tint: Color,
@@ -397,9 +390,6 @@ fun SlidersPreferenceIcon(
     }
 }
 
-// =============================================================================
-// 🟢 1. HOME TAB (CLEAN LAYOUT WITH MODULAR POMODORO & STOPWATCH)
-// =============================================================================
 @Composable
 fun HomeTimerTab(
     context: Context,
@@ -552,12 +542,11 @@ fun HomeTimerTab(
         }
     }
 
-    // 🟢 ACTIONS: Break & Resume Flow (360° Arc Fix Included)
-    val onTriggerBreak = {
+    val onTriggerBreak: () -> Unit = {
         isBreakActive = true
         val breakMins = if (currentSessionIndex >= pomodoroTotalSessions) pomodoroLongBreakMinutes else pomodoroShortBreakMinutes
         val breakSecs = breakMins * 60
-        initialTotalSeconds = breakSecs // 🟢 360° Ring Fix: Total seconds ko 300s banaya taaki full circle start ho
+        initialTotalSeconds = breakSecs
         val intent = Intent(context, TimerService::class.java).apply {
             action = TimerService.ACTION_START
             putExtra(TimerService.EXTRA_SECONDS, breakSecs)
@@ -566,11 +555,11 @@ fun HomeTimerTab(
         context.startService(intent)
     }
 
-    val onResumeFocusFromBreakAction = {
+    val onResumeFocusFromBreakAction: () -> Unit = {
         isBreakActive = false
         currentSessionIndex = if (currentSessionIndex >= pomodoroTotalSessions) 1 else currentSessionIndex + 1
         val targetSecs = if (selectedFocusMode == 2) pomodoroFocusMinutes * 60 else (dialMinutes.toInt() * 60)
-        initialTotalSeconds = if (targetSecs > 0) targetSecs else 1500 // 🟢 Wapas focus time par ring scale set
+        initialTotalSeconds = if (targetSecs > 0) targetSecs else 1500
         val intent = Intent(context, TimerService::class.java).apply {
             action = TimerService.ACTION_START
             putExtra(TimerService.EXTRA_SECONDS, initialTotalSeconds)
@@ -588,7 +577,6 @@ fun HomeTimerTab(
                     .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 1. TOP HEADER (SLIM & BALANCED 32DP STREAK PILL)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -634,7 +622,6 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 2. DYNAMIC SUBJECT RIBBON
                 Box(modifier = Modifier.fillMaxWidth().height(38.dp)) {
                     LazyRow(
                         modifier = Modifier.fillMaxSize(),
@@ -704,7 +691,6 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 3. SLEEK MODE SELECTOR CAPSULE
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -745,7 +731,6 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 🍅 POMODORO SESSION TRACKER (Modular from PomodoroStopwatch.kt)
                 if (selectedFocusMode == 2) {
                     PomodoroSessionTracker(
                         totalSessions = pomodoroTotalSessions,
@@ -759,7 +744,6 @@ fun HomeTimerTab(
                     Spacer(modifier = Modifier.height(6.dp))
                 }
 
-                // 4. CENTER STAGE: WATCH / STOPWATCH
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -817,7 +801,6 @@ fun HomeTimerTab(
                     }
                 }
 
-                // 5. SUB-CONTROL SLOT
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -940,7 +923,6 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 6. MAIN START BUTTON
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -999,36 +981,226 @@ fun HomeTimerTab(
                 }
             }
         } else {
-            // 🎯 MASTER FOCUS SCREEN
             if (isStopwatchFocusActive) {
-                StopwatchFocusScreen(
-                    isLandscape = isLandscape,
-                    selectedSubjectName = selectedSubjectName,
-                    swMainTime = swMainTime,
-                    swMilliText = swMilliText,
-                    isStopwatchRunning = isStopwatchRunning,
-                    goldColor = goldColor,
-                    textMain = textMain,
-                    textMuted = textMuted,
-                    glassBorder = glassBorder,
-                    isDark = isDark,
-                    onTogglePlayPause = {
-                        if (isStopwatchRunning) {
-                            onPauseStopwatch()
-                            val intent = Intent(context, TimerService::class.java).apply {
-                                action = TimerService.ACTION_PAUSE
-                            }
-                            context.startService(intent)
-                        } else {
-                            onResumeStopwatch()
-                            val intent = Intent(context, TimerService::class.java).apply {
-                                action = TimerService.ACTION_RESUME
-                            }
-                            context.startService(intent)
+                if (!isLandscape) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 22.dp, bottom = 48.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.5.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF22C55E))
+                            )
+                            Text(
+                                text = "$selectedSubjectName • Stopwatch",
+                                color = textMain,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
                         }
-                    },
-                    onGiveUpClick = { onEndSessionDirect() }
-                )
+
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = swMainTime,
+                                color = textMain,
+                                fontSize = 52.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = (-1).sp
+                            )
+                            Text(
+                                text = swMilliText,
+                                color = goldColor,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                        }
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(58.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                    .clickable {
+                                        if (isStopwatchRunning) {
+                                            onPauseStopwatch()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_PAUSE
+                                            }
+                                            context.startService(intent)
+                                        } else {
+                                            onResumeStopwatch()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            }
+                                            context.startService(intent)
+                                        }
+                                    }
+                            ) {
+                                if (isStopwatchRunning) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Box(modifier = Modifier.width(3.2.dp).height(16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                        Box(modifier = Modifier.width(3.2.dp).height(16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                    }
+                                } else {
+                                    Text(
+                                        text = "▶",
+                                        color = textMain,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Black,
+                                        modifier = Modifier.offset(x = 1.5.dp)
+                                    )
+                                }
+                            }
+
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(58.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                    .clickable { onDirectEndSession() }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(textMuted)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .fillMaxHeight(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$selectedSubjectName • Stopwatch",
+                                color = textMain,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = swMainTime,
+                                    color = textMain,
+                                    fontSize = 64.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Text(
+                                    text = swMilliText,
+                                    color = goldColor,
+                                    fontSize = 32.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(bottom = 6.dp)
+                                )
+                            }
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                    .clickable {
+                                        if (isStopwatchRunning) {
+                                            onPauseStopwatch()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_PAUSE
+                                            }
+                                            context.startService(intent)
+                                        } else {
+                                            onResumeStopwatch()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            }
+                                            context.startService(intent)
+                                        }
+                                    }
+                            ) {
+                                if (isStopwatchRunning) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
+                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                    }
+                                } else {
+                                    Text(text = "▶", color = textMain, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(18.dp))
+
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                    .clickable { onDirectEndSession() }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(15.dp)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(textMuted)
+                                )
+                            }
+                        }
+                    }
+                }
             } else {
                 if (!isLandscape) {
                     Column(
@@ -1088,7 +1260,6 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // Dial Container (Break hone par glow band, calm mode)
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -1121,7 +1292,6 @@ fun HomeTimerTab(
                             )
                         }
 
-                        // 🎯 ADAPTIVE CONTROLS (PORTRAIT)
                         PomodoroFocusControls(
                             isRunning = isRunning,
                             isPaused = isPaused,
@@ -1144,16 +1314,15 @@ fun HomeTimerTab(
                                 }
                                 context.startService(intent)
                             },
-                            onSwitchToBreakClick = onTriggerBreak,
-                            onResumeFocusFromBreak = onResumeFocusFromBreakAction,
+                            onSwitchToBreakClick = { onTriggerBreak() },
+                            onResumeFocusFromBreak = { onResumeFocusFromBreakAction() },
                             onEndSessionClick = {
                                 isBreakActive = false
-                                onEndSessionDirect()
+                                onDirectEndSession()
                             }
                         )
                     }
                 } else {
-                    // 🎯 LANDSCAPE MODE (Full Adaptive Side-Panel)
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -1222,7 +1391,6 @@ fun HomeTimerTab(
                             )
                         }
 
-                        // 🟢 LANDSCAPE ADAPTIVE RIGHT CONTROLS
                         Column(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
@@ -1233,7 +1401,7 @@ fun HomeTimerTab(
                             when {
                                 isBreakActive -> {
                                     Button(
-                                        onClick = onResumeFocusFromBreakAction,
+                                        onClick = { onResumeFocusFromBreakAction() },
                                         colors = ButtonDefaults.buttonColors(containerColor = goldColor),
                                         shape = RoundedCornerShape(50),
                                         modifier = Modifier.height(42.dp)
@@ -1244,7 +1412,7 @@ fun HomeTimerTab(
                                     OutlinedButton(
                                         onClick = {
                                             isBreakActive = false
-                                            onEndSessionDirect()
+                                            onDirectEndSession()
                                         },
                                         shape = RoundedCornerShape(50),
                                         border = BorderStroke(1.dp, glassBorder),
@@ -1278,7 +1446,7 @@ fun HomeTimerTab(
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     OutlinedButton(
-                                        onClick = { onEndSessionDirect() },
+                                        onClick = { onDirectEndSession() },
                                         shape = RoundedCornerShape(50),
                                         border = BorderStroke(1.dp, glassBorder),
                                         modifier = Modifier.height(38.dp)
@@ -1303,7 +1471,7 @@ fun HomeTimerTab(
                                     }
                                     Spacer(modifier = Modifier.height(10.dp))
                                     OutlinedButton(
-                                        onClick = { onEndSessionDirect() },
+                                        onClick = { onDirectEndSession() },
                                         shape = RoundedCornerShape(50),
                                         border = BorderStroke(1.dp, glassBorder),
                                         modifier = Modifier.height(38.dp)
@@ -1318,7 +1486,6 @@ fun HomeTimerTab(
             }
         }
 
-        // 🍅 POMODORO SETTINGS MODAL BOTTOM SHEET (Modular from PomodoroStopwatch.kt)
         if (showPomodoroSettingsSheet) {
             PomodoroSettingsBottomSheet(
                 isDark = isDark,
@@ -1343,9 +1510,6 @@ fun HomeTimerTab(
             )
         }
 
-        // =====================================================================
-        // ⏱️ 2. CUSTOM TIMER BOTTOM SHEET (FOR TIMER MODE)
-        // =====================================================================
         if (showCustomTimerSheet) {
             CustomTimerBottomSheet(
                 dialMinutes = dialMinutes,
@@ -1365,7 +1529,6 @@ fun HomeTimerTab(
             )
         }
 
-        // POPUPS (MANAGE SUBJECTS)
         if (showAddDialog) {
             Dialog(onDismissRequest = {
                 showAddDialog = false
@@ -1552,9 +1715,6 @@ fun HomeTimerTab(
     }
 }
 
-// =============================================================================
-// ⏱️ CUSTOM TIMER BOTTOM SHEET (FOR TIMER MODE)
-// =============================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomTimerBottomSheet(
@@ -1644,9 +1804,6 @@ fun CustomTimerBottomSheet(
     }
 }
 
-// =============================================================================
-// 🔥 2. ANIMATED LIVING FLAME ICON
-// =============================================================================
 @Composable
 fun AnimatedLivingFlame(modifier: Modifier = Modifier) {
     StreakFlame(
@@ -1656,9 +1813,6 @@ fun AnimatedLivingFlame(modifier: Modifier = Modifier) {
     )
 }
 
-// =============================================================================
-// ✨ 3. WHAT'S NEW DIALOG
-// =============================================================================
 @Composable
 fun WhatsNewDialog(
     versionName: String,
@@ -1734,9 +1888,6 @@ fun WhatsNewDialog(
     }
 }
 
-// -----------------------------------------------------------------------------
-// 🔥 4. STREAK CALCULATOR
-// -----------------------------------------------------------------------------
 fun calculateStreakDays(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
     val dayMinutesMap = mutableMapOf<String, Int>()
