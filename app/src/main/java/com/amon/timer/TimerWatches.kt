@@ -1,19 +1,29 @@
 package com.amon.timer
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.os.Build
+import android.os.SystemClock
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -21,771 +31,1682 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import kotlin.math.*
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.*
 
-/**
- * 👑 AMON CENTRAL WATCH CONTAINER
- * तीनों घड़ियों को एक ही मॉड्यूलर हब में कंट्रोल करता है
- */
 @Composable
-fun TimerWatchesContainer(
-    dialMinutes: Float,
-    onDialMinutesChange: (Float) -> Unit,
-    totalSeconds: Int,
-    initialTotalSeconds: Int,
-    isRunning: Boolean,
-    isCustomMode: Boolean,
-    onCustomModeToggle: () -> Unit,
+fun MainScreen() {
+    val context = LocalContext.current
+    val view = LocalView.current
+    val activity = context as? Activity
+    var currentNavIndex by remember { mutableIntStateOf(0) }
+
+    val isDark = ThemeManager.isDarkTheme.value
+    val isRunning = TimerService.isTimerRunning.value
+    val isPaused = TimerService.isTimerPaused.value
+
+    var isStopwatchRunning by rememberSaveable { mutableStateOf(false) }
+    var isStopwatchFocusActive by rememberSaveable { mutableStateOf(false) }
+    var stopwatchBaseTime by rememberSaveable { mutableStateOf(0L) }
+    var stopwatchAccumulatedMillis by rememberSaveable { mutableStateOf(0L) }
+    var stopwatchElapsedMillis by rememberSaveable { mutableStateOf(0L) }
+
+    LaunchedEffect(Unit) {
+        try {
+            ThemeManager.loadTheme(context)
+            TimerService.syncRemainingTime(context)
+
+            if (TimerService.originalTimerSeconds == 0 && (TimerService.isTimerRunning.value || TimerService.isTimerPaused.value)) {
+                isStopwatchFocusActive = true
+                isStopwatchRunning = TimerService.isTimerRunning.value
+                stopwatchAccumulatedMillis = TimerService.accumulatedActiveMillis
+                stopwatchBaseTime = TimerService.sessionResumeElapsedRealtime
+                if (isStopwatchRunning && stopwatchBaseTime > 0L) {
+                    stopwatchElapsedMillis = stopwatchAccumulatedMillis + (SystemClock.elapsedRealtime() - stopwatchBaseTime)
+                } else {
+                    stopwatchElapsedMillis = stopwatchAccumulatedMillis
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    LaunchedEffect(isRunning, isPaused) {
+        val isStopwatchService = (TimerService.originalTimerSeconds == 0)
+        if (isStopwatchFocusActive && isStopwatchService) {
+            if (!isRunning && !isPaused) {
+                isStopwatchRunning = false
+                isStopwatchFocusActive = false
+                stopwatchAccumulatedMillis = 0L
+                stopwatchElapsedMillis = 0L
+            } else if (isPaused && isStopwatchRunning) {
+                isStopwatchRunning = false
+                stopwatchAccumulatedMillis = stopwatchElapsedMillis
+            } else if (isRunning && !isStopwatchRunning) {
+                stopwatchBaseTime = SystemClock.elapsedRealtime()
+                isStopwatchRunning = true
+            }
+        }
+    }
+
+    LaunchedEffect(isStopwatchRunning) {
+        if (isStopwatchRunning) {
+            stopwatchBaseTime = SystemClock.elapsedRealtime()
+            while (isStopwatchRunning) {
+                val now = SystemClock.elapsedRealtime()
+                stopwatchElapsedMillis = stopwatchAccumulatedMillis + (now - stopwatchBaseTime)
+                delay(30)
+            }
+        }
+    }
+
+    val isTimerFocusActive = isRunning || isPaused
+    val isFocusActive = isTimerFocusActive || isStopwatchFocusActive
+
+    val updateManager = remember { UpdateManager(context) }
+    var hasNewUpdate by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val updateInfo = updateManager.checkLatestUpdate()
+            if (updateInfo.hasUpdate) {
+                hasNewUpdate = true
+            }
+        } catch (_: Exception) {}
+    }
+
+    val onDirectEndSession: () -> Unit = {
+        if (isStopwatchFocusActive) {
+            val elapsedMins = (stopwatchElapsedMillis / 60000).toInt()
+            val intent = Intent(context, TimerService::class.java).apply {
+                action = TimerService.ACTION_STOP
+            }
+            context.startService(intent)
+
+            if (elapsedMins >= 5) {
+                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                val session = FocusSession(
+                    id = System.currentTimeMillis(),
+                    date = sdf.format(Date()),
+                    subject = "General",
+                    durationMinutes = elapsedMins,
+                    earnedTrees = when {
+                        elapsedMins >= 105 -> 4
+                        elapsedMins >= 75 -> 3
+                        elapsedMins >= 45 -> 2
+                        elapsedMins >= 15 -> 1
+                        else -> 0
+                    }
+                )
+                FocusSessionManager.saveSession(context, session)
+            }
+            isStopwatchRunning = false
+            isStopwatchFocusActive = false
+            stopwatchAccumulatedMillis = 0L
+            stopwatchElapsedMillis = 0L
+        } else {
+            val intent = Intent(context, TimerService::class.java).apply {
+                action = TimerService.ACTION_STOP
+            }
+            context.startService(intent)
+        }
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    }
+
+    DisposableEffect(isFocusActive) {
+        val window = activity?.window
+        if (window != null) {
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            if (isFocusActive) {
+                insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                insetsController.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+            } else {
+                insetsController.show(WindowInsetsCompat.Type.systemBars())
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+        }
+        onDispose {
+            activity?.window?.let { win ->
+                WindowCompat.getInsetsController(win, view).show(WindowInsetsCompat.Type.systemBars())
+            }
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    val bgColor = ThemeManager.getBackgroundColor()
+    val cardBg = ThemeManager.getCardColor()
+    val textMain = ThemeManager.getTextColor()
+    val textMuted = ThemeManager.getTextMutedColor()
+    val goldColor = ThemeManager.getAccentColor()
+
+    val glassBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
+    val glowBorder = goldColor.copy(alpha = 0.6f)
+
+    val appPrefs = remember { context.getSharedPreferences("amon_app_prefs", Context.MODE_PRIVATE) }
+    val currentVersion = remember {
+        try {
+            @Suppress("DEPRECATION")
+            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            pInfo.versionName ?: "1.1.0"
+        } catch (_: Exception) {
+            "1.1.0"
+        }
+    }
+    var showWhatsNew by remember {
+        val lastSeenVersion = try {
+            appPrefs.getString("whats_new_seen_version", "")
+        } catch (_: Exception) {
+            ""
+        }
+        mutableStateOf(lastSeenVersion != currentVersion)
+    }
+
+    BackHandler(enabled = currentNavIndex != 0 && !isFocusActive) {
+        currentNavIndex = 0
+    }
+
+    BackHandler(enabled = isFocusActive) {
+        onDirectEndSession()
+    }
+
+    Scaffold(
+        containerColor = bgColor,
+        contentWindowInsets = if (isFocusActive) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
+        bottomBar = {
+            if (!isFocusActive) {
+                AmonCurvedBottomBar(
+                    selectedIndex = currentNavIndex,
+                    onTabSelected = { newIndex -> currentNavIndex = newIndex },
+                    isDark = isDark,
+                    goldColor = goldColor,
+                    cardBg = cardBg,
+                    borderCol = glassBorder,
+                    hasNewUpdate = hasNewUpdate
+                )
+            }
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(bgColor)
+                .then(if (!isFocusActive) Modifier.padding(paddingValues) else Modifier)
+        ) {
+            when (currentNavIndex) {
+                0 -> HomeTimerTab(
+                    context = context,
+                    goldColor = goldColor,
+                    glowYellow = glowBorder,
+                    cardBg = cardBg,
+                    glassBorder = glassBorder,
+                    textMuted = textMuted,
+                    textMain = textMain,
+                    isDark = isDark,
+                    isRunning = isRunning,
+                    isPaused = isPaused,
+                    isFocusActive = isFocusActive,
+                    isStopwatchRunning = isStopwatchRunning,
+                    isStopwatchFocusActive = isStopwatchFocusActive,
+                    stopwatchElapsedMillis = stopwatchElapsedMillis,
+                    onStartStopwatch = {
+                        isStopwatchRunning = true
+                        isStopwatchFocusActive = true
+                        stopwatchAccumulatedMillis = 0L
+                        stopwatchElapsedMillis = 0L
+                        stopwatchBaseTime = SystemClock.elapsedRealtime()
+                    },
+                    onPauseStopwatch = {
+                        isStopwatchRunning = false
+                        stopwatchAccumulatedMillis = stopwatchElapsedMillis
+                    },
+                    onResumeStopwatch = {
+                        stopwatchBaseTime = SystemClock.elapsedRealtime()
+                        isStopwatchRunning = true
+                    },
+                    onResetStopwatch = {
+                        isStopwatchRunning = false
+                        isStopwatchFocusActive = false
+                        stopwatchAccumulatedMillis = 0L
+                        stopwatchElapsedMillis = 0L
+                    },
+                    onEndSessionDirect = onDirectEndSession
+                )
+                1 -> ForestScreen()
+                2 -> StatsScreen()
+                3 -> ProfileScreen()
+            }
+
+            if (showWhatsNew && !isFocusActive) {
+                WhatsNewDialog(
+                    versionName = currentVersion,
+                    goldColor = goldColor,
+                    glowYellow = glowBorder,
+                    cardBg = cardBg,
+                    textMain = textMain,
+                    textMuted = textMuted,
+                    onDismiss = {
+                        try {
+                            appPrefs.edit().putString("whats_new_seen_version", currentVersion).apply()
+                        } catch (_: Exception) {}
+                        showWhatsNew = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun CleanTeaCupIcon(
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        val cupPath = Path().apply {
+            moveTo(w * 0.18f, h * 0.32f)
+            lineTo(w * 0.72f, h * 0.32f)
+            cubicTo(w * 0.72f, h * 0.68f, w * 0.64f, h * 0.82f, w * 0.45f, h * 0.82f)
+            cubicTo(w * 0.26f, h * 0.82f, w * 0.18f, h * 0.68f, w * 0.18f, h * 0.32f)
+            close()
+        }
+        drawPath(cupPath, color = tint)
+
+        val handlePath = Path().apply {
+            moveTo(w * 0.70f, h * 0.40f)
+            cubicTo(w * 0.90f, h * 0.40f, w * 0.90f, h * 0.65f, w * 0.68f, h * 0.65f)
+        }
+        drawPath(handlePath, color = tint, style = Stroke(width = 2.2.dp.toPx()))
+
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(w * 0.12f, h * 0.86f),
+            size = Size(w * 0.66f, h * 0.08f),
+            cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+        )
+    }
+}
+
+@Composable
+fun SlidersPreferenceIcon(
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier.size(20.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 2.dp.toPx()
+
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.10f, h * 0.32f),
+            end = Offset(w * 0.90f, h * 0.32f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawCircle(
+            color = tint,
+            radius = 3.2.dp.toPx(),
+            center = Offset(w * 0.35f, h * 0.32f)
+        )
+
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.10f, h * 0.68f),
+            end = Offset(w * 0.90f, h * 0.68f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawCircle(
+            color = tint,
+            radius = 3.2.dp.toPx(),
+            center = Offset(w * 0.68f, h * 0.68f)
+        )
+    }
+}
+
+@Composable
+fun HomeTimerTab(
+    context: Context,
     goldColor: Color,
     glowYellow: Color,
     cardBg: Color,
     glassBorder: Color,
-    textMain: Color,
     textMuted: Color,
+    textMain: Color,
     isDark: Boolean,
-    timeFormatted: String,
-    hours: Int,
-    selectedSubjectName: String = "Focus",
-    onTogglePlayPause: () -> Unit = {},
-    showPresets: Boolean = true
+    isRunning: Boolean,
+    isPaused: Boolean,
+    isFocusActive: Boolean,
+    isStopwatchRunning: Boolean,
+    isStopwatchFocusActive: Boolean,
+    stopwatchElapsedMillis: Long,
+    onStartStopwatch: () -> Unit,
+    onPauseStopwatch: () -> Unit,
+    onResumeStopwatch: () -> Unit,
+    onResetStopwatch: () -> Unit,
+    onEndSessionDirect: () -> Unit
 ) {
-    val context = LocalContext.current
+    val activity = context as? Activity
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    val watchPrefs = remember {
-        context.getSharedPreferences("amon_watch_prefs", Context.MODE_PRIVATE)
-    }
+    var userSubjects by remember { mutableStateOf(listOf<String>()) }
+    var selectedSubjectName by rememberSaveable { mutableStateOf("All") }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var newSubjectInput by remember { mutableStateOf("") }
 
-    var selectedWatchStyle by rememberSaveable {
-        val saved = try {
-            watchPrefs.getInt("selected_watch_style", 0)
+    var selectedFocusMode by rememberSaveable { mutableIntStateOf(0) }
+
+    var pomodoroFocusMinutes by rememberSaveable { mutableIntStateOf(25) }
+    var pomodoroShortBreakMinutes by rememberSaveable { mutableIntStateOf(5) }
+    var pomodoroLongBreakMinutes by rememberSaveable { mutableIntStateOf(15) }
+    var pomodoroTotalSessions by rememberSaveable { mutableIntStateOf(4) }
+    var pomodoroAutoStartBreak by rememberSaveable { mutableStateOf(false) }
+    var pomodoroAutoStartFocus by rememberSaveable { mutableStateOf(false) }
+
+    var showPomodoroSettingsSheet by remember { mutableStateOf(false) }
+    var showCustomTimerSheet by remember { mutableStateOf(false) }
+
+    var isBreakActive by rememberSaveable { mutableStateOf(false) }
+    var currentSessionIndex by rememberSaveable { mutableIntStateOf(1) }
+
+    val subjectPrefs = remember { context.getSharedPreferences("amon_subject_prefs", Context.MODE_PRIVATE) }
+
+    var hiddenSubjects by remember {
+        val saved: Set<String>? = try {
+            subjectPrefs.getStringSet("hidden_subjects", null)
         } catch (_: Exception) {
-            0
+            try {
+                subjectPrefs.edit().remove("hidden_subjects").apply()
+            } catch (_: Exception) {}
+            null
         }
-        mutableIntStateOf(saved)
-    }
 
-    val onPrevStyle = {
-        selectedWatchStyle = if (selectedWatchStyle > 0) selectedWatchStyle - 1 else 2
-        try {
-            watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
-        } catch (_: Exception) {}
-    }
-
-    val onNextStyle = {
-        selectedWatchStyle = if (selectedWatchStyle < 2) selectedWatchStyle + 1 else 0
-        try {
-            watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
-        } catch (_: Exception) {}
-    }
-
-    val targetArrowY = if (isLandscape) {
-        if (selectedWatchStyle == 2) 72.dp else 95.dp
-    } else {
-        if (selectedWatchStyle == 2) 105.dp else 111.dp
-    }
-
-    val animatedArrowY by animateDpAsState(
-        targetValue = targetArrowY,
-        animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
-        label = "ArrowSeamGlide"
-    )
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxWidth()
-            .pointerInput(isRunning) {
-                if (!isRunning) {
-                    var totalDragX = 0f
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (totalDragX < -60f) {
-                                onNextStyle()
-                            } else if (totalDragX > 60f) {
-                                onPrevStyle()
-                            }
-                            totalDragX = 0f
-                        },
-                        onDragCancel = { totalDragX = 0f }
-                    ) { _, dragAmount ->
-                        totalDragX += dragAmount
-                    }
-                }
+        if (saved == null) {
+            val initialHidden = try {
+                SubjectManager.getUserSubjects(context).toSet()
+            } catch (_: Exception) {
+                emptySet()
             }
-    ) {
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            AnimatedContent(
-                targetState = selectedWatchStyle,
-                transitionSpec = {
-                    if (targetState > initialState) {
-                        slideInHorizontally { width -> width } + fadeIn() togetherWith
-                                slideOutHorizontally { width -> -width } + fadeOut()
-                    } else {
-                        slideInHorizontally { width -> -width } + fadeIn() togetherWith
-                                slideOutHorizontally { width -> width } + fadeOut()
-                    }
-                },
-                label = "WatchTransition"
-            ) { style ->
-                when (style) {
-                    0 -> ClassicRingWatch(
-                        totalSeconds = totalSeconds,
-                        initialTotalSeconds = initialTotalSeconds,
-                        isRunning = isRunning,
-                        onCustomModeToggle = onCustomModeToggle,
-                        goldColor = goldColor,
-                        textMain = textMain,
-                        isDark = isDark,
-                        timeFormatted = timeFormatted,
-                        hours = hours
-                    )
-
-                    1 -> RotaryDialWatch(
-                        dialMinutes = dialMinutes,
-                        onDialMinutesChange = onDialMinutesChange,
-                        totalSeconds = totalSeconds,
-                        initialTotalSeconds = initialTotalSeconds,
-                        isRunning = isRunning,
-                        onCustomModeToggle = onCustomModeToggle,
-                        goldColor = goldColor,
-                        textMain = textMain,
-                        isDark = isDark,
-                        timeFormatted = timeFormatted,
-                        hours = hours
-                    )
-
-                    2 -> RetroFlipClockWatch(
-                        dialMinutes = dialMinutes,
-                        onDialMinutesChange = onDialMinutesChange,
-                        totalSeconds = totalSeconds,
-                        isRunning = isRunning,
-                        subjectName = selectedSubjectName,
-                        goldColor = goldColor,
-                        isDark = isDark
-                    )
-                }
-            }
-
-            if (!isRunning) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .offset(x = 2.dp, y = animatedArrowY)
-                ) {
-                    WatchNavArrowButton(
-                        isLeft = true,
-                        goldColor = goldColor,
-                        onClick = onPrevStyle
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = (-2).dp, y = animatedArrowY)
-                ) {
-                    WatchNavArrowButton(
-                        isLeft = false,
-                        goldColor = goldColor,
-                        onClick = onNextStyle
-                    )
-                }
-            }
-        }
-    }
-}
-
-// =============================================================================
-// 🏹 PURE FLOATING CHEVRON BUTTON
-// =============================================================================
-@Composable
-private fun WatchNavArrowButton(
-    isLeft: Boolean,
-    goldColor: Color,
-    onClick: () -> Unit
-) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(44.dp)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            )
-    ) {
-        if (isLeft) {
-            SleekWideChevronLeft(tint = goldColor)
+            try {
+                subjectPrefs.edit().putStringSet("hidden_subjects", initialHidden).apply()
+            } catch (_: Exception) {}
+            mutableStateOf(initialHidden)
         } else {
-            SleekWideChevronRight(tint = goldColor)
+            mutableStateOf(saved)
         }
     }
-}
 
-@Composable
-private fun SleekWideChevronLeft(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val w = size.width
-        val h = size.height
-        val stroke = 2.4.dp.toPx()
-
-        val path = Path().apply {
-            moveTo(w * 0.64f, h * 0.22f)
-            lineTo(w * 0.34f, h * 0.50f)
-            lineTo(w * 0.64f, h * 0.78f)
+    LaunchedEffect(Unit) {
+        userSubjects = try {
+            SubjectManager.getUserSubjects(context)
+        } catch (_: Exception) {
+            emptyList()
         }
-        drawPath(
-            path = path,
-            color = tint,
-            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
     }
-}
 
-@Composable
-private fun SleekWideChevronRight(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val w = size.width
-        val h = size.height
-        val stroke = 2.4.dp.toPx()
+    var dialMinutes by rememberSaveable { mutableFloatStateOf(25f) }
+    var isCustomMode by rememberSaveable { mutableStateOf(false) }
+    var initialTotalSeconds by rememberSaveable { mutableIntStateOf(25 * 60) }
 
-        val path = Path().apply {
-            moveTo(w * 0.36f, h * 0.22f)
-            lineTo(w * 0.66f, h * 0.50f)
-            lineTo(w * 0.36f, h * 0.78f)
-        }
-        drawPath(
-            path = path,
-            color = tint,
-            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
-    }
-}
+    val totalSeconds = TimerService.remainingSeconds.intValue
 
-// =============================================================================
-// ⏱ WATCH STYLE 1: CLASSIC LUXE RING (20% SLIMMER + CONDITIONAL AURA GLOW)
-// =============================================================================
-@Composable
-private fun ClassicRingWatch(
-    totalSeconds: Int,
-    initialTotalSeconds: Int,
-    isRunning: Boolean,
-    onCustomModeToggle: () -> Unit,
-    goldColor: Color,
-    textMain: Color,
-    isDark: Boolean,
-    timeFormatted: String,
-    hours: Int
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(258.dp)
-                .padding(vertical = 4.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val radius = size.minDimension / 2f - 10.dp.toPx()
-                val center = Offset(size.width / 2f, size.height / 2f)
-
-                // 🟢 1. SLIM BACKGROUND TRACK (3.8dp - 20% Thinner)
-                drawCircle(
-                    color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
-                    radius = radius,
-                    center = center,
-                    style = Stroke(width = 3.8.dp.toPx())
-                )
-
-                val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
-                val sweep = if (!isRunning) {
-                    360f
-                } else {
-                    (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
-                }
-
-                // 🟢 2. CONDITIONAL AURA GLOW (Sirf isRunning == true hone par activate hoga, zero battery load)
-                if (isRunning) {
-                    drawArc(
-                        color = goldColor.copy(alpha = 0.20f),
-                        startAngle = -90f,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        topLeft = Offset(center.x - radius, center.y - radius),
-                        size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 8.8.dp.toPx(), cap = StrokeCap.Round)
-                    )
-                }
-
-                // 🟢 3. MAIN FOREGROUND RING (4.4dp - 20% Thinner, Crisp & Elegant)
-                drawArc(
-                    color = goldColor,
-                    startAngle = -90f,
-                    sweepAngle = sweep,
-                    useCenter = false,
-                    topLeft = Offset(center.x - radius, center.y - radius),
-                    size = Size(radius * 2f, radius * 2f),
-                    style = Stroke(width = 4.4.dp.toPx(), cap = StrokeCap.Round)
-                )
+    var streakDays by remember { mutableIntStateOf(0) }
+    LaunchedEffect(isFocusActive) {
+        if (!isFocusActive) {
+            val sessions = try {
+                FocusSessionManager.getAllSessions(context)
+            } catch (_: Exception) {
+                emptyList()
             }
+            streakDays = calculateStreakDays(sessions)
+        }
+    }
 
+    val hours = totalSeconds / 3600
+    val displayMinutes = (totalSeconds % 3600) / 60
+    val displaySeconds = totalSeconds % 60
+
+    val timeFormatted = if (hours > 0) {
+        String.format("%02d:%02d:%02d", hours, displayMinutes, displaySeconds)
+    } else {
+        String.format("%02d:%02d", displayMinutes, displaySeconds)
+    }
+
+    val swH = (stopwatchElapsedMillis / 3600000).toInt()
+    val swM = ((stopwatchElapsedMillis % 3600000) / 60000).toInt()
+    val swS = ((stopwatchElapsedMillis % 60000) / 1000).toInt()
+    val swMs = ((stopwatchElapsedMillis % 1000) / 10).toInt()
+    val swMainTime = String.format("%02d:%02d:%02d", swH, swM, swS)
+    val swMilliText = String.format(".%02d", swMs)
+
+    val allSessions = remember(isFocusActive) {
+        try {
+            FocusSessionManager.getAllSessions(context)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+    val subjectMinutesMap = remember(allSessions) {
+        allSessions.groupBy { it.subject }
+            .mapValues { entry -> entry.value.sumOf { it.durationMinutes } }
+    }
+    val activeSortedSubjects = remember(userSubjects, hiddenSubjects, subjectMinutesMap) {
+        userSubjects
+            .filter { it !in hiddenSubjects }
+            .sortedByDescending { subjectMinutesMap[it] ?: 0 }
+    }
+
+    val onAddSubjectAction = {
+        if (newSubjectInput.isNotBlank()) {
+            val cleanInput = newSubjectInput.trim().replaceFirstChar {
+                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+            }
+            val success = SubjectManager.addSubject(context, cleanInput)
+            if (success) {
+                userSubjects = SubjectManager.getUserSubjects(context)
+                if (cleanInput in hiddenSubjects) {
+                    val newHidden = hiddenSubjects - cleanInput
+                    hiddenSubjects = newHidden
+                    subjectPrefs.edit().putStringSet("hidden_subjects", newHidden).apply()
+                }
+                selectedSubjectName = cleanInput
+                newSubjectInput = ""
+            }
+        }
+    }
+
+    val onTriggerBreak: () -> Unit = {
+        isBreakActive = true
+        val breakMins = if (currentSessionIndex >= pomodoroTotalSessions) pomodoroLongBreakMinutes else pomodoroShortBreakMinutes
+        val breakSecs = breakMins * 60
+        initialTotalSeconds = breakSecs
+        val intent = Intent(context, TimerService::class.java).apply {
+            action = TimerService.ACTION_START
+            putExtra(TimerService.EXTRA_SECONDS, breakSecs)
+            putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+        }
+        context.startService(intent)
+    }
+
+    val onResumeFocusFromBreakAction: () -> Unit = {
+        isBreakActive = false
+        currentSessionIndex = if (currentSessionIndex >= pomodoroTotalSessions) 1 else currentSessionIndex + 1
+        val targetSecs = if (selectedFocusMode == 2) pomodoroFocusMinutes * 60 else (dialMinutes.toInt() * 60)
+        initialTotalSeconds = if (targetSecs > 0) targetSecs else 1500
+        val intent = Intent(context, TimerService::class.java).apply {
+            action = TimerService.ACTION_START
+            putExtra(TimerService.EXTRA_SECONDS, initialTotalSeconds)
+            putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+        }
+        context.startService(intent)
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (!isFocusActive) {
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(18.dp))
-                    .clickable(
-                        enabled = !isRunning,
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onCustomModeToggle
-                    )
-                    .padding(8.dp)
-            ) {
-                Text(
-                    text = timeFormatted,
-                    fontSize = if (hours > 0) 38.sp else 46.sp,
-                    fontWeight = FontWeight.Black,
-                    color = textMain,
-                    letterSpacing = if (hours > 0) (-0.5).sp else 0.sp
-                )
-            }
-        }
-    }
-}
-
-// =============================================================================
-// 🎛 WATCH STYLE 2: ROTARY DIAL (20% SLIMMER + CONDITIONAL AURA GLOW)
-// =============================================================================
-@Composable
-private fun RotaryDialWatch(
-    dialMinutes: Float,
-    onDialMinutesChange: (Float) -> Unit,
-    totalSeconds: Int,
-    initialTotalSeconds: Int,
-    isRunning: Boolean,
-    onCustomModeToggle: () -> Unit,
-    goldColor: Color,
-    textMain: Color,
-    isDark: Boolean,
-    timeFormatted: String,
-    hours: Int
-) {
-    var centerOffset by remember { mutableStateOf(Offset.Zero) }
-
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(258.dp)
-                .padding(vertical = 4.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(isRunning) {
-                        if (!isRunning) {
-                            detectDragGestures { change, _ ->
-                                change.consume()
-                                val touchPos = change.position
-                                val dx = touchPos.x - centerOffset.x
-                                val dy = touchPos.y - centerOffset.y
-
-                                var angleDeg = (atan2(dy, dx) * (180f / PI.toFloat()))
-                                angleDeg = (angleDeg + 90f + 360f) % 360f
-
-                                val computedMins = (angleDeg / 360f) * 180f
-                                val snappedMins = (round(computedMins / 5f) * 5f).coerceIn(5f, 180f)
-
-                                if (snappedMins != dialMinutes) {
-                                    onDialMinutesChange(snappedMins)
-                                }
-                            }
-                        }
-                    }
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp, bottom = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val radius = size.minDimension / 2f - 14.dp.toPx()
-                val center = Offset(size.width / 2f, size.height / 2f)
-                centerOffset = center
-
-                // 🟢 1. SLIM BACKGROUND TRACK (3.8dp)
-                drawCircle(
-                    color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
-                    radius = radius,
-                    center = center,
-                    style = Stroke(width = 3.8.dp.toPx())
-                )
-
-                if (!isRunning) {
-                    val totalMarks = 36
-                    for (i in 1..totalMarks) {
-                        val markMins = i * 5
-                        val markAngleDeg = (markMins / 180f) * 360f - 90f
-                        val rad = markAngleDeg * (PI.toFloat() / 180f)
-
-                        val isMajor = (markMins % 30 == 0)
-                        val markLen = if (isMajor) 10.dp.toPx() else 5.dp.toPx()
-                        val markStroke = if (isMajor) 2.dp.toPx() else 1.2.dp.toPx()
-                        val markAlpha = if (isMajor) 0.8f else 0.35f
-
-                        val startX = center.x + (radius - 2.dp.toPx()) * cos(rad)
-                        val startY = center.y + (radius - 2.dp.toPx()) * sin(rad)
-                        val endX = center.x + (radius - 2.dp.toPx() - markLen) * cos(rad)
-                        val endY = center.y + (radius - 2.dp.toPx() - markLen) * sin(rad)
-
-                        drawLine(
-                            color = goldColor.copy(alpha = markAlpha),
-                            start = Offset(startX, startY),
-                            end = Offset(endX, endY),
-                            strokeWidth = markStroke,
-                            cap = StrokeCap.Round
-                        )
-                    }
-
-                    val sweep = (dialMinutes.coerceIn(5f, 180f) / 180f) * 360f
-                    drawArc(
-                        color = goldColor,
-                        startAngle = -90f,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        topLeft = Offset(center.x - radius, center.y - radius),
-                        size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 4.2.dp.toPx(), cap = StrokeCap.Round)
-                    )
-
-                    val knobAngleRad = (sweep - 90f) * (PI.toFloat() / 180f)
-                    val knobX = center.x + radius * cos(knobAngleRad)
-                    val knobY = center.y + radius * sin(knobAngleRad)
-
-                    drawCircle(color = goldColor.copy(alpha = 0.25f), radius = 14.dp.toPx(), center = Offset(knobX, knobY))
-                    drawCircle(color = goldColor, radius = 9.dp.toPx(), center = Offset(knobX, knobY))
-                    drawCircle(color = Color.White, radius = 3.dp.toPx(), center = Offset(knobX, knobY))
-                } else {
-                    val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
-                    val sweep = (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
-
-                    // 🟢 2. CONDITIONAL AURA GLOW (Running mode only)
-                    drawArc(
-                        color = goldColor.copy(alpha = 0.20f),
-                        startAngle = -90f,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        topLeft = Offset(center.x - radius, center.y - radius),
-                        size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 8.8.dp.toPx(), cap = StrokeCap.Round)
-                    )
-
-                    // 🟢 3. MAIN FOREGROUND RING (4.4dp)
-                    drawArc(
-                        color = goldColor,
-                        startAngle = -90f,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        topLeft = Offset(center.x - radius, center.y - radius),
-                        size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 4.4.dp.toPx(), cap = StrokeCap.Round)
-                    )
-                }
-            }
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(18.dp))
-                    .clickable(
-                        enabled = !isRunning,
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onCustomModeToggle
-                    )
-                    .padding(8.dp)
-            ) {
-                Text(
-                    text = timeFormatted,
-                    fontSize = if (hours > 0) 36.sp else 43.sp,
-                    fontWeight = FontWeight.Black,
-                    color = textMain,
-                    letterSpacing = if (hours > 0) (-0.5).sp else 0.sp
-                )
-                if (!isRunning) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Rotate Dial",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = goldColor
-                    )
-                }
-            }
-        }
-    }
-}
-
-// =============================================================================
-// 📜 WATCH STYLE 3: RETRO FLIP CLOCK
-// =============================================================================
-@Composable
-private fun RetroFlipClockWatch(
-    dialMinutes: Float,
-    onDialMinutesChange: (Float) -> Unit,
-    totalSeconds: Int,
-    isRunning: Boolean,
-    subjectName: String,
-    goldColor: Color,
-    isDark: Boolean
-) {
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-
-    val isHourMode = totalSeconds >= 3600
-
-    val topDigitStr = if (isHourMode) {
-        String.format("%02d", totalSeconds / 3600)
-    } else {
-        String.format("%02d", totalSeconds / 60)
-    }
-
-    val bottomDigitStr = if (isHourMode) {
-        String.format("%02d", (totalSeconds % 3600) / 60)
-    } else {
-        String.format("%02d", totalSeconds % 60)
-    }
-
-    var showTimeInputDialog by remember { mutableStateOf(false) }
-
-    val targetCardWidth = if (isLandscape) {
-        if (isRunning) 235.dp else 195.dp
-    } else {
-        if (isRunning) 260.dp else 185.dp
-    }
-
-    val targetCardHeight = if (isLandscape) {
-        if (isRunning) 175.dp else 145.dp
-    } else {
-        if (isRunning) 185.dp else 118.dp
-    }
-
-    val animatedWidth by animateDpAsState(
-        targetValue = targetCardWidth,
-        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-        label = "FlipCardWidth"
-    )
-    val animatedHeight by animateDpAsState(
-        targetValue = targetCardHeight,
-        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-        label = "FlipCardHeight"
-    )
-
-    val baseFontSize = if (isLandscape) {
-        if (isRunning) 145f else 115f
-    } else {
-        if (isRunning) 150f else 95f
-    }
-    val topFontSize = if (topDigitStr.length > 2) baseFontSize * 0.70f else baseFontSize
-    val bottomFontSize = baseFontSize
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = if (isRunning) (if (isLandscape) 2.dp else 6.dp) else 4.dp)
-    ) {
-        if (isLandscape) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    enabled = !isRunning,
-                    onClick = { showTimeInputDialog = true }
-                )
-            ) {
-                AuthenticSplitFlapCard(
-                    digit = topDigitStr,
-                    badgeText = "• ${subjectName.uppercase()}",
-                    cardWidth = animatedWidth,
-                    cardHeight = animatedHeight,
-                    fontSizeSp = topFontSize,
-                    isDark = isDark,
-                    goldColor = goldColor
-                )
-
-                AuthenticSplitFlapCard(
-                    digit = bottomDigitStr,
-                    badgeText = null,
-                    cardWidth = animatedWidth,
-                    cardHeight = animatedHeight,
-                    fontSizeSp = bottomFontSize,
-                    isDark = isDark,
-                    goldColor = goldColor
-                )
-            }
-        } else {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    enabled = !isRunning,
-                    onClick = { showTimeInputDialog = true }
-                )
-            ) {
-                AuthenticSplitFlapCard(
-                    digit = topDigitStr,
-                    badgeText = "• ${subjectName.uppercase()}",
-                    cardWidth = animatedWidth,
-                    cardHeight = animatedHeight,
-                    fontSizeSp = topFontSize,
-                    isDark = isDark,
-                    goldColor = goldColor
-                )
-
-                AuthenticSplitFlapCard(
-                    digit = bottomDigitStr,
-                    badgeText = null,
-                    cardWidth = animatedWidth,
-                    cardHeight = animatedHeight,
-                    fontSizeSp = bottomFontSize,
-                    isDark = isDark,
-                    goldColor = goldColor
-                )
-            }
-        }
-    }
-
-    if (showTimeInputDialog) {
-        var inputMins by remember { mutableStateOf((dialMinutes.toInt()).toString()) }
-
-        Dialog(onDismissRequest = { showTimeInputDialog = false }) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(if (isDark) Color(0xFF161622) else Color(0xFFFFFFFF))
-                    .border(1.5.dp, goldColor, RoundedCornerShape(24.dp))
-                    .padding(22.dp)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Set Flip Clock Time 📜",
-                        color = goldColor,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Enter minutes (1 - 180 min)",
-                        color = Color.Gray,
-                        fontSize = 12.sp
+                        text = "AMON",
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.Black,
+                        color = if (isDark) Color.White else Color(0xFF1C1917),
+                        letterSpacing = 2.5.sp
                     )
 
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    OutlinedTextField(
-                        value = inputMins,
-                        onValueChange = { inputMins = it.filter { char -> char.isDigit() } },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        textStyle = LocalTextStyle.current.copy(
-                            textAlign = TextAlign.Center,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Black,
-                            color = if (isDark) Color.White else Color.Black
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = goldColor,
-                            cursorColor = goldColor
-                        ),
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(68.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9))
+                            .border(1.dp, glassBorder, RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp)
                     ) {
-                        listOf(15, 25, 45, 60, 90).forEach { preset ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            StreakFlame(
+                                streakDays = streakDays,
+                                isLarge = false,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Text(
+                                text = "$streakDays Days",
+                                color = if (streakDays > 0) Color(0xFFFB923C) else textMuted,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Box(modifier = Modifier.fillMaxWidth().height(38.dp)) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) {
+                        item {
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isDark) Color(0xFF222228) else Color(0xFFF1F5F9))
-                                    .clickable { inputMins = preset.toString() }
-                                    .padding(vertical = 6.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(goldColor)
+                                    .clickable { showAddDialog = true }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
                                 Text(
-                                    text = "${preset}m",
-                                    color = if (isDark) Color.White else Color.Black,
-                                    fontSize = 11.sp,
+                                    text = "+ Subject",
+                                    color = Color.Black,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
+
+                        item {
+                            val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isSelected) goldColor else cardBg)
+                                    .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                                    .clickable { selectedSubjectName = "All" }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "All",
+                                    color = if (isSelected) Color.White else textMuted,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        items(activeSortedSubjects) { subj ->
+                            val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isSelected) goldColor else cardBg)
+                                    .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                                    .clickable { selectedSubjectName = subj }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = subj,
+                                    color = if (isSelected) Color.White else textMuted,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         }
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (isDark) Color(0xFF181820) else Color(0xFFE2E8F0))
+                        .border(1.dp, glassBorder, RoundedCornerShape(50))
+                        .padding(3.dp)
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        TextButton(
-                            onClick = { showTimeInputDialog = false },
-                            modifier = Modifier.weight(1f)
+                        val modes = listOf("Timer", "Stopwatch", "Pomodoro")
+                        modes.forEachIndexed { index, modeName ->
+                            val isSelected = selectedFocusMode == index
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isSelected) goldColor else Color.Transparent)
+                                    .clickable { selectedFocusMode = index }
+                            ) {
+                                Text(
+                                    text = modeName,
+                                    color = if (isSelected) Color.Black else textMuted,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.3.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                if (selectedFocusMode == 2) {
+                    PomodoroSessionTracker(
+                        totalSessions = pomodoroTotalSessions,
+                        currentSessionIndex = currentSessionIndex,
+                        isBreakActive = isBreakActive,
+                        isRunning = isRunning,
+                        goldColor = goldColor,
+                        glowYellow = glowYellow,
+                        isDark = isDark
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    when (selectedFocusMode) {
+                        0, 2 -> {
+                            val activeMins = if (selectedFocusMode == 2) pomodoroFocusMinutes.toFloat() else dialMinutes
+
+                            TimerWatchesContainer(
+                                dialMinutes = activeMins,
+                                onDialMinutesChange = { nextMins ->
+                                    if (selectedFocusMode == 2) {
+                                        pomodoroFocusMinutes = nextMins.toInt()
+                                    } else {
+                                        dialMinutes = nextMins
+                                        val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
+                                        TimerService.remainingSeconds.intValue = secs
+                                        initialTotalSeconds = if (secs > 0) secs else 60
+                                    }
+                                },
+                                totalSeconds = if (selectedFocusMode == 2) (pomodoroFocusMinutes * 60) else totalSeconds,
+                                initialTotalSeconds = initialTotalSeconds,
+                                isRunning = false,
+                                isCustomMode = isCustomMode,
+                                onCustomModeToggle = {
+                                    if (selectedFocusMode == 2) {
+                                        showPomodoroSettingsSheet = true
+                                    } else {
+                                        showCustomTimerSheet = true
+                                    }
+                                },
+                                goldColor = goldColor,
+                                glowYellow = glowYellow,
+                                cardBg = cardBg,
+                                glassBorder = glassBorder,
+                                textMain = textMain,
+                                textMuted = textMuted,
+                                isDark = isDark,
+                                timeFormatted = if (selectedFocusMode == 2) String.format("%02d:00", pomodoroFocusMinutes) else timeFormatted,
+                                hours = hours,
+                                selectedSubjectName = selectedSubjectName,
+                                showPresets = false
+                            )
+                        }
+                        1 -> {
+                            StopwatchPrecisionDisplay(
+                                swMainTime = swMainTime,
+                                swMilliText = swMilliText,
+                                goldColor = goldColor,
+                                textMain = textMain
+                            )
+                        }
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    when (selectedFocusMode) {
+                        0 -> {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                listOf(25f, 45f, 60f).forEach { mins ->
+                                    val isSelected = !isCustomMode && dialMinutes == mins
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(38.dp)
+                                            .clip(RoundedCornerShape(50))
+                                            .background(if (isSelected) goldColor else cardBg)
+                                            .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                                            .clickable {
+                                                isCustomMode = false
+                                                dialMinutes = mins
+                                                val secs = mins.toInt() * 60
+                                                TimerService.remainingSeconds.intValue = secs
+                                                initialTotalSeconds = secs
+                                            }
+                                    ) {
+                                        Text(
+                                            text = "${mins.toInt()}m",
+                                            color = if (isSelected) Color.Black else textMain,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .weight(1.15f)
+                                        .height(38.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (isCustomMode) goldColor else cardBg)
+                                        .border(1.dp, if (isCustomMode) glowYellow else glassBorder, RoundedCornerShape(50))
+                                        .clickable { showCustomTimerSheet = true }
+                                ) {
+                                    Text(
+                                        text = "Custom ⏱️",
+                                        color = if (isCustomMode) Color.Black else textMain,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                        2 -> {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val pBadges = listOf(
+                                        "Focus ${pomodoroFocusMinutes}m",
+                                        "Short ${pomodoroShortBreakMinutes}m",
+                                        "Long ${pomodoroLongBreakMinutes}m"
+                                    )
+                                    pBadges.forEach { title ->
+                                        Surface(
+                                            modifier = Modifier.clip(RoundedCornerShape(50)),
+                                            color = cardBg,
+                                            border = BorderStroke(1.dp, glassBorder),
+                                            shape = RoundedCornerShape(50)
+                                        ) {
+                                            Text(
+                                                text = title,
+                                                color = textMuted,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(vertical = 7.dp, horizontal = 10.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isDark) Color(0xFF1E1E26) else Color(0xFFF1F5F9))
+                                        .border(1.2.dp, goldColor, CircleShape)
+                                        .clickable { showPomodoroSettingsSheet = true }
+                                ) {
+                                    SlidersPreferenceIcon(tint = goldColor)
+                                }
+                            }
+                        }
+                        1 -> {
+                            Text(
+                                text = "Zero-Drift Hardware Monotonic Clock",
+                                color = textMuted.copy(alpha = 0.7f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .height(44.dp)
+                        .shadow(12.dp, RoundedCornerShape(50), spotColor = goldColor, ambientColor = goldColor)
+                        .clip(RoundedCornerShape(50))
+                        .background(goldColor)
+                        .border(1.dp, glowYellow, RoundedCornerShape(50))
+                        .clickable {
+                            if (selectedFocusMode == 1) {
+                                onStartStopwatch()
+                                val intent = Intent(context, TimerService::class.java).apply {
+                                    action = TimerService.ACTION_START
+                                    putExtra(TimerService.EXTRA_SECONDS, 0)
+                                    putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                }
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    context.startForegroundService(intent)
+                                } else {
+                                    context.startService(intent)
+                                }
+                            } else {
+                                val targetSecs = if (selectedFocusMode == 2) {
+                                    pomodoroFocusMinutes * 60
+                                } else totalSeconds
+
+                                initialTotalSeconds = if (targetSecs > 0) targetSecs else 1500
+
+                                val intent = Intent(context, TimerService::class.java).apply {
+                                    action = TimerService.ACTION_START
+                                    putExtra(TimerService.EXTRA_SECONDS, initialTotalSeconds)
+                                    putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                }
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    context.startForegroundService(intent)
+                                } else {
+                                    context.startService(intent)
+                                }
+                            }
+                        }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(text = "▶", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                        Text(
+                            text = if (selectedFocusMode == 1) "Start Stopwatch" else "Start Focus",
+                            color = Color.Black,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                }
+            }
+        } else {
+            if (isStopwatchFocusActive) {
+                if (!isLandscape) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 22.dp, bottom = 48.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
                         ) {
-                            Text("Cancel", color = Color.Gray, fontWeight = FontWeight.Bold)
+                            Box(
+                                modifier = Modifier
+                                    .size(7.5.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF22C55E))
+                            )
+                            Text(
+                                text = "$selectedSubjectName • Stopwatch",
+                                color = textMain,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
                         }
 
-                        Button(
-                            onClick = {
-                                val entered = inputMins.toIntOrNull()?.coerceIn(1, 180)
-                                if (entered != null) {
-                                    onDialMinutesChange(entered.toFloat())
-                                }
-                                showTimeInputDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = goldColor),
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier.weight(1f)
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.Center
                         ) {
-                            Text("Set Time 🎯", color = Color.Black, fontWeight = FontWeight.Black)
+                            Text(
+                                text = swMainTime,
+                                color = textMain,
+                                fontSize = 52.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = (-1).sp
+                            )
+                            Text(
+                                text = swMilliText,
+                                color = goldColor,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                        }
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(58.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                    .clickable {
+                                        if (isStopwatchRunning) {
+                                            onPauseStopwatch()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_PAUSE
+                                            }
+                                            context.startService(intent)
+                                        } else {
+                                            onResumeStopwatch()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            }
+                                            context.startService(intent)
+                                        }
+                                    }
+                            ) {
+                                if (isStopwatchRunning) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Box(modifier = Modifier.width(3.2.dp).height(16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                        Box(modifier = Modifier.width(3.2.dp).height(16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                    }
+                                } else {
+                                    Text(
+                                        text = "▶",
+                                        color = textMain,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Black,
+                                        modifier = Modifier.offset(x = 1.5.dp)
+                                    )
+                                }
+                            }
+
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(58.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                    .clickable { onDirectEndSession() }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(textMuted)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .fillMaxHeight(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$selectedSubjectName • Stopwatch",
+                                color = textMain,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = swMainTime,
+                                    color = textMain,
+                                    fontSize = 64.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Text(
+                                    text = swMilliText,
+                                    color = goldColor,
+                                    fontSize = 32.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(bottom = 6.dp)
+                                )
+                            }
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                    .clickable {
+                                        if (isStopwatchRunning) {
+                                            onPauseStopwatch()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_PAUSE
+                                            }
+                                            context.startService(intent)
+                                        } else {
+                                            onResumeStopwatch()
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            }
+                                            context.startService(intent)
+                                        }
+                                    }
+                            ) {
+                                if (isStopwatchRunning) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
+                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                    }
+                                } else {
+                                    Text(text = "▶", color = textMain, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(18.dp))
+
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
+                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
+                                    .clickable { onDirectEndSession() }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(15.dp)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(textMuted)
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                if (!isLandscape) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 18.dp, bottom = 44.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                    .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.5.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF22C55E))
+                                )
+                                Text(
+                                    text = selectedSubjectName,
+                                    color = textMain,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+
+                            if (isBreakActive) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                                        .border(1.dp, Color(0xFF10B981), RoundedCornerShape(50))
+                                        .padding(horizontal = 12.dp, vertical = 5.dp)
+                                ) {
+                                    CleanTeaCupIcon(tint = Color(0xFF10B981), modifier = Modifier.size(16.dp))
+                                    Text(
+                                        text = "Break",
+                                        color = Color(0xFF10B981),
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            TimerWatchesContainer(
+                                dialMinutes = dialMinutes,
+                                onDialMinutesChange = { nextMins ->
+                                    dialMinutes = nextMins
+                                    val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
+                                    TimerService.remainingSeconds.intValue = secs
+                                    initialTotalSeconds = if (secs > 0) secs else 60
+                                },
+                                totalSeconds = totalSeconds,
+                                initialTotalSeconds = initialTotalSeconds,
+                                isRunning = true,
+                                isCustomMode = isCustomMode,
+                                onCustomModeToggle = { },
+                                goldColor = if (isBreakActive) Color(0xFF10B981) else goldColor,
+                                glowYellow = if (isBreakActive) Color.Transparent else glowYellow,
+                                cardBg = cardBg,
+                                glassBorder = glassBorder,
+                                textMain = textMain,
+                                textMuted = textMuted,
+                                isDark = isDark,
+                                timeFormatted = timeFormatted,
+                                hours = hours,
+                                selectedSubjectName = selectedSubjectName
+                            )
+                        }
+
+                        PomodoroFocusControls(
+                            isRunning = isRunning,
+                            isPaused = isPaused,
+                            isBreakActive = isBreakActive,
+                            goldColor = goldColor,
+                            glowYellow = glowYellow,
+                            cardBg = cardBg,
+                            glassBorder = glassBorder,
+                            textMain = textMain,
+                            textMuted = textMuted,
+                            onPauseClick = {
+                                val intent = Intent(context, TimerService::class.java).apply {
+                                    action = TimerService.ACTION_PAUSE
+                                }
+                                context.startService(intent)
+                            },
+                            onResumeClick = {
+                                val intent = Intent(context, TimerService::class.java).apply {
+                                    action = TimerService.ACTION_RESUME
+                                }
+                                context.startService(intent)
+                            },
+                            onSwitchToBreakClick = { onTriggerBreak() },
+                            onResumeFocusFromBreak = { onResumeFocusFromBreakAction() },
+                            onEndSessionClick = {
+                                isBreakActive = false
+                                onDirectEndSession()
+                            }
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .fillMaxHeight(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                    .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF22C55E))
+                                )
+                                Text(
+                                    text = if (isBreakActive) "☕ Break" else selectedSubjectName,
+                                    color = if (isBreakActive) Color(0xFF10B981) else textMain,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 90.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            TimerWatchesContainer(
+                                dialMinutes = dialMinutes,
+                                onDialMinutesChange = { nextMins ->
+                                    dialMinutes = nextMins
+                                    val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
+                                    TimerService.remainingSeconds.intValue = secs
+                                    initialTotalSeconds = if (secs > 0) secs else 60
+                                },
+                                totalSeconds = totalSeconds,
+                                initialTotalSeconds = initialTotalSeconds,
+                                isRunning = true,
+                                isCustomMode = isCustomMode,
+                                onCustomModeToggle = { },
+                                goldColor = if (isBreakActive) Color(0xFF10B981) else goldColor,
+                                glowYellow = if (isBreakActive) Color.Transparent else glowYellow,
+                                cardBg = cardBg,
+                                glassBorder = glassBorder,
+                                textMain = textMain,
+                                textMuted = textMuted,
+                                isDark = isDark,
+                                timeFormatted = timeFormatted,
+                                hours = hours,
+                                selectedSubjectName = selectedSubjectName
+                            )
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            when {
+                                isBreakActive -> {
+                                    Button(
+                                        onClick = { onResumeFocusFromBreakAction() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.height(42.dp)
+                                    ) {
+                                        Text("Resume 🎯", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 12.5.sp)
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    OutlinedButton(
+                                        onClick = {
+                                            isBreakActive = false
+                                            onDirectEndSession()
+                                        },
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, glassBorder),
+                                        modifier = Modifier.height(42.dp)
+                                    ) {
+                                        Text("End", color = textMuted, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                                isPaused -> {
+                                    Button(
+                                        onClick = {
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            }
+                                            context.startService(intent)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.height(42.dp)
+                                    ) {
+                                        Text("Resume 🎯", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 12.5.sp)
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Surface(
+                                        color = cardBg,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, glassBorder),
+                                        modifier = Modifier.clickable { onTriggerBreak() }
+                                    ) {
+                                        Text("☕ Break", color = goldColor, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    OutlinedButton(
+                                        onClick = { onDirectEndSession() },
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, glassBorder),
+                                        modifier = Modifier.height(38.dp)
+                                    ) {
+                                        Text("End", color = textMuted, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                                else -> {
+                                    Button(
+                                        onClick = {
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_PAUSE
+                                            }
+                                            context.startService(intent)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = cardBg),
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, glassBorder),
+                                        modifier = Modifier.height(42.dp)
+                                    ) {
+                                        Text("⏸ Pause", color = textMain, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    OutlinedButton(
+                                        onClick = { onDirectEndSession() },
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, glassBorder),
+                                        modifier = Modifier.height(38.dp)
+                                    ) {
+                                        Text("End", color = textMuted, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showPomodoroSettingsSheet) {
+            PomodoroSettingsBottomSheet(
+                isDark = isDark,
+                goldColor = goldColor,
+                glowYellow = glowYellow,
+                cardBg = cardBg,
+                textMain = textMain,
+                textMuted = textMuted,
+                focusMinutes = pomodoroFocusMinutes,
+                shortBreakMinutes = pomodoroShortBreakMinutes,
+                longBreakMinutes = pomodoroLongBreakMinutes,
+                totalSessions = pomodoroTotalSessions,
+                autoStartBreak = pomodoroAutoStartBreak,
+                autoStartFocus = pomodoroAutoStartFocus,
+                onFocusMinutesChange = { pomodoroFocusMinutes = it },
+                onShortBreakMinutesChange = { pomodoroShortBreakMinutes = it },
+                onLongBreakMinutesChange = { pomodoroLongBreakMinutes = it },
+                onSessionsChange = { pomodoroTotalSessions = it },
+                onAutoStartBreakChange = { pomodoroAutoStartBreak = it },
+                onAutoStartFocusChange = { pomodoroAutoStartFocus = it },
+                onDismiss = { showPomodoroSettingsSheet = false }
+            )
+        }
+
+        if (showCustomTimerSheet) {
+            CustomTimerBottomSheet(
+                dialMinutes = dialMinutes,
+                onDialMinutesChange = {
+                    dialMinutes = it
+                    isCustomMode = true
+                    val secs = it.toInt() * 60
+                    TimerService.remainingSeconds.intValue = secs
+                    initialTotalSeconds = secs
+                },
+                isDark = isDark,
+                goldColor = goldColor,
+                cardBg = cardBg,
+                textMain = textMain,
+                textMuted = textMuted,
+                onDismiss = { showCustomTimerSheet = false }
+            )
+        }
+
+        if (showAddDialog) {
+            Dialog(onDismissRequest = {
+                showAddDialog = false
+                newSubjectInput = ""
+            }) {
+                val frostedDialogBg = if (isDark) Color(0xEB161620) else Color(0xF2FFFFFF)
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(frostedDialogBg)
+                        .border(1.5.dp, if (isDark) Color(0x44FFFFFF) else Color(0x33000000), RoundedCornerShape(26.dp))
+                        .padding(20.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Manage Subjects",
+                                color = goldColor,
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
+                                    .clickable {
+                                        showAddDialog = false
+                                        newSubjectInput = ""
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "✕",
+                                    color = textMuted,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Tap to Show (Color) or Hide (Plain)",
+                            color = textMuted,
+                            fontSize = 12.5.sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 180.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            userSubjects.chunked(3).forEach { rowItems ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowItems.forEach { subj ->
+                                        val isHidden = subj in hiddenSubjects
+                                        val chipBg = if (!isHidden) {
+                                            goldColor.copy(alpha = 0.22f)
+                                        } else {
+                                            if (isDark) Color(0x22FFFFFF) else Color(0xFFF1F5F9)
+                                        }
+
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(chipBg)
+                                                .border(
+                                                    1.2.dp,
+                                                    if (!isHidden) goldColor else glassBorder,
+                                                    RoundedCornerShape(12.dp)
+                                                )
+                                                .clickable {
+                                                    val newHidden = if (isHidden) {
+                                                        hiddenSubjects - subj
+                                                    } else {
+                                                        hiddenSubjects + subj
+                                                    }
+                                                    hiddenSubjects = newHidden
+                                                    subjectPrefs.edit()
+                                                        .putStringSet("hidden_subjects", newHidden)
+                                                        .apply()
+
+                                                    if (!isHidden && selectedSubjectName.equals(subj, ignoreCase = true)) {
+                                                        selectedSubjectName = "All"
+                                                    }
+                                                }
+                                                .padding(vertical = 10.dp, horizontal = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (!isHidden) "● $subj" else "○ $subj",
+                                                color = if (!isHidden) goldColor else (if (isDark) textMuted else Color(0xFF475569)),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                    repeat(3 - rowItems.size) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isDark) Color(0x33FFFFFF) else Color(0xFFF8FAFC))
+                                .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = newSubjectInput,
+                                onValueChange = { input ->
+                                    newSubjectInput = input.replaceFirstChar {
+                                        if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                                    }
+                                },
+                                placeholder = {
+                                    Text("Type new subject...", color = textMuted, fontSize = 13.sp)
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    capitalization = KeyboardCapitalization.Words,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = { onAddSubjectAction() }
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    focusedTextColor = textMain,
+                                    unfocusedTextColor = textMain,
+                                    cursorColor = goldColor
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(goldColor)
+                                    .clickable { onAddSubjectAction() }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "Add",
+                                    color = Color.Black,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
                         }
                     }
                 }
@@ -794,316 +1715,221 @@ private fun RetroFlipClockWatch(
     }
 }
 
-/**
- * 🎴 MECHANICAL SPLIT-FLAP COMPONENT
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AuthenticSplitFlapCard(
-    digit: String,
-    badgeText: String? = null,
-    cardWidth: Dp,
-    cardHeight: Dp,
-    fontSizeSp: Float,
-    isDark: Boolean,
-    goldColor: Color
-) {
-    var previousDigit by remember { mutableStateOf(digit) }
-    var currentDigit by remember { mutableStateOf(digit) }
-
-    val flipAnim = remember { Animatable(0f) }
-
-    LaunchedEffect(digit) {
-        if (digit != currentDigit) {
-            previousDigit = currentDigit
-            currentDigit = digit
-            flipAnim.snapTo(0f)
-            flipAnim.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)
-            )
-        }
-    }
-
-    val rotation = flipAnim.value * 180f
-    val isTopFolded = rotation >= 90f
-    val seamGap = 2.dp
-    val halfHeight = (cardHeight - seamGap) / 2
-    val cornerRadius = 18.dp
-
-    val topShape = RoundedCornerShape(
-        topStart = cornerRadius,
-        topEnd = cornerRadius,
-        bottomStart = 2.5.dp,
-        bottomEnd = 2.5.dp
-    )
-    val bottomShape = RoundedCornerShape(
-        topStart = 2.5.dp,
-        topEnd = 2.5.dp,
-        bottomStart = cornerRadius,
-        bottomEnd = cornerRadius
-    )
-
-    Box(
-        modifier = Modifier.size(width = cardWidth, height = cardHeight),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            SplitFlapHalfPlate(
-                digit = currentDigit,
-                badgeText = badgeText,
-                isTop = true,
-                cardWidth = cardWidth,
-                cardHeight = cardHeight,
-                halfHeight = halfHeight,
-                fontSizeSp = fontSizeSp,
-                shape = topShape,
-                isDark = isDark,
-                goldColor = goldColor
-            )
-
-            SplitFlapHalfPlate(
-                digit = if (flipAnim.isRunning) previousDigit else currentDigit,
-                badgeText = null,
-                isTop = false,
-                cardWidth = cardWidth,
-                cardHeight = cardHeight,
-                halfHeight = halfHeight,
-                fontSizeSp = fontSizeSp,
-                shape = bottomShape,
-                isDark = isDark,
-                goldColor = goldColor
-            )
-        }
-
-        if (flipAnim.isRunning) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(halfHeight)
-                    .align(if (isTopFolded) Alignment.BottomCenter else Alignment.TopCenter)
-                    .graphicsLayer {
-                        rotationX = if (isTopFolded) (180f - rotation) else -rotation
-                        cameraDistance = 18 * density
-                        transformOrigin = if (isTopFolded) TransformOrigin(0.5f, 0f) else TransformOrigin(0.5f, 1f)
-                    }
-            ) {
-                SplitFlapHalfPlate(
-                    digit = if (isTopFolded) currentDigit else previousDigit,
-                    badgeText = if (!isTopFolded) badgeText else null,
-                    isTop = !isTopFolded,
-                    cardWidth = cardWidth,
-                    cardHeight = cardHeight,
-                    halfHeight = halfHeight,
-                    fontSizeSp = fontSizeSp,
-                    shape = if (isTopFolded) bottomShape else topShape,
-                    isDark = isDark,
-                    goldColor = goldColor
-                )
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(seamGap)
-                .background(if (isDark) Color(0xFF09090C) else Color(0xFFE2DAD0))
-                .align(Alignment.Center)
-        )
-    }
-}
-
-@Composable
-private fun SplitFlapHalfPlate(
-    digit: String,
-    badgeText: String? = null,
-    isTop: Boolean,
-    cardWidth: Dp,
-    cardHeight: Dp,
-    halfHeight: Dp,
-    fontSizeSp: Float,
-    shape: Shape,
-    isDark: Boolean,
-    goldColor: Color
-) {
-    val plateBg = if (isDark) Color(0xFF1B1B1E) else Color(0xFFFAF8F5)
-    val plateBorder = if (isDark) Color(0x22FFFFFF) else Color(0x1F333333)
-    val digitTextColor = if (isDark) Color(0xFFCECECF) else Color(0xFF333333)
-
-    Box(
-        modifier = Modifier
-            .size(width = cardWidth, height = halfHeight)
-            .then(
-                if (!isDark) {
-                    Modifier.shadow(
-                        elevation = 3.dp,
-                        shape = shape,
-                        spotColor = Color(0x15000000),
-                        ambientColor = Color(0x0C000000)
-                    )
-                } else Modifier
-            )
-            .clip(shape)
-            .background(plateBg)
-            .border(1.2.dp, plateBorder, shape)
-    ) {
-        if (isTop && badgeText != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 5.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                Text(
-                    text = badgeText,
-                    fontSize = 8.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isDark) goldColor.copy(alpha = 0.85f) else Color(0xFF78716C),
-                    letterSpacing = 1.4.sp
-                )
-            }
-        }
-
-        Layout(
-            content = {
-                Text(
-                    text = digit,
-                    fontSize = fontSizeSp.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.SansSerif,
-                    color = digitTextColor,
-                    letterSpacing = (-3).sp
-                )
-            }
-        ) { measurables, _ ->
-            val textPlaceable = measurables.first().measure(Constraints())
-            val parentWidthPx = cardWidth.roundToPx()
-            val cardHeightPx = cardHeight.roundToPx()
-            val halfHeightPx = halfHeight.roundToPx()
-
-            val centerX = (parentWidthPx - textPlaceable.width) / 2
-            val centerY = (cardHeightPx - textPlaceable.height) / 2
-            val posY = if (isTop) centerY else centerY - halfHeightPx
-
-            layout(parentWidthPx, halfHeightPx) {
-                textPlaceable.place(centerX, posY)
-            }
-        }
-    }
-}
-
-// =============================================================================
-// 🌟 CUSTOM HORIZONTAL SLIDER (THEME-ADAPTIVE & BRIGHT WHITE NEEDLE)
-// =============================================================================
-@Composable
-fun CustomHorizontalSlider(
+fun CustomTimerBottomSheet(
     dialMinutes: Float,
     onDialMinutesChange: (Float) -> Unit,
+    isDark: Boolean,
     goldColor: Color,
     cardBg: Color,
     textMain: Color,
     textMuted: Color,
-    isDark: Boolean = ThemeManager.isDarkTheme.value
+    onDismiss: () -> Unit
 ) {
-    var rawMinutes by remember(dialMinutes) { mutableFloatStateOf(dialMinutes.coerceIn(5f, 180f)) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(54.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (isDark) Color(0xFF13131A) else Color(0xFFF1F5F9))
-            .border(1.dp, if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1), RoundedCornerShape(14.dp))
-            .pointerInput(Unit) {
-                val spacing = 22.dp.toPx()
-                detectHorizontalDragGestures(
-                    onDragEnd = {
-                        val finalSnapped = (round(rawMinutes / 5f) * 5f).coerceIn(5f, 180f)
-                        rawMinutes = finalSnapped
-                        onDialMinutesChange(finalSnapped)
-                    },
-                    onDragCancel = {}
-                ) { change, dragAmount ->
-                    change.consume()
-                    val deltaMinutes = (-dragAmount / spacing) * 5f
-                    rawMinutes = (rawMinutes + deltaMinutes).coerceIn(5f, 180f)
-
-                    val currentSnapped = (round(rawMinutes / 5f) * 5f).coerceIn(5f, 180f)
-                    if (currentSnapped != dialMinutes) {
-                        onDialMinutesChange(currentSnapped)
-                    }
-                }
-            }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = if (isDark) Color(0xFF14141E) else Color(0xFFFFFFFF),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 12.dp)
+                    .width(42.dp)
+                    .height(4.5.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(if (isDark) Color(0x44FFFFFF) else Color(0x33000000))
+            )
+        }
     ) {
-        Canvas(
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(44.dp)
+                .padding(horizontal = 22.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            val canvasWidth = size.width
-            val canvasHeight = size.height
-            val centerX = canvasWidth / 2f
-            val centerY = canvasHeight / 2f
-            val spacing = 22.dp.toPx()
+            Text(
+                text = "Set Custom Time ⏱️",
+                color = goldColor,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                text = "Slide smoothly to adjust (5 - 180 min)",
+                color = textMuted,
+                fontSize = 12.sp
+            )
 
-            for (m in 5..180 step 5) {
-                val x = centerX + ((m - rawMinutes) / 5f) * spacing
-                if (x >= -20f && x <= canvasWidth + 20f) {
-                    val distFromCenter = abs(x - centerX)
-                    val alpha = (1f - distFromCenter / (canvasWidth / 2f)).coerceIn(0f, 1f)
-                    val isMajor30 = (m % 30 == 0)
-                    val isMajor15 = (m % 15 == 0)
+            val mins = dialMinutes.toInt().coerceIn(5, 180)
+            val displayTitle = if (mins >= 60) {
+                val h = mins / 60
+                val m = mins % 60
+                if (m > 0) "$mins min ($h h $m m)" else "$mins min ($h h)"
+            } else {
+                "$mins min"
+            }
 
-                    val tickHeight = when {
-                        isMajor30 -> 24.dp.toPx()
-                        isMajor15 -> 17.dp.toPx()
-                        else -> 11.dp.toPx()
-                    }
-                    val tickWidth = when {
-                        isMajor30 -> 2.4.dp.toPx()
-                        isMajor15 -> 1.8.dp.toPx()
-                        else -> 1.2.dp.toPx()
-                    }
+            Text(
+                text = displayTitle,
+                color = textMain,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Black
+            )
 
-                    val tickColor = if (isDark) {
-                        if (isMajor30 || isMajor15) textMain.copy(alpha = alpha * 0.9f)
-                        else textMuted.copy(alpha = alpha * 0.6f)
-                    } else {
-                        if (isMajor30 || isMajor15) Color(0xFF64748B).copy(alpha = alpha * 0.9f)
-                        else Color(0xFF94A3B8).copy(alpha = alpha * 0.65f)
-                    }
+            CustomHorizontalSlider(
+                dialMinutes = dialMinutes,
+                onDialMinutesChange = onDialMinutesChange,
+                goldColor = goldColor,
+                cardBg = cardBg,
+                textMain = textMain,
+                textMuted = textMuted
+            )
 
-                    drawLine(
-                        color = tickColor,
-                        start = Offset(x, centerY - tickHeight / 2f),
-                        end = Offset(x, centerY + tickHeight / 2f),
-                        strokeWidth = tickWidth,
-                        cap = StrokeCap.Round
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                shape = RoundedCornerShape(50),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+            ) {
+                Text("Done 🎯", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            }
+        }
+    }
+}
+
+@Composable
+fun AnimatedLivingFlame(modifier: Modifier = Modifier) {
+    StreakFlame(
+        streakDays = 1,
+        isLarge = false,
+        modifier = modifier.size(19.dp)
+    )
+}
+
+@Composable
+fun WhatsNewDialog(
+    versionName: String,
+    goldColor: Color,
+    glowYellow: Color,
+    cardBg: Color,
+    textMain: Color,
+    textMuted: Color,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(cardBg)
+                .border(1.6.dp, goldColor, RoundedCornerShape(26.dp))
+                .padding(22.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(goldColor.copy(alpha = 0.2f))
+                        .border(1.dp, goldColor, RoundedCornerShape(50))
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "Version $versionName",
+                        color = goldColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "What's New in Amon ✨",
+                    color = textMain,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(goldColor)
+                        .border(1.dp, glowYellow, RoundedCornerShape(50))
+                        .clickable { onDismiss() }
+                ) {
+                    Text(
+                        text = "Got It, Let's Focus 🎯",
+                        color = Color.Black,
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Black
                     )
                 }
             }
         }
-
-        Box(
-            modifier = Modifier
-                .width(3.5.dp)
-                .height(32.dp)
-                .shadow(
-                    elevation = 6.dp,
-                    shape = RoundedCornerShape(2.dp),
-                    spotColor = if (isDark) Color.White.copy(alpha = 0.5f) else Color(0x55000000),
-                    ambientColor = if (isDark) Color.White.copy(alpha = 0.3f) else Color(0x33000000)
-                )
-                .clip(RoundedCornerShape(2.dp))
-                .background(Color.White)
-                .border(
-                    width = if (isDark) 0.5.dp else 1.dp,
-                    color = if (isDark) Color(0x44FFFFFF) else Color(0x33000000),
-                    shape = RoundedCornerShape(2.dp)
-                )
-        )
     }
+}
+
+fun calculateStreakDays(sessions: List<FocusSession>): Int {
+    if (sessions.isEmpty()) return 0
+    val dayMinutesMap = mutableMapOf<String, Int>()
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val formats = listOf(
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    )
+
+    sessions.forEach { s ->
+        var date: Date? = null
+        for (fmt in formats) {
+            try {
+                val d = fmt.parse(s.date)
+                if (d != null) { date = d; break }
+            } catch (_: Exception) {}
+        }
+        if (date != null) {
+            val key = sdf.format(date)
+            dayMinutesMap[key] = (dayMinutesMap[key] ?: 0) + s.durationMinutes
+        }
+    }
+
+    val cal = Calendar.getInstance()
+    var streak = 0
+    val todayKey = sdf.format(cal.time)
+    val todayMins = dayMinutesMap[todayKey] ?: 0
+    if (todayMins >= 30) {
+        streak++
+    }
+
+    while (true) {
+        cal.add(Calendar.DAY_OF_YEAR, -1)
+        val dateKey = sdf.format(cal.time)
+        val mins = dayMinutesMap[dateKey] ?: 0
+        if (mins >= 30) {
+            streak++
+        } else {
+            break
+        }
+    }
+    return streak
 }
