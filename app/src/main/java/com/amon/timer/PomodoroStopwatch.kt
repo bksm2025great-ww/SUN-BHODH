@@ -645,24 +645,8 @@ fun PomodoroFocusControls(
             verticalAlignment = Alignment.CenterVertically
         ) {
             when {
-                // State 1: Break chal raha hai
+                // State 1: Break chal raha hai (Left = End Session, Right = Resume Focus 🎯)
                 isBreakActive -> {
-                    Button(
-                        onClick = onResumeFocusFromBreak,
-                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
-                        shape = RoundedCornerShape(50),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(46.dp)
-                    ) {
-                        Text(
-                            text = "Resume Focus 🎯",
-                            color = Color.Black,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 13.5.sp
-                        )
-                    }
-
                     OutlinedButton(
                         onClick = onEndSessionClick,
                         shape = RoundedCornerShape(50),
@@ -678,9 +662,25 @@ fun PomodoroFocusControls(
                             fontSize = 12.5.sp
                         )
                     }
+
+                    Button(
+                        onClick = onResumeFocusFromBreak,
+                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                    ) {
+                        Text(
+                            text = "Resume Focus 🎯",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.5.sp
+                        )
+                    }
                 }
 
-                // State 2: Focus Paused hai (Bilkul Screenshot jaisa setup)
+                // State 2: Focus Paused hai (Left = End Session, Right = Resume 🎯)
                 isPaused -> {
                     OutlinedButton(
                         onClick = onEndSessionClick,
