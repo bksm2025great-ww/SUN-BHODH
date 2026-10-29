@@ -94,11 +94,12 @@ fun ForestScreen() {
     var activeGroup by remember { mutableStateOf<StudyGroup?>(null) }
     var showCreateGroupDialog by remember { mutableStateOf(false) }
 
-    // 🔙 बैक बटन फ़िज़िक्स
+    // 🔙 बैक बटन हैंडलर
     BackHandler(enabled = activeGroup != null) {
         activeGroup = null
     }
 
+    // केवल मुख्य Universal Library रूम
     val myGroups = remember {
         mutableStateListOf(
             StudyGroup(
@@ -111,44 +112,6 @@ fun ForestScreen() {
                 iconType = RoomIconType.LIBRARY,
                 tagColor = primaryAccent,
                 subtitle = "Global 24/7 silent focus hub for students worldwide"
-            ),
-            StudyGroup(
-                id = "coding_arena",
-                name = "Code & Algorithms",
-                membersCount = "14k+ members",
-                activeCount = "210",
-                isPublic = true,
-                isCreatedByMe = false,
-                iconType = RoomIconType.CODE,
-                tagColor = Color(0xFF0EA5E9),
-                subtitle = "DSA, Development & late night deep builds"
-            )
-        )
-    }
-
-    val suggestedGroups = remember {
-        mutableStateListOf(
-            StudyGroup(
-                id = "upsc_prep",
-                name = "UPSC & Civil Aspirants",
-                membersCount = "48k+ members",
-                activeCount = "1.2k",
-                isPublic = true,
-                isCreatedByMe = false,
-                iconType = RoomIconType.CIVIL,
-                tagColor = Color(0xFFF59E0B),
-                subtitle = "GS, Answer Writing & Revision streak"
-            ),
-            StudyGroup(
-                id = "exam_warriors",
-                name = "CA & Finance Cohort",
-                membersCount = "8.5k+ members",
-                activeCount = "95",
-                isPublic = false,
-                isCreatedByMe = false,
-                iconType = RoomIconType.FINANCE,
-                tagColor = Color(0xFFEC4899),
-                subtitle = "Strict accountability room"
             )
         )
     }
@@ -165,17 +128,12 @@ fun ForestScreen() {
             if (group == null) {
                 GroupsListHubScreen(
                     myGroups = myGroups,
-                    suggestedGroups = suggestedGroups,
                     cardBg = cardBg,
                     cardBorder = cardBorder,
                     primaryAccent = primaryAccent,
                     liveGreen = liveGreen,
                     onGroupClick = { clickedGroup -> activeGroup = clickedGroup },
-                    onCreateGroupClick = { showCreateGroupDialog = true },
-                    onJoinGroupClick = { suggestedGroup ->
-                        suggestedGroups.remove(suggestedGroup)
-                        myGroups.add(suggestedGroup)
-                    }
+                    onCreateGroupClick = { showCreateGroupDialog = true }
                 )
             } else {
                 GroupDetailViewScreen(
@@ -233,20 +191,31 @@ fun ForestScreen() {
 }
 
 // ==========================================
-// 1. ग्रुप्स हब स्क्रीन
+// 1. ग्रुप्स हब स्क्रीन (सर्च बार + यूनिवर्सल रूम)
 // ==========================================
 @Composable
 private fun GroupsListHubScreen(
     myGroups: List<StudyGroup>,
-    suggestedGroups: List<StudyGroup>,
     cardBg: Color,
     cardBorder: Color,
     primaryAccent: Color,
     liveGreen: Color,
     onGroupClick: (StudyGroup) -> Unit,
-    onCreateGroupClick: () -> Unit,
-    onJoinGroupClick: (StudyGroup) -> Unit
+    onCreateGroupClick: () -> Unit
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+
+    val filteredGroups = remember(searchQuery, myGroups) {
+        if (searchQuery.isBlank()) {
+            myGroups
+        } else {
+            myGroups.filter {
+                it.name.contains(searchQuery.trim(), ignoreCase = true) ||
+                it.subtitle.contains(searchQuery.trim(), ignoreCase = true)
+            }
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -261,7 +230,7 @@ private fun GroupsListHubScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Focus Groups",
+                    text = "Focus Rooms",
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -274,7 +243,7 @@ private fun GroupsListHubScreen(
                     modifier = Modifier.clickable(onClick = onCreateGroupClick)
                 ) {
                     Text(
-                        text = "+ Create Group",
+                        text = "+ Create Room",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = primaryAccent,
@@ -284,18 +253,43 @@ private fun GroupsListHubScreen(
             }
         }
 
+        // 🔍 सर्च बार
+        item {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = {
+                    Text("Search rooms or topics...", color = Color(0xFF64748B), fontSize = 13.sp)
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryAccent,
+                    unfocusedBorderColor = cardBorder,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    cursorColor = primaryAccent,
+                    focusedContainerColor = cardBg,
+                    unfocusedContainerColor = cardBg
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            )
+        }
+
         item {
             Text(
-                text = "YOUR ROOMS",
+                text = "GLOBAL STUDY ROOM",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF64748B),
                 letterSpacing = 1.sp,
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
 
-        items(myGroups, key = { it.id }) { group ->
+        items(filteredGroups, key = { it.id }) { group ->
             GroupCardItem(
                 group = group,
                 cardBg = cardBg,
@@ -303,29 +297,6 @@ private fun GroupsListHubScreen(
                 liveGreen = liveGreen,
                 onClick = { onGroupClick(group) }
             )
-        }
-
-        if (suggestedGroups.isNotEmpty()) {
-            item {
-                Text(
-                    text = "SUGGESTED DISCOVERY",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF64748B),
-                    letterSpacing = 1.sp,
-                    modifier = Modifier.padding(top = 12.dp)
-                )
-            }
-
-            items(suggestedGroups, key = { it.id }) { group ->
-                SuggestedGroupCardItem(
-                    group = group,
-                    cardBg = cardBg,
-                    cardBorder = cardBorder,
-                    onJoinClick = { onJoinGroupClick(group) },
-                    onOpenClick = { onGroupClick(group) }
-                )
-            }
         }
 
         item {
@@ -437,71 +408,6 @@ private fun GroupCardItem(
     }
 }
 
-@Composable
-private fun SuggestedGroupCardItem(
-    group: StudyGroup,
-    cardBg: Color,
-    cardBorder: Color,
-    onJoinClick: () -> Unit,
-    onOpenClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpenClick),
-        shape = RoundedCornerShape(16.dp),
-        color = cardBg,
-        border = BorderStroke(1.dp, cardBorder)
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF1E2638)),
-                contentAlignment = Alignment.Center
-            ) {
-                CleanCategoryVectorIcon(
-                    type = group.iconType,
-                    tint = Color(0xFF94A3B8),
-                    modifier = Modifier.size(19.dp)
-                )
-            }
-
-            Spacer(Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = group.name,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = group.membersCount,
-                    fontSize = 11.sp,
-                    color = Color(0xFF64748B)
-                )
-            }
-
-            Button(
-                onClick = onJoinClick,
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                shape = RoundedCornerShape(20.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                modifier = Modifier.height(32.dp)
-            ) {
-                Text("Join", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
 // ==========================================
 // 2. ग्रुप डिटेल स्क्रीन
 // ==========================================
@@ -528,18 +434,14 @@ private fun GroupDetailViewScreen(
 
     val isUniversalLibrary = group.id == "univ_lib"
 
-    val leaderboard50 = remember {
+    // केवल सक्रिय (Active) छात्रों की सूची - इनएक्टिव यूज़र्स यहाँ से बाहर हैं
+    val activeLeaderboard = remember {
         val names = listOf(
             "Abhinav S.", "Aryan K.", "Neha Sharma", "Rahul Verma", "Rohan Mehra",
             "Priya Nair", "Aditya Joshi", "Tanmay Bhatia", "Dev Sharma", "Ananya Iyer",
             "Harsh Vardhan", "Sneha Roy", "Kartik Rawat", "Bhanu Sharma", "Vikram Singh",
             "Kashish Patel", "Ritvik Deshmukh", "Pooja Hegde", "Ayushmaan Sen", "Manish Tiwari",
-            "Divya Saxena", "Kunal Kamra", "Siddharth Rao", "Akshay Patil", "Megha Kapoor",
-            "Gaurav Chavan", "Tejas Singh", "Vidhi Jain", "Naveen Jindal", "Saurabh Pant",
-            "Kavita Krishnan", "Mohit Suri", "Anjali Aggarwal", "Yashwant Sinha", "Prateek Kuhad",
-            "Deepika Soni", "Varun Grover", "Ishaan Khattar", "Alok Nath", "Shruti Haasan",
-            "Tarun Mansukhani", "Nidhi Razdan", "Chetan Bhagat", "Sanya Malhotra", "Uday Chopra",
-            "Karan Johar", "Zoya Akhtar", "Farhan Roy", "Boman Irani", "Sunny Deol"
+            "Divya Saxena", "Kunal Kamra", "Siddharth Rao", "Akshay Patil", "Megha Kapoor"
         )
 
         val colors = listOf(
@@ -552,9 +454,8 @@ private fun GroupDetailViewScreen(
             addAll(names.mapIndexed { index, studentName ->
                 val rank = index + 1
                 val isUser = studentName == "Bhanu Sharma"
-                val hours = (145 - (index * 2.8)).toInt().coerceAtLeast(3)
+                val hours = (145 - (index * 4)).toInt().coerceAtLeast(4)
                 val minutes = (index * 7) % 60
-                val isActive = isUser || index < 28
 
                 LeaderboardStudent(
                     id = "student_$index",
@@ -562,7 +463,7 @@ private fun GroupDetailViewScreen(
                     name = studentName,
                     studyDuration = if (isUser) "24h 15m" else "${hours}h ${minutes}m",
                     isCurrentUser = isUser,
-                    isActiveNow = isActive,
+                    isActiveNow = true, // लीडरबोर्ड में केवल एक्टिव छात्र
                     avatarLetter = studentName.first().toString(),
                     avatarBgColor = if (isUser) Color(0xFFFFB800) else colors[index % colors.size]
                 )
@@ -724,7 +625,7 @@ private fun GroupDetailViewScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Leaderboard (${leaderboard50.size})",
+                    text = "Leaderboard (${activeLeaderboard.size})",
                     fontSize = 13.sp,
                     fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
                     color = if (selectedTab == 0) Color.White else Color(0xFF64748B)
@@ -759,7 +660,7 @@ private fun GroupDetailViewScreen(
             }
         }
 
-        // टैब 1: LEADERBOARD
+        // टैब 1: केवल सक्रिय छात्रों का LEADERBOARD
         if (selectedTab == 0) {
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
@@ -791,7 +692,7 @@ private fun GroupDetailViewScreen(
                         }
                     }
 
-                    items(leaderboard50, key = { it.id }) { student ->
+                    items(activeLeaderboard, key = { it.id }) { student ->
                         MetallicLeaderboardRow(
                             student = student,
                             cardBg = cardBg,
@@ -813,7 +714,7 @@ private fun GroupDetailViewScreen(
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 16.dp)
                         .clickable {
-                            val userIndex = leaderboard50.indexOfFirst { it.isCurrentUser }
+                            val userIndex = activeLeaderboard.indexOfFirst { it.isCurrentUser }
                             if (userIndex != -1) {
                                 coroutineScope.launch {
                                     listState.animateScrollToItem(userIndex + 1)
@@ -872,7 +773,7 @@ private fun GroupDetailViewScreen(
                 }
 
                 Button(
-                    onClick = { /* स्टार्ट टाइमर */ },
+                    onClick = { /* टाइमर शुरू करें */ },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
@@ -892,11 +793,10 @@ private fun GroupDetailViewScreen(
         }
     }
 
-    // 🚪 लीव रूम डायलॉग
     if (showLeaveConfirmDialog) {
         SimpleConfirmDialog(
             title = "Leave Room?",
-            message = "Are you sure you want to leave '${group.name}'? You can rejoin anytime from Discovery.",
+            message = "Are you sure you want to leave '${group.name}'?",
             confirmText = "Leave",
             confirmColor = Color(0xFFEF4444),
             onDismiss = { showLeaveConfirmDialog = false },
@@ -907,7 +807,6 @@ private fun GroupDetailViewScreen(
         )
     }
 
-    // 🗑️ डिलीट रूम डायलॉग (एडमिन)
     if (showDeleteConfirmDialog) {
         SimpleConfirmDialog(
             title = "Delete Room Permanently?",
@@ -922,7 +821,6 @@ private fun GroupDetailViewScreen(
         )
     }
 
-    // 🚫 किक मेंबर डायलॉग (एडमिन)
     if (memberToKick != null) {
         val student = memberToKick!!
         SimpleConfirmDialog(
@@ -932,7 +830,7 @@ private fun GroupDetailViewScreen(
             confirmColor = Color(0xFFEF4444),
             onDismiss = { memberToKick = null },
             onConfirm = {
-                leaderboard50.remove(student)
+                activeLeaderboard.remove(student)
                 onlyActiveMembers.removeAll { it.name == student.name }
                 memberToKick = null
             }
@@ -940,7 +838,7 @@ private fun GroupDetailViewScreen(
     }
 }
 
-// 👑 लीडरबोर्ड रो
+// 👑 मेटैलिक लीडरबोर्ड रो
 @Composable
 private fun MetallicLeaderboardRow(
     student: LeaderboardStudent,
@@ -957,7 +855,6 @@ private fun MetallicLeaderboardRow(
 
     val rowBorder = when {
         student.isCurrentUser -> BorderStroke(1.2.dp, primaryAccent)
-        !student.isActiveNow -> BorderStroke(1.dp, Color(0xFF161E2C))
         student.rank == 1 -> BorderStroke(1.2.dp, goldColor.copy(alpha = 0.85f))
         student.rank == 2 -> BorderStroke(1.1.dp, silverColor.copy(alpha = 0.70f))
         student.rank == 3 -> BorderStroke(1.1.dp, bronzeColor.copy(alpha = 0.75f))
@@ -966,7 +863,6 @@ private fun MetallicLeaderboardRow(
 
     val rowBg = when {
         student.isCurrentUser -> primaryAccent.copy(alpha = 0.16f)
-        !student.isActiveNow -> Color(0xFF0C1017)
         student.rank == 1 -> Color(0xFF1A170A)
         student.rank == 2 -> Color(0xFF141822)
         student.rank == 3 -> Color(0xFF1A130F)
@@ -975,7 +871,6 @@ private fun MetallicLeaderboardRow(
 
     val rankTextColor = when {
         student.isCurrentUser -> primaryAccent
-        !student.isActiveNow -> Color(0xFF475569)
         student.rank == 1 -> goldColor
         student.rank == 2 -> silverColor
         student.rank == 3 -> bronzeColor
@@ -985,7 +880,7 @@ private fun MetallicLeaderboardRow(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .graphicsLayer { alpha = if (student.isActiveNow) 1f else 0.58f }
+            .graphicsLayer { alpha = 1f }
             .then(
                 if (canAdminKick) Modifier.clickable(onClick = onKickClick) else Modifier
             ),
@@ -1017,27 +912,25 @@ private fun MetallicLeaderboardRow(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(if (student.isActiveNow) student.avatarBgColor else Color(0xFF334155)),
+                        .background(student.avatarBgColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = student.avatarLetter,
-                        color = if (student.isActiveNow) Color.White else Color(0xFF94A3B8),
+                        color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
                 }
 
-                if (student.isActiveNow) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .size(9.dp)
-                            .clip(CircleShape)
-                            .background(liveGreen)
-                            .border(1.5.dp, rowBg, CircleShape)
-                    )
-                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(9.dp)
+                        .clip(CircleShape)
+                        .background(liveGreen)
+                        .border(1.5.dp, rowBg, CircleShape)
+                )
             }
 
             Spacer(Modifier.width(12.dp))
@@ -1047,7 +940,7 @@ private fun MetallicLeaderboardRow(
                     text = student.name,
                     fontSize = 14.sp,
                     fontWeight = if (student.isCurrentUser) FontWeight.Bold else FontWeight.SemiBold,
-                    color = if (student.isCurrentUser) Color.White else (if (student.isActiveNow) Color(0xFFE2E8F0) else Color(0xFF94A3B8))
+                    color = if (student.isCurrentUser) Color.White else Color(0xFFE2E8F0)
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (student.isCurrentUser) {
@@ -1059,10 +952,10 @@ private fun MetallicLeaderboardRow(
                         )
                     }
                     Text(
-                        text = if (student.isActiveNow) "Studying now" else "Offline",
+                        text = "Studying now",
                         fontSize = 11.sp,
-                        color = if (student.isActiveNow) liveGreen else Color(0xFF64748B),
-                        fontWeight = if (student.isActiveNow) FontWeight.Medium else FontWeight.Normal
+                        color = liveGreen,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
@@ -1071,7 +964,7 @@ private fun MetallicLeaderboardRow(
                 text = student.studyDuration,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (student.isCurrentUser) primaryAccent else (if (student.isActiveNow) Color(0xFF94A3B8) else Color(0xFF475569))
+                color = if (student.isCurrentUser) primaryAccent else Color(0xFF94A3B8)
             )
 
             if (canAdminKick) {
@@ -1128,7 +1021,7 @@ private fun ActiveStudentGridCard(member: ActiveStudent) {
     }
 }
 
-// 🏛️ CREATE GROUP POPUP DIALOG
+// 🏛️ क्रिएट रूम डायलॉग
 @Composable
 private fun CreateGroupDialog(
     primaryAccent: Color,
@@ -1167,7 +1060,7 @@ private fun CreateGroupDialog(
                             word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                         }
                     },
-                    placeholder = { Text("Room Name (e.g. UPSC Masters)", color = Color(0xFF64748B), fontSize = 13.sp) },
+                    placeholder = { Text("Room Name (e.g. Focus Lounge)", color = Color(0xFF64748B), fontSize = 13.sp) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Words,
@@ -1203,7 +1096,7 @@ private fun CreateGroupDialog(
                             color = Color.White
                         )
                         Text(
-                            text = if (isPublic) "Anyone can discover & join" else "Invite-code only",
+                            text = if (isPublic) "Anyone can discover & join" else "Invite-only room",
                             fontSize = 11.sp,
                             color = Color(0xFF64748B)
                         )
@@ -1270,7 +1163,7 @@ private fun CreateGroupDialog(
     }
 }
 
-// ⚠️ कॉमन कन्फर्मेशन डायलॉग (लीव / डिलीट / किक)
+// ⚠️ कॉमन कन्फर्मेशन डायलॉग
 @Composable
 private fun SimpleConfirmDialog(
     title: String,
@@ -1329,10 +1222,9 @@ private fun SimpleConfirmDialog(
 }
 
 // =============================================================================
-// 🎨 WHATSAPP STYLE & CLEAN VECTOR ICONS (100% Canvas Line-Art, No Heavy Libs)
+// 🎨 CLEAN CANVAS VECTOR ICONS (Zero Heavy Libs)
 // =============================================================================
 
-// WhatsApp 3-डॉट्स मेनू (⋮)
 @Composable
 private fun WhatsAppThreeDotsIcon(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
@@ -1345,7 +1237,6 @@ private fun WhatsAppThreeDotsIcon(tint: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// क्लीन शेयर / इनवाइट आइकॉन
 @Composable
 private fun CleanShareVectorIcon(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
@@ -1367,7 +1258,6 @@ private fun CleanShareVectorIcon(tint: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// क्लीन बैक एरो आइकॉन
 @Composable
 private fun CleanBackArrowVectorIcon(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
@@ -1381,7 +1271,6 @@ private fun CleanBackArrowVectorIcon(tint: Color, modifier: Modifier = Modifier)
     }
 }
 
-// क्लीन डिलीट / ट्रैश आइकॉन
 @Composable
 private fun CleanTrashVectorIcon(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
@@ -1404,7 +1293,6 @@ private fun CleanTrashVectorIcon(tint: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// क्लीन लीव / बाहर निकलने का आइकॉन
 @Composable
 private fun CleanLeaveVectorIcon(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
@@ -1426,7 +1314,6 @@ private fun CleanLeaveVectorIcon(tint: Color, modifier: Modifier = Modifier) {
     }
 }
 
-// क्लीन मेंबर रिमूव आइकॉन (Kick user)
 @Composable
 private fun CleanRemoveUserVectorIcon(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
@@ -1447,7 +1334,6 @@ private fun CleanRemoveUserVectorIcon(tint: Color, modifier: Modifier = Modifier
     }
 }
 
-// रूम कैटेगरी के क्लीन वेक्टर आइकॉन्स
 @Composable
 private fun CleanCategoryVectorIcon(type: RoomIconType, tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
@@ -1473,10 +1359,8 @@ private fun CleanCategoryVectorIcon(type: RoomIconType, tint: Color, modifier: M
             RoomIconType.CODE -> {
                 drawLine(color = tint, start = Offset(w * 0.36f, h * 0.30f), end = Offset(w * 0.18f, h * 0.50f), strokeWidth = strokeW, cap = StrokeCap.Round)
                 drawLine(color = tint, start = Offset(w * 0.18f, h * 0.50f), end = Offset(w * 0.36f, h * 0.70f), strokeWidth = strokeW, cap = StrokeCap.Round)
-
                 drawLine(color = tint, start = Offset(w * 0.64f, h * 0.30f), end = Offset(w * 0.82f, h * 0.50f), strokeWidth = strokeW, cap = StrokeCap.Round)
                 drawLine(color = tint, start = Offset(w * 0.82f, h * 0.50f), end = Offset(w * 0.64f, h * 0.70f), strokeWidth = strokeW, cap = StrokeCap.Round)
-
                 drawLine(color = tint, start = Offset(w * 0.56f, h * 0.24f), end = Offset(w * 0.44f, h * 0.76f), strokeWidth = strokeW, cap = StrokeCap.Round)
             }
             RoomIconType.CIVIL -> {
