@@ -15,15 +15,22 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 
+// 🏆 लीडरबोर्ड के लिए शुद्ध डेटा मॉडल (बिना किसी पेड़ के झंझट के)
+data class LeaderboardItem(
+    val id: String,
+    val name: String,
+    val totalMinutes: Long
+)
+
 object CloudSyncManager {
 
     private const val TAG = "CloudSyncManager"
     private val client = OkHttpClient()
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
-    // 🔐 Supabase कनेक्शन की चाबियाँ (हमेशा "" के अंदर)
+    // 🔐 Supabase कनेक्शन की चाबियाँ ("" के अंदर सुरक्षित)
     private const val SUPABASE_URL = "https://mgenghztpcqaqaepvevw.supabase.co"
-    private const val SUPABASE_KEY = sb_publishable_flD-UULZ2YGzMrVLw2QHoA_7cXEg7FX
+    private const val SUPABASE_KEY = "sb_publishable_flD-UULZ2YGzMrVLw2QHoA_7cXEg7FX"
 
     /**
      * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम दर्ज करना
@@ -38,7 +45,7 @@ object CloudSyncManager {
         val userName = userManager.getUserName().trim()
 
         if (userName.isBlank() || userName.equals("Guest", ignoreCase = true)) {
-            return // Guest user ko profiles me register nahi karna
+            return
         }
 
         val jsonPayload = JSONObject().apply {
@@ -159,6 +166,42 @@ object CloudSyncManager {
             Log.e(TAG, "Supabase se data lane me error: ${e.message}")
         }
 
+        return@withContext emptyList()
+    }
+
+    /**
+     * 👑 4. Supabase से लाइव लीडरबोर्ड डेटा खींचना (टॉपर्स की लिस्ट)
+     */
+    suspend fun fetchLeaderboard(): List<LeaderboardItem> = withContext(Dispatchers.IO) {
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
+
+        val fetchUrl = "$SUPABASE_URL/rest/v1/study_sessions?select=id,subject,duration_minutes&order=duration_minutes.desc&limit=50"
+        val request = Request.Builder()
+            .url(fetchUrl)
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .get()
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+            val responseText = response.body?.string().orEmpty()
+
+            if (response.isSuccessful && responseText.isNotBlank()) {
+                val array = JSONArray(responseText)
+                val list = mutableListOf<LeaderboardItem>()
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val id = obj.optString("id", "session_$i")
+                    val subject = obj.optString("subject", "Student ${i + 1}")
+                    val minutes = obj.optLong("duration_minutes", 0L)
+                    list.add(LeaderboardItem(id = id, name = subject, totalMinutes = minutes))
+                }
+                return@withContext list
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Leaderboard fetch error: ${e.message}")
+        }
         return@withContext emptyList()
     }
 }
