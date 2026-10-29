@@ -331,7 +331,7 @@ private fun ClassicRingWatch(
                     (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
                 }
 
-                // 🟢 2. CONDITIONAL AURA GLOW (Sirf isRunning == true hone par activate hoga, zero battery load)
+                // 🟢 2. CONDITIONAL AURA GLOW (Sirf focus chalne par activate hoga, phone heat nahi hoga)
                 if (isRunning) {
                     drawArc(
                         color = goldColor.copy(alpha = 0.20f),
@@ -435,7 +435,6 @@ private fun RotaryDialWatch(
                 val center = Offset(size.width / 2f, size.height / 2f)
                 centerOffset = center
 
-                // 🟢 1. SLIM BACKGROUND TRACK (3.8dp)
                 drawCircle(
                     color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
                     radius = radius,
@@ -491,7 +490,6 @@ private fun RotaryDialWatch(
                     val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
                     val sweep = (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
 
-                    // 🟢 2. CONDITIONAL AURA GLOW (Running mode only)
                     drawArc(
                         color = goldColor.copy(alpha = 0.20f),
                         startAngle = -90f,
@@ -502,7 +500,6 @@ private fun RotaryDialWatch(
                         style = Stroke(width = 8.8.dp.toPx(), cap = StrokeCap.Round)
                     )
 
-                    // 🟢 3. MAIN FOREGROUND RING (4.4dp)
                     drawArc(
                         color = goldColor,
                         startAngle = -90f,
