@@ -23,7 +23,7 @@ object CloudSyncManager {
 
     // 🔐 Supabase कनेक्शन की चाबियाँ (हमेशा "" के अंदर)
     private const val SUPABASE_URL = "https://mgenghztpcqaqaepvevw.supabase.co"
-    private const val SUPABASE_KEY = "यहाँ_अपनी_KEY_पेस्ट_करें"
+    private const val SUPABASE_KEY = sb_publishable_flD-UULZ2YGzMrVLw2QHoA_7cXEg7FX
 
     /**
      * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम दर्ज करना
