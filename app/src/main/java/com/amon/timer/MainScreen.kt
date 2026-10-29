@@ -292,7 +292,7 @@ fun MainScreen() {
                         stopwatchAccumulatedMillis = 0L
                         stopwatchElapsedMillis = 0L
                     },
-                    onEndSessionDirect = onDirectEndSession
+               onDirectEndSession = onDirectEndSession
                 )
                 1 -> ForestScreen()
                 2 -> StatsScreen()
@@ -409,8 +409,8 @@ fun HomeTimerTab(
     onStartStopwatch: () -> Unit,
     onPauseStopwatch: () -> Unit,
     onResumeStopwatch: () -> Unit,
-    onResetStopwatch: () -> Unit,
-    onEndSessionDirect: () -> Unit
+   onResetStopwatch: () -> Unit,
+    onDirectEndSession: () -> Unit
 ) {
     val activity = context as? Activity
     val configuration = LocalConfiguration.current
