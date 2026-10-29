@@ -57,6 +57,14 @@ object FocusSessionManager {
 
             // वापस तिजोरी में सुरक्षित रख दो
             prefs.edit().putString(KEY_SESSIONS, updatedJsonArray.toString()).apply()
+
+            // 🚀 डाकिया (CloudSyncManager) को Supabase में डेटा भेजने का सीधा आदेश
+            CloudSyncManager.syncSession(
+                context = context,
+                subject = session.subject,
+                durationMinutes = session.durationMinutes.toLong()
+            )
+
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -111,7 +119,7 @@ object FocusSessionManager {
         return getAllSessions(context)
     }
 
-    // 3. 🛡️️ Google Sheet से डेटा रीस्टोर करना (5 मिनट से कम वाले को अंदर मत आने दो)
+    // 3. 🛡 डेटा रीस्टोर करना (5 मिनट से कम वाले को अंदर मत आने दो)
     fun restoreSessions(context: Context, incomingSessions: List<FocusSession>): Pair<Int, Int> {
         val prefs = getPrefs(context)
         val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
@@ -135,10 +143,10 @@ object FocusSessionManager {
             var anyNewAdded = false
 
             for (incoming in incomingSessions) {
-                // 🛑 शीट से आया हुआ सेशन भी अगर 5 मिनट से छोटा है, तो छोड़ दो
+                // 🛑 5 मिनट से छोटा है, तो छोड़ दो
                 if (incoming.durationMinutes < 5) continue
 
-                // स्मार्ट आधार कार्ड चेक: तारीख, विषय और समय की समानता
+                // स्मार्ट मिलान चेक: तारीख, विषय और समय की समानता
                 val alreadyExists = existingList.any { obj ->
                     val sameId = obj.optLong("id", -1L) == incoming.id
                     val sameDate = obj.optString("date") == incoming.date
