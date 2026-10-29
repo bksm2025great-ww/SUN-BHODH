@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -62,7 +63,7 @@ private data class StudyGroup(
     val subtitle: String
 )
 
-private data class LeaderboardStudent(
+data class LeaderboardStudent(
     val id: String,
     val rank: Int,
     val name: String,
@@ -73,7 +74,7 @@ private data class LeaderboardStudent(
     val avatarBgColor: Color
 )
 
-private data class ActiveStudent(
+data class ActiveStudent(
     val id: String,
     val name: String,
     val liveFocusTime: String,
@@ -105,8 +106,8 @@ fun ForestScreen() {
             StudyGroup(
                 id = "univ_lib",
                 name = "Universal Library",
-                membersCount = "225k+ members",
-                activeCount = "3.8k",
+                membersCount = "Global Hub",
+                activeCount = "Live",
                 isPublic = true,
                 isCreatedByMe = false,
                 iconType = RoomIconType.LIBRARY,
@@ -156,7 +157,7 @@ fun ForestScreen() {
                             action = Intent.ACTION_SEND
                             putExtra(
                                 Intent.EXTRA_TEXT,
-                                "Join my silent study room '${group.name}' on Amon! Let's focus together 🏛️"
+                                "Join my silent study room '${group.name}' on Sun Bodh! Let's focus together 🏛️"
                             )
                             type = "text/plain"
                         }
@@ -398,7 +399,7 @@ private fun GroupCardItem(
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    text = "${group.activeCount} focusing right now",
+                    text = "Live focus leaderboard enabled",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = liveGreen
@@ -409,7 +410,7 @@ private fun GroupCardItem(
 }
 
 // ==========================================
-// 2. ग्रुप डिटेल स्क्रीन
+// 2. ग्रुप डिटेल स्क्रीन (रियल-डेटा रेडी)
 // ==========================================
 @Composable
 private fun GroupDetailViewScreen(
@@ -434,59 +435,9 @@ private fun GroupDetailViewScreen(
 
     val isUniversalLibrary = group.id == "univ_lib"
 
-    // केवल सक्रिय (Active) छात्रों की सूची - इनएक्टिव यूज़र्स यहाँ से बाहर हैं
-    val activeLeaderboard = remember {
-        val names = listOf(
-            "Abhinav S.", "Aryan K.", "Neha Sharma", "Rahul Verma", "Rohan Mehra",
-            "Priya Nair", "Aditya Joshi", "Tanmay Bhatia", "Dev Sharma", "Ananya Iyer",
-            "Harsh Vardhan", "Sneha Roy", "Kartik Rawat", "Bhanu Sharma", "Vikram Singh",
-            "Kashish Patel", "Ritvik Deshmukh", "Pooja Hegde", "Ayushmaan Sen", "Manish Tiwari",
-            "Divya Saxena", "Kunal Kamra", "Siddharth Rao", "Akshay Patil", "Megha Kapoor"
-        )
-
-        val colors = listOf(
-            Color(0xFFE11D48), Color(0xFF2563EB), Color(0xFFD97706), Color(0xFF059669),
-            Color(0xFF7C3AED), Color(0xFF0891B2), Color(0xFF4F46E5), Color(0xFFDB2777),
-            Color(0xFFEA580C), Color(0xFF16A34A), Color(0xFF9333EA), Color(0xFF0284C7)
-        )
-
-        mutableStateListOf<LeaderboardStudent>().apply {
-            addAll(names.mapIndexed { index, studentName ->
-                val rank = index + 1
-                val isUser = studentName == "Bhanu Sharma"
-                val hours = (145 - (index * 4)).toInt().coerceAtLeast(4)
-                val minutes = (index * 7) % 60
-
-                LeaderboardStudent(
-                    id = "student_$index",
-                    rank = rank,
-                    name = studentName,
-                    studyDuration = if (isUser) "24h 15m" else "${hours}h ${minutes}m",
-                    isCurrentUser = isUser,
-                    isActiveNow = true, // लीडरबोर्ड में केवल एक्टिव छात्र
-                    avatarLetter = studentName.first().toString(),
-                    avatarBgColor = if (isUser) Color(0xFFFFB800) else colors[index % colors.size]
-                )
-            })
-        }
-    }
-
-    val onlyActiveMembers = remember {
-        mutableStateListOf(
-            ActiveStudent("s1", "Humzaa", "10h 56m", "H", Color(0xFFEC4899)),
-            ActiveStudent("s2", "Samanwita", "10h 55m", "S", Color(0xFFF43F5E)),
-            ActiveStudent("s3", "AJ", "10h 55m", "A", Color(0xFF38BDF8)),
-            ActiveStudent("s4", "Nitesh", "10h 55m", "N", Color(0xFF60A5FA)),
-            ActiveStudent("s5", "Sameer", "10h 55m", "S", Color(0xFF4ADE80)),
-            ActiveStudent("s6", "Yogesh", "10h 55m", "Y", Color(0xFF818CF8)),
-            ActiveStudent("s7", "Vidyakulian", "10h 54m", "V", Color(0xFFFBBF24)),
-            ActiveStudent("s8", "Nirmal", "10h 55m", "N", Color(0xFFFDE047)),
-            ActiveStudent("s9", "Ananya", "08h 12m", "A", Color(0xFFFB7185)),
-            ActiveStudent("s10", "Aditya", "07h 40m", "A", Color(0xFF4F46E5)),
-            ActiveStudent("s11", "Tanmay", "06h 15m", "T", Color(0xFF0891B2)),
-            ActiveStudent("s12", "Priya", "05h 50m", "P", Color(0xFFDB2777))
-        )
-    }
+    // 🛡️ 100% शुद्ध और खाली लिस्ट - इसमें सिर्फ़ Supabase का असली डेटा आएगा
+    val activeLeaderboard = remember { mutableStateListOf<LeaderboardStudent>() }
+    val onlyActiveMembers = remember { mutableStateListOf<ActiveStudent>() }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -660,93 +611,136 @@ private fun GroupDetailViewScreen(
             }
         }
 
-        // टैब 1: केवल सक्रिय छात्रों का LEADERBOARD
+        // टैब 1: LEADERBOARD (खाली होने पर साफ़ संदेश)
         if (selectedTab == 0) {
             Box(modifier = Modifier.fillMaxSize()) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Weekly Reset • Ends in 1 day",
-                                fontSize = 12.sp,
-                                color = Color(0xFF94A3B8)
-                            )
-                            Text(
-                                text = "Top Ranking",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = primaryAccent
-                            )
-                        }
-                    }
-
-                    items(activeLeaderboard, key = { it.id }) { student ->
-                        MetallicLeaderboardRow(
-                            student = student,
-                            cardBg = cardBg,
-                            cardBorder = cardBorder,
-                            primaryAccent = primaryAccent,
-                            liveGreen = liveGreen,
-                            canAdminKick = group.isCreatedByMe && !student.isCurrentUser,
-                            onKickClick = { memberToKick = student }
-                        )
-                    }
-
-                    item {
-                        Spacer(Modifier.height(80.dp))
-                    }
-                }
-
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 16.dp)
-                        .clickable {
-                            val userIndex = activeLeaderboard.indexOfFirst { it.isCurrentUser }
-                            if (userIndex != -1) {
-                                coroutineScope.launch {
-                                    listState.animateScrollToItem(userIndex + 1)
-                                }
-                            }
-                        },
-                    shape = RoundedCornerShape(24.dp),
-                    color = Color(0xFF1E2638),
-                    border = BorderStroke(1.dp, Color(0xFF334155))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                if (activeLeaderboard.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFFFB800)),
-                            contentAlignment = Alignment.Center
+                        Surface(
+                            modifier = Modifier.size(60.dp),
+                            shape = CircleShape,
+                            color = primaryAccent.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, primaryAccent.copy(alpha = 0.3f))
                         ) {
-                            Text("B", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("🏆", fontSize = 26.sp)
+                            }
                         }
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.height(14.dp))
                         Text(
-                            text = "Scroll to your position (#14)",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
+                            text = "No Rankings Yet This Week",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
-                        Spacer(Modifier.width(4.dp))
-                        Text(text = "↓", fontSize = 13.sp, color = Color(0xFF94A3B8))
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = "Be the first one on the leaderboard! Complete a 5+ minute focus session to claim rank #1.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF94A3B8),
+                            textAlign = TextAlign.Center,
+                            lineHeight = 18.sp
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Weekly Reset • Active Ranking",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                                Text(
+                                    text = "Top Ranking",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = primaryAccent
+                                )
+                            }
+                        }
+
+                        items(activeLeaderboard, key = { it.id }) { student ->
+                            MetallicLeaderboardRow(
+                                student = student,
+                                cardBg = cardBg,
+                                cardBorder = cardBorder,
+                                primaryAccent = primaryAccent,
+                                liveGreen = liveGreen,
+                                canAdminKick = group.isCreatedByMe && !student.isCurrentUser,
+                                onKickClick = { memberToKick = student }
+                            )
+                        }
+
+                        item {
+                            Spacer(Modifier.height(80.dp))
+                        }
+                    }
+
+                    // रैंक पर स्क्रॉल करने का बटन तभी दिखेगा जब छात्र खुद लिस्ट में हो
+                    val currentUserIndex = activeLeaderboard.indexOfFirst { it.isCurrentUser }
+                    if (currentUserIndex != -1) {
+                        val currentStudent = activeLeaderboard[currentUserIndex]
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 16.dp)
+                                .clickable {
+                                    coroutineScope.launch {
+                                        listState.animateScrollToItem(currentUserIndex + 1)
+                                    }
+                                },
+                            shape = RoundedCornerShape(24.dp),
+                            color = Color(0xFF1E2638),
+                            border = BorderStroke(1.dp, Color(0xFF334155))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .clip(CircleShape)
+                                        .background(primaryAccent),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = currentStudent.avatarLetter,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "Scroll to your position (#${currentStudent.rank})",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(text = "↓", fontSize = 13.sp, color = Color(0xFF94A3B8))
+                            }
+                        }
                     }
                 }
             }
@@ -755,25 +749,61 @@ private fun GroupDetailViewScreen(
         // टैब 2: ACTIVE छात्र
         if (selectedTab == 1) {
             Box(modifier = Modifier.fillMaxSize()) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    items(onlyActiveMembers, key = { it.id }) { member ->
-                        ActiveStudentGridCard(member = member)
+                if (onlyActiveMembers.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(60.dp),
+                            shape = CircleShape,
+                            color = liveGreen.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, liveGreen.copy(alpha = 0.3f))
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("🌱", fontSize = 26.sp)
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            text = "Silent Room is Quiet",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = "Nobody is studying in this room right now. Start your focus timer and lead the room!",
+                            fontSize = 13.sp,
+                            color = Color(0xFF94A3B8),
+                            textAlign = TextAlign.Center,
+                            lineHeight = 18.sp
+                        )
                     }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        items(onlyActiveMembers, key = { it.id }) { member ->
+                            ActiveStudentGridCard(member = member)
+                        }
 
-                    item {
-                        Spacer(Modifier.height(80.dp))
+                        item {
+                            Spacer(Modifier.height(80.dp))
+                        }
                     }
                 }
 
                 Button(
-                    onClick = { /* टाइमर शुरू करें */ },
+                    onClick = { /* स्टार्ट टाइमर */ },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
@@ -952,7 +982,7 @@ private fun MetallicLeaderboardRow(
                         )
                     }
                     Text(
-                        text = "Studying now",
+                        text = "Active ranker",
                         fontSize = 11.sp,
                         color = liveGreen,
                         fontWeight = FontWeight.Medium
