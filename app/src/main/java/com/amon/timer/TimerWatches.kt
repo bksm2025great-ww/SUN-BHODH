@@ -291,7 +291,7 @@ private fun SleekWideChevronRight(tint: Color, modifier: Modifier = Modifier) {
 }
 
 // =============================================================================
-// ⏱ WATCH STYLE 1: CLASSIC LUXE RING (CENTRAL CLEAN TIME)
+// ⏱ WATCH STYLE 1: CLASSIC LUXE RING (20% SLIMMER + CONDITIONAL AURA GLOW)
 // =============================================================================
 @Composable
 private fun ClassicRingWatch(
@@ -316,11 +316,12 @@ private fun ClassicRingWatch(
                 val radius = size.minDimension / 2f - 10.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
 
+                // 🟢 1. SLIM BACKGROUND TRACK (3.8dp - 20% Thinner)
                 drawCircle(
                     color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
                     radius = radius,
                     center = center,
-                    style = Stroke(width = 5.dp.toPx())
+                    style = Stroke(width = 3.8.dp.toPx())
                 )
 
                 val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
@@ -330,26 +331,20 @@ private fun ClassicRingWatch(
                     (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
                 }
 
-                drawArc(
-                    color = goldColor.copy(alpha = 0.18f),
-                    startAngle = -90f,
-                    sweepAngle = sweep,
-                    useCenter = false,
-                    topLeft = Offset(center.x - radius, center.y - radius),
-                    size = Size(radius * 2f, radius * 2f),
-                    style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
-                )
+                // 🟢 2. CONDITIONAL AURA GLOW (Sirf isRunning == true hone par activate hoga, zero battery load)
+                if (isRunning) {
+                    drawArc(
+                        color = goldColor.copy(alpha = 0.20f),
+                        startAngle = -90f,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        topLeft = Offset(center.x - radius, center.y - radius),
+                        size = Size(radius * 2f, radius * 2f),
+                        style = Stroke(width = 8.8.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
 
-                drawArc(
-                    color = goldColor.copy(alpha = 0.35f),
-                    startAngle = -90f,
-                    sweepAngle = sweep,
-                    useCenter = false,
-                    topLeft = Offset(center.x - radius, center.y - radius),
-                    size = Size(radius * 2f, radius * 2f),
-                    style = Stroke(width = 11.dp.toPx(), cap = StrokeCap.Round)
-                )
-
+                // 🟢 3. MAIN FOREGROUND RING (4.4dp - 20% Thinner, Crisp & Elegant)
                 drawArc(
                     color = goldColor,
                     startAngle = -90f,
@@ -357,7 +352,7 @@ private fun ClassicRingWatch(
                     useCenter = false,
                     topLeft = Offset(center.x - radius, center.y - radius),
                     size = Size(radius * 2f, radius * 2f),
-                    style = Stroke(width = 5.5.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 4.4.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
 
@@ -387,7 +382,7 @@ private fun ClassicRingWatch(
 }
 
 // =============================================================================
-// 🎛 WATCH STYLE 2: ROTARY DIAL (MINIMUM 5 MIN - ZERO REMOVED)
+// 🎛 WATCH STYLE 2: ROTARY DIAL (20% SLIMMER + CONDITIONAL AURA GLOW)
 // =============================================================================
 @Composable
 private fun RotaryDialWatch(
@@ -440,11 +435,12 @@ private fun RotaryDialWatch(
                 val center = Offset(size.width / 2f, size.height / 2f)
                 centerOffset = center
 
+                // 🟢 1. SLIM BACKGROUND TRACK (3.8dp)
                 drawCircle(
                     color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
                     radius = radius,
                     center = center,
-                    style = Stroke(width = 5.dp.toPx())
+                    style = Stroke(width = 3.8.dp.toPx())
                 )
 
                 if (!isRunning) {
@@ -481,30 +477,32 @@ private fun RotaryDialWatch(
                         useCenter = false,
                         topLeft = Offset(center.x - radius, center.y - radius),
                         size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 4.2.dp.toPx(), cap = StrokeCap.Round)
                     )
 
                     val knobAngleRad = (sweep - 90f) * (PI.toFloat() / 180f)
                     val knobX = center.x + radius * cos(knobAngleRad)
                     val knobY = center.y + radius * sin(knobAngleRad)
 
-                    drawCircle(color = goldColor.copy(alpha = 0.3f), radius = 16.dp.toPx(), center = Offset(knobX, knobY))
-                    drawCircle(color = goldColor, radius = 10.dp.toPx(), center = Offset(knobX, knobY))
-                    drawCircle(color = Color.White, radius = 3.5.dp.toPx(), center = Offset(knobX, knobY))
+                    drawCircle(color = goldColor.copy(alpha = 0.25f), radius = 14.dp.toPx(), center = Offset(knobX, knobY))
+                    drawCircle(color = goldColor, radius = 9.dp.toPx(), center = Offset(knobX, knobY))
+                    drawCircle(color = Color.White, radius = 3.dp.toPx(), center = Offset(knobX, knobY))
                 } else {
                     val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
                     val sweep = (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
 
+                    // 🟢 2. CONDITIONAL AURA GLOW (Running mode only)
                     drawArc(
-                        color = goldColor.copy(alpha = 0.18f),
+                        color = goldColor.copy(alpha = 0.20f),
                         startAngle = -90f,
                         sweepAngle = sweep,
                         useCenter = false,
                         topLeft = Offset(center.x - radius, center.y - radius),
                         size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 8.8.dp.toPx(), cap = StrokeCap.Round)
                     )
 
+                    // 🟢 3. MAIN FOREGROUND RING (4.4dp)
                     drawArc(
                         color = goldColor,
                         startAngle = -90f,
@@ -512,7 +510,7 @@ private fun RotaryDialWatch(
                         useCenter = false,
                         topLeft = Offset(center.x - radius, center.y - radius),
                         size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 5.5.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 4.4.dp.toPx(), cap = StrokeCap.Round)
                     )
                 }
             }
