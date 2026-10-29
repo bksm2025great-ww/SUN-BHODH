@@ -552,6 +552,33 @@ fun HomeTimerTab(
         }
     }
 
+    // 🟢 ACTIONS: Break & Resume Flow (360° Arc Fix Included)
+    val onTriggerBreak = {
+        isBreakActive = true
+        val breakMins = if (currentSessionIndex >= pomodoroTotalSessions) pomodoroLongBreakMinutes else pomodoroShortBreakMinutes
+        val breakSecs = breakMins * 60
+        initialTotalSeconds = breakSecs // 🟢 360° Ring Fix: Total seconds ko 300s banaya taaki full circle start ho
+        val intent = Intent(context, TimerService::class.java).apply {
+            action = TimerService.ACTION_START
+            putExtra(TimerService.EXTRA_SECONDS, breakSecs)
+            putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+        }
+        context.startService(intent)
+    }
+
+    val onResumeFocusFromBreakAction = {
+        isBreakActive = false
+        currentSessionIndex = if (currentSessionIndex >= pomodoroTotalSessions) 1 else currentSessionIndex + 1
+        val targetSecs = if (selectedFocusMode == 2) pomodoroFocusMinutes * 60 else (dialMinutes.toInt() * 60)
+        initialTotalSeconds = if (targetSecs > 0) targetSecs else 1500 // 🟢 Wapas focus time par ring scale set
+        val intent = Intent(context, TimerService::class.java).apply {
+            action = TimerService.ACTION_START
+            putExtra(TimerService.EXTRA_SECONDS, initialTotalSeconds)
+            putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+        }
+        context.startService(intent)
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         if (!isFocusActive) {
             Column(
@@ -780,7 +807,6 @@ fun HomeTimerTab(
                             )
                         }
                         1 -> {
-                            // ⏱️ STOPWATCH PRECISION DISPLAY (Modular from PomodoroStopwatch.kt)
                             StopwatchPrecisionDisplay(
                                 swMainTime = swMainTime,
                                 swMilliText = swMilliText,
@@ -942,9 +968,11 @@ fun HomeTimerTab(
                                     pomodoroFocusMinutes * 60
                                 } else totalSeconds
 
+                                initialTotalSeconds = if (targetSecs > 0) targetSecs else 1500
+
                                 val intent = Intent(context, TimerService::class.java).apply {
                                     action = TimerService.ACTION_START
-                                    putExtra(TimerService.EXTRA_SECONDS, if (targetSecs > 0) targetSecs else 1500)
+                                    putExtra(TimerService.EXTRA_SECONDS, initialTotalSeconds)
                                     putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
                                 }
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -973,225 +1001,34 @@ fun HomeTimerTab(
         } else {
             // 🎯 MASTER FOCUS SCREEN
             if (isStopwatchFocusActive) {
-                if (!isLandscape) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 20.dp)
-                            .padding(top = 22.dp, bottom = 48.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(7.dp),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
-                                .border(1.dp, glassBorder, RoundedCornerShape(50))
-                                .padding(horizontal = 16.dp, vertical = 6.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.5.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF22C55E))
-                            )
-                            Text(
-                                text = "$selectedSubjectName • Stopwatch",
-                                color = textMain,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.Bottom,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = swMainTime,
-                                color = textMain,
-                                fontSize = 52.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = (-1).sp
-                            )
-                            Text(
-                                text = swMilliText,
-                                color = goldColor,
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Black,
-                                modifier = Modifier.padding(bottom = 6.dp)
-                            )
-                        }
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(24.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(58.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable {
-                                        if (isStopwatchRunning) {
-                                            onPauseStopwatch()
-                                            val intent = Intent(context, TimerService::class.java).apply {
-                                                action = TimerService.ACTION_PAUSE
-                                            }
-                                            context.startService(intent)
-                                        } else {
-                                            onResumeStopwatch()
-                                            val intent = Intent(context, TimerService::class.java).apply {
-                                                action = TimerService.ACTION_RESUME
-                                            }
-                                            context.startService(intent)
-                                        }
-                                    }
-                            ) {
-                                if (isStopwatchRunning) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Box(modifier = Modifier.width(3.2.dp).height(16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                        Box(modifier = Modifier.width(3.2.dp).height(16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                    }
-                                } else {
-                                    Text(
-                                        text = "▶",
-                                        color = textMain,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Black,
-                                        modifier = Modifier.offset(x = 1.5.dp)
-                                    )
-                                }
+                StopwatchFocusScreen(
+                    isLandscape = isLandscape,
+                    selectedSubjectName = selectedSubjectName,
+                    swMainTime = swMainTime,
+                    swMilliText = swMilliText,
+                    isStopwatchRunning = isStopwatchRunning,
+                    goldColor = goldColor,
+                    textMain = textMain,
+                    textMuted = textMuted,
+                    glassBorder = glassBorder,
+                    isDark = isDark,
+                    onTogglePlayPause = {
+                        if (isStopwatchRunning) {
+                            onPauseStopwatch()
+                            val intent = Intent(context, TimerService::class.java).apply {
+                                action = TimerService.ACTION_PAUSE
                             }
-
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(58.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable { onEndSessionDirect() }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(textMuted)
-                                )
+                            context.startService(intent)
+                        } else {
+                            onResumeStopwatch()
+                            val intent = Intent(context, TimerService::class.java).apply {
+                                action = TimerService.ACTION_RESUME
                             }
+                            context.startService(intent)
                         }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 24.dp, vertical = 12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .fillMaxHeight(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "$selectedSubjectName • Stopwatch",
-                                color = textMain,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.Bottom,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Text(
-                                    text = swMainTime,
-                                    color = textMain,
-                                    fontSize = 64.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                                Text(
-                                    text = swMilliText,
-                                    color = goldColor,
-                                    fontSize = 32.sp,
-                                    fontWeight = FontWeight.Black,
-                                    modifier = Modifier.padding(bottom = 6.dp)
-                                )
-                            }
-                        }
-
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .fillMaxHeight(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable {
-                                        if (isStopwatchRunning) {
-                                            onPauseStopwatch()
-                                            val intent = Intent(context, TimerService::class.java).apply {
-                                                action = TimerService.ACTION_PAUSE
-                                            }
-                                            context.startService(intent)
-                                        } else {
-                                            onResumeStopwatch()
-                                            val intent = Intent(context, TimerService::class.java).apply {
-                                                action = TimerService.ACTION_RESUME
-                                            }
-                                            context.startService(intent)
-                                        }
-                                    }
-                            ) {
-                                if (isStopwatchRunning) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
-                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                    }
-                                } else {
-                                    Text(text = "▶", color = textMain, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(18.dp))
-
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable { onEndSessionDirect() }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(15.dp)
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(textMuted)
-                                )
-                            }
-                        }
-                    }
-                }
+                    },
+                    onGiveUpClick = { onEndSessionDirect() }
+                )
             } else {
                 if (!isLandscape) {
                     Column(
@@ -1284,7 +1121,7 @@ fun HomeTimerTab(
                             )
                         }
 
-                        // 🎯 ADAPTIVE CONTROLS: PAUSE / RESUME / BREAK / DIRECT END SESSION
+                        // 🎯 ADAPTIVE CONTROLS (PORTRAIT)
                         PomodoroFocusControls(
                             isRunning = isRunning,
                             isPaused = isPaused,
@@ -1307,27 +1144,8 @@ fun HomeTimerTab(
                                 }
                                 context.startService(intent)
                             },
-                            onSwitchToBreakClick = {
-                                isBreakActive = true
-                                val breakMins = if (currentSessionIndex >= pomodoroTotalSessions) pomodoroLongBreakMinutes else pomodoroShortBreakMinutes
-                                val intent = Intent(context, TimerService::class.java).apply {
-                                    action = TimerService.ACTION_START
-                                    putExtra(TimerService.EXTRA_SECONDS, breakMins * 60)
-                                    putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
-                                }
-                                context.startService(intent)
-                            },
-                            onResumeFocusFromBreak = {
-                                isBreakActive = false
-                                currentSessionIndex = if (currentSessionIndex >= pomodoroTotalSessions) 1 else currentSessionIndex + 1
-                                val targetSecs = if (selectedFocusMode == 2) pomodoroFocusMinutes * 60 else (dialMinutes.toInt() * 60)
-                                val intent = Intent(context, TimerService::class.java).apply {
-                                    action = TimerService.ACTION_START
-                                    putExtra(TimerService.EXTRA_SECONDS, if (targetSecs > 0) targetSecs else 1500)
-                                    putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
-                                }
-                                context.startService(intent)
-                            },
+                            onSwitchToBreakClick = onTriggerBreak,
+                            onResumeFocusFromBreak = onResumeFocusFromBreakAction,
                             onEndSessionClick = {
                                 isBreakActive = false
                                 onEndSessionDirect()
@@ -1335,6 +1153,7 @@ fun HomeTimerTab(
                         )
                     }
                 } else {
+                    // 🎯 LANDSCAPE MODE (Full Adaptive Side-Panel)
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -1362,8 +1181,8 @@ fun HomeTimerTab(
                                         .background(Color(0xFF22C55E))
                                 )
                                 Text(
-                                    text = selectedSubjectName,
-                                    color = textMain,
+                                    text = if (isBreakActive) "☕ Break" else selectedSubjectName,
+                                    color = if (isBreakActive) Color(0xFF10B981) else textMain,
                                     fontSize = 12.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.5.sp
@@ -1403,6 +1222,7 @@ fun HomeTimerTab(
                             )
                         }
 
+                        // 🟢 LANDSCAPE ADAPTIVE RIGHT CONTROLS
                         Column(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
@@ -1410,50 +1230,87 @@ fun HomeTimerTab(
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable {
-                                        val intent = Intent(context, TimerService::class.java).apply {
-                                            action = if (isRunning) TimerService.ACTION_PAUSE else TimerService.ACTION_RESUME
-                                        }
-                                        context.startService(intent)
+                            when {
+                                isBreakActive -> {
+                                    Button(
+                                        onClick = onResumeFocusFromBreakAction,
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.height(42.dp)
+                                    ) {
+                                        Text("Resume 🎯", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 12.5.sp)
                                     }
-                            ) {
-                                if (isRunning) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
-                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    OutlinedButton(
+                                        onClick = {
+                                            isBreakActive = false
+                                            onEndSessionDirect()
+                                        },
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, glassBorder),
+                                        modifier = Modifier.height(42.dp)
+                                    ) {
+                                        Text("End", color = textMuted, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                     }
-                                } else {
-                                    Text(text = "▶", color = textMain, fontSize = 17.sp, fontWeight = FontWeight.Black)
                                 }
-                            }
-
-                            Spacer(modifier = Modifier.height(18.dp))
-
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable {
-                                        isBreakActive = false
-                                        onEndSessionDirect()
+                                isPaused -> {
+                                    Button(
+                                        onClick = {
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            }
+                                            context.startService(intent)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.height(42.dp)
+                                    ) {
+                                        Text("Resume 🎯", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 12.5.sp)
                                     }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(15.dp)
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(textMuted)
-                                )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Surface(
+                                        color = cardBg,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, glassBorder),
+                                        modifier = Modifier.clickable { onTriggerBreak() }
+                                    ) {
+                                        Text("☕ Break", color = goldColor, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    OutlinedButton(
+                                        onClick = { onEndSessionDirect() },
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, glassBorder),
+                                        modifier = Modifier.height(38.dp)
+                                    ) {
+                                        Text("End", color = textMuted, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                                else -> {
+                                    Button(
+                                        onClick = {
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_PAUSE
+                                            }
+                                            context.startService(intent)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = cardBg),
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, glassBorder),
+                                        modifier = Modifier.height(42.dp)
+                                    ) {
+                                        Text("⏸ Pause", color = textMain, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    OutlinedButton(
+                                        onClick = { onEndSessionDirect() },
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, glassBorder),
+                                        modifier = Modifier.height(38.dp)
+                                    ) {
+                                        Text("End", color = textMuted, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
                             }
                         }
                     }
