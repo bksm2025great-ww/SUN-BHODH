@@ -1,5 +1,6 @@
 package com.amon.timer
 
+import com.amon.timer.groups.GroupsRootScreen
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -294,7 +295,9 @@ fun MainScreen() {
                     },
                onDirectEndSession = onDirectEndSession
                 )
-                1 -> ForestScreen()
+              1 -> GroupsRootScreen(
+    onStartFocus = { currentNavIndex = 0 }
+)
                 2 -> StatsScreen()
                 3 -> ProfileScreen()
             }
