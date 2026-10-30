@@ -73,6 +73,8 @@ jobs:
           files: app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-       - name: Get SHA-1 Fingerprint
+
+      # 🔑 SHA-1 Certificate Fingerprint निकालना
+      - name: Get SHA-1 Fingerprint
         run: |
-          keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+          keytool -list -v -keystore $GITHUB_WORKSPACE/amon.jks -alias "${{ secrets.KEY_ALIAS }}" -storepass "${{ secrets.KEY_PASSWORD }}"
