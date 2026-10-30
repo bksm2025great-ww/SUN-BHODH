@@ -12,6 +12,8 @@ class UserManager(private val context: Context) {
         private const val KEY_PASSWORD = "user_password"
         private const val KEY_BIRTHDAY = "user_birthday"
         private const val KEY_IS_GUEST = "is_guest_user"
+        // 🔒 नए रिफ्रेश लॉगिन का स्थायी लॉक
+        private const val KEY_FRESH_AUTH_V1 = "fresh_auth_completed_v1"
     }
 
     // ----------------- 1. USER DETAILS (नाम, पासवर्ड, बर्थडे) -----------------
@@ -58,12 +60,25 @@ class UserManager(private val context: Context) {
         return prefs.getBoolean(KEY_IS_GUEST, false)
     }
 
-    // ----------------- 3. APP ENTRY STATUS -----------------
+    // ----------------- 3. REFRESH ONETIME AUTH TRACKER -----------------
+
+    // क्या इस नए अपडेट के बाद एक बार लॉगिन हो चुका है?
+    fun isFreshAuthDone(): Boolean {
+        return prefs.getBoolean(KEY_FRESH_AUTH_V1, false)
+    }
+
+    // लॉगिन होते ही इसे हमेशा के लिए true सेट करना
+    fun setFreshAuthDone(done: Boolean) {
+        prefs.edit().putBoolean(KEY_FRESH_AUTH_V1, done).apply()
+    }
+
+    // ----------------- 4. APP ENTRY STATUS -----------------
 
     // क्या खाता सेटअप हो चुका है या गेस्ट मोड चुना गया है?
+    // (अब यह चेक करेगा कि नया लॉगिन पूरा हुआ है या नहीं)
     fun isAccountSetupDone(): Boolean {
-        val hasAccount = getUserName().isNotEmpty() && getPassword().isNotEmpty()
-        return hasAccount || isGuestUser()
+        val hasAccount = getUserName().isNotEmpty()
+        return isFreshAuthDone() && (hasAccount || isGuestUser())
     }
 
     // 🟢 पुरानी फ़ाइलों के साथ तालमेल बनाए रखने के लिए
@@ -77,7 +92,7 @@ class UserManager(private val context: Context) {
         return pass.ifEmpty { "123456" }
     }
 
-    // ----------------- 4. GOOGLE SHEET TAB NAME -----------------
+    // ----------------- 5. GOOGLE SHEET TAB NAME -----------------
 
     // 🔒 Google Sheet के टैब का स्थायी नाम (जैसे: User_Vision_Pass123)
     fun getSheetTabId(): String {
