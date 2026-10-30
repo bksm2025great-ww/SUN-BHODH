@@ -6,81 +6,84 @@
     android:gravity="center_vertical"
     android:background="@drawable/bg_notification_box"
     android:paddingStart="14dp"
-    android:paddingEnd="14dp"
+    android:paddingEnd="12dp"
     android:paddingTop="4dp"
     android:paddingBottom="4dp">
 
-    <!-- 1. बायाँ भाग: लोगो + छोटा मोड टैग -->
+    <!-- 1. बायाँ भाग: 2-लाइन मोड और सब्जेक्ट स्टैक (नो ओवरलैप) -->
     <LinearLayout
-        android:id="@+id/notif_logo_container"
+        android:id="@+id/notif_info_container"
         android:layout_width="wrap_content"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:gravity="center"
-        android:paddingEnd="10dp">
+        android:gravity="start|center_vertical"
+        android:paddingEnd="8dp">
 
-        <ImageView
-            android:id="@+id/notif_logo"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_launcher"
-            android:scaleType="fitCenter"
-            android:contentDescription="Amon Logo" />
-
+        <!-- लाइन 1: डायनामिक मोड (जैसे: ⚡ FOCUS TIMER या ⚡ POMODORO) -->
         <TextView
             android:id="@+id/notif_mode_tag"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="FOCUS"
-            android:textSize="8.5sp"
+            android:text="⚡ FOCUS TIMER"
+            android:textSize="11sp"
             android:textStyle="bold"
-            android:textColor="#8B5CF6"
-            android:letterSpacing="0.08"
-            android:singleLine="true"
-            android:layout_marginTop="2dp" />
+            android:textColor="#EAB308"
+            android:letterSpacing="0.04"
+            android:singleLine="true" />
+
+        <!-- लाइन 2: लाइव सब्जेक्ट का नाम -->
+        <TextView
+            android:id="@+id/notif_subject_tag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Subject • Coding"
+            android:textSize="10sp"
+            android:textColor="#94A3B8"
+            android:layout_marginTop="2dp"
+            android:singleLine="true" />
     </LinearLayout>
 
-    <!-- 2. बीच का भाग: बड़ा गोल्डन टाइमर -->
+    <!-- 2. बीच का भाग: बड़ा डिजिटल गोल्डन टाइमर -->
     <Chronometer
         android:id="@+id/notif_timer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textSize="28sp"
+        android:textSize="31sp"
         android:textStyle="bold"
         android:textColor="#F59E0B"
         android:fontFamily="sans-serif-rounded"
         android:gravity="center"
         android:singleLine="true" />
 
-    <!-- 3. दायाँ भाग: शुद्ध iOS-स्टाइल आइकॉन बटन्स (बॉर्डरलेस) -->
+    <!-- 3. दायाँ भाग: बॉर्डरलेस एक्शन बटन्स -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <!-- Pause बटन (सफ़ेद आइकॉन, कोई घेरा नहीं) -->
+        <!-- Pause / Resume बटन -->
         <ImageView
             android:id="@+id/btn_notif_pause"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
             android:src="@drawable/ic_notif_pause"
             android:scaleType="centerInside"
             android:background="@android:color/transparent"
-            android:padding="6dp"
-            android:layout_marginEnd="10dp"
+            android:padding="5dp"
+            android:layout_marginEnd="8dp"
             android:contentDescription="Pause" />
 
-        <!-- Stop / Give Up बटन (लाल क्रॉस आइकॉन, कोई घेरा नहीं) -->
+        <!-- Stop बटन -->
         <ImageView
             android:id="@+id/btn_notif_stop"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
             android:src="@drawable/ic_notif_stop"
             android:scaleType="centerInside"
             android:background="@android:color/transparent"
-            android:padding="6dp"
+            android:padding="5dp"
             android:contentDescription="Stop" />
     </LinearLayout>
 

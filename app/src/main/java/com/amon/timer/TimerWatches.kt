@@ -80,7 +80,6 @@ fun TimerWatchesContainer(
         context.getSharedPreferences("amon_watch_prefs", Context.MODE_PRIVATE)
     }
 
-    // 🛡️ सुरक्षित SharedPreferences लोड (पुराने डेटा के टकराव से ऐप कभी क्रैश नहीं होगा)
     var selectedWatchStyle by rememberSaveable {
         val saved = try {
             watchPrefs.getInt("selected_watch_style", 0)
@@ -292,7 +291,7 @@ private fun SleekWideChevronRight(tint: Color, modifier: Modifier = Modifier) {
 }
 
 // =============================================================================
-// ⏱ WATCH STYLE 1: CLASSIC LUXE RING (CENTRAL CLEAN TIME)
+// ⏱ WATCH STYLE 1: CLASSIC LUXE RING (20% SLIMMER + CONDITIONAL AURA GLOW)
 // =============================================================================
 @Composable
 private fun ClassicRingWatch(
@@ -317,11 +316,12 @@ private fun ClassicRingWatch(
                 val radius = size.minDimension / 2f - 10.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
 
+                // 🟢 1. SLIM BACKGROUND TRACK (3.8dp - 20% Thinner)
                 drawCircle(
                     color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
                     radius = radius,
                     center = center,
-                    style = Stroke(width = 5.dp.toPx())
+                    style = Stroke(width = 3.8.dp.toPx())
                 )
 
                 val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
@@ -331,26 +331,20 @@ private fun ClassicRingWatch(
                     (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
                 }
 
-                drawArc(
-                    color = goldColor.copy(alpha = 0.18f),
-                    startAngle = -90f,
-                    sweepAngle = sweep,
-                    useCenter = false,
-                    topLeft = Offset(center.x - radius, center.y - radius),
-                    size = Size(radius * 2f, radius * 2f),
-                    style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
-                )
+                // 🟢 2. CONDITIONAL AURA GLOW (Sirf focus chalne par activate hoga, phone heat nahi hoga)
+                if (isRunning) {
+                    drawArc(
+                        color = goldColor.copy(alpha = 0.20f),
+                        startAngle = -90f,
+                        sweepAngle = sweep,
+                        useCenter = false,
+                        topLeft = Offset(center.x - radius, center.y - radius),
+                        size = Size(radius * 2f, radius * 2f),
+                        style = Stroke(width = 8.8.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
 
-                drawArc(
-                    color = goldColor.copy(alpha = 0.35f),
-                    startAngle = -90f,
-                    sweepAngle = sweep,
-                    useCenter = false,
-                    topLeft = Offset(center.x - radius, center.y - radius),
-                    size = Size(radius * 2f, radius * 2f),
-                    style = Stroke(width = 11.dp.toPx(), cap = StrokeCap.Round)
-                )
-
+                // 🟢 3. MAIN FOREGROUND RING (4.4dp - 20% Thinner, Crisp & Elegant)
                 drawArc(
                     color = goldColor,
                     startAngle = -90f,
@@ -358,11 +352,10 @@ private fun ClassicRingWatch(
                     useCenter = false,
                     topLeft = Offset(center.x - radius, center.y - radius),
                     size = Size(radius * 2f, radius * 2f),
-                    style = Stroke(width = 5.5.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 4.4.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
 
-            // 🎯 सेंटर टाइम: फोकस आइकॉन हटा दिया गया है, सिर्फ़ क्रिस्प बोल्ड टाइमर रहेगा
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
@@ -389,7 +382,7 @@ private fun ClassicRingWatch(
 }
 
 // =============================================================================
-// 🎛 WATCH STYLE 2: ROTARY DIAL (MINIMUM 5 MIN - ZERO REMOVED)
+// 🎛 WATCH STYLE 2: ROTARY DIAL (20% SLIMMER + CONDITIONAL AURA GLOW)
 // =============================================================================
 @Composable
 private fun RotaryDialWatch(
@@ -446,7 +439,7 @@ private fun RotaryDialWatch(
                     color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
                     radius = radius,
                     center = center,
-                    style = Stroke(width = 5.dp.toPx())
+                    style = Stroke(width = 3.8.dp.toPx())
                 )
 
                 if (!isRunning) {
@@ -483,28 +476,28 @@ private fun RotaryDialWatch(
                         useCenter = false,
                         topLeft = Offset(center.x - radius, center.y - radius),
                         size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 4.2.dp.toPx(), cap = StrokeCap.Round)
                     )
 
                     val knobAngleRad = (sweep - 90f) * (PI.toFloat() / 180f)
                     val knobX = center.x + radius * cos(knobAngleRad)
                     val knobY = center.y + radius * sin(knobAngleRad)
 
-                    drawCircle(color = goldColor.copy(alpha = 0.3f), radius = 16.dp.toPx(), center = Offset(knobX, knobY))
-                    drawCircle(color = goldColor, radius = 10.dp.toPx(), center = Offset(knobX, knobY))
-                    drawCircle(color = Color.White, radius = 3.5.dp.toPx(), center = Offset(knobX, knobY))
+                    drawCircle(color = goldColor.copy(alpha = 0.25f), radius = 14.dp.toPx(), center = Offset(knobX, knobY))
+                    drawCircle(color = goldColor, radius = 9.dp.toPx(), center = Offset(knobX, knobY))
+                    drawCircle(color = Color.White, radius = 3.dp.toPx(), center = Offset(knobX, knobY))
                 } else {
                     val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
                     val sweep = (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
 
                     drawArc(
-                        color = goldColor.copy(alpha = 0.18f),
+                        color = goldColor.copy(alpha = 0.20f),
                         startAngle = -90f,
                         sweepAngle = sweep,
                         useCenter = false,
                         topLeft = Offset(center.x - radius, center.y - radius),
                         size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 8.8.dp.toPx(), cap = StrokeCap.Round)
                     )
 
                     drawArc(
@@ -514,7 +507,7 @@ private fun RotaryDialWatch(
                         useCenter = false,
                         topLeft = Offset(center.x - radius, center.y - radius),
                         size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 5.5.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 4.4.dp.toPx(), cap = StrokeCap.Round)
                     )
                 }
             }
@@ -999,7 +992,7 @@ private fun SplitFlapHalfPlate(
 }
 
 // =============================================================================
-// 🌟 CUSTOM HORIZONTAL SLIDER (CLEAN DARK-GLASS SURFACE - NO HARSH BORDER)
+// 🌟 CUSTOM HORIZONTAL SLIDER (THEME-ADAPTIVE & BRIGHT WHITE NEEDLE)
 // =============================================================================
 @Composable
 fun CustomHorizontalSlider(
@@ -1008,7 +1001,8 @@ fun CustomHorizontalSlider(
     goldColor: Color,
     cardBg: Color,
     textMain: Color,
-    textMuted: Color
+    textMuted: Color,
+    isDark: Boolean = ThemeManager.isDarkTheme.value
 ) {
     var rawMinutes by remember(dialMinutes) { mutableFloatStateOf(dialMinutes.coerceIn(5f, 180f)) }
 
@@ -1018,7 +1012,8 @@ fun CustomHorizontalSlider(
             .fillMaxWidth()
             .height(54.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF13131A))
+            .background(if (isDark) Color(0xFF13131A) else Color(0xFFF1F5F9))
+            .border(1.dp, if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1), RoundedCornerShape(14.dp))
             .pointerInput(Unit) {
                 val spacing = 22.dp.toPx()
                 detectHorizontalDragGestures(
@@ -1069,10 +1064,13 @@ fun CustomHorizontalSlider(
                         isMajor15 -> 1.8.dp.toPx()
                         else -> 1.2.dp.toPx()
                     }
-                    val tickColor = if (isMajor30 || isMajor15) {
-                        textMain.copy(alpha = alpha * 0.9f)
+
+                    val tickColor = if (isDark) {
+                        if (isMajor30 || isMajor15) textMain.copy(alpha = alpha * 0.9f)
+                        else textMuted.copy(alpha = alpha * 0.6f)
                     } else {
-                        textMuted.copy(alpha = alpha * 0.6f)
+                        if (isMajor30 || isMajor15) Color(0xFF64748B).copy(alpha = alpha * 0.9f)
+                        else Color(0xFF94A3B8).copy(alpha = alpha * 0.65f)
                     }
 
                     drawLine(
@@ -1088,15 +1086,21 @@ fun CustomHorizontalSlider(
 
         Box(
             modifier = Modifier
-                .width(3.2.dp)
-                .height(30.dp)
+                .width(3.5.dp)
+                .height(32.dp)
                 .shadow(
-                    elevation = 8.dp,
+                    elevation = 6.dp,
                     shape = RoundedCornerShape(2.dp),
-                    spotColor = goldColor,
-                    ambientColor = goldColor
+                    spotColor = if (isDark) Color.White.copy(alpha = 0.5f) else Color(0x55000000),
+                    ambientColor = if (isDark) Color.White.copy(alpha = 0.3f) else Color(0x33000000)
                 )
-                .background(goldColor, RoundedCornerShape(2.dp))
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color.White)
+                .border(
+                    width = if (isDark) 0.5.dp else 1.dp,
+                    color = if (isDark) Color(0x44FFFFFF) else Color(0x33000000),
+                    shape = RoundedCornerShape(2.dp)
+                )
         )
     }
 }

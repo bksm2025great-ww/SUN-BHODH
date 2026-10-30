@@ -7,8 +7,8 @@
     <!-- 16dp मुड़े हुए सॉफ्ट किनारे -->
     <corners android:radius="16dp" />
 
-    <!-- चमकदार गोल्डन-येलो सॉलिड बॉर्डर (बिना ट्रांसपेरेंसी के) -->
+    <!-- 20% पतली चमकदार गोल्डन-येलो सॉलिड बॉर्डर -->
     <stroke
-        android:width="1.5dp"
+        android:width="1.2dp"
         android:color="#F59E0B" />
 </shape>

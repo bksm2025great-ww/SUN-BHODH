@@ -11,11 +11,16 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+
+// 🏆 लीडरबोर्ड के लिए शुद्ध डेटा मॉडल (बिना किसी पेड़ के झंझट के)
+data class LeaderboardItem(
+    val id: String,
+    val name: String,
+    val totalMinutes: Long
+)
 
 object CloudSyncManager {
 
@@ -23,45 +28,49 @@ object CloudSyncManager {
     private val client = OkHttpClient()
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
+    // 🔐 Supabase कनेक्शन की चाबियाँ ("" के अंदर सुरक्षित)
+    private const val SUPABASE_URL = "https://mgenghztpcqaqaepvevw.supabase.co"
+    private const val SUPABASE_KEY = "sb_publishable_flD-UULZ2YGzMrVLw2QHoA_7cXEg7FX"
+
     /**
-     * ✨ 1. लॉगिन करते ही तुरंत Users_List में नाम और पासवर्ड दर्ज करना
+     * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम दर्ज करना
      */
     fun registerUserOnCloud(context: Context) {
-        val sheetUrl = BuildConfig.GOOGLE_SHEET_URL
-        if (sheetUrl.isBlank()) {
-            Log.w(TAG, "Google Sheet URL set nahi hai!")
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) {
+            Log.w(TAG, "Supabase credentials set nahi hai!")
             return
         }
 
         val userManager = UserManager(context)
         val userName = userManager.getUserName().trim()
-        val password = userManager.getPassword().trim()
 
         if (userName.isBlank() || userName.equals("Guest", ignoreCase = true)) {
-            return // Guest user ko Users_List me register nahi karna
+            return
         }
 
         val jsonPayload = JSONObject().apply {
-            put("action", "register")
-            put("userName", userName)
-            put("password", password)
+            put("display_name", userName)
         }
 
         val requestBody = jsonPayload.toString().toRequestBody(JSON_MEDIA_TYPE)
         val request = Request.Builder()
-            .url(sheetUrl)
+            .url("$SUPABASE_URL/rest/v1/profiles")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "resolution=merge-duplicates")
             .post(requestBody)
             .build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "User registration on cloud failed: ${e.message}")
+                Log.e(TAG, "User registration failed: ${e.message}")
             }
 
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (response.isSuccessful) {
-                        Log.d(TAG, "User '$userName' safaltapoorvak Users_List me register ho gaya!")
+                        Log.d(TAG, "User '$userName' Supabase profiles me safalta se jud gaya!")
                     } else {
                         Log.e(TAG, "Registration error code: ${response.code}")
                     }
@@ -71,59 +80,44 @@ object CloudSyncManager {
     }
 
     /**
-     * 🌿 2. पढ़ाई पूरी होने पर डेटा Google Sheet में भेजना (POST)
-     * अब यह सेशन के साथ-साथ पासवर्ड भी भेजेगा ताकि Users_List हमेशा अपडेट रहे!
+     * ⏱️ 2. पढ़ाई पूरी होने पर डेटा Supabase के study_sessions रजिस्टर में भेजना
      */
     fun syncSession(
         context: Context,
         subject: String,
         durationMinutes: Long,
-        earnedTrees: Int
+        earnedTrees: Int = 0
     ) {
-        val sheetUrl = BuildConfig.GOOGLE_SHEET_URL
-
-        if (sheetUrl.isBlank()) {
-            Log.w(TAG, "Google Sheet URL set nahi hai!")
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) {
+            Log.w(TAG, "Supabase credentials set nahi hai!")
             return
         }
 
-        // UserManager se live naam aur password lena
-        val userManager = UserManager(context)
-        val userName = userManager.getUserName().ifEmpty { "Vision" }
-        val password = userManager.getPassword()
-        val uniqueId = userManager.getSecretCode()
-
-        val currentDateTime = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
+        if (durationMinutes <= 0) return
 
         val jsonPayload = JSONObject().apply {
-            put("action", "save_sessions")
-            put("userName", userName)
-            put("password", password) // 🔐 पासवर्ड अब साथ जाएगा!
-            put("userId", uniqueId)
-            put("tabName", "${userName}_$uniqueId")
-            put("date", currentDateTime)
-            put("subject", subject)
-            put("durationMinutes", durationMinutes)
-            put("earnedTrees", earnedTrees)
-            put("status", "Completed")
+            put("subject", subject.ifBlank { "General" })
+            put("duration_minutes", durationMinutes)
         }
 
         val requestBody = jsonPayload.toString().toRequestBody(JSON_MEDIA_TYPE)
-
         val request = Request.Builder()
-            .url(sheetUrl)
+            .url("$SUPABASE_URL/rest/v1/study_sessions")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .addHeader("Content-Type", "application/json")
             .post(requestBody)
             .build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "Sheet sync fail ho gaya: ${e.message}")
+                Log.e(TAG, "Session sync fail ho gaya: ${e.message}")
             }
 
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (response.isSuccessful) {
-                        Log.d(TAG, "Session Google Sheet me safaltapoorvak save ho gaya!")
+                        Log.d(TAG, "Session Supabase me safalta se save ho gaya!")
                     } else {
                         Log.e(TAG, "Server error code: ${response.code}")
                     }
@@ -133,19 +127,16 @@ object CloudSyncManager {
     }
 
     /**
-     * 📥 3. Google Sheet से डेटा वापस मंगाना (GET)
+     * 📥 3. Supabase से पढ़ाई का पूरा हिसाब वापस मंगाना (GET)
      */
     suspend fun fetchSessions(context: Context): List<FocusSession> = withContext(Dispatchers.IO) {
-        val sheetUrl = BuildConfig.GOOGLE_SHEET_URL
-        if (sheetUrl.isBlank()) return@withContext emptyList()
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
 
-        val userManager = UserManager(context)
-        val userName = userManager.getUserName().ifEmpty { "Vision" }
-        val uniqueId = userManager.getSecretCode()
-
-        val fetchUrl = "$sheetUrl?userName=$userName&userId=$uniqueId"
+        val fetchUrl = "$SUPABASE_URL/rest/v1/study_sessions?select=*&order=created_at.desc"
         val request = Request.Builder()
             .url(fetchUrl)
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
             .get()
             .build()
 
@@ -154,30 +145,63 @@ object CloudSyncManager {
             val responseText = response.body?.string().orEmpty()
 
             if (responseText.isNotBlank()) {
-                val json = JSONObject(responseText)
-                if (json.optString("status") == "success") {
-                    val sessionsArray = json.optJSONArray("sessions") ?: return@withContext emptyList()
-                    val resultList = mutableListOf<FocusSession>()
+                val sessionsArray = JSONArray(responseText)
+                val resultList = mutableListOf<FocusSession>()
 
-                    for (i in 0 until sessionsArray.length()) {
-                        val item = sessionsArray.getJSONObject(i)
-                        resultList.add(
-                            FocusSession(
-                                id = System.currentTimeMillis() + i,
-                                date = item.optString("date"),
-                                subject = item.optString("subject", "General"),
-                                durationMinutes = item.optInt("durationMinutes", 0),
-                                earnedTrees = item.optInt("earnedTrees", 0)
-                            )
+                for (i in 0 until sessionsArray.length()) {
+                    val item = sessionsArray.getJSONObject(i)
+                    resultList.add(
+                        FocusSession(
+                            id = item.optLong("id", System.currentTimeMillis() + i),
+                            date = item.optString("session_date", ""),
+                            subject = item.optString("subject", "General"),
+                            durationMinutes = item.optInt("duration_minutes", 0),
+                            earnedTrees = 0
                         )
-                    }
-                    return@withContext resultList
+                    )
                 }
+                return@withContext resultList
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Google Sheet se data lane me error: ${e.message}")
+            Log.e(TAG, "Supabase se data lane me error: ${e.message}")
         }
 
+        return@withContext emptyList()
+    }
+
+    /**
+     * 👑 4. Supabase से लाइव लीडरबोर्ड डेटा खींचना (टॉपर्स की लिस्ट)
+     */
+    suspend fun fetchLeaderboard(): List<LeaderboardItem> = withContext(Dispatchers.IO) {
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
+
+        val fetchUrl = "$SUPABASE_URL/rest/v1/study_sessions?select=id,subject,duration_minutes&order=duration_minutes.desc&limit=50"
+        val request = Request.Builder()
+            .url(fetchUrl)
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .get()
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+            val responseText = response.body?.string().orEmpty()
+
+            if (response.isSuccessful && responseText.isNotBlank()) {
+                val array = JSONArray(responseText)
+                val list = mutableListOf<LeaderboardItem>()
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val id = obj.optString("id", "session_$i")
+                    val subject = obj.optString("subject", "Student ${i + 1}")
+                    val minutes = obj.optLong("duration_minutes", 0L)
+                    list.add(LeaderboardItem(id = id, name = subject, totalMinutes = minutes))
+                }
+                return@withContext list
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Leaderboard fetch error: ${e.message}")
+        }
         return@withContext emptyList()
     }
 }
