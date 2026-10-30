@@ -48,10 +48,10 @@ import com.amon.timer.ui.theme.AmonTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// 🌟 स्क्रीन स्टेट में WELCOME जोड़ा गया
+// 🌟 स्क्रीन स्टेट: SPLASH -> AUTH (सिर्फ पहली बार) -> MAIN
 private enum class AppScreenState {
     SPLASH,
-    WELCOME,
+    AUTH,
     MAIN
 }
 
@@ -86,6 +86,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AmonTheme {
+                val context = LocalContext.current
+                val userManager = remember { UserManager(context) }
+
                 val isDark = ThemeManager.isDarkTheme.value
                 val appBgColor = ThemeManager.getBackgroundColor()
 
@@ -94,11 +97,12 @@ class MainActivity : ComponentActivity() {
                 // स्टेटस बार कलर हैंडलिंग
                 val currentStatusBarColor = when (currentScreen) {
                     AppScreenState.SPLASH -> Color(0xFF0F0F12)
-                    AppScreenState.WELCOME -> Color(0xFF090D14)
+                    AppScreenState.AUTH -> Color(0xFFF3F4F6)
                     AppScreenState.MAIN -> appBgColor
                 }
                 val isLightStatusBarIcons = when (currentScreen) {
-                    AppScreenState.SPLASH, AppScreenState.WELCOME -> false
+                    AppScreenState.SPLASH -> false
+                    AppScreenState.AUTH -> true
                     AppScreenState.MAIN -> !isDark
                 }
 
@@ -111,10 +115,14 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = currentStatusBarColor
                 ) {
-                    // स्प्लैश के 1.5 सेकंड बाद WelcomeScreen पर जाएँ
+                    // स्प्लैश के 1.2 सेकंड बाद तय करेंगे कि AuthScreen दिखाना है या MainScreen
                     LaunchedEffect(Unit) {
-                        delay(1500)
-                        currentScreen = AppScreenState.WELCOME
+                        delay(1200)
+                        if (!userManager.isFreshAuthDone()) {
+                            currentScreen = AppScreenState.AUTH
+                        } else {
+                            currentScreen = AppScreenState.MAIN
+                        }
                     }
 
                     Crossfade(
@@ -126,9 +134,10 @@ class MainActivity : ComponentActivity() {
                             AppScreenState.SPLASH -> {
                                 SplashScreenContent()
                             }
-                            AppScreenState.WELCOME -> {
-                                WelcomeScreen(
-                                    onStartClick = {
+                            AppScreenState.AUTH -> {
+                                AuthScreen(
+                                    onAuthComplete = {
+                                        userManager.setFreshAuthDone(true)
                                         currentScreen = AppScreenState.MAIN
                                     }
                                 )
@@ -142,10 +151,10 @@ class MainActivity : ComponentActivity() {
                                     AutoUpdatePopupEngine()
 
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        val context = LocalContext.current
+                                        val localContext = LocalContext.current
                                         var showPermissionDialog by remember {
                                             val isGranted = ContextCompat.checkSelfPermission(
-                                                context,
+                                                localContext,
                                                 Manifest.permission.POST_NOTIFICATIONS
                                             ) == PackageManager.PERMISSION_GRANTED
                                             mutableStateOf(!isGranted)
