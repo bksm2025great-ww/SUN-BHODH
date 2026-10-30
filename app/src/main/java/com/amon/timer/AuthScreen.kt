@@ -61,6 +61,7 @@ fun AuthScreen(
     }
 
     val proceedToApp = {
+        userManager.setFreshAuthDone(true) // 🔒 हमेशा के लिए सेव: दोबारा कभी लॉगिन स्क्रीन नहीं आएगी
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
