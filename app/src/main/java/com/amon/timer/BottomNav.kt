@@ -233,7 +233,7 @@ fun AmonCurvedBottomBar(
     borderCol: Color,
     hasNewUpdate: Boolean = false
 ) {
-    val tabTitles = listOf("Home", "Circle", "Stats", "Profile")
+   val tabTitles = listOf("Home", "Groups", "Stats", "Profile")
 
     val animatedIndex by animateFloatAsState(
         targetValue = selectedIndex.toFloat(),
