@@ -1,66 +1,59 @@
 package com.amon.timer
 
 import android.Manifest
-import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 
 @Composable
 fun AuthScreen(
     onAuthComplete: () -> Unit
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val userManager = remember { UserManager(context) }
     val scrollState = rememberScrollState()
 
-    // ✨ Amon Luxe Dark & Gold Theme Colors
-    val goldColor = Color(0xFFF3C669)
-    val goldSecondary = Color(0xFFE5A93C)
-    val darkBg = Color(0xFF0F0F12)
-    val cardBg = Color(0xEE18181D)
-    val boxDarkGray = Color(0xFF24242B)
-    val boxBorderGolden = Color(0x44F3C669)
-    val textMuted = Color(0xFFA0A0A8)
+    // 🔑 Google Credential Manager & Client ID
+    val credentialManager = remember { CredentialManager.create(context) }
+    val webClientId = stringResource(id = R.string.default_web_client_id)
 
-    // Form States
-    val savedName = remember { userManager.getUserName() }
-    val initialUsername = remember(savedName) {
-        if (savedName == "Guest" || savedName == "Amon User" || savedName == "Vision") "" else savedName
-    }
-    var username by remember { mutableStateOf(initialUsername) }
+    var name by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // 🔔 Android Notification Permission Launcher
+    // 🔔 Notification Permission Launcher
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { _ ->
@@ -75,19 +68,14 @@ fun AuthScreen(
         }
     }
 
-    // 🛡️ Banned Characters Check for Google Sheet Safety
-    val bannedChars = listOf('\\', '/', '?', '*', ':', '[', ']')
-
-    val handleLogin = {
-        val cleanName = username.trim()
+    // 🛡️ Sign Up / Login Action
+    val handleSignUp = {
+        val cleanName = name.trim()
+        val cleanEmail = email.trim()
         val cleanPass = password.trim()
 
         if (cleanName.isBlank()) {
-            errorMessage = "कृपया अपना यूज़रनेम दर्ज करें!"
-        } else if (cleanName.length < 3) {
-            errorMessage = "यूज़रनेम कम से कम 3 अक्षरों का होना चाहिए!"
-        } else if (cleanName.any { ch -> bannedChars.contains(ch) }) {
-            errorMessage = "नाम में ये चिन्ह नहीं हो सकते: \\ / ? * : [ ]"
+            errorMessage = "कृपया अपना नाम दर्ज करें!"
         } else if (cleanPass.length < 6) {
             errorMessage = "पासवर्ड कम से कम 6 अक्षरों का होना चाहिए!"
         } else {
@@ -98,264 +86,237 @@ fun AuthScreen(
         }
     }
 
-    val handleGuestLogin = {
-        userManager.setUserName("Guest")
-        userManager.setPassword("guest123")
-        userManager.setGuestUser(true)
-        proceedToApp()
-    }
+    // 🌐 Google Sign-In Action
+    val handleGoogleSignIn = {
+        coroutineScope.launch {
+            try {
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId(webClientId)
+                    .setAutoSelectEnabled(false)
+                    .build()
 
-    // ✉️ सीधा Gmail खोलने वाला सपोर्ट फ़ंक्शन
-    val handleForgotPassword = {
-        val targetUser = username.trim().ifEmpty { "User" }
-        val emailSubject = Uri.encode("Amon Password Reset Request - $targetUser")
-        val emailBody = Uri.encode(
-            "Hello Admin,\n\n" +
-            "I forgot the password for my Amon Focus Timer account.\n\n" +
-            "Username: $targetUser\n\n" +
-            "Please help me recover or reset my password.\n\n" +
-            "Thank you!"
-        )
-        val mailtoUri = Uri.parse("mailto:bksm2025great@gmail.com?subject=$emailSubject&body=$emailBody")
-        val emailIntent = Intent(Intent.ACTION_SENDTO, mailtoUri)
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
 
-        try {
-            context.startActivity(emailIntent)
-        } catch (e: Exception) {
-            Toast.makeText(context, "Unable to open email app.", Toast.LENGTH_SHORT).show()
+                val result = credentialManager.getCredential(
+                    context = context,
+                    request = request
+                )
+
+                val credential = result.credential
+                if (credential is androidx.credentials.CustomCredential &&
+                    credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                ) {
+                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                    val displayName = googleIdTokenCredential.displayName 
+                        ?: googleIdTokenCredential.id.substringBefore("@")
+
+                    userManager.setUserName(displayName)
+                    userManager.setGuestUser(false)
+
+                    Toast.makeText(context, "Welcome $displayName!", Toast.LENGTH_SHORT).show()
+                    proceedToApp()
+                }
+            } catch (e: GetCredentialCancellationException) {
+                // User dismissed the sheet
+            } catch (e: Exception) {
+                errorMessage = "Google Sign-In विफल: ${e.localizedMessage}"
+            }
         }
     }
 
+    // ----------------- UI SCREEN (Uiverse Clean White Design) -----------------
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(darkBg)
+            .background(Color(0xFFF3F4F6))
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
     ) {
-        // ----------------- 0. FLOATING STUDY ICONS (LIGHTWEIGHT & ZERO LAG) -----------------
-        Text("📖", fontSize = 42.sp, modifier = Modifier.align(Alignment.TopStart).padding(start = 24.dp, top = 40.dp).alpha(0.12f))
-        Text("⏱️", fontSize = 38.sp, modifier = Modifier.align(Alignment.TopEnd).padding(end = 28.dp, top = 55.dp).alpha(0.12f))
-        Text("✏️", fontSize = 36.sp, modifier = Modifier.align(Alignment.CenterStart).padding(start = 16.dp, top = 160.dp).alpha(0.10f))
-        Text("💡", fontSize = 40.sp, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 20.dp, top = 140.dp).alpha(0.12f))
-        Text("🧠", fontSize = 36.sp, modifier = Modifier.align(Alignment.BottomStart).padding(start = 28.dp, bottom = 90.dp).alpha(0.10f))
-        Text("📚", fontSize = 40.sp, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 26.dp, bottom = 100.dp).alpha(0.12f))
-
-        // ----------------- MAIN SCROLLABLE CONTENT -----------------
-        Column(
+        Card(
             modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(horizontal = 24.dp, vertical = 28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+                .width(420.dp)
+                .verticalScroll(scrollState),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // ----------------- 1. BRAND HEADER -----------------
-                Text(
-                    text = "👑 AMON",
-                    color = goldColor,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Time of Angel",
-                    color = textMuted,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
-                )
-
-                Spacer(modifier = Modifier.height(28.dp))
-
-                // ----------------- 2. PREMIUM FLOATING CARD -----------------
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(cardBg)
-                        .border(1.2.dp, boxBorderGolden, RoundedCornerShape(26.dp))
-                        .padding(22.dp)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "LOGIN",
-                            color = goldColor,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 2.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // --- USERNAME INPUT ---
-                        OutlinedTextField(
-                            value = username,
-                            onValueChange = { 
-                                username = it
-                                if (errorMessage.isNotEmpty()) errorMessage = ""
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            leadingIcon = {
-                                Text("👤", fontSize = 16.sp)
-                            },
-                            placeholder = { Text("Username", color = textMuted, fontSize = 14.sp) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = goldColor,
-                                unfocusedBorderColor = boxDarkGray,
-                                focusedContainerColor = boxDarkGray,
-                                unfocusedContainerColor = boxDarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                cursorColor = goldColor
-                            ),
-                            shape = RoundedCornerShape(14.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // --- PASSWORD INPUT (6 CHARACTERS) ---
-                        OutlinedTextField(
-                            value = password,
-                            onValueChange = { 
-                                password = it
-                                if (errorMessage.isNotEmpty()) errorMessage = ""
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            leadingIcon = {
-                                Text("🔒", fontSize = 16.sp)
-                            },
-                            trailingIcon = {
-                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                    Text(if (passwordVisible) "👁️" else "🙈", fontSize = 15.sp)
-                                }
-                            },
-                            placeholder = { Text("Password (6 characters)", color = textMuted, fontSize = 14.sp) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = goldColor,
-                                unfocusedBorderColor = boxDarkGray,
-                                focusedContainerColor = boxDarkGray,
-                                unfocusedContainerColor = boxDarkGray,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                cursorColor = goldColor
-                            ),
-                            shape = RoundedCornerShape(14.dp)
-                        )
-
-                        // Error Message
-                        if (errorMessage.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = errorMessage,
-                                color = Color(0xFFFF6B6B),
-                                fontSize = 12.sp,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // --- PRIMARY ACTION: LOGIN BUTTON ---
-                        Button(
-                            onClick = { handleLogin() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = goldColor)
-                        ) {
-                            Text(
-                                text = "LOGIN",
-                                color = Color.Black,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // --- SECONDARY ACTION: COMPACT GUEST BUTTON ---
-                        Button(
-                            onClick = { handleGuestLogin() },
-                            modifier = Modifier
-                                .width(200.dp)
-                                .height(38.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = boxDarkGray),
-                            border = BorderStroke(1.dp, boxBorderGolden),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Text(
-                                text = "Continue as Guest",
-                                color = goldColor,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // --- ADMIN SUPPORT / FORGOT PASSWORD LINK (DIRECT GMAIL) ---
-                        Text(
-                            text = "Forgot Password? Contact Admin",
-                            color = textMuted,
-                            fontSize = 12.sp,
-                            textDecoration = TextDecoration.Underline,
-                            modifier = Modifier.clickable { handleForgotPassword() }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // ----------------- 3. STEPPED LADDER MOTTO FOOTER -----------------
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(5.dp)
+                    .padding(28.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Step 1: Left Aligned
+                // Name Field
                 Text(
-                    text = "🌱 1. Cultivate Consistency",
-                    color = goldColor.copy(alpha = 0.75f),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Start
-                )
-                // Step 2: Center Aligned
-                Text(
-                    text = "⚡ 2. Master Deep Focus",
-                    color = goldSecondary,
-                    fontSize = 12.sp,
+                    text = "Name",
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
+                    color = Color(0xFF151717),
+                    fontSize = 14.sp
                 )
-                // Step 3: Right Aligned
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { 
+                        name = it
+                        if (errorMessage.isNotEmpty()) errorMessage = ""
+                    },
+                    placeholder = { Text("Enter your Name", color = Color(0xFF9E9E9E)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Name",
+                            tint = Color(0xFF757575)
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = Color(0xFFECEDEC),
+                        focusedBorderColor = Color(0xFF2D79F3)
+                    ),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // Email Field
                 Text(
-                    text = "🌸 3. Build Unbroken Habits",
-                    color = goldColor,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.End
+                    text = "Email",
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF151717),
+                    fontSize = 14.sp
                 )
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { 
+                        email = it 
+                        if (errorMessage.isNotEmpty()) errorMessage = ""
+                    },
+                    placeholder = { Text("Enter your Email", color = Color(0xFF9E9E9E)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = "Email",
+                            tint = Color(0xFF757575)
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = Color(0xFFECEDEC),
+                        focusedBorderColor = Color(0xFF2D79F3)
+                    ),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // Password Field
+                Text(
+                    text = "Password",
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF151717),
+                    fontSize = 14.sp
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { 
+                        password = it 
+                        if (errorMessage.isNotEmpty()) errorMessage = ""
+                    },
+                    placeholder = { Text("Enter your Password", color = Color(0xFF9E9E9E)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Password",
+                            tint = Color(0xFF757575)
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = Color(0xFFECEDEC),
+                        focusedBorderColor = Color(0xFF2D79F3)
+                    ),
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    singleLine = true
+                )
+
+                // Error Text
+                if (errorMessage.isNotEmpty()) {
+                    Text(
+                        text = errorMessage,
+                        color = Color(0xFFD32F2F),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Sign Up Button
+                Button(
+                    onClick = { handleSignUp() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF151717),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Sign Up", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                // Switch text
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text("Already have an account? ", fontSize = 14.sp, color = Color.Black)
+                    Text(
+                        text = "login",
+                        fontSize = 14.sp,
+                        color = Color(0xFF2D79F3),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Google Sign-In Button
+                OutlinedButton(
+                    onClick = { handleGoogleSignIn() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFEDEDEF)),
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "G",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF4285F4)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Google",
+                            color = Color(0xFF151717),
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
             }
         }
     }
