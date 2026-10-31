@@ -45,7 +45,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -206,25 +205,6 @@ fun MainScreen() {
     val glassBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
     val glowBorder = goldColor.copy(alpha = 0.6f)
 
-    val appPrefs = remember { context.getSharedPreferences("amon_app_prefs", Context.MODE_PRIVATE) }
-    val currentVersion = remember {
-        try {
-            @Suppress("DEPRECATION")
-            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            pInfo.versionName ?: "1.1.0"
-        } catch (_: Exception) {
-            "1.1.0"
-        }
-    }
-    var showWhatsNew by remember {
-        val lastSeenVersion = try {
-            appPrefs.getString("whats_new_seen_version", "")
-        } catch (_: Exception) {
-            ""
-        }
-        mutableStateOf(lastSeenVersion != currentVersion)
-    }
-
     BackHandler(enabled = currentNavIndex != 0 && !isFocusActive) {
         currentNavIndex = 0
     }
@@ -300,23 +280,6 @@ fun MainScreen() {
                 )
                 2 -> StatsScreen()
                 3 -> ProfileScreen()
-            }
-
-            if (showWhatsNew && !isFocusActive) {
-                WhatsNewDialog(
-                    versionName = currentVersion,
-                    goldColor = goldColor,
-                    glowYellow = glowBorder,
-                    cardBg = cardBg,
-                    textMain = textMain,
-                    textMuted = textMuted,
-                    onDismiss = {
-                        try {
-                            appPrefs.edit().putString("whats_new_seen_version", currentVersion).apply()
-                        } catch (_: Exception) {}
-                        showWhatsNew = false
-                    }
-                )
             }
         }
     }
@@ -634,7 +597,6 @@ fun HomeTimerTab(
                         verticalAlignment = Alignment.CenterVertically,
                         contentPadding = PaddingValues(horizontal = 2.dp)
                     ) {
-                        // "+ Subject" स्लीक आउटलाइंड स्टाइल
                         item {
                             Box(
                                 contentAlignment = Alignment.Center,
@@ -654,7 +616,6 @@ fun HomeTimerTab(
                             }
                         }
 
-                        // "All" चिप सिंपल क्लीन स्टाइल
                         item {
                             val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
                             Box(
@@ -919,7 +880,6 @@ fun HomeTimerTab(
                             }
                         }
                         1 -> {
-                            // "Zero-Drift Hardware..." को क्लीन खाली स्पेस से रिप्लेस किया गया है
                             Spacer(modifier = Modifier.fillMaxWidth())
                         }
                     }
@@ -927,7 +887,6 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // मूल "Start Focus" बटन का लेआउट और स्टाइल 100% यथावत
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -1040,7 +999,6 @@ fun HomeTimerTab(
                             )
                         }
 
-                        // रनिंग स्क्रीन कंट्रोल्स (Pause मुख्य बटन, End Session लाल आउटलाइंड)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -1275,7 +1233,6 @@ fun HomeTimerTab(
                             )
                         }
 
-                        // रनिंग स्क्रीन कंट्रोल्स (Pause/Resume मुख्य बटन, End Session लाल आउटलाइंड)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -1572,7 +1529,6 @@ fun HomeTimerTab(
             )
         }
 
-        // Manage Subjects डायलॉग
         if (showAddDialog) {
             Dialog(onDismissRequest = {
                 showAddDialog = false
@@ -1634,7 +1590,6 @@ fun HomeTimerTab(
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Quick Suggestion Chips (1-टैप में विषय जोड़ने के लिए)
                         LazyRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1886,81 +1841,6 @@ fun AnimatedLivingFlame(modifier: Modifier = Modifier) {
         isLarge = false,
         modifier = modifier.size(19.dp)
     )
-}
-
-@Composable
-fun WhatsNewDialog(
-    versionName: String,
-    goldColor: Color,
-    glowYellow: Color,
-    cardBg: Color,
-    textMain: Color,
-    textMuted: Color,
-    onDismiss: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(26.dp))
-                .background(cardBg)
-                .border(1.6.dp, goldColor, RoundedCornerShape(26.dp))
-                .padding(22.dp)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(goldColor.copy(alpha = 0.2f))
-                        .border(1.dp, goldColor, RoundedCornerShape(50))
-                        .padding(horizontal = 14.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "Version $versionName",
-                        color = goldColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = "What's New in Amon ✨",
-                    color = textMain,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(goldColor)
-                        .border(1.dp, glowYellow, RoundedCornerShape(50))
-                        .clickable { onDismiss() }
-                ) {
-                    Text(
-                        text = "Got It, Let's Focus 🎯",
-                        color = Color.Black,
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-            }
-        }
-    }
 }
 
 fun calculateStreakDays(sessions: List<FocusSession>): Int {
