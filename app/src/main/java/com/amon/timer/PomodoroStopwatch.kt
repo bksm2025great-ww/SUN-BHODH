@@ -28,7 +28,7 @@ import androidx.compose.ui.window.Dialog
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 // =============================================================================
-// 🍅 1. POMODORO SESSION TRACKER (BADA GOLA / CHHOTA GOLA)
+// 🍅 1. POMODORO SESSION TRACKER (PROGRESS INDICATORS)
 // =============================================================================
 @Composable
 fun PomodoroSessionTracker(
@@ -213,7 +213,7 @@ fun PomodoroSettingsBottomSheet(
                 .padding(horizontal = 22.dp)
                 .padding(bottom = 28.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -222,7 +222,7 @@ fun PomodoroSettingsBottomSheet(
             ) {
                 Text(
                     text = "Pomodoro Settings",
-                    fontSize = 20.sp,
+                    fontSize = 19.sp,
                     fontWeight = FontWeight.Black,
                     color = textMain
                 )
@@ -238,14 +238,15 @@ fun PomodoroSettingsBottomSheet(
                 }
             }
 
+            // Clean 3-Tab Selector
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .clip(RoundedCornerShape(20.dp))
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(16.dp))
                     .background(if (isDark) Color(0xFF1E1E2A) else Color(0xFFF1F5F9))
-                    .border(1.dp, if (isDark) Color(0x33FFFFFF) else Color(0x1F000000), RoundedCornerShape(20.dp))
-                    .padding(4.dp)
+                    .border(1.dp, if (isDark) Color(0x22FFFFFF) else Color(0x15000000), RoundedCornerShape(16.dp))
+                    .padding(3.dp)
             ) {
                 val tabWidth = maxWidth / 3
                 val animatedPillOffset by animateDpAsState(
@@ -259,15 +260,15 @@ fun PomodoroSettingsBottomSheet(
                         .offset(x = animatedPillOffset)
                         .width(tabWidth)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(13.dp))
                         .background(goldColor)
                 )
 
                 Row(modifier = Modifier.fillMaxSize()) {
                     val tabs = listOf(
                         Triple("Focus", "${focusMinutes}m", 0),
-                        Triple("Break", "${shortBreakMinutes}m", 1),
-                        Triple("Long", "${longBreakMinutes}m", 2)
+                        Triple("Short Break", "${shortBreakMinutes}m", 1),
+                        Triple("Long Break", "${longBreakMinutes}m", 2)
                     )
 
                     tabs.forEach { (name, timeStr, index) ->
@@ -292,7 +293,7 @@ fun PomodoroSettingsBottomSheet(
                             )
                             Text(
                                 text = timeStr,
-                                fontSize = 13.5.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = if (isSelected) Color.Black else textMain,
                                 modifier = Modifier.clickable {
@@ -305,11 +306,12 @@ fun PomodoroSettingsBottomSheet(
                 }
             }
 
+            // Slider & Quick Values
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val (currentVal, minVal, maxVal, ticks) = when (selectedPillTab) {
-                    0 -> Quadruple(focusMinutes.toFloat(), 1f, 90f, listOf(5, 25, 60, 90))
-                    1 -> Quadruple(shortBreakMinutes.toFloat(), 1f, 15f, listOf(1, 5, 10, 15))
-                    else -> Quadruple(longBreakMinutes.toFloat(), 5f, 45f, listOf(5, 15, 30, 45))
+                    0 -> Quadruple(focusMinutes.toFloat(), 1f, 90f, listOf(15, 25, 45, 60))
+                    1 -> Quadruple(shortBreakMinutes.toFloat(), 1f, 20f, listOf(3, 5, 10, 15))
+                    else -> Quadruple(longBreakMinutes.toFloat(), 5f, 45f, listOf(10, 15, 20, 30))
                 }
 
                 Row(
@@ -350,11 +352,10 @@ fun PomodoroSettingsBottomSheet(
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     ticks.forEach { tick ->
-                        Text(
-                            text = "${tick}m",
-                            color = if (currentVal.toInt() == tick) goldColor else textMuted,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = if (currentVal.toInt() == tick) goldColor.copy(alpha = 0.2f) else Color.Transparent,
+                            border = BorderStroke(1.dp, if (currentVal.toInt() == tick) goldColor else Color.Transparent),
                             modifier = Modifier.clickable {
                                 when (selectedPillTab) {
                                     0 -> onFocusMinutesChange(tick)
@@ -362,17 +363,27 @@ fun PomodoroSettingsBottomSheet(
                                     else -> onLongBreakMinutesChange(tick)
                                 }
                             }
-                        )
+                        ) {
+                            Text(
+                                text = "${tick}m",
+                                color = if (currentVal.toInt() == tick) goldColor else textMuted,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
             }
 
+            // Sessions Count Selector
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Focus sessions before Long Break", fontWeight = FontWeight.Bold, color = textMain, fontSize = 13.sp)
+                    Text("Sessions before Long Break", fontWeight = FontWeight.Bold, color = textMain, fontSize = 13.sp)
                     Text("$totalSessions", fontWeight = FontWeight.Black, color = goldColor, fontSize = 14.sp)
                 }
                 Row(
@@ -381,26 +392,31 @@ fun PomodoroSettingsBottomSheet(
                 ) {
                     listOf(2, 3, 4, 5, 6).forEach { num ->
                         val isSelected = totalSessions == num
-                        Box(
-                            contentAlignment = Alignment.Center,
+                        Surface(
                             modifier = Modifier
-                                .size(42.dp)
-                                .clip(CircleShape)
-                                .background(if (isSelected) goldColor else (if (isDark) Color(0xFF22222E) else Color(0xFFE2E8F0)))
-                                .border(1.dp, if (isSelected) glowYellow else (if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)), CircleShape)
-                            .clickable { onSessionsChange(num) }
+                                .weight(1f)
+                                .padding(horizontal = 3.dp)
+                                .height(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { onSessionsChange(num) },
+                            color = if (isSelected) goldColor else (if (isDark) Color(0xFF1E1E2A) else Color(0xFFF1F5F9)),
+                            border = BorderStroke(1.dp, if (isSelected) goldColor else (if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1))),
+                            shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text(
-                                text = "$num",
-                                color = if (isSelected) Color.Black else textMain,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 13.sp
-                            )
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "$num",
+                                    color = if (isSelected) Color.Black else textMain,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            }
                         }
                     }
                 }
             }
 
+            // Switches
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier
@@ -433,6 +449,7 @@ fun PomodoroSettingsBottomSheet(
                 }
             }
 
+            // Save & Apply Button
             Button(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(containerColor = goldColor),
@@ -609,12 +626,14 @@ fun PomodoroFocusControls(
     onResumeFocusFromBreak: () -> Unit,
     onEndSessionClick: () -> Unit
 ) {
+    val dangerColor = Color(0xFFEF4444)
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        // ☕ Subtle Chip: Break par switch karne ka option (Sirf tab dikhega jab pause ho)
+        // Break switch chip (सिर्फ पॉज होने पर)
         if (isPaused && !isBreakActive) {
             Surface(
                 color = cardBg,
@@ -638,31 +657,14 @@ fun PomodoroFocusControls(
             }
         }
 
-        // Main Bottom Action Buttons (Sleek 2-Pill Row)
+        // Action Buttons Row
         Row(
             modifier = Modifier.fillMaxWidth(0.92f),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             when {
-                // State 1: Break chal raha hai (Left = End Session, Right = Resume Focus 🎯)
                 isBreakActive -> {
-                    OutlinedButton(
-                        onClick = onEndSessionClick,
-                        shape = RoundedCornerShape(50),
-                        border = BorderStroke(1.dp, glassBorder),
-                        modifier = Modifier
-                            .weight(0.75f)
-                            .height(46.dp)
-                    ) {
-                        Text(
-                            text = "End Session",
-                            color = textMuted,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.5.sp
-                        )
-                    }
-
                     Button(
                         onClick = onResumeFocusFromBreak,
                         colors = ButtonDefaults.buttonColors(containerColor = goldColor),
@@ -678,26 +680,25 @@ fun PomodoroFocusControls(
                             fontSize = 13.5.sp
                         )
                     }
-                }
 
-                // State 2: Focus Paused hai (Left = End Session, Right = Resume 🎯)
-                isPaused -> {
                     OutlinedButton(
                         onClick = onEndSessionClick,
                         shape = RoundedCornerShape(50),
-                        border = BorderStroke(1.dp, glassBorder),
+                        border = BorderStroke(1.2.dp, dangerColor.copy(alpha = 0.8f)),
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(0.85f)
                             .height(46.dp)
                     ) {
                         Text(
                             text = "End Session",
-                            color = textMuted,
+                            color = dangerColor,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            fontSize = 12.5.sp
                         )
                     }
+                }
 
+                isPaused -> {
                     Button(
                         onClick = onResumeClick,
                         colors = ButtonDefaults.buttonColors(containerColor = goldColor),
@@ -713,44 +714,52 @@ fun PomodoroFocusControls(
                             fontSize = 13.5.sp
                         )
                     }
+
+                    OutlinedButton(
+                        onClick = onEndSessionClick,
+                        shape = RoundedCornerShape(50),
+                        border = BorderStroke(1.2.dp, dangerColor.copy(alpha = 0.8f)),
+                        modifier = Modifier
+                            .weight(0.85f)
+                            .height(46.dp)
+                    ) {
+                        Text(
+                            text = "End Session",
+                            color = dangerColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp
+                        )
+                    }
                 }
 
-                // State 3: Focus chal raha hai (Running)
                 else -> {
                     Button(
                         onClick = onPauseClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = cardBg),
+                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
                         shape = RoundedCornerShape(50),
-                        border = BorderStroke(1.dp, glassBorder),
                         modifier = Modifier
                             .weight(1f)
                             .height(46.dp)
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = "⏸", color = textMain, fontSize = 14.sp)
-                            Text(
-                                text = "Pause",
-                                color = textMain,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.5.sp
-                            )
-                        }
+                        Text(
+                            text = "⏸ Pause",
+                            color = Color.Black,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 13.5.sp
+                        )
                     }
 
                     OutlinedButton(
                         onClick = onEndSessionClick,
                         shape = RoundedCornerShape(50),
-                        border = BorderStroke(1.dp, glassBorder),
+                        border = BorderStroke(1.2.dp, dangerColor.copy(alpha = 0.8f)),
                         modifier = Modifier
-                            .weight(0.75f)
+                            .weight(0.85f)
                             .height(46.dp)
                     ) {
                         Text(
                             text = "End Session",
-                            color = textMuted,
+                            color = dangerColor,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.5.sp
                         )
