@@ -22,12 +22,12 @@ data class StudyGroup(
     val isPublic: Boolean = true,
     val memberCount: Int = 1,
     val focusingCount: Int = 0,
-    val isPinned: Boolean = false,        // ❌ कोई जबरदस्ती स्टार नहीं, डिफ़ॉल्ट बंद
+    val isPinned: Boolean = false,
     val isJoined: Boolean = false,
     val isDefault: Boolean = false,
     val inviteCode: String? = null,
     val notificationsEnabled: Boolean = true,
-    val members: List<GroupMember> = emptyList() // ❌ कोई फर्जी मेंबर्स की लिस्ट नहीं
+    val members: List<GroupMember> = emptyList()
 )
 
 data class WeekPeriod(
@@ -38,39 +38,83 @@ data class WeekPeriod(
 )
 
 object MockRepository {
-    // 🏷️ सिर्फ एडमिन/डिफ़ॉल्ट कैटेगरीज़
+    // 🏷️ आपकी मनपसंद असली कैटेगरीज़
     val categories = listOf(
         "All",
-        "General",
-        "Exams",
-        "Self Study"
+        "Self Study",
+        "UPSC",
+        "NEET",
+        "RPSC",
+        "RSMSSB",
+        "RBSE 10th",
+        "RBSE 12th"
     )
 
     val weeks = listOf(
-        WeekPeriod("w_curr", "Current Week", "This Week", true)
+        WeekPeriod("w_curr", "This Week", "Current", true),
+        WeekPeriod("w_prev", "Last Week", "Previous", false)
     )
 
-    const val CURRENT_USER_NICKNAME = "Amon_User"
+    const val CURRENT_USER_NICKNAME = "Amon_Admin"
 
-    // 🏛️ केवल 1 असली ग्लोबल ग्रुप - 0 फर्जी मेंबर्स के साथ
+    // 🏛️ शुरूआती ग्रुप्स (सार्वजनिक और कुछ सुझाव ताकि एक्सप्लोर खाली न दिखे)
     val sampleGroups = listOf(
         StudyGroup(
             id = "universal_lib",
             name = "Universal Library",
-            category = "All",
+            category = "Self Study",
             isPublic = true,
-            memberCount = 1,              // असली शुरुआत 1 मेंबर से
-            focusingCount = 0,            // कोई फर्जी काउंट नहीं
-            isPinned = false,             // अनपिन डिफ़ॉल्ट
-            isJoined = true,              // नया यूज़र इसमें ऑटो जॉइन रहेगा
+            memberCount = 1,
+            focusingCount = 0,
+            isPinned = false,
+            isJoined = true,
             isDefault = true,
             inviteCode = "AMON-GLOBAL",
-            members = emptyList()         // खाली लिस्ट, जब लोग जुड़ेंगे तब भरेगी
+            members = listOf(
+                GroupMember(id = "user_me", nickname = CURRENT_USER_NICKNAME, role = MemberRole.ADMIN, lastActive = "Active now")
+            )
+        ),
+        StudyGroup(
+            id = "rpsc_sprint",
+            name = "Rajasthan RAS / RPSC Warriors",
+            category = "RPSC",
+            isPublic = true,
+            memberCount = 12,
+            focusingCount = 3,
+            isPinned = false,
+            isJoined = false,
+            isDefault = false,
+            inviteCode = "RAS-2026"
+        ),
+        StudyGroup(
+            id = "upsc_prelims",
+            name = "UPSC Target 2026",
+            category = "UPSC",
+            isPublic = true,
+            memberCount = 28,
+            focusingCount = 5,
+            isPinned = false,
+            isJoined = false,
+            isDefault = false,
+            inviteCode = "UPSC-SPRINT"
+        ),
+        StudyGroup(
+            id = "neet_crack",
+            name = "NEET Biology & Chem Sprint",
+            category = "NEET",
+            isPublic = true,
+            memberCount = 19,
+            focusingCount = 2,
+            isPinned = false,
+            isJoined = false,
+            isDefault = false,
+            inviteCode = "NEET-MED"
         )
     )
 
-    // कोई फर्जी मेंबर्स नहीं, बिल्कुल खाली लिस्ट
     fun getSampleMembers(): List<GroupMember> {
-        return emptyList()
+        return listOf(
+            GroupMember(id = "user_me", nickname = CURRENT_USER_NICKNAME, role = MemberRole.ADMIN, studyTimeMinutes = 120, lastActive = "Active now")
+        )
     }
 }
