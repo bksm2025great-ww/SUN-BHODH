@@ -7,6 +7,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -44,6 +47,15 @@ fun AuthScreen(
     val userManager = remember { UserManager(context) }
     val scrollState = rememberScrollState()
 
+    // 🎨 Theme Colors Integration
+    val isDark = ThemeManager.isDarkTheme.value
+    val bgColor = ThemeManager.getBackgroundColor()
+    val cardBg = ThemeManager.getCardColor()
+    val textMain = ThemeManager.getTextColor()
+    val textMuted = ThemeManager.getTextMutedColor()
+    val goldColor = ThemeManager.getAccentColor()
+    val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
+
     // 🔑 Google Credential Manager & Client ID
     val credentialManager = remember { CredentialManager.create(context) }
     val webClientId = stringResource(id = R.string.default_web_client_id)
@@ -61,7 +73,7 @@ fun AuthScreen(
     }
 
     val proceedToApp = {
-        userManager.setFreshAuthDone(true) // 🔒 हमेशा के लिए सेव: दोबारा कभी लॉगिन स्क्रीन नहीं आएगी
+        userManager.setFreshAuthDone(true) // 🔒 दोबारा कभी लॉगिन स्क्रीन नहीं आएगी
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
@@ -121,41 +133,63 @@ fun AuthScreen(
                     proceedToApp()
                 }
             } catch (e: GetCredentialCancellationException) {
-                // User dismissed the sheet
+                // User dismissed sheet
             } catch (e: Exception) {
                 errorMessage = "Google Sign-In विफल: ${e.localizedMessage}"
             }
         }
     }
 
-    // ----------------- UI SCREEN (Uiverse Clean White Design) -----------------
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF3F4F6))
+            .background(bgColor)
             .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
         Card(
             modifier = Modifier
-                .width(420.dp)
+                .widthIn(max = 420.dp)
+                .fillMaxWidth()
                 .verticalScroll(scrollState),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = cardBg),
+            border = BorderStroke(1.dp, cardBorder)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(28.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(26.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // App Brand Header
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "AMON",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        color = textMain,
+                        letterSpacing = 3.sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Focus Timer & Study Circle",
+                        fontSize = 12.sp,
+                        color = textMuted
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
                 // Name Field
                 Text(
                     text = "Name",
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF151717),
-                    fontSize = 14.sp
+                    color = textMain,
+                    fontSize = 13.5.sp
                 )
                 OutlinedTextField(
                     value = name,
@@ -163,31 +197,32 @@ fun AuthScreen(
                         name = it
                         if (errorMessage.isNotEmpty()) errorMessage = ""
                     },
-                    placeholder = { Text("Enter your Name", color = Color(0xFF9E9E9E)) },
+                    placeholder = { Text("Enter your Name", color = textMuted.copy(alpha = 0.7f), fontSize = 13.sp) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = "Name",
-                            tint = Color(0xFF757575)
+                            tint = goldColor
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = Color(0xFFECEDEC),
-                        focusedBorderColor = Color(0xFF2D79F3)
+                        focusedBorderColor = goldColor,
+                        unfocusedBorderColor = cardBorder,
+                        focusedTextColor = textMain,
+                        unfocusedTextColor = textMain,
+                        cursorColor = goldColor
                     ),
                     singleLine = true
                 )
-
-                Spacer(modifier = Modifier.height(2.dp))
 
                 // Email Field
                 Text(
                     text = "Email",
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF151717),
-                    fontSize = 14.sp
+                    color = textMain,
+                    fontSize = 13.5.sp
                 )
                 OutlinedTextField(
                     value = email,
@@ -195,32 +230,33 @@ fun AuthScreen(
                         email = it 
                         if (errorMessage.isNotEmpty()) errorMessage = ""
                     },
-                    placeholder = { Text("Enter your Email", color = Color(0xFF9E9E9E)) },
+                    placeholder = { Text("Enter your Email", color = textMuted.copy(alpha = 0.7f), fontSize = 13.sp) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Email,
                             contentDescription = "Email",
-                            tint = Color(0xFF757575)
+                            tint = goldColor
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = Color(0xFFECEDEC),
-                        focusedBorderColor = Color(0xFF2D79F3)
+                        focusedBorderColor = goldColor,
+                        unfocusedBorderColor = cardBorder,
+                        focusedTextColor = textMain,
+                        unfocusedTextColor = textMain,
+                        cursorColor = goldColor
                     ),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true
                 )
 
-                Spacer(modifier = Modifier.height(2.dp))
-
                 // Password Field
                 Text(
                     text = "Password",
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF151717),
-                    fontSize = 14.sp
+                    color = textMain,
+                    fontSize = 13.5.sp
                 )
                 OutlinedTextField(
                     value = password,
@@ -228,19 +264,22 @@ fun AuthScreen(
                         password = it 
                         if (errorMessage.isNotEmpty()) errorMessage = ""
                     },
-                    placeholder = { Text("Enter your Password", color = Color(0xFF9E9E9E)) },
+                    placeholder = { Text("Enter your Password", color = textMuted.copy(alpha = 0.7f), fontSize = 13.sp) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = "Password",
-                            tint = Color(0xFF757575)
+                            tint = goldColor
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = Color(0xFFECEDEC),
-                        focusedBorderColor = Color(0xFF2D79F3)
+                        focusedBorderColor = goldColor,
+                        unfocusedBorderColor = cardBorder,
+                        focusedTextColor = textMain,
+                        unfocusedTextColor = textMain,
+                        cursorColor = goldColor
                     ),
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -251,53 +290,66 @@ fun AuthScreen(
                 if (errorMessage.isNotEmpty()) {
                     Text(
                         text = errorMessage,
-                        color = Color(0xFFD32F2F),
+                        color = Color(0xFFEF4444),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
 
-                // Sign Up Button
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Sign Up Button (Accent Filled, Dark Text)
                 Button(
                     onClick = { handleSignUp() },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 10.dp)
-                        .height(50.dp),
-                    shape = RoundedCornerShape(10.dp),
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF151717),
-                        contentColor = Color.White
+                        containerColor = goldColor,
+                        contentColor = Color.Black
                     )
                 ) {
-                    Text("Sign Up", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text(
+                        text = "Sign Up",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
                 }
 
-                // Switch text
+                // Switch text with Accent Link
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Already have an account? ", fontSize = 14.sp, color = Color.Black)
+                    Text(
+                        text = "Already have an account? ",
+                        fontSize = 13.5.sp,
+                        color = textMuted
+                    )
                     Text(
                         text = "login",
-                        fontSize = 14.sp,
-                        color = Color(0xFF2D79F3),
-                        fontWeight = FontWeight.Medium
+                        fontSize = 13.5.sp,
+                        color = goldColor,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { handleSignUp() }
                     )
                 }
 
-                // Google Sign-In Button
+                // Google Sign-In Button (Outlined with Google "G" colors)
                 OutlinedButton(
                     onClick = { handleGoogleSignIn() },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFFEDEDEF)),
-                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, cardBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (isDark) Color(0x18FFFFFF) else Color(0xFFF8FAFC)
+                    )
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -305,16 +357,16 @@ fun AuthScreen(
                     ) {
                         Text(
                             text = "G",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.Black,
                             color = Color(0xFF4285F4)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Google",
-                            color = Color(0xFF151717),
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 15.sp
+                            text = "Continue with Google",
+                            color = textMain,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
                         )
                     }
                 }
