@@ -33,7 +33,6 @@ fun ExploreGroupsScreen(
     onGroupClick: (StudyGroup) -> Unit = {},
     onToggleJoinGroup: (String) -> Unit = {}
 ) {
-    // 🎨 सीधे ThemeManager से कलर्स
     val isDark = ThemeManager.isDarkTheme.value
     val bgColor = ThemeManager.getBackgroundColor()
     val cardBg = ThemeManager.getCardColor()
@@ -47,7 +46,10 @@ fun ExploreGroupsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
 
-    val filteredGroups = groups.filter { group ->
+    // 🔒 केवल पब्लिक ग्रुप्स दिखेंगे, प्राइवेट कभी सर्च में नहीं आएँगे
+    val publicGroups = groups.filter { it.isPublic }
+
+    val filteredGroups = publicGroups.filter { group ->
         val matchesCategory = selectedCategory == "All" || group.category == selectedCategory
         val matchesQuery = searchQuery.isBlank() ||
                 group.name.contains(searchQuery, ignoreCase = true) ||
@@ -63,13 +65,13 @@ fun ExploreGroupsScreen(
                         text = "Explore Groups",
                         color = textMain,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
+                        fontSize = 17.sp
                     )
                 },
                 navigationIcon = {
                     IconButton(
                         onClick = onBackClick,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
@@ -78,9 +80,7 @@ fun ExploreGroupsScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = bgColor
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = bgColor)
             )
         },
         containerColor = bgColor
@@ -90,29 +90,30 @@ fun ExploreGroupsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Search Bar
+            // स्लिम और कॉम्पैक्ट सर्च बार (फ़ालतू गैप खत्म)
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 placeholder = {
                     Text(
-                        text = "Search by group, exam, or state...",
+                        text = "Search exam or study circles...",
                         color = textMuted,
-                        fontSize = 14.sp
+                        fontSize = 13.5.sp
                     )
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = textMuted
+                        tint = textMuted,
+                        modifier = Modifier.size(18.dp)
                     )
                 },
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = accentColor,
                     unfocusedBorderColor = cardBorder,
@@ -124,11 +125,11 @@ fun ExploreGroupsScreen(
                 )
             )
 
-            // Category Chips (Horizontal Scroll)
+            // नई परीक्षा कैटेगरी चिप्स
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(MockRepository.categories) { category ->
                     val isSelected = category == selectedCategory
@@ -138,11 +139,11 @@ fun ExploreGroupsScreen(
                         label = {
                             Text(
                                 text = category,
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
                         },
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(16.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = accentColor,
                             selectedLabelColor = if (isDark) Color.Black else Color.White,
@@ -159,19 +160,19 @@ fun ExploreGroupsScreen(
 
             // Results count
             Text(
-                text = "${filteredGroups.size} groups found",
+                text = "${filteredGroups.size} circles found",
                 color = textMuted,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                fontSize = 11.5.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
             )
 
             // Group Rows
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(filteredGroups) { group ->
+                items(filteredGroups, key = { it.id }) { group ->
                     ExploreGroupRow(
                         group = group,
                         cardBg = cardBg,
@@ -208,21 +209,21 @@ fun ExploreGroupRow(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .border(1.dp, cardBorder, RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
             .clickable { onRowClick() },
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
                     .background(accentSubtle)
                     .border(1.dp, accentColor.copy(alpha = 0.5f), CircleShape),
@@ -232,18 +233,18 @@ fun ExploreGroupRow(
                     text = group.name.take(2).uppercase(),
                     color = accentColor,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
+                    fontSize = 14.sp
                 )
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = group.name,
                     color = textMain,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
                     maxLines = 1
                 )
                 Spacer(modifier = Modifier.height(2.dp))
@@ -256,22 +257,20 @@ fun ExploreGroupRow(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${group.focusingCount} now",
-                        color = focusingGreen,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = " · ${group.memberCount} members",
+                        text = "${group.focusingCount} now · ${group.memberCount} members",
                         color = textMuted,
-                        fontSize = 12.sp
+                        fontSize = 11.5.sp
                     )
                 }
-                Text(
-                    text = group.category,
-                    color = textMuted,
-                    fontSize = 11.sp
-                )
+
+                if (group.category.isNotBlank() && group.category != "All") {
+                    Text(
+                        text = group.category,
+                        color = accentColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(8.dp))
@@ -279,34 +278,32 @@ fun ExploreGroupRow(
             if (group.isJoined) {
                 OutlinedButton(
                     onClick = onJoinToggle,
-                    modifier = Modifier.height(38.dp),
-                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.height(34.dp),
+                    shape = RoundedCornerShape(17.dp),
                     border = BorderStroke(1.dp, accentColor),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = accentColor
-                    ),
-                    contentPadding = PaddingValues(horizontal = 14.dp)
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = accentColor),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Joined",
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Joined", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(text = "Joined", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
                 }
             } else {
                 Button(
                     onClick = onJoinToggle,
-                    modifier = Modifier.height(38.dp),
-                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.height(34.dp),
+                    shape = RoundedCornerShape(17.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = accentColor,
                         contentColor = if (isDark) Color.Black else Color.White
                     ),
-                    contentPadding = PaddingValues(horizontal = 16.dp)
+                    contentPadding = PaddingValues(horizontal = 14.dp)
                 ) {
-                    Text(text = "Join", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Join", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
