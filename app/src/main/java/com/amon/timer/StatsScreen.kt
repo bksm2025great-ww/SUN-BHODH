@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -105,7 +106,7 @@ fun StatsScreen() {
         selectedBarIndex = null
     }
 
-    // 🧮 Summary Cards Calculation
+    // 🧮 Summary Calculations
     val totalMinutes = remember(filteredSessions) {
         filteredSessions.sumOf { it.durationMinutes }
     }
@@ -131,6 +132,12 @@ fun StatsScreen() {
         calculateStreakCount(allSessions)
     }
 
+    // 🎯 Weekly Goal Target (Default 21h = 1260 mins)
+    val weeklyGoalTargetMinutes = 21 * 60
+    val weeklyGoalProgress = remember(totalMinutes) {
+        (totalMinutes.toFloat() / weeklyGoalTargetMinutes.toFloat()).coerceIn(0f, 1f)
+    }
+
     // 🥧 Donut Chart Data
     val subjectMinutesList = remember(filteredSessions) {
         filteredSessions.groupBy { it.subject }
@@ -144,7 +151,6 @@ fun StatsScreen() {
         subjectMinutesList.sumOf { it.second }
     }
 
-    // 🎨 Subject Colors
     val subjectColors = listOf(
         Color(0xFFF59E0B),
         Color(0xFF38BDF8),
@@ -252,7 +258,84 @@ fun StatsScreen() {
             }
         }
 
-        // 4. INTERACTIVE BAR CHART (FLAT GROUNDED BASELINE FIX)
+        // 🎯 3.1 WEEKLY GOAL RING CARD (सिर्फ़ वीकली टैब में साफ़ रिंग)
+        if (selectedTab == "Weekly") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(cardBg)
+                    .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
+                    .padding(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "WEEKLY GOAL",
+                            color = textMuted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Week goal 21h",
+                            color = textMain,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${formatMinutes(totalMinutes)} achieved (${(weeklyGoalProgress * 100).toInt()}%)",
+                            color = if (weeklyGoalProgress >= 1f) Color(0xFF10B981) else goldColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier.size(54.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val stroke = 5.dp.toPx()
+                            val radius = (size.minDimension - stroke) / 2f
+                            val center = Offset(size.width / 2f, size.height / 2f)
+
+                            // Track
+                            drawCircle(
+                                color = if (isDark) Color(0x22FFFFFF) else Color(0x18000000),
+                                radius = radius,
+                                center = center,
+                                style = Stroke(width = stroke)
+                            )
+                            // Progress
+                            drawArc(
+                                color = goldColor,
+                                startAngle = -90f,
+                                sweepAngle = weeklyGoalProgress * 360f,
+                                useCenter = false,
+                                topLeft = Offset(center.x - radius, center.y - radius),
+                                size = Size(radius * 2f, radius * 2f),
+                                style = Stroke(width = stroke, cap = StrokeCap.Round)
+                            )
+                        }
+                        Text(
+                            text = "${(weeklyGoalProgress * 100).toInt()}%",
+                            color = textMain,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // 4. INTERACTIVE BAR CHART
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -413,7 +496,7 @@ fun StatsScreen() {
                             }
                         }
 
-                        // 📏 सीधी ग्राउंडेड बेसलाइन रेखा
+                        // Base ground line
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -421,7 +504,7 @@ fun StatsScreen() {
                                 .background(if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1))
                         )
 
-                        // 🏷️ बराबर 22.dp स्लॉट में डेट लेबल्स
+                        // Date Labels
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -487,7 +570,7 @@ fun StatsScreen() {
             }
         }
 
-        // 5. 4 SUMMARY CARDS (CURRENT STREAK CARD IS CLICKABLE)
+        // 5. 4 SUMMARY CARDS (Clean, Flat, Minimalist Style)
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -524,7 +607,6 @@ fun StatsScreen() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // 🔥 CURRENT STREAK CARD (Clickable to open Streak Journal, 2nd Image wali Flame)
                 SummaryCard(
                     modifier = Modifier
                         .weight(1f)
@@ -541,8 +623,8 @@ fun StatsScreen() {
                         {
                             StreakFlame(
                                 streakDays = streakDaysCount,
-                                isLarge = true,
-                                modifier = Modifier.size(28.dp)
+                                isLarge = false,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     } else null
@@ -562,7 +644,7 @@ fun StatsScreen() {
             }
         }
 
-        // 6. SUBJECT BREAKDOWN (CLEAN DONUT CHART, NO TARGET EMOJI)
+        // 6. SUBJECT BREAKDOWN (Multi-Color Donut Chart)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -640,7 +722,6 @@ fun StatsScreen() {
                             }
                         }
 
-                        // 🎯 इमोजी हटाकर साफ़ बोल्ड संख्या व सबटाइटल
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
@@ -725,7 +806,7 @@ fun StatsScreen() {
     }
 
     // =========================================================================
-    // 🔥 STREAK JOURNAL & CALENDAR MODAL BOTTOM SHEET
+    // 🔥 STREAK JOURNAL BOTTOM SHEET
     // =========================================================================
     if (showStreakSheet) {
         StreakJournalBottomSheet(
@@ -742,7 +823,7 @@ fun StatsScreen() {
 }
 
 // =============================================================================
-// 🔥 STREAK JOURNAL BOTTOM SHEET (1-YEAR DYNAMIC NAV + FULL CIRCULAR SHAPES)
+// 🔥 STREAK JOURNAL BOTTOM SHEET (Clean, Soft Accent Tint)
 // =============================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -757,8 +838,6 @@ fun StreakJournalBottomSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    // 🗓️ Calendar Month Offset State (0 = Current Month, -11 = 1 Year Ago)
     var calendarMonthOffset by remember { mutableIntStateOf(0) }
 
     val flameTierName = remember(streakDays) {
@@ -794,6 +873,9 @@ fun StreakJournalBottomSheet(
         list
     }
 
+    // Soft Tint of Accent Color
+    val softAccentFill = goldColor.copy(alpha = 0.16f)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -818,7 +900,7 @@ fun StreakJournalBottomSheet(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header: Title & Close Button
+            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -843,13 +925,13 @@ fun StreakJournalBottomSheet(
                 }
             }
 
-            // Top Flame Showcase Card (Lottie Animation - isLarge = true)
+            // Top Flame Showcase Card (केवल यहाँ फ़्लेम आइकन दिखेगा)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
-                    .background(if (isDark) Color(0x22F97316) else Color(0x14EA580C))
-                    .border(1.2.dp, Color(0xFFF97316).copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                    .background(softAccentFill)
+                    .border(1.2.dp, goldColor.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
                     .padding(16.dp)
             ) {
                 Row(
@@ -872,7 +954,7 @@ fun StreakJournalBottomSheet(
                                 text = "days active",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFFB923C),
+                                color = goldColor,
                                 modifier = Modifier.padding(bottom = 6.dp)
                             )
                         }
@@ -884,7 +966,7 @@ fun StreakJournalBottomSheet(
                         )
                     }
 
-                    // 🔥 Large Lottie Flame Showcase
+                    // Single Large Flame
                     StreakFlame(
                         streakDays = streakDays,
                         isLarge = true,
@@ -893,7 +975,7 @@ fun StreakJournalBottomSheet(
                 }
             }
 
-            // 🔗 THIS WEEK'S TRACK (TRANSPARENT FLAME CONNECTOR RIBBON)
+            // THIS WEEK'S TRACK
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -920,7 +1002,6 @@ fun StreakJournalBottomSheet(
                         val (_, mins) = pair
                         val isGoalMet = mins >= 30
                         val dayTitle = weekDays[index]
-
                         val isPrevMet = index > 0 && weekStatus[index - 1].second >= 30
                         val isNextMet = index < 6 && weekStatus[index + 1].second >= 30
 
@@ -935,7 +1016,7 @@ fun StreakJournalBottomSheet(
                                         .height(4.dp)
                                         .background(
                                             if (isGoalMet && isPrevMet) {
-                                                Color(0xFFF97316).copy(alpha = 0.40f)
+                                                goldColor.copy(alpha = 0.40f)
                                             } else {
                                                 Color.Transparent
                                             }
@@ -951,7 +1032,7 @@ fun StreakJournalBottomSheet(
                                     text = dayTitle,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isGoalMet) Color(0xFFFB923C) else textMuted
+                                    color = if (isGoalMet) goldColor else textMuted
                                 )
 
                                 Box(
@@ -961,19 +1042,19 @@ fun StreakJournalBottomSheet(
                                         .clip(CircleShape)
                                         .background(
                                             if (isGoalMet) {
-                                                Color(0xFFF97316).copy(alpha = 0.25f)
+                                                softAccentFill
                                             } else {
                                                 if (isDark) Color(0x22FFFFFF) else Color(0x11000000)
                                             }
                                         )
                                         .border(
                                             width = 1.5.dp,
-                                            color = if (isGoalMet) Color(0xFFF97316) else cardBorder,
+                                            color = if (isGoalMet) goldColor else cardBorder,
                                             shape = CircleShape
                                         )
                                 ) {
                                     if (isGoalMet) {
-                                        Text(text = "✓", fontSize = 13.sp, fontWeight = FontWeight.Black, color = Color(0xFFF97316))
+                                        Text(text = "✓", fontSize = 13.sp, fontWeight = FontWeight.Black, color = goldColor)
                                     } else {
                                         Box(
                                             modifier = Modifier
@@ -999,7 +1080,7 @@ fun StreakJournalBottomSheet(
                                         .height(4.dp)
                                         .background(
                                             if (isGoalMet && isNextMet) {
-                                                Color(0xFFF97316).copy(alpha = 0.40f)
+                                                goldColor.copy(alpha = 0.40f)
                                             } else {
                                                 Color.Transparent
                                             }
@@ -1011,7 +1092,7 @@ fun StreakJournalBottomSheet(
                 }
             }
 
-            // 🗓️ ALIVE MONTHLY CALENDAR (1-YEAR DYNAMIC NAV + FULL CIRCULAR SHAPES)
+            // MONTHLY CALENDAR
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1028,13 +1109,11 @@ fun StreakJournalBottomSheet(
                 }
                 val currentMonthName = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(activeCalendar.time)
 
-                // 🔄 Month Switcher Header (Max 1 Year Back, 0 Forward)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Previous Month (Limit: -11 means up to 1 year back)
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -1047,7 +1126,7 @@ fun StreakJournalBottomSheet(
                     ) {
                         Text(
                             text = "◀",
-                            color = if (calendarMonthOffset > -11) Color(0xFFF97316) else textMuted.copy(alpha = 0.3f),
+                            color = if (calendarMonthOffset > -11) goldColor else textMuted.copy(alpha = 0.3f),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -1061,7 +1140,6 @@ fun StreakJournalBottomSheet(
                         color = textMain
                     )
 
-                    // Next Month (Cannot exceed current month 0)
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -1074,14 +1152,13 @@ fun StreakJournalBottomSheet(
                     ) {
                         Text(
                             text = "▶",
-                            color = if (calendarMonthOffset < 0) Color(0xFFF97316) else textMuted.copy(alpha = 0.3f),
+                            color = if (calendarMonthOffset < 0) goldColor else textMuted.copy(alpha = 0.3f),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
-                // Weekday Labels
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -1118,7 +1195,6 @@ fun StreakJournalBottomSheet(
                     map
                 }
 
-                // Days Grid with Circular Highlight Nodes
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     var dayCounter = 1
                     for (week in 0..5) {
@@ -1141,7 +1217,6 @@ fun StreakJournalBottomSheet(
                                     val mins = dayMinutesMap[dateKey] ?: 0
                                     val isGoalMet = mins >= 30
 
-                                    // 🟢 Full Circular Shape (Square replaced with CircleShape)
                                     Box(
                                         contentAlignment = Alignment.Center,
                                         modifier = Modifier
@@ -1149,14 +1224,14 @@ fun StreakJournalBottomSheet(
                                             .clip(CircleShape)
                                             .background(
                                                 if (isGoalMet) {
-                                                    Color(0xFFF97316).copy(alpha = 0.28f)
+                                                    softAccentFill
                                                 } else {
                                                     Color.Transparent
                                                 }
                                             )
                                             .border(
                                                 width = if (isGoalMet) 1.5.dp else 0.dp,
-                                                color = if (isGoalMet) Color(0xFFF97316) else Color.Transparent,
+                                                color = if (isGoalMet) goldColor else Color.Transparent,
                                                 shape = CircleShape
                                             )
                                     ) {
@@ -1164,7 +1239,7 @@ fun StreakJournalBottomSheet(
                                             text = "$currentDay",
                                             fontSize = 12.sp,
                                             fontWeight = if (isGoalMet) FontWeight.Black else FontWeight.Medium,
-                                            color = if (isGoalMet) Color(0xFFFB923C) else textMain
+                                            color = if (isGoalMet) goldColor else textMain
                                         )
                                     }
                                     dayCounter++
@@ -1197,7 +1272,7 @@ fun StreakJournalBottomSheet(
 }
 
 // =============================================================================
-// SUMMARY CARD COMPOSABLE
+// SUMMARY CARD COMPOSABLE (Cleaner, No Extra Heavy Borders)
 // =============================================================================
 @Composable
 fun SummaryCard(
@@ -1216,15 +1291,15 @@ fun SummaryCard(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(cardBg)
-            .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
+            .border(1.dp, cardBorder.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
             .padding(14.dp)
     ) {
         Column {
             Text(
                 text = title,
                 color = textMuted,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium
             )
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -1237,7 +1312,7 @@ fun SummaryCard(
                 }
                 Text(
                     text = value,
-                    color = if (value == "__") textMuted else accentColor,
+                    color = if (value == "__") textMuted else textMain,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black
                 )
@@ -1246,7 +1321,7 @@ fun SummaryCard(
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                color = textMuted.copy(alpha = 0.8f),
+                color = textMuted.copy(alpha = 0.7f),
                 fontSize = 10.sp
             )
         }
@@ -1389,7 +1464,6 @@ private fun formatMinutes(minutes: Int): String {
     return if (m == 0) "${h}h" else "${h}h ${m}m"
 }
 
-// 🛡 Universal Date Parser
 private fun parseDateSafelyUniversal(dateStr: String): Date? {
     if (dateStr.isBlank()) return null
 
@@ -1456,7 +1530,6 @@ private fun parseDateSafelyUniversal(dateStr: String): Date? {
     return null
 }
 
-// 🔥 Streak Calculation
 private fun calculateStreakCount(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
 
