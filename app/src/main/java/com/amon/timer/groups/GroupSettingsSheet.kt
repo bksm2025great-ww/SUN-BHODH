@@ -4,8 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -32,7 +34,6 @@ fun GroupSettingsSheet(
     onReportGroup: () -> Unit = {},
     onLeaveGroup: () -> Unit = {}
 ) {
-    // 🎨 सीधे ThemeManager से कलर्स
     val isDark = ThemeManager.isDarkTheme.value
     val cardBg = ThemeManager.getCardColor()
     val bgColor = ThemeManager.getBackgroundColor()
@@ -41,13 +42,17 @@ fun GroupSettingsSheet(
     val accentColor = ThemeManager.getAccentColor()
     val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
     val accentSubtle = accentColor.copy(alpha = 0.15f)
-    val destructiveColor = Color(0xFFEF4444) // Semantic Red
+    val destructiveColor = Color(0xFFEF4444)
 
     var notificationsOn by remember { mutableStateOf(group.notificationsEnabled) }
     var showMembersList by remember { mutableStateOf(false) }
 
+    // ⚡ एक ही बार में पूरी शीट खुलने का फ़िक्स
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = cardBg,
         dragHandle = { BottomSheetDefaults.DragHandle(color = cardBorder) },
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
@@ -55,10 +60,10 @@ fun GroupSettingsSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp)
                 .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 6.dp)
         ) {
-            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -69,17 +74,17 @@ fun GroupSettingsSheet(
                         text = "Group Settings",
                         color = textMain,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 19.sp
+                        fontSize = 18.sp
                     )
                     Text(
                         text = group.name,
                         color = textMuted,
-                        fontSize = 13.sp
+                        fontSize = 12.5.sp
                     )
                 }
                 IconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -89,9 +94,8 @@ fun GroupSettingsSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Action 1: Invite Aspirants
             SettingsActionRow(
                 icon = Icons.Default.Share,
                 title = "Invite Aspirants",
@@ -104,7 +108,6 @@ fun GroupSettingsSheet(
                 onClick = onInvite
             )
 
-            // Action 2: Members management
             SettingsActionRow(
                 icon = Icons.Default.Person,
                 title = "Members (${group.members.size.ifZero(MockRepository.getSampleMembers().size)})",
@@ -124,7 +127,6 @@ fun GroupSettingsSheet(
                 onClick = { showMembersList = !showMembersList }
             )
 
-            // Expandable Members List
             if (showMembersList) {
                 Surface(
                     modifier = Modifier
@@ -137,21 +139,21 @@ fun GroupSettingsSheet(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(8.dp)
+                            .padding(6.dp)
                     ) {
                         val membersToDisplay = group.members.ifEmpty { MockRepository.getSampleMembers() }
                         membersToDisplay.take(6).forEach { member ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 6.dp, horizontal = 8.dp),
+                                    .padding(vertical = 5.dp, horizontal = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         modifier = Modifier
-                                            .size(32.dp)
+                                            .size(30.dp)
                                             .clip(CircleShape)
                                             .background(accentSubtle),
                                         contentAlignment = Alignment.Center
@@ -174,7 +176,7 @@ fun GroupSettingsSheet(
                                         Text(
                                             text = if (member.role == MemberRole.ADMIN) "Group Admin" else "Member",
                                             color = textMuted,
-                                            fontSize = 11.sp
+                                            fontSize = 10.5.sp
                                         )
                                     }
                                 }
@@ -182,15 +184,9 @@ fun GroupSettingsSheet(
                                 if (isAdmin && member.role != MemberRole.ADMIN) {
                                     TextButton(
                                         onClick = { onRemoveMember(member.id) },
-                                        colors = ButtonDefaults.textButtonColors(
-                                            contentColor = destructiveColor
-                                        )
+                                        colors = ButtonDefaults.textButtonColors(contentColor = destructiveColor)
                                     ) {
-                                        Text(
-                                            text = "Remove",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
+                                        Text(text = "Remove", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
@@ -199,7 +195,6 @@ fun GroupSettingsSheet(
                 }
             }
 
-            // Action 3: Notifications Switch
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -211,7 +206,7 @@ fun GroupSettingsSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -223,20 +218,20 @@ fun GroupSettingsSheet(
                             imageVector = Icons.Default.Notifications,
                             contentDescription = null,
                             tint = accentColor,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(19.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
                                 text = "Study Notifications",
                                 color = textMain,
-                                fontSize = 14.sp,
+                                fontSize = 13.5.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
                                 text = "Daily focus reminders & milestone alerts",
                                 color = textMuted,
-                                fontSize = 11.sp
+                                fontSize = 10.5.sp
                             )
                         }
                     }
@@ -257,7 +252,6 @@ fun GroupSettingsSheet(
                 }
             }
 
-            // Action 4: Report Group
             SettingsActionRow(
                 icon = Icons.Default.Warning,
                 title = "Report Group",
@@ -270,41 +264,40 @@ fun GroupSettingsSheet(
                 onClick = onReportGroup
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-            // Action 5: Leave Group (Red)
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, destructiveColor.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .border(1.dp, destructiveColor.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
                     .clickable { onLeaveGroup() },
-                color = destructiveColor.copy(alpha = 0.1f)
+                color = destructiveColor.copy(alpha = 0.08f)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Leave Group",
                         tint = destructiveColor,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = "Leave Group",
                         color = destructiveColor,
-                        fontSize = 14.sp,
+                        fontSize = 13.5.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
         }
     }
 }
@@ -336,7 +329,7 @@ fun SettingsActionRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -348,20 +341,20 @@ fun SettingsActionRow(
                     imageVector = icon,
                     contentDescription = null,
                     tint = tint,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(19.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
                         text = title,
                         color = textMain,
-                        fontSize = 14.sp,
+                        fontSize = 13.5.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
                         text = subtitle,
                         color = textMuted,
-                        fontSize = 11.sp
+                        fontSize = 10.5.sp
                     )
                 }
             }
