@@ -1,6 +1,5 @@
 package com.amon.timer
 
-import com.airbnb.lottie.compose.*
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
@@ -19,10 +18,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -41,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
+import com.airbnb.lottie.compose.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
@@ -119,7 +122,7 @@ fun ProfileScreen() {
     val textMain = ThemeManager.getTextColor()
     val textMuted = ThemeManager.getTextMutedColor()
     val goldColor = ThemeManager.getAccentColor()
-    val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
+    val cardBorder = if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1)
 
     var isSyncing by remember { mutableStateOf(false) }
     var showSyncPopup by remember { mutableStateOf(false) }
@@ -153,9 +156,9 @@ fun ProfileScreen() {
             .fillMaxSize()
             .background(bgColor)
             .verticalScroll(scrollState)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // ----------------- TOP TITLE -----------------
         Text(
@@ -164,7 +167,7 @@ fun ProfileScreen() {
             fontSize = 18.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 1.2.sp,
-            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+            modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
         )
 
         // ================= SECTION 1: ACCOUNT =================
@@ -173,65 +176,80 @@ fun ProfileScreen() {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(18.dp))
                 .background(cardBg)
-                .border(1.dp, cardBorder, RoundedCornerShape(20.dp))
-                .padding(vertical = 18.dp, horizontal = 16.dp)
+                .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
+                .clickable { showEditNameDialog = true }
+                .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
-            Column(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .then(
-                            if (!hasCustomName) {
-                                Modifier
-                                    .background(goldColor.copy(alpha = 0.08f))
-                                    .border(1.dp, goldColor.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
-                            } else {
-                                Modifier
-                            }
-                        )
-                        .clickable { showEditNameDialog = true }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    OutlinedPencilIcon(tint = goldColor)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (hasCustomName) currentUserName else "Tap to add name",
-                        color = if (hasCustomName) textMain else textMuted,
-                        fontSize = if (hasCustomName) 20.sp else 16.sp,
-                        fontWeight = if (hasCustomName) FontWeight.Black else FontWeight.SemiBold
-                    )
+                    val initialLetter = if (hasCustomName) {
+                        currentUserName.first().uppercaseChar().toString()
+                    } else "A"
+
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(goldColor.copy(alpha = 0.18f))
+                            .border(1.5.dp, goldColor.copy(alpha = 0.6f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = initialLetter,
+                            color = goldColor,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = if (hasCustomName) currentUserName else "Set your name",
+                            color = if (hasCustomName) textMain else textMuted,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(goldColor.copy(alpha = 0.12f))
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = currentRankTitle,
+                                color = goldColor,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Box(
-                    contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(goldColor.copy(alpha = 0.15f))
-                        .border(1.2.dp, goldColor.copy(alpha = 0.6f), RoundedCornerShape(50))
-                        .padding(horizontal = 14.dp, vertical = 5.dp)
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0x18FFFFFF) else Color(0x0E000000)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = currentRankTitle,
-                        color = goldColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
+                    OutlinedPencilIcon(tint = goldColor)
                 }
             }
         }
 
         // ================= SECTION 2: APPEARANCE & CONTROLS =================
-        Spacer(modifier = Modifier.height(4.dp))
         SectionHeader(title = "APPEARANCE & ACHIEVEMENTS", color = textMuted)
 
         // Achievements Card
@@ -242,7 +260,7 @@ fun ProfileScreen() {
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
                 .clickable { showAchievementsScreen = true }
-                .padding(16.dp)
+                .padding(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -253,7 +271,7 @@ fun ProfileScreen() {
                 Text(
                     text = "Achievements & Badges",
                     color = textMain,
-                    fontSize = 15.5.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -267,7 +285,7 @@ fun ProfileScreen() {
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
                 .clickable { showPreferencesScreen = true }
-                .padding(16.dp)
+                .padding(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -279,7 +297,7 @@ fun ProfileScreen() {
                     Text(
                         text = "Preferences & Controls",
                         color = textMain,
-                        fontSize = 15.5.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(2.dp))
@@ -293,7 +311,6 @@ fun ProfileScreen() {
         }
 
         // ================= SECTION 3: DATA & STORAGE =================
-        Spacer(modifier = Modifier.height(4.dp))
         SectionHeader(title = "DATA & STORAGE", color = textMuted)
 
         // Amon Vault (Backup & Restore)
@@ -308,7 +325,7 @@ fun ProfileScreen() {
                     color = if (isVaultExpanded) goldColor.copy(alpha = 0.7f) else cardBorder,
                     shape = RoundedCornerShape(16.dp)
                 )
-                .padding(16.dp)
+                .padding(14.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -325,7 +342,7 @@ fun ProfileScreen() {
                         Text(
                             text = "Amon Vault (Backup & Restore)",
                             color = textMain,
-                            fontSize = 15.5.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(2.dp))
@@ -338,9 +355,9 @@ fun ProfileScreen() {
                 }
 
                 if (isVaultExpanded) {
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
                     Spacer(modifier = Modifier.height(12.dp))
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // 1. Full Backup
                     Box(
@@ -355,7 +372,7 @@ fun ProfileScreen() {
                                     Toast.makeText(context, "Could not open share menu.", Toast.LENGTH_SHORT).show()
                                 }
                             }
-                            .padding(vertical = 12.dp, horizontal = 12.dp)
+                            .padding(vertical = 10.dp, horizontal = 12.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -367,21 +384,21 @@ fun ProfileScreen() {
                                 Text(
                                     text = "Full App Backup (.amon)",
                                     color = textMain,
-                                    fontSize = 13.5.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "Secure backup for switching phones • Readable only by Amon",
                                     color = textMuted,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.5.sp,
                                     fontStyle = FontStyle.Italic
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // 2. Restore Backup
                     Box(
@@ -391,7 +408,7 @@ fun ProfileScreen() {
                             .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
                             .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
                             .clickable { backupFilePicker.launch("*/*") }
-                            .padding(vertical = 12.dp, horizontal = 12.dp)
+                            .padding(vertical = 10.dp, horizontal = 12.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -403,21 +420,21 @@ fun ProfileScreen() {
                                 Text(
                                     text = "Restore Backup",
                                     color = textMain,
-                                    fontSize = 13.5.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "Recover your streak, stats, and hours of hard work",
                                     color = textMuted,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.5.sp,
                                     fontStyle = FontStyle.Italic
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // 3. Export CSV
                     Box(
@@ -432,7 +449,7 @@ fun ProfileScreen() {
                                     Toast.makeText(context, "Could not open share menu.", Toast.LENGTH_SHORT).show()
                                 }
                             }
-                            .padding(vertical = 12.dp, horizontal = 12.dp)
+                            .padding(vertical = 10.dp, horizontal = 12.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -444,23 +461,23 @@ fun ProfileScreen() {
                                 Text(
                                     text = "Export Study Sheet (.csv)",
                                     color = textMain,
-                                    fontSize = 13.5.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "View logs in Excel or Google Sheets",
                                     color = textMuted,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.5.sp,
                                     fontStyle = FontStyle.Italic
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.4f)))
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Cloud Sync Card
                     Column(
@@ -469,8 +486,8 @@ fun ProfileScreen() {
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isDark) Color(0x11FFFFFF) else Color(0x08000000))
                             .border(1.dp, cardBorder.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
-                            .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -482,14 +499,14 @@ fun ProfileScreen() {
                                 Text(
                                     text = "Google Sheet Cloud Sync",
                                     color = textMain,
-                                    fontSize = 13.5.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "Google Sheets cloud backup & sync",
                                     color = textMuted,
-                                    fontSize = 11.sp
+                                    fontSize = 10.5.sp
                                 )
                             }
                         }
@@ -498,7 +515,7 @@ fun ProfileScreen() {
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(38.dp)
+                                .height(36.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(goldColor.copy(alpha = 0.15f))
                                 .border(1.dp, goldColor.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
@@ -555,7 +572,7 @@ fun ProfileScreen() {
                                 Text(
                                     text = "Sync Now",
                                     color = goldColor,
-                                    fontSize = 12.5.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -566,10 +583,9 @@ fun ProfileScreen() {
         }
 
         // ================= SECTION 4: SUPPORT & UPDATES =================
-        Spacer(modifier = Modifier.height(4.dp))
         SectionHeader(title = "SUPPORT & ABOUT", color = textMuted)
 
-        // App Updates Card
+        // App Updates Card (Fixed Version Label Typo)
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
@@ -577,7 +593,7 @@ fun ProfileScreen() {
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
                 .border(1.dp, if (hasNewUpdate) Color(0xFF10B981).copy(alpha = 0.8f) else cardBorder, RoundedCornerShape(16.dp))
-                .padding(16.dp)
+                .padding(14.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -597,13 +613,13 @@ fun ProfileScreen() {
                         Text(
                             text = "App Updates",
                             color = textMain,
-                            fontSize = 15.5.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
                         if (hasNewUpdate) {
                             Box(
                                 modifier = Modifier
-                                    .size(9.dp)
+                                    .size(8.dp)
                                     .clip(CircleShape)
                                     .background(Color(0xFF10B981))
                             )
@@ -619,30 +635,30 @@ fun ProfileScreen() {
                 }
 
                 if (isUpdateExpanded) {
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
                     Spacer(modifier = Modifier.height(12.dp))
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     if (hasNewUpdate) {
                         Text(
                             text = "New Version $latestReleaseVersion is Ready!",
                             color = Color(0xFF10B981),
-                            fontSize = 13.5.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = "Performance polish, clean UI layouts, and system improvements.",
                             color = textMuted,
-                            fontSize = 11.5.sp
+                            fontSize = 11.sp
                         )
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         Box(
                             contentAlignment = Alignment.CenterStart,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(44.dp)
+                                .height(42.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (isDownloading) Color(0x2210B981) else Color(0xFF10B981))
                                 .border(
@@ -691,7 +707,7 @@ fun ProfileScreen() {
                                     Text(
                                         text = "Downloading Update... $downloadProgress%",
                                         color = if (downloadProgress > 50) Color.Black else textMain,
-                                        fontSize = 12.5.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -703,7 +719,7 @@ fun ProfileScreen() {
                                     Text(
                                         text = "Download & Install Update",
                                         color = Color.White,
-                                        fontSize = 13.sp,
+                                        fontSize = 12.5.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -724,9 +740,9 @@ fun ProfileScreen() {
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Installed Version: $currentAppVersion • Auto-sync active",
+                                    text = "Installed Version: v$currentAppVersion • Auto-sync active",
                                     color = textMuted,
-                                    fontSize = 11.sp
+                                    fontSize = 10.5.sp
                                 )
                             }
                             Box(
@@ -735,12 +751,12 @@ fun ProfileScreen() {
                                     .clip(RoundedCornerShape(50))
                                     .background(Color(0xFF10B981).copy(alpha = 0.15f))
                                     .border(1.dp, Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape(50))
-                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                                    .padding(horizontal = 9.dp, vertical = 3.dp)
                             ) {
                                 Text(
                                     text = "Latest",
                                     color = Color(0xFF10B981),
-                                    fontSize = 10.5.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -750,7 +766,7 @@ fun ProfileScreen() {
             }
         }
 
-        // Help & Support Card (Clean, Non-Highlighted Border)
+        // Help & Support Card
         val isSupportExpanded = activeExpandedCard == "support"
         Box(
             modifier = Modifier
@@ -758,7 +774,7 @@ fun ProfileScreen() {
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
                 .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
-                .padding(16.dp)
+                .padding(14.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -775,7 +791,7 @@ fun ProfileScreen() {
                         Text(
                             text = "Help & Support",
                             color = textMain,
-                            fontSize = 15.5.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(2.dp))
@@ -788,9 +804,9 @@ fun ProfileScreen() {
                 }
 
                 if (isSupportExpanded) {
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
                     Spacer(modifier = Modifier.height(12.dp))
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Report a Bug
                     Box(
@@ -807,7 +823,7 @@ fun ProfileScreen() {
                                     isBug = true
                                 )
                             }
-                            .padding(vertical = 12.dp, horizontal = 12.dp)
+                            .padding(vertical = 10.dp, horizontal = 12.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -819,21 +835,21 @@ fun ProfileScreen() {
                                 Text(
                                     text = "Report a Bug",
                                     color = textMain,
-                                    fontSize = 13.5.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "Found an issue? Send diagnostics to developer",
                                     color = textMuted,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.5.sp,
                                     fontStyle = FontStyle.Italic
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Send Feedback
                     Box(
@@ -850,7 +866,7 @@ fun ProfileScreen() {
                                     isBug = false
                                 )
                             }
-                            .padding(vertical = 12.dp, horizontal = 12.dp)
+                            .padding(vertical = 10.dp, horizontal = 12.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -862,14 +878,14 @@ fun ProfileScreen() {
                                 Text(
                                     text = "Send Feedback & Ideas",
                                     color = textMain,
-                                    fontSize = 13.5.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "Have a feature suggestion? We'd love to hear",
                                     color = textMuted,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.5.sp,
                                     fontStyle = FontStyle.Italic
                                 )
                             }
@@ -893,7 +909,7 @@ fun ProfileScreen() {
                         isPreparingApkShare = false
                     }
                 }
-                .padding(16.dp)
+                .padding(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -911,7 +927,7 @@ fun ProfileScreen() {
                         Text(
                             text = "Share with Friends",
                             color = textMain,
-                            fontSize = 15.5.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(2.dp))
@@ -929,7 +945,7 @@ fun ProfileScreen() {
         }
 
         // ================= BOTTOM BALANCED ILLUSTRATION & FOOTER =================
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(2.dp))
 
         val lottieComposition by rememberLottieComposition(
             LottieCompositionSpec.RawRes(R.raw.profile_anim)
@@ -939,29 +955,42 @@ fun ProfileScreen() {
             iterations = LottieConstants.IterateForever
         )
 
-        LottieAnimation(
-            composition = lottieComposition,
-            progress = { lottieProgress },
-            modifier = Modifier.size(115.dp)
-        )
+        // 🌟 Lottie Wrapper with Soft Ambient Glow
+        Box(
+            modifier = Modifier
+                .size(108.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(goldColor.copy(alpha = if (isDark) 0.04f else 0.02f)),
+            contentAlignment = Alignment.Center
+        ) {
+            LottieAnimation(
+                composition = lottieComposition,
+                progress = { lottieProgress },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(if (isDark) 0.90f else 1.0f)
+            )
+        }
 
-        // 🌟 Centered Student Footer Note
+        // 🌟 Centered Student Footer Note (Accent Colored Favorite Icon)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 2.dp, bottom = 16.dp),
+                .padding(top = 1.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "Made for students, by a student. ",
-                color = textMuted.copy(alpha = 0.75f),
-                fontSize = 12.sp,
+                color = textMuted.copy(alpha = 0.8f),
+                fontSize = 11.5.sp,
                 fontWeight = FontWeight.Medium
             )
-            Text(
-                text = "❤️",
-                fontSize = 12.sp
+            Icon(
+                imageVector = Icons.Filled.Favorite,
+                contentDescription = "Love",
+                tint = goldColor,
+                modifier = Modifier.size(13.dp)
             )
         }
     }
@@ -995,6 +1024,7 @@ fun ProfileScreen() {
                         val trimmed = editInput.trim()
                         userManager.setUserName(trimmed)
                         currentUserName = trimmed
+                        CloudSyncManager.registerUserOnCloud(context)
                         showEditNameDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = goldColor)
@@ -1316,7 +1346,7 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
 
 @Composable
 private fun OutlinedPencilIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(19.dp)) {
+    Canvas(modifier = modifier.size(17.dp)) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
@@ -1343,7 +1373,7 @@ private fun OutlinedPencilIcon(tint: Color, modifier: Modifier = Modifier) {
 
 @Composable
 private fun OutlinedTrophyIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(23.dp)) {
+    Canvas(modifier = modifier.size(22.dp)) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
@@ -1492,7 +1522,7 @@ private fun OutlinedCloudSyncIcon(tint: Color, modifier: Modifier = Modifier) {
 
 @Composable
 private fun OutlinedPaperAirplaneIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(23.dp)) {
+    Canvas(modifier = modifier.size(22.dp)) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
