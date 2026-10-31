@@ -47,40 +47,44 @@ fun AchievementScreen(onBack: () -> Unit) {
     val totalFocusHours = totalFocusMinutes / 60
     val totalCompletedSessions = allSessions.size
 
-    val badgesList = remember(allSessions, totalFocusHours, totalFocusMinutes) {
+    val maxSingleSessionMinutes = remember(allSessions) {
+        allSessions.maxOfOrNull { it.durationMinutes } ?: 0
+    }
+
+    val badgesList = remember(allSessions, totalFocusHours, totalFocusMinutes, maxSingleSessionMinutes) {
         val distinctSubjects = allSessions.map { it.subject.trim().lowercase() }.distinct().size
         val subjectsWith10Hours = allSessions.groupBy { it.subject.trim().lowercase() }
             .filter { it.value.sumOf { s -> s.durationMinutes } >= 600 }.size
 
         listOf(
             // 👑 CATEGORY 1: TOTAL FOCUS HOURS MILESTONES (10 Sovereign Badges)
-            BadgeData("b_10h", "Bronze Scholar", "10 Total Focus Hours", "Accumulate 10 total hours of dedicated focus.", "🥉", totalFocusHours >= 10, "$totalFocusHours/10h"),
-            BadgeData("b_50h", "Silver Master", "50 Total Focus Hours", "Accumulate 50 total hours of dedicated focus.", "🥈", totalFocusHours >= 50, "$totalFocusHours/50h"),
-            BadgeData("b_100h", "Century King", "100 Total Focus Hours", "Complete 100 total hours of deep focus.", "👑", totalFocusHours >= 100, "$totalFocusHours/100h"),
-            BadgeData("b_250h", "Elite Focus", "250 Total Focus Hours", "Reach 250 total hours of dedicated focus.", "🎖️", totalFocusHours >= 250, "$totalFocusHours/250h"),
-            BadgeData("b_350h", "Vanguard Knight", "350 Total Focus Hours", "Reach 350 total hours of dedicated focus.", "⚔️", totalFocusHours >= 350, "$totalFocusHours/350h"),
-            BadgeData("b_500h", "Platinum Master", "500 Total Focus Hours", "Achieve 500 total hours of deep work.", "💎", totalFocusHours >= 500, "$totalFocusHours/500h"),
-            BadgeData("b_750h", "Ace of Amon", "750 Total Focus Hours", "Achieve 750 total hours of focus (Top 1% Club).", "♠️", totalFocusHours >= 750, "$totalFocusHours/750h"),
-            BadgeData("b_800h", "Crown Sovereign", "800 Total Focus Hours", "Reach 800 total hours of focused discipline.", "⚜️", totalFocusHours >= 800, "$totalFocusHours/800h"),
-            BadgeData("b_1000h", "Emperor of Amon", "1,000 Total Focus Hours", "Cross 1000 total hours of focus (Supreme Sovereign).", "🏛️", totalFocusHours >= 1000, "$totalFocusHours/1000h"),
-            BadgeData("b_1950h", "Grandmaster of Eternity", "1,950 Total Focus Hours", "Complete 1950 total hours of focus (Legendary Focus Master).", "🌌", totalFocusHours >= 1950, "$totalFocusHours/1950h"),
+            BadgeData("b_10h", "Bronze Scholar", "10 Total Focus Hours", "Accumulate 10 total hours of dedicated focus.", "🥉", totalFocusHours >= 10, "$totalFocusHours / 10h", (totalFocusHours.toFloat() / 10f).coerceIn(0f, 1f)),
+            BadgeData("b_50h", "Silver Master", "50 Total Focus Hours", "Accumulate 50 total hours of dedicated focus.", "🥈", totalFocusHours >= 50, "$totalFocusHours / 50h", (totalFocusHours.toFloat() / 50f).coerceIn(0f, 1f)),
+            BadgeData("b_100h", "Century King", "100 Total Focus Hours", "Complete 100 total hours of deep focus.", "👑", totalFocusHours >= 100, "$totalFocusHours / 100h", (totalFocusHours.toFloat() / 100f).coerceIn(0f, 1f)),
+            BadgeData("b_250h", "Elite Focus", "250 Total Focus Hours", "Reach 250 total hours of dedicated focus.", "🎖️", totalFocusHours >= 250, "$totalFocusHours / 250h", (totalFocusHours.toFloat() / 250f).coerceIn(0f, 1f)),
+            BadgeData("b_350h", "Vanguard Knight", "350 Total Focus Hours", "Reach 350 total hours of dedicated focus.", "⚔️", totalFocusHours >= 350, "$totalFocusHours / 350h", (totalFocusHours.toFloat() / 350f).coerceIn(0f, 1f)),
+            BadgeData("b_500h", "Platinum Master", "500 Total Focus Hours", "Achieve 500 total hours of deep work.", "💎", totalFocusHours >= 500, "$totalFocusHours / 500h", (totalFocusHours.toFloat() / 500f).coerceIn(0f, 1f)),
+            BadgeData("b_750h", "Ace of Amon", "750 Total Focus Hours", "Achieve 750 total hours of focus (Top 1% Club).", "♠️", totalFocusHours >= 750, "$totalFocusHours / 750h", (totalFocusHours.toFloat() / 750f).coerceIn(0f, 1f)),
+            BadgeData("b_800h", "Crown Sovereign", "800 Total Focus Hours", "Reach 800 total hours of focused discipline.", "⚜️", totalFocusHours >= 800, "$totalFocusHours / 800h", (totalFocusHours.toFloat() / 800f).coerceIn(0f, 1f)),
+            BadgeData("b_1000h", "Emperor of Amon", "1,000 Total Focus Hours", "Cross 1000 total hours of focus (Supreme Sovereign).", "🏛️", totalFocusHours >= 1000, "$totalFocusHours / 1000h", (totalFocusHours.toFloat() / 1000f).coerceIn(0f, 1f)),
+            BadgeData("b_1950h", "Grandmaster of Eternity", "1,950 Total Focus Hours", "Complete 1950 total hours of focus (Legendary Focus Master).", "🌌", totalFocusHours >= 1950, "$totalFocusHours / 1950h", (totalFocusHours.toFloat() / 1950f).coerceIn(0f, 1f)),
 
             // 🔥 CATEGORY 2: CONSISTENCY & STREAKS (4 Badges)
-            BadgeData("b_first_step", "First Step", "First Focus Session", "Successfully complete your first 25-minute focus session.", "🎯", allSessions.any { it.durationMinutes >= 25 }, if (allSessions.any { it.durationMinutes >= 25 }) "Unlocked" else "0/1"),
-            BadgeData("b_trio", "Discipline Trio", "3-Day Focus Streak", "Maintain an active daily focus streak for 3 consecutive days.", "🔥", totalCompletedSessions >= 3, "${totalCompletedSessions.coerceAtMost(3)}/3 Sessions"),
-            BadgeData("b_titan", "Weekly Titan", "7-Day Focus Streak", "Maintain an unbroken focus streak for 7 consecutive days.", "⚡", totalCompletedSessions >= 7, "${totalCompletedSessions.coerceAtMost(7)}/7 Sessions"),
-            BadgeData("b_iron_habit", "Iron Habit", "30-Day Focus Streak", "Achieve an unbroken 30-day focus streak.", "🛡️", totalCompletedSessions >= 30, "${totalCompletedSessions.coerceAtMost(30)}/30 Sessions"),
+            BadgeData("b_first_step", "First Step", "First Focus Session", "Successfully complete your first 25-minute focus session.", "🎯", allSessions.any { it.durationMinutes >= 25 }, "${maxSingleSessionMinutes.coerceAtMost(25)} / 25 min", (maxSingleSessionMinutes.toFloat() / 25f).coerceIn(0f, 1f)),
+            BadgeData("b_trio", "Discipline Trio", "3-Day Focus Streak", "Maintain an active daily focus streak for 3 consecutive days.", "🔥", totalCompletedSessions >= 3, "${totalCompletedSessions.coerceAtMost(3)} / 3 Sessions", (totalCompletedSessions.toFloat() / 3f).coerceIn(0f, 1f)),
+            BadgeData("b_titan", "Weekly Titan", "7-Day Focus Streak", "Maintain an unbroken focus streak for 7 consecutive days.", "⚡", totalCompletedSessions >= 7, "${totalCompletedSessions.coerceAtMost(7)} / 7 Sessions", (totalCompletedSessions.toFloat() / 7f).coerceIn(0f, 1f)),
+            BadgeData("b_iron_habit", "Iron Habit", "30-Day Focus Streak", "Achieve an unbroken 30-day focus streak.", "🛡️", totalCompletedSessions >= 30, "${totalCompletedSessions.coerceAtMost(30)} / 30 Sessions", (totalCompletedSessions.toFloat() / 30f).coerceIn(0f, 1f)),
 
             // ⏱️ CATEGORY 3: ENDURANCE & TIMING (4 Badges)
-            BadgeData("b_hour", "Hour of Power", "60-Min Continuous Focus", "Complete a continuous 60-minute focus session in a single sitting.", "⏱️", allSessions.any { it.durationMinutes >= 60 }, if (allSessions.any { it.durationMinutes >= 60 }) "Unlocked" else "Pending"),
-            BadgeData("b_early", "Early Bird Titan", "Dawn Focus Mastery", "Complete a full 60-minute focus session between 4:00 AM and 7:00 AM.", "🌅", allSessions.any { it.durationMinutes >= 60 }, if (allSessions.any { it.durationMinutes >= 60 }) "Unlocked" else "Pending"),
-            BadgeData("b_night", "Midnight Marauder", "Night Focus Mastery", "Complete a focus session of 60 minutes or more after 10:00 PM.", "🌙", allSessions.any { it.durationMinutes >= 60 }, if (allSessions.any { it.durationMinutes >= 60 }) "Unlocked" else "Pending"),
-            BadgeData("b_monk", "Monk Mode", "120-Min Deep Work", "Complete an uninterrupted 120-minute (2 hours) deep work session in a single sitting.", "🧘‍♂️", allSessions.any { it.durationMinutes >= 120 }, if (allSessions.any { it.durationMinutes >= 120 }) "Unlocked" else "Pending"),
+            BadgeData("b_hour", "Hour of Power", "60-Min Continuous Focus", "Complete a continuous 60-minute focus session in a single sitting.", "⏱️", allSessions.any { it.durationMinutes >= 60 }, "${maxSingleSessionMinutes.coerceAtMost(60)} / 60 min", (maxSingleSessionMinutes.toFloat() / 60f).coerceIn(0f, 1f)),
+            BadgeData("b_early", "Early Bird Titan", "Dawn Focus Mastery", "Complete a full 60-minute focus session between 4:00 AM and 7:00 AM.", "🌅", allSessions.any { it.durationMinutes >= 60 }, if (allSessions.any { it.durationMinutes >= 60 }) "60 / 60 min" else "0 / 60 min", if (allSessions.any { it.durationMinutes >= 60 }) 1f else 0f),
+            BadgeData("b_night", "Midnight Marauder", "Night Focus Mastery", "Complete a focus session of 60 minutes or more after 10:00 PM.", "🌙", allSessions.any { it.durationMinutes >= 60 }, if (allSessions.any { it.durationMinutes >= 60 }) "60 / 60 min" else "0 / 60 min", if (allSessions.any { it.durationMinutes >= 60 }) 1f else 0f),
+            BadgeData("b_monk", "Monk Mode", "120-Min Deep Work", "Complete an uninterrupted 120-minute (2 hours) deep work session in a single sitting.", "🧘‍♂️", allSessions.any { it.durationMinutes >= 120 }, "${maxSingleSessionMinutes.coerceAtMost(120)} / 120 min", (maxSingleSessionMinutes.toFloat() / 120f).coerceIn(0f, 1f)),
 
             // 🎨 CATEGORY 4: SPECIAL MASTERY (3 Badges)
-            BadgeData("b_iron_will", "Iron Will", "10 Flawless Sessions", "Complete 10 consecutive sessions without a single cancellation or Give Up.", "🧱", totalCompletedSessions >= 10, "${totalCompletedSessions.coerceAtMost(10)}/10"),
-            BadgeData("b_polymath", "Polymath", "3 Subjects Exploration", "Complete focus sessions across 3 different subjects within a single day.", "📚", distinctSubjects >= 3, "$distinctSubjects/3 Subjects"),
-            BadgeData("b_davinci", "The Da Vinci Mind", "Renaissance Genius", "Log 10+ focus hours each across 8 or more distinct subjects within a single month.", "🎨", subjectsWith10Hours >= 8, "$subjectsWith10Hours/8 Subjects (10h+)")
+            BadgeData("b_iron_will", "Iron Will", "10 Flawless Sessions", "Complete 10 consecutive sessions without a single cancellation or Give Up.", "🧱", totalCompletedSessions >= 10, "${totalCompletedSessions.coerceAtMost(10)} / 10 Sessions", (totalCompletedSessions.toFloat() / 10f).coerceIn(0f, 1f)),
+            BadgeData("b_polymath", "Polymath", "3 Subjects Exploration", "Complete focus sessions across 3 different subjects within a single day.", "📚", distinctSubjects >= 3, "$distinctSubjects / 3 Subjects", (distinctSubjects.toFloat() / 3f).coerceIn(0f, 1f)),
+            BadgeData("b_davinci", "The Da Vinci Mind", "Renaissance Genius", "Log 10+ focus hours each across 8 or more distinct subjects within a single month.", "🎨", subjectsWith10Hours >= 8, "$subjectsWith10Hours / 8 Subjects", (subjectsWith10Hours.toFloat() / 8f).coerceIn(0f, 1f))
         )
     }
 
@@ -186,83 +190,130 @@ fun AchievementScreen(onBack: () -> Unit) {
         // ----------------- 3. 21 BADGES LIST -----------------
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             badgesList.forEach { badge ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(if (badge.isUnlocked) cardBg else (if (isDark) Color(0x18FFFFFF) else Color(0x0A000000)))
-                        .border(
-                            width = if (badge.isUnlocked) 1.5.dp else 1.dp,
-                            color = if (badge.isUnlocked) goldColor.copy(alpha = 0.8f) else cardBorder.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(16.dp)
-                        )
-                        .padding(14.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                if (badge.isUnlocked) {
+                    // 🌟 UNLOCKED BADGE: Full Rich Gold Appearance
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(cardBg)
+                            .border(1.5.dp, goldColor.copy(alpha = 0.8f), RoundedCornerShape(16.dp))
+                            .padding(14.dp)
                     ) {
                         Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(CircleShape)
-                                    .background(if (badge.isUnlocked) goldColor.copy(alpha = 0.15f) else Color(0x11FFFFFF))
-                                    .border(
-                                        width = 1.dp,
-                                        color = if (badge.isUnlocked) goldColor else Color.Gray.copy(alpha = 0.3f),
-                                        shape = CircleShape
-                                    )
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = if (badge.isUnlocked) badge.icon else "🔒",
-                                    fontSize = 20.sp
-                                )
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(goldColor.copy(alpha = 0.15f))
+                                        .border(1.2.dp, goldColor, CircleShape)
+                                ) {
+                                    Text(
+                                        text = badge.icon,
+                                        fontSize = 20.sp
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Column {
+                                    Text(
+                                        text = badge.title,
+                                        color = textMain,
+                                        fontSize = 14.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = badge.requirement,
+                                        color = textMuted,
+                                        fontSize = 11.sp,
+                                        lineHeight = 15.sp
+                                    )
+                                }
                             }
 
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
 
-                            Column {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(goldColor.copy(alpha = 0.18f))
+                                    .border(1.dp, goldColor, RoundedCornerShape(50))
+                                    .padding(horizontal = 9.dp, vertical = 4.dp)
+                            ) {
                                 Text(
-                                    text = badge.title,
-                                    color = if (badge.isUnlocked) textMain else textMuted,
-                                    fontSize = 15.sp,
+                                    text = "UNLOCKED 🏆",
+                                    color = goldColor,
+                                    fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = badge.requirement,
-                                    color = textMuted,
-                                    fontSize = 11.sp,
-                                    lineHeight = 15.sp
                                 )
                             }
                         }
+                    }
+                } else {
+                    // 🔒 LOCKED BADGE: Clean, Subtle, No Clutter, With Slim Progress Bar
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (isDark) Color(0x14FFFFFF) else Color(0x06000000))
+                            .border(1.dp, cardBorder.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = badge.title,
+                                    color = textMuted,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = badge.progressText,
+                                    color = textMuted.copy(alpha = 0.8f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
 
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(if (badge.isUnlocked) goldColor.copy(alpha = 0.18f) else Color(0x11FFFFFF))
-                                .border(1.dp, if (badge.isUnlocked) goldColor else cardBorder, RoundedCornerShape(50))
-                                .padding(horizontal = 9.dp, vertical = 4.dp)
-                        ) {
+                            Spacer(modifier = Modifier.height(3.dp))
+
                             Text(
-                                text = if (badge.isUnlocked) "UNLOCKED 🏆" else badge.progressText,
-                                color = if (badge.isUnlocked) goldColor else textMuted,
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false
+                                text = badge.requirement,
+                                color = textMuted.copy(alpha = 0.7f),
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // 📊 Thin, Clean Progress Bar
+                            LinearProgressIndicator(
+                                progress = { badge.progressFraction },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(3.5.dp)
+                                    .clip(RoundedCornerShape(2.dp)),
+                                color = goldColor.copy(alpha = 0.75f),
+                                trackColor = if (isDark) Color(0x22FFFFFF) else Color(0x18000000)
                             )
                         }
                     }
@@ -317,5 +368,6 @@ private data class BadgeData(
     val requirement: String,
     val icon: String,
     val isUnlocked: Boolean,
-    val progressText: String
+    val progressText: String,
+    val progressFraction: Float = 0f
 )
