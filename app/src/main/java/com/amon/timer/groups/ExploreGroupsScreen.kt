@@ -1,6 +1,7 @@
 package com.amon.timer.groups
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -45,7 +46,6 @@ fun ExploreGroupsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
 
-    // 🔒 केवल पब्लिक ग्रुप्स दिखेंगे, प्राइवेट कभी भी एक्सप्लोर/सर्च में नहीं आएँगे
     val publicGroups = groups.filter { it.isPublic }
 
     val filteredGroups = publicGroups.filter { group ->
@@ -89,7 +89,6 @@ fun ExploreGroupsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // स्लिम और कॉम्पैक्ट सर्च बार
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -124,7 +123,6 @@ fun ExploreGroupsScreen(
                 )
             )
 
-            // नई परीक्षा कैटेगरी चिप्स
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
@@ -164,7 +162,6 @@ fun ExploreGroupsScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
             )
 
-            // Group Rows
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
@@ -181,8 +178,8 @@ fun ExploreGroupsScreen(
                         accentSubtle = accentSubtle,
                         focusingGreen = focusingGreen,
                         isDark = isDark,
-                        onRowClick = { onGroupClick(group) }, // सिर्फ़ प्रीव्यू खुलेगा
-                        onJoinToggle = { onToggleJoinGroup(group.id) } // सिर्फ़ बटन से जॉइन होगा
+                        onRowClick = { onGroupClick(group) },
+                        onJoinToggle = { onToggleJoinGroup(group.id) }
                     )
                 }
             }
@@ -209,7 +206,7 @@ fun ExploreGroupRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-            .clickable { onRowClick() }, // कार्ड पर क्लिक करने से सिर्फ ग्रुप प्रीव्यू खुलेगा
+            .clickable { onRowClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
@@ -273,7 +270,6 @@ fun ExploreGroupRow(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // जॉइन या जॉइंड केवल इस बटन पर क्लिक करने पर ही टॉगल होगा
             if (group.isJoined) {
                 OutlinedButton(
                     onClick = onJoinToggle,
