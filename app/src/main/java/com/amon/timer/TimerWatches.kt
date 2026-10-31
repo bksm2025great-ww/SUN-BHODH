@@ -13,7 +13,6 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -37,13 +36,10 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import kotlin.math.*
 
 /**
@@ -183,10 +179,9 @@ fun TimerWatchesContainer(
                     )
 
                     2 -> RetroFlipClockWatch(
-                        dialMinutes = dialMinutes,
-                        onDialMinutesChange = onDialMinutesChange,
                         totalSeconds = totalSeconds,
                         isRunning = isRunning,
+                        onCustomModeToggle = onCustomModeToggle,
                         subjectName = selectedSubjectName,
                         goldColor = goldColor,
                         isDark = isDark
@@ -291,7 +286,7 @@ private fun SleekWideChevronRight(tint: Color, modifier: Modifier = Modifier) {
 }
 
 // =============================================================================
-// ⏱ WATCH STYLE 1: CLASSIC LUXE RING (20% SLIMMER + CONDITIONAL AURA GLOW)
+// ⏱ WATCH STYLE 1: CLASSIC LUXE RING
 // =============================================================================
 @Composable
 private fun ClassicRingWatch(
@@ -316,7 +311,6 @@ private fun ClassicRingWatch(
                 val radius = size.minDimension / 2f - 10.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
 
-                // 🟢 1. SLIM BACKGROUND TRACK (3.8dp - 20% Thinner)
                 drawCircle(
                     color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
                     radius = radius,
@@ -331,7 +325,6 @@ private fun ClassicRingWatch(
                     (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
                 }
 
-                // 🟢 2. CONDITIONAL AURA GLOW (Sirf focus chalne par activate hoga, phone heat nahi hoga)
                 if (isRunning) {
                     drawArc(
                         color = goldColor.copy(alpha = 0.20f),
@@ -344,7 +337,6 @@ private fun ClassicRingWatch(
                     )
                 }
 
-                // 🟢 3. MAIN FOREGROUND RING (4.4dp - 20% Thinner, Crisp & Elegant)
                 drawArc(
                     color = goldColor,
                     startAngle = -90f,
@@ -382,7 +374,7 @@ private fun ClassicRingWatch(
 }
 
 // =============================================================================
-// 🎛 WATCH STYLE 2: ROTARY DIAL (20% SLIMMER + CONDITIONAL AURA GLOW)
+// 🎛 WATCH STYLE 2: ROTARY DIAL
 // =============================================================================
 @Composable
 private fun RotaryDialWatch(
@@ -547,14 +539,13 @@ private fun RotaryDialWatch(
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: RETRO FLIP CLOCK
+// 📜 WATCH STYLE 3: RETRO FLIP CLOCK (UNIFIED WITH BOTTOM SHEET)
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
-    dialMinutes: Float,
-    onDialMinutesChange: (Float) -> Unit,
     totalSeconds: Int,
     isRunning: Boolean,
+    onCustomModeToggle: () -> Unit,
     subjectName: String,
     goldColor: Color,
     isDark: Boolean
@@ -575,8 +566,6 @@ private fun RetroFlipClockWatch(
     } else {
         String.format("%02d", totalSeconds % 60)
     }
-
-    var showTimeInputDialog by remember { mutableStateOf(false) }
 
     val targetCardWidth = if (isLandscape) {
         if (isRunning) 235.dp else 195.dp
@@ -623,7 +612,7 @@ private fun RetroFlipClockWatch(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     enabled = !isRunning,
-                    onClick = { showTimeInputDialog = true }
+                    onClick = onCustomModeToggle // 🎯 अब यह सीधे वही शेयर्ड बॉटम शीट खोलेगा
                 )
             ) {
                 AuthenticSplitFlapCard(
@@ -654,7 +643,7 @@ private fun RetroFlipClockWatch(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     enabled = !isRunning,
-                    onClick = { showTimeInputDialog = true }
+                    onClick = onCustomModeToggle // 🎯 अब यह सीधे वही शेयर्ड बॉटम शीट खोलेगा
                 )
             ) {
                 AuthenticSplitFlapCard(
@@ -676,116 +665,6 @@ private fun RetroFlipClockWatch(
                     isDark = isDark,
                     goldColor = goldColor
                 )
-            }
-        }
-    }
-
-    if (showTimeInputDialog) {
-        var inputMins by remember { mutableStateOf((dialMinutes.toInt()).toString()) }
-
-        Dialog(onDismissRequest = { showTimeInputDialog = false }) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(if (isDark) Color(0xFF161622) else Color(0xFFFFFFFF))
-                    .border(1.5.dp, goldColor, RoundedCornerShape(24.dp))
-                    .padding(22.dp)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Set Flip Clock Time 📜",
-                        color = goldColor,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Enter minutes (1 - 180 min)",
-                        color = Color.Gray,
-                        fontSize = 12.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    OutlinedTextField(
-                        value = inputMins,
-                        onValueChange = { inputMins = it.filter { char -> char.isDigit() } },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        textStyle = LocalTextStyle.current.copy(
-                            textAlign = TextAlign.Center,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Black,
-                            color = if (isDark) Color.White else Color.Black
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = goldColor,
-                            cursorColor = goldColor
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(68.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        listOf(15, 25, 45, 60, 90).forEach { preset ->
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isDark) Color(0xFF222228) else Color(0xFFF1F5F9))
-                                    .clickable { inputMins = preset.toString() }
-                                    .padding(vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = "${preset}m",
-                                    color = if (isDark) Color.White else Color.Black,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        TextButton(
-                            onClick = { showTimeInputDialog = false },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Cancel", color = Color.Gray, fontWeight = FontWeight.Bold)
-                        }
-
-                        Button(
-                            onClick = {
-                                val entered = inputMins.toIntOrNull()?.coerceIn(1, 180)
-                                if (entered != null) {
-                                    onDialMinutesChange(entered.toFloat())
-                                }
-                                showTimeInputDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = goldColor),
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Set Time 🎯", color = Color.Black, fontWeight = FontWeight.Black)
-                        }
-                    }
-                }
             }
         }
     }
@@ -902,11 +781,12 @@ private fun AuthenticSplitFlapCard(
             }
         }
 
+        // 🌟 स्प्लिट सीम लाइन: लाइट थीम में बैकग्राउंड जैसा साफ़ रंग (#F8FAFC) ताकि कोई भूरा पैच न दिखे
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(seamGap)
-                .background(if (isDark) Color(0xFF09090C) else Color(0xFFE2DAD0))
+                .background(if (isDark) Color(0xFF09090C) else Color(0xFFF8FAFC))
                 .align(Alignment.Center)
         )
     }
@@ -992,7 +872,7 @@ private fun SplitFlapHalfPlate(
 }
 
 // =============================================================================
-// 🌟 CUSTOM HORIZONTAL SLIDER (THEME-ADAPTIVE & BRIGHT WHITE NEEDLE)
+// 🌟 CUSTOM HORIZONTAL SLIDER
 // =============================================================================
 @Composable
 fun CustomHorizontalSlider(
