@@ -3,11 +3,8 @@ package com.amon.timer
 import android.Manifest
 import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
-import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -43,7 +40,6 @@ import androidx.core.content.ContextCompat
 
 @Composable
 fun PreferencesScreen(onBack: () -> Unit) {
-    // 🔙 फ़ोन का बैक जेस्चर दबाने पर प्रोफ़ाइल स्क्रीन पर वापस ले जाएगा
     BackHandler(onBack = onBack)
 
     val context = LocalContext.current
@@ -100,6 +96,15 @@ fun PreferencesScreen(onBack: () -> Unit) {
         isNotificationsEnabled = granted
         prefs.edit().putBoolean("pref_notifications", granted).apply()
     }
+
+    // 🎨 मानकीकृत स्विच कलर पैलेट (White knob; accent when on, neutral gray when off)
+    val standardSwitchColors = SwitchDefaults.colors(
+        checkedThumbColor = Color.White,
+        checkedTrackColor = goldColor,
+        uncheckedThumbColor = if (isDark) Color(0xFFD4D4D8) else Color.White,
+        uncheckedTrackColor = if (isDark) Color(0xFF3F3F46) else Color(0xFFE4E4E7),
+        uncheckedBorderColor = Color.Transparent
+    )
 
     Column(
         modifier = Modifier
@@ -296,7 +301,7 @@ fun PreferencesScreen(onBack: () -> Unit) {
             }
         }
 
-        // ----------------- 3. SECTION: CONTROLS & TOGGLES -----------------
+        // ----------------- 3. SECTION: CONTROLS & HARDWARE -----------------
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -347,12 +352,7 @@ fun PreferencesScreen(onBack: () -> Unit) {
                             isKeepScreenAwake = enabled
                             prefs.edit().putBoolean("pref_keep_screen_awake", enabled).apply()
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.Black,
-                            checkedTrackColor = goldColor,
-                            uncheckedThumbColor = textMuted,
-                            uncheckedTrackColor = if (isDark) Color(0xFF27272A) else Color(0xFFE2E8F0)
-                        )
+                        colors = standardSwitchColors
                     )
                 }
 
@@ -391,18 +391,13 @@ fun PreferencesScreen(onBack: () -> Unit) {
                             isVibrationEnabled = enabled
                             prefs.edit().putBoolean("pref_vibration", enabled).apply()
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.Black,
-                            checkedTrackColor = goldColor,
-                            uncheckedThumbColor = textMuted,
-                            uncheckedTrackColor = if (isDark) Color(0xFF27272A) else Color(0xFFE2E8F0)
-                        )
+                        colors = standardSwitchColors
                     )
                 }
 
                 Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
 
-                // SWITCH 3: NOTIFICATIONS & REMINDERS (NEW)
+                // SWITCH 3: NOTIFICATIONS & REMINDERS
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -453,12 +448,7 @@ fun PreferencesScreen(onBack: () -> Unit) {
                                 prefs.edit().putBoolean("pref_notifications", false).apply()
                             }
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.Black,
-                            checkedTrackColor = goldColor,
-                            uncheckedThumbColor = textMuted,
-                            uncheckedTrackColor = if (isDark) Color(0xFF27272A) else Color(0xFFE2E8F0)
-                        )
+                        colors = standardSwitchColors
                     )
                 }
             }
@@ -469,7 +459,7 @@ fun PreferencesScreen(onBack: () -> Unit) {
 }
 
 // =============================================================================
-// ✨ HAND-DRAWN VECTOR ICONS (SELF-CONTAINED FOR ZERO COMPILATION ERRORS)
+// ✨ HAND-DRAWN VECTOR ICONS
 // =============================================================================
 
 @Composable
@@ -498,6 +488,7 @@ private fun OutlinedPaletteIcon(tint: Color, modifier: Modifier = Modifier) {
 
         val palette = Path().apply {
             moveTo(w * 0.5f, h * 0.12f)
+            lineTo(w * 0.5f, h * 0.12f)
             cubicTo(w * 0.82f, h * 0.12f, w * 0.92f, h * 0.42f, w * 0.84f, h * 0.70f)
             cubicTo(w * 0.78f, h * 0.88f, w * 0.58f, h * 0.84f, w * 0.48f, h * 0.76f)
             cubicTo(w * 0.40f, h * 0.70f, w * 0.28f, h * 0.74f, w * 0.18f, h * 0.62f)
@@ -583,7 +574,6 @@ private fun OutlinedBellIcon(tint: Color, modifier: Modifier = Modifier) {
         }
         drawPath(bell, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
 
-        // Clapper bottom dot
         drawArc(
             color = tint,
             startAngle = 0f,
