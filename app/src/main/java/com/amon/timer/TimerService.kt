@@ -210,7 +210,6 @@ class TimerService : Service() {
 
         persistSessionState(this, isRunning = true, isPaused = false)
 
-        // 🟢 FIX: स्टॉपवॉच के लिए सटीक Chronometer Base (ताकि रीसेट न हो)
         val chronometerBase = if (isStopwatch) {
             nowElapsed - accumulatedActiveMillis
         } else {
@@ -241,7 +240,6 @@ class TimerService : Service() {
                     val elapsedSecs = (activeNow / 1000L).toInt()
                     remainingSeconds.intValue = elapsedSecs
 
-                    // 12 घंटे बाद ऑटो स्टॉप
                     if (elapsedSecs >= 43200) {
                         onTimerFinished()
                         break
@@ -312,7 +310,6 @@ class TimerService : Service() {
 
         val isStopwatch = (originalTimerSeconds == 0)
 
-        // 🟢 FIX: स्टॉपवॉच को कभी GiveUp (Cancelled) मत मानो, बल्कि पूरा स्टडी सेशन मानो
         if (isTimerRunning.value || isTimerPaused.value) {
             saveSessionToDiary(isCancelled = if (isStopwatch) false else true)
         }
@@ -400,16 +397,10 @@ class TimerService : Service() {
                 durationMinutes = minutes,
                 earnedTrees = trees
             )
+            
+            // 🛡️ केवल एक बार यहाँ से सेव होगा (और इसके अंदर से ही Supabase सिंक होगा)
             FocusSessionManager.saveSession(this, session)
 
-            try {
-                CloudSyncManager.syncSession(
-                    context = this,
-                    subject = currentSubjectName.value,
-                    durationMinutes = minutes.toLong(),
-                    earnedTrees = trees
-                )
-            } catch (_: Exception) {}
         } catch (e: Exception) {
             Log.e("AmonTimer", "Safe session save catch: ${e.localizedMessage}")
         }
