@@ -50,7 +50,6 @@ fun GroupDetailScreen(
     val listState = rememberLazyListState()
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    var isDescriptionExpanded by remember { mutableStateOf(false) }
     var showWeekPickerSheet by remember { mutableStateOf(false) }
     var selectedWeek by remember { mutableStateOf(MockRepository.weeks[0]) }
 
@@ -106,7 +105,6 @@ fun GroupDetailScreen(
             )
         },
         bottomBar = {
-            // Bottom sticky button "Start Focus" (48dp+ touch target, accent color)
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = cardBg,
@@ -166,8 +164,6 @@ fun GroupDetailScreen(
                         textMuted = textMuted,
                         accentColor = accentColor,
                         accentSubtle = accentSubtle,
-                        isExpanded = isDescriptionExpanded,
-                        onToggleExpand = { isDescriptionExpanded = !isDescriptionExpanded },
                         onInviteClick = onInviteClick
                     )
                 }
@@ -270,7 +266,6 @@ fun GroupDetailScreen(
                         }
                     }
 
-                    // Ranked list showing nicknames and study time
                     itemsIndexed(members) { index, member ->
                         val rank = index + 1
                         val isCurrentUser = rank == userRank || member.nickname == userNickname
@@ -290,7 +285,7 @@ fun GroupDetailScreen(
                         )
                     }
                 } else {
-                    // ACTIVE TAB: separate ranking of only currently active members
+                    // ACTIVE TAB
                     item {
                         Box(
                             modifier = Modifier
@@ -441,8 +436,6 @@ fun GroupHeaderSection(
     textMuted: Color,
     accentColor: Color,
     accentSubtle: Color,
-    isExpanded: Boolean,
-    onToggleExpand: () -> Unit,
     onInviteClick: () -> Unit
 ) {
     Card(
@@ -518,30 +511,22 @@ fun GroupHeaderSection(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Short description with "read more" / "show less"
-            Column {
+            Surface(
+                color = accentSubtle,
+                shape = RoundedCornerShape(8.dp)
+            ) {
                 Text(
-                    text = group.description,
-                    color = textMuted,
-                    fontSize = 13.sp,
-                    maxLines = if (isExpanded) Int.MAX_VALUE else 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 18.sp
-                )
-                Text(
-                    text = if (isExpanded) "Show less" else "Read more",
+                    text = group.category,
                     color = accentColor,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .clickable { onToggleExpand() }
-                        .padding(vertical = 4.dp)
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             OutlinedButton(
                 onClick = onInviteClick,
@@ -582,7 +567,6 @@ fun LeaderboardRow(
     focusingGreen: Color,
     isDark: Boolean
 ) {
-    // TOP 3 METALLIC GLOW STYLING (No crowns/confetti, clean podium)
     val rowBorder = when {
         isCurrentUser -> BorderStroke(1.5.dp, accentColor)
         rank == 1 -> BorderStroke(1.5.dp, Color(0xFFF59E0B).copy(alpha = 0.65f)) // Gold
