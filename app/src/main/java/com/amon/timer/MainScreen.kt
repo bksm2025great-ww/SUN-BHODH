@@ -293,11 +293,11 @@ fun MainScreen() {
                         stopwatchAccumulatedMillis = 0L
                         stopwatchElapsedMillis = 0L
                     },
-               onDirectEndSession = onDirectEndSession
+                    onDirectEndSession = onDirectEndSession
                 )
-              1 -> GroupsRootScreen(
-    onStartFocus = { currentNavIndex = 0 }
-)
+                1 -> GroupsRootScreen(
+                    onStartFocus = { currentNavIndex = 0 }
+                )
                 2 -> StatsScreen()
                 3 -> ProfileScreen()
             }
@@ -412,7 +412,7 @@ fun HomeTimerTab(
     onStartStopwatch: () -> Unit,
     onPauseStopwatch: () -> Unit,
     onResumeStopwatch: () -> Unit,
-   onResetStopwatch: () -> Unit,
+    onResetStopwatch: () -> Unit,
     onDirectEndSession: () -> Unit
 ) {
     val activity = context as? Activity
@@ -571,6 +571,8 @@ fun HomeTimerTab(
         context.startService(intent)
     }
 
+    val cancelColor = if (isDark) Color(0xFFEF4444) else Color(0xFFDC2626)
+
     Box(modifier = Modifier.fillMaxSize()) {
         if (!isFocusActive) {
             Column(
@@ -632,24 +634,27 @@ fun HomeTimerTab(
                         verticalAlignment = Alignment.CenterVertically,
                         contentPadding = PaddingValues(horizontal = 2.dp)
                     ) {
+                        // "+ Subject" स्लीक आउटलाइंड स्टाइल
                         item {
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(50))
-                                    .background(goldColor)
+                                    .background(cardBg)
+                                    .border(1.2.dp, goldColor, RoundedCornerShape(50))
                                     .clickable { showAddDialog = true }
-                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                                    .padding(horizontal = 13.dp, vertical = 6.dp)
                             ) {
                                 Text(
                                     text = "+ Subject",
-                                    color = Color.Black,
+                                    color = goldColor,
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.ExtraBold
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
 
+                        // "All" चिप सिंपल क्लीन स्टाइल
                         item {
                             val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
                             Box(
@@ -657,13 +662,13 @@ fun HomeTimerTab(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(50))
                                     .background(if (isSelected) goldColor else cardBg)
-                                    .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                                    .border(1.dp, if (isSelected) goldColor else glassBorder, RoundedCornerShape(50))
                                     .clickable { selectedSubjectName = "All" }
                                     .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
                                 Text(
                                     text = "All",
-                                    color = if (isSelected) Color.White else textMuted,
+                                    color = if (isSelected) (if (isDark) Color.Black else Color.White) else textMuted,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -677,13 +682,13 @@ fun HomeTimerTab(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(50))
                                     .background(if (isSelected) goldColor else cardBg)
-                                    .border(1.dp, if (isSelected) glowYellow else glassBorder, RoundedCornerShape(50))
+                                    .border(1.dp, if (isSelected) goldColor else glassBorder, RoundedCornerShape(50))
                                     .clickable { selectedSubjectName = subj }
                                     .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
                                 Text(
                                     text = subj,
-                                    color = if (isSelected) Color.White else textMuted,
+                                    color = if (isSelected) (if (isDark) Color.Black else Color.White) else textMuted,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -914,18 +919,15 @@ fun HomeTimerTab(
                             }
                         }
                         1 -> {
-                            Text(
-                                text = "Zero-Drift Hardware Monotonic Clock",
-                                color = textMuted.copy(alpha = 0.7f),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            // "Zero-Drift Hardware..." को क्लीन खाली स्पेस से रिप्लेस किया गया है
+                            Spacer(modifier = Modifier.fillMaxWidth())
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // मूल "Start Focus" बटन का लेआउट और स्टाइल 100% यथावत
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -1038,63 +1040,54 @@ fun HomeTimerTab(
                             )
                         }
 
+                        // रनिंग स्क्रीन कंट्रोल्स (Pause मुख्य बटन, End Session लाल आउटलाइंड)
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(58.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable {
-                                        if (isStopwatchRunning) {
-                                            onPauseStopwatch()
-                                            val intent = Intent(context, TimerService::class.java).apply {
-                                                action = TimerService.ACTION_PAUSE
-                                            }
-                                            context.startService(intent)
-                                        } else {
-                                            onResumeStopwatch()
-                                            val intent = Intent(context, TimerService::class.java).apply {
-                                                action = TimerService.ACTION_RESUME
-                                            }
-                                            context.startService(intent)
+                            Button(
+                                onClick = {
+                                    if (isStopwatchRunning) {
+                                        onPauseStopwatch()
+                                        val intent = Intent(context, TimerService::class.java).apply {
+                                            action = TimerService.ACTION_PAUSE
                                         }
+                                        context.startService(intent)
+                                    } else {
+                                        onResumeStopwatch()
+                                        val intent = Intent(context, TimerService::class.java).apply {
+                                            action = TimerService.ACTION_RESUME
+                                        }
+                                        context.startService(intent)
                                     }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
                             ) {
-                                if (isStopwatchRunning) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Box(modifier = Modifier.width(3.2.dp).height(16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                        Box(modifier = Modifier.width(3.2.dp).height(16.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                    }
-                                } else {
-                                    Text(
-                                        text = "▶",
-                                        color = textMain,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Black,
-                                        modifier = Modifier.offset(x = 1.5.dp)
-                                    )
-                                }
+                                Text(
+                                    text = if (isStopwatchRunning) "⏸ Pause" else "▶ Resume",
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 14.sp
+                                )
                             }
 
-                            Box(
-                                contentAlignment = Alignment.Center,
+                            OutlinedButton(
+                                onClick = { onDirectEndSession() },
+                                shape = RoundedCornerShape(50),
+                                border = BorderStroke(1.2.dp, cancelColor.copy(alpha = 0.8f)),
                                 modifier = Modifier
-                                    .size(58.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable { onDirectEndSession() }
+                                    .weight(1f)
+                                    .height(48.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(textMuted)
+                                Text(
+                                    text = "End Session",
+                                    color = cancelColor,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
                                 )
                             }
                         }
@@ -1150,56 +1143,43 @@ fun HomeTimerTab(
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable {
-                                        if (isStopwatchRunning) {
-                                            onPauseStopwatch()
-                                            val intent = Intent(context, TimerService::class.java).apply {
-                                                action = TimerService.ACTION_PAUSE
-                                            }
-                                            context.startService(intent)
-                                        } else {
-                                            onResumeStopwatch()
-                                            val intent = Intent(context, TimerService::class.java).apply {
-                                                action = TimerService.ACTION_RESUME
-                                            }
-                                            context.startService(intent)
+                            Button(
+                                onClick = {
+                                    if (isStopwatchRunning) {
+                                        onPauseStopwatch()
+                                        val intent = Intent(context, TimerService::class.java).apply {
+                                            action = TimerService.ACTION_PAUSE
                                         }
+                                        context.startService(intent)
+                                    } else {
+                                        onResumeStopwatch()
+                                        val intent = Intent(context, TimerService::class.java).apply {
+                                            action = TimerService.ACTION_RESUME
+                                        }
+                                        context.startService(intent)
                                     }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.height(44.dp)
                             ) {
-                                if (isStopwatchRunning) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(3.5.dp)) {
-                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                        Box(modifier = Modifier.width(3.2.dp).height(15.dp).clip(RoundedCornerShape(1.dp)).background(textMain))
-                                    }
-                                } else {
-                                    Text(text = "▶", color = textMain, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                                }
+                                Text(
+                                    text = if (isStopwatchRunning) "⏸" else "▶",
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
                             }
 
-                            Spacer(modifier = Modifier.height(18.dp))
+                            Spacer(modifier = Modifier.height(14.dp))
 
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isDark) Color(0xFF202028) else Color(0xFFF1F5F9))
-                                    .border(1.2.dp, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape)
-                                    .clickable { onDirectEndSession() }
+                            OutlinedButton(
+                                onClick = { onDirectEndSession() },
+                                shape = RoundedCornerShape(50),
+                                border = BorderStroke(1.2.dp, cancelColor.copy(alpha = 0.8f)),
+                                modifier = Modifier.height(44.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(15.dp)
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(textMuted)
-                                )
+                                Text("End", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             }
                         }
                     }
@@ -1295,35 +1275,96 @@ fun HomeTimerTab(
                             )
                         }
 
-                        PomodoroFocusControls(
-                            isRunning = isRunning,
-                            isPaused = isPaused,
-                            isBreakActive = isBreakActive,
-                            goldColor = goldColor,
-                            glowYellow = glowYellow,
-                            cardBg = cardBg,
-                            glassBorder = glassBorder,
-                            textMain = textMain,
-                            textMuted = textMuted,
-                            onPauseClick = {
-                                val intent = Intent(context, TimerService::class.java).apply {
-                                    action = TimerService.ACTION_PAUSE
+                        // रनिंग स्क्रीन कंट्रोल्स (Pause/Resume मुख्य बटन, End Session लाल आउटलाइंड)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            when {
+                                isBreakActive -> {
+                                    Button(
+                                        onClick = { onResumeFocusFromBreakAction() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(48.dp)
+                                    ) {
+                                        Text("Resume 🎯", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            isBreakActive = false
+                                            onDirectEndSession()
+                                        },
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.2.dp, cancelColor.copy(alpha = 0.8f)),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(48.dp)
+                                    ) {
+                                        Text("End Session", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
                                 }
-                                context.startService(intent)
-                            },
-                            onResumeClick = {
-                                val intent = Intent(context, TimerService::class.java).apply {
-                                    action = TimerService.ACTION_RESUME
+                                isPaused -> {
+                                    Button(
+                                        onClick = {
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            }
+                                            context.startService(intent)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(48.dp)
+                                    ) {
+                                        Text("Resume 🎯", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { onDirectEndSession() },
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.2.dp, cancelColor.copy(alpha = 0.8f)),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(48.dp)
+                                    ) {
+                                        Text("End Session", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
                                 }
-                                context.startService(intent)
-                            },
-                            onSwitchToBreakClick = { onTriggerBreak() },
-                            onResumeFocusFromBreak = { onResumeFocusFromBreakAction() },
-                            onEndSessionClick = {
-                                isBreakActive = false
-                                onDirectEndSession()
+                                else -> {
+                                    Button(
+                                        onClick = {
+                                            val intent = Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_PAUSE
+                                            }
+                                            context.startService(intent)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(48.dp)
+                                    ) {
+                                        Text("⏸ Pause", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { onDirectEndSession() },
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.2.dp, cancelColor.copy(alpha = 0.8f)),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(48.dp)
+                                    ) {
+                                        Text("End Session", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                }
                             }
-                        )
+                        }
                     }
                 } else {
                     Box(
@@ -1418,10 +1459,10 @@ fun HomeTimerTab(
                                             onDirectEndSession()
                                         },
                                         shape = RoundedCornerShape(50),
-                                        border = BorderStroke(1.dp, glassBorder),
+                                        border = BorderStroke(1.2.dp, cancelColor.copy(alpha = 0.8f)),
                                         modifier = Modifier.height(42.dp)
                                     ) {
-                                        Text("End", color = textMuted, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                     }
                                 }
                                 isPaused -> {
@@ -1451,10 +1492,10 @@ fun HomeTimerTab(
                                     OutlinedButton(
                                         onClick = { onDirectEndSession() },
                                         shape = RoundedCornerShape(50),
-                                        border = BorderStroke(1.dp, glassBorder),
+                                        border = BorderStroke(1.2.dp, cancelColor.copy(alpha = 0.8f)),
                                         modifier = Modifier.height(38.dp)
                                     ) {
-                                        Text("End", color = textMuted, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                     }
                                 }
                                 else -> {
@@ -1465,21 +1506,20 @@ fun HomeTimerTab(
                                             }
                                             context.startService(intent)
                                         },
-                                        colors = ButtonDefaults.buttonColors(containerColor = cardBg),
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
                                         shape = RoundedCornerShape(50),
-                                        border = BorderStroke(1.dp, glassBorder),
                                         modifier = Modifier.height(42.dp)
                                     ) {
-                                        Text("⏸ Pause", color = textMain, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                                        Text("⏸ Pause", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
                                     }
                                     Spacer(modifier = Modifier.height(10.dp))
                                     OutlinedButton(
                                         onClick = { onDirectEndSession() },
                                         shape = RoundedCornerShape(50),
-                                        border = BorderStroke(1.dp, glassBorder),
+                                        border = BorderStroke(1.2.dp, cancelColor.copy(alpha = 0.8f)),
                                         modifier = Modifier.height(38.dp)
                                     ) {
-                                        Text("End", color = textMuted, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                     }
                                 }
                             }
@@ -1532,12 +1572,14 @@ fun HomeTimerTab(
             )
         }
 
+        // Manage Subjects डायलॉग
         if (showAddDialog) {
             Dialog(onDismissRequest = {
                 showAddDialog = false
                 newSubjectInput = ""
             }) {
                 val frostedDialogBg = if (isDark) Color(0xEB161620) else Color(0xF2FFFFFF)
+                val suggestedSubjects = listOf("Physics", "Chemistry", "Biology", "Maths", "History", "Polity")
 
                 Box(
                     modifier = Modifier
@@ -1592,10 +1634,40 @@ fun HomeTimerTab(
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
+                        // Quick Suggestion Chips (1-टैप में विषय जोड़ने के लिए)
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(suggestedSubjects) { suggestion ->
+                                Surface(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .clickable {
+                                            newSubjectInput = suggestion
+                                            onAddSubjectAction()
+                                        },
+                                    color = goldColor.copy(alpha = 0.12f),
+                                    border = BorderStroke(1.dp, goldColor.copy(alpha = 0.4f)),
+                                    shape = RoundedCornerShape(50)
+                                ) {
+                                    Text(
+                                        text = "+ $suggestion",
+                                        color = goldColor,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 180.dp)
+                                .heightIn(max = 160.dp)
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -1675,7 +1747,7 @@ fun HomeTimerTab(
                                     }
                                 },
                                 placeholder = {
-                                    Text("Type new subject...", color = textMuted, fontSize = 13.sp)
+                                    Text("Type custom subject...", color = textMuted, fontSize = 13.sp)
                                 },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(
