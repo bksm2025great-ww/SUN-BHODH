@@ -91,8 +91,7 @@ fun GroupsRootScreen(
                     userNickname = currentNickname,
                     onBackClick = { currentScreen = GroupsScreenState.HOME },
                     onInviteClick = { /* Share handled inside GroupDetailScreen */ },
-                    onSettingsClick = { showSettingsSheet = true },
-                    onStartFocusClick = onStartFocus
+                    onSettingsClick = { showSettingsSheet = true }
                 )
             }
         }
