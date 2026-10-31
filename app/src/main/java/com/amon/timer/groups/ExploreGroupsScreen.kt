@@ -1,7 +1,6 @@
 package com.amon.timer.groups
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -46,7 +45,7 @@ fun ExploreGroupsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
 
-    // 🔒 केवल पब्लिक ग्रुप्स दिखेंगे, प्राइवेट कभी सर्च में नहीं आएँगे
+    // 🔒 केवल पब्लिक ग्रुप्स दिखेंगे, प्राइवेट कभी भी एक्सप्लोर/सर्च में नहीं आएँगे
     val publicGroups = groups.filter { it.isPublic }
 
     val filteredGroups = publicGroups.filter { group ->
@@ -90,18 +89,18 @@ fun ExploreGroupsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // स्लिम और कॉम्पैक्ट सर्च बार (फ़ालतू गैप खत्म)
+            // स्लिम और कॉम्पैक्ट सर्च बार
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 placeholder = {
                     Text(
                         text = "Search exam or study circles...",
                         color = textMuted,
-                        fontSize = 13.5.sp
+                        fontSize = 13.sp
                     )
                 },
                 leadingIcon = {
@@ -139,7 +138,7 @@ fun ExploreGroupsScreen(
                         label = {
                             Text(
                                 text = category,
-                                fontSize = 12.sp,
+                                fontSize = 11.5.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
                         },
@@ -158,18 +157,17 @@ fun ExploreGroupsScreen(
                 }
             }
 
-            // Results count
             Text(
                 text = "${filteredGroups.size} circles found",
                 color = textMuted,
-                fontSize = 11.5.sp,
+                fontSize = 11.sp,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
             )
 
             // Group Rows
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(filteredGroups, key = { it.id }) { group ->
@@ -183,8 +181,8 @@ fun ExploreGroupsScreen(
                         accentSubtle = accentSubtle,
                         focusingGreen = focusingGreen,
                         isDark = isDark,
-                        onRowClick = { onGroupClick(group) },
-                        onJoinToggle = { onToggleJoinGroup(group.id) }
+                        onRowClick = { onGroupClick(group) }, // सिर्फ़ प्रीव्यू खुलेगा
+                        onJoinToggle = { onToggleJoinGroup(group.id) } // सिर्फ़ बटन से जॉइन होगा
                     )
                 }
             }
@@ -211,7 +209,7 @@ fun ExploreGroupRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-            .clickable { onRowClick() },
+            .clickable { onRowClick() }, // कार्ड पर क्लिक करने से सिर्फ ग्रुप प्रीव्यू खुलेगा
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
@@ -223,7 +221,7 @@ fun ExploreGroupRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(38.dp)
                     .clip(CircleShape)
                     .background(accentSubtle)
                     .border(1.dp, accentColor.copy(alpha = 0.5f), CircleShape),
@@ -233,7 +231,7 @@ fun ExploreGroupRow(
                     text = group.name.take(2).uppercase(),
                     color = accentColor,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
+                    fontSize = 13.5.sp
                 )
             }
 
@@ -244,7 +242,7 @@ fun ExploreGroupRow(
                     text = group.name,
                     color = textMain,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = 13.5.sp,
                     maxLines = 1
                 )
                 Spacer(modifier = Modifier.height(2.dp))
@@ -259,7 +257,7 @@ fun ExploreGroupRow(
                     Text(
                         text = "${group.focusingCount} now · ${group.memberCount} members",
                         color = textMuted,
-                        fontSize = 11.5.sp
+                        fontSize = 11.sp
                     )
                 }
 
@@ -267,7 +265,7 @@ fun ExploreGroupRow(
                     Text(
                         text = group.category,
                         color = accentColor,
-                        fontSize = 11.sp,
+                        fontSize = 10.5.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -275,35 +273,36 @@ fun ExploreGroupRow(
 
             Spacer(modifier = Modifier.width(8.dp))
 
+            // जॉइन या जॉइंड केवल इस बटन पर क्लिक करने पर ही टॉगल होगा
             if (group.isJoined) {
                 OutlinedButton(
                     onClick = onJoinToggle,
-                    modifier = Modifier.height(34.dp),
-                    shape = RoundedCornerShape(17.dp),
+                    modifier = Modifier.height(32.dp),
+                    shape = RoundedCornerShape(16.dp),
                     border = BorderStroke(1.dp, accentColor),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = accentColor),
-                    contentPadding = PaddingValues(horizontal = 12.dp)
+                    contentPadding = PaddingValues(horizontal = 10.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Joined",
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Joined", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                    Text(text = "Joined", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
             } else {
                 Button(
                     onClick = onJoinToggle,
-                    modifier = Modifier.height(34.dp),
-                    shape = RoundedCornerShape(17.dp),
+                    modifier = Modifier.height(32.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = accentColor,
                         contentColor = if (isDark) Color.Black else Color.White
                     ),
                     contentPadding = PaddingValues(horizontal = 14.dp)
                 ) {
-                    Text(text = "Join", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Join", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
