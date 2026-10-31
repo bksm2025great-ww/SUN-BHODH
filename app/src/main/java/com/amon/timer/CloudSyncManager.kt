@@ -15,7 +15,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 
-// 🏆 लीडरबोर्ड के लिए शुद्ध डेटा मॉडल (बिना किसी पेड़ के झंझट के)
+// 🏆 लीडरबोर्ड के लिए शुद्ध डेटा मॉडल
 data class LeaderboardItem(
     val id: String,
     val name: String,
@@ -28,12 +28,12 @@ object CloudSyncManager {
     private val client = OkHttpClient()
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
-    // 🔐 Supabase कनेक्शन की चाबियाँ ("" के अंदर सुरक्षित)
+    // 🔐 Supabase कनेक्शन की चाबियाँ
     private const val SUPABASE_URL = "https://mgenghztpcqaqaepvevw.supabase.co"
     private const val SUPABASE_KEY = "sb_publishable_flD-UULZ2YGzMrVLw2QHoA_7cXEg7FX"
 
     /**
-     * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम दर्ज करना
+     * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम और UUID दर्ज करना
      */
     fun registerUserOnCloud(context: Context) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) {
@@ -43,12 +43,14 @@ object CloudSyncManager {
 
         val userManager = UserManager(context)
         val userName = userManager.getUserName().trim()
+        val userId = userManager.getUserId()
 
         if (userName.isBlank() || userName.equals("Guest", ignoreCase = true)) {
             return
         }
 
         val jsonPayload = JSONObject().apply {
+            put("id", userId) // 🔑 Supabase की profiles टेबल का UUID
             put("display_name", userName)
         }
 
@@ -70,7 +72,7 @@ object CloudSyncManager {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (response.isSuccessful) {
-                        Log.d(TAG, "User '$userName' Supabase profiles me safalta se jud gaya!")
+                        Log.d(TAG, "User '$userName' ($userId) profiles me safalta se jud gaya!")
                     } else {
                         Log.e(TAG, "Registration error code: ${response.code}")
                     }
@@ -80,13 +82,14 @@ object CloudSyncManager {
     }
 
     /**
-     * ⏱️ 2. पढ़ाई पूरी होने पर डेटा Supabase के study_sessions रजिस्टर में भेजना
+     * ⏱️ 2. पढ़ाई पूरी होने पर डेटा Supabase में भेजना (user_id और sessionId के साथ)
      */
     fun syncSession(
         context: Context,
         subject: String,
         durationMinutes: Long,
-        earnedTrees: Int = 0
+        earnedTrees: Int = 0,
+        sessionId: Long = System.currentTimeMillis()
     ) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) {
             Log.w(TAG, "Supabase credentials set nahi hai!")
@@ -95,7 +98,12 @@ object CloudSyncManager {
 
         if (durationMinutes <= 0) return
 
+        val userManager = UserManager(context)
+        val userId = userManager.getUserId()
+
         val jsonPayload = JSONObject().apply {
+            put("id", sessionId) // 🔑 यूनिक ID ताकि डुप्लीकेट न बने
+            put("user_id", userId) // 👈 इससे study_sessions में NULL आना बंद होगा
             put("subject", subject.ifBlank { "General" })
             put("duration_minutes", durationMinutes)
         }
@@ -106,18 +114,19 @@ object CloudSyncManager {
             .addHeader("apikey", SUPABASE_KEY)
             .addHeader("Authorization", "Bearer $SUPABASE_KEY")
             .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "resolution=merge-duplicates") // 🛡️ डुप्लीकेट एंट्री की जगह अपडेट करेगा
             .post(requestBody)
             .build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "Session sync fail ho gaya: ${e.message}")
+                Log.e(TAG, "Session sync fail: ${e.message}")
             }
 
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (response.isSuccessful) {
-                        Log.d(TAG, "Session Supabase me safalta se save ho gaya!")
+                        Log.d(TAG, "Session safely synced to Supabase for user: $userId")
                     } else {
                         Log.e(TAG, "Server error code: ${response.code}")
                     }
@@ -132,7 +141,11 @@ object CloudSyncManager {
     suspend fun fetchSessions(context: Context): List<FocusSession> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
 
-        val fetchUrl = "$SUPABASE_URL/rest/v1/study_sessions?select=*&order=created_at.desc"
+        val userManager = UserManager(context)
+        val userId = userManager.getUserId()
+
+        // 🔒 केवल वर्तमान छात्र का डेटा वापस आएगा
+        val fetchUrl = "$SUPABASE_URL/rest/v1/study_sessions?user_id=eq.$userId&select=*&order=created_at.desc"
         val request = Request.Builder()
             .url(fetchUrl)
             .addHeader("apikey", SUPABASE_KEY)
