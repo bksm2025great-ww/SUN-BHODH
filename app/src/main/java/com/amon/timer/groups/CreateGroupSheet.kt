@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -21,9 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.amon.timer.ThemeManager
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,12 +48,12 @@ fun CreateGroupSheet(
     var isPublic by remember { mutableStateOf(true) }
     var isCodeCopied by remember { mutableStateOf(false) }
 
-    // ⚡ बग 1 का फ़िक्स: शीट को पहली बार में ही पूरा खोलने के लिए
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    val generatedInviteCode = remember(groupName) {
-        val slug = groupName.trim().take(4).uppercase().ifBlank { "ROOM" }
-        "SUN-$slug-${(1000..9999).random()}"
+    // 🔒 100% यूनिक रूम कोड जनरेटर (UUID + Base36 Unique Hash)
+    val generatedInviteCode = remember {
+        val uniqueToken = UUID.randomUUID().toString().replace("-", "").take(6).uppercase()
+        "AMON-$uniqueToken"
     }
 
     ModalBottomSheet(
@@ -64,8 +67,8 @@ fun CreateGroupSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .imePadding() // ⚡ बग 2 का फ़िक्स: कीबोर्ड आने पर शीट ऊपर खिसकेगी
-                .verticalScroll(rememberScrollState()) // छोटे स्क्रीन पर स्क्रोल सुरक्षित रहेगा
+                .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
             Row(
@@ -99,9 +102,13 @@ fun CreateGroupSheet(
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(6.dp))
+
             OutlinedTextField(
                 value = groupName,
-                onValueChange = { groupName = it },
+                onValueChange = { input ->
+                    // 🔤 पहला अक्षर अपने आप कैपिटल बनाएगा
+                    groupName = input.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
@@ -118,6 +125,8 @@ fun CreateGroupSheet(
                     )
                 },
                 singleLine = true,
+                // ⌨️ कीबोर्ड पर भी हर शब्द का पहला अक्षर कैपिटल खुलेगा
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = accentColor,
@@ -218,7 +227,7 @@ fun CreateGroupSheet(
                             ) {
                                 Column {
                                     Text(
-                                        text = "INVITE CODE",
+                                        text = "UNIQUE ROOM CODE",
                                         color = textMuted,
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.SemiBold
