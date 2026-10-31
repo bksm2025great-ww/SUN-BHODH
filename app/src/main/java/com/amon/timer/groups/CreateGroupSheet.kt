@@ -6,7 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
@@ -29,7 +31,6 @@ fun CreateGroupSheet(
     onDismiss: () -> Unit = {},
     onCreateGroup: (name: String, category: String, isPublic: Boolean, inviteCode: String?) -> Unit = { _, _, _, _ -> }
 ) {
-    // 🎨 सीधे ThemeManager से कलर्स प्राप्त करना
     val isDark = ThemeManager.isDarkTheme.value
     val cardBg = ThemeManager.getCardColor()
     val bgColor = ThemeManager.getBackgroundColor()
@@ -40,9 +41,12 @@ fun CreateGroupSheet(
     val accentSubtle = accentColor.copy(alpha = 0.15f)
 
     var groupName by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf(MockRepository.categories[1]) }
+    var selectedCategory by remember { mutableStateOf(MockRepository.categories.getOrElse(1) { "General" }) }
     var isPublic by remember { mutableStateOf(true) }
     var isCodeCopied by remember { mutableStateOf(false) }
+
+    // ⚡ बग 1 का फ़िक्स: शीट को पहली बार में ही पूरा खोलने के लिए
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val generatedInviteCode = remember(groupName) {
         val slug = groupName.trim().take(4).uppercase().ifBlank { "ROOM" }
@@ -51,6 +55,7 @@ fun CreateGroupSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = cardBg,
         dragHandle = { BottomSheetDefaults.DragHandle(color = cardBorder) },
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
@@ -58,8 +63,10 @@ fun CreateGroupSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
                 .navigationBarsPadding()
+                .imePadding() // ⚡ बग 2 का फ़िक्स: कीबोर्ड आने पर शीट ऊपर खिसकेगी
+                .verticalScroll(rememberScrollState()) // छोटे स्क्रीन पर स्क्रोल सुरक्षित रहेगा
+                .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -70,21 +77,21 @@ fun CreateGroupSheet(
                     text = "Create Study Group",
                     color = textMain,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
+                    fontSize = 19.sp
                 )
                 Text(
                     text = "Cancel",
                     color = textMuted,
                     fontSize = 14.sp,
                     modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
                         .clickable { onDismiss() }
                         .padding(8.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Group Name Input
             Text(
                 text = "Group Name",
                 color = textMain,
@@ -123,9 +130,8 @@ fun CreateGroupSheet(
                 )
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Public / Private Switch
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -136,7 +142,7 @@ fun CreateGroupSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -146,14 +152,14 @@ fun CreateGroupSheet(
                                 imageVector = if (isPublic) Icons.Default.Share else Icons.Default.Lock,
                                 contentDescription = null,
                                 tint = accentColor,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(17.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = if (isPublic) "Public Group" else "Private Group",
                                 color = textMain,
                                 fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp
+                                fontSize = 14.sp
                             )
                         }
                         Spacer(modifier = Modifier.height(2.dp))
@@ -163,7 +169,7 @@ fun CreateGroupSheet(
                             else
                                 "Only aspirants with invite code or link can join.",
                             color = textMuted,
-                            fontSize = 12.sp
+                            fontSize = 11.5.sp
                         )
                     }
 
@@ -180,12 +186,11 @@ fun CreateGroupSheet(
                 }
             }
 
-            // Private group extras: Invite code & share link
             AnimatedVisibility(visible = !isPublic) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp)
+                        .padding(top = 10.dp)
                 ) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -193,21 +198,21 @@ fun CreateGroupSheet(
                         colors = CardDefaults.cardColors(containerColor = accentSubtle),
                         border = BorderStroke(1.dp, accentColor.copy(alpha = 0.5f))
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
+                        Column(modifier = Modifier.padding(12.dp)) {
                             Text(
                                 text = "Private Invite Credentials",
                                 color = accentColor,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
+                                fontSize = 12.sp
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
 
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(cardBg)
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -215,43 +220,35 @@ fun CreateGroupSheet(
                                     Text(
                                         text = "INVITE CODE",
                                         color = textMuted,
-                                        fontSize = 10.sp,
+                                        fontSize = 9.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
                                         text = generatedInviteCode,
                                         color = textMain,
-                                        fontSize = 14.sp,
+                                        fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
                                 IconButton(
                                     onClick = { isCodeCopied = true },
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(34.dp)
                                 ) {
                                     Icon(
                                         imageVector = if (isCodeCopied) Icons.Default.Check else Icons.Default.Share,
                                         contentDescription = "Copy Code",
                                         tint = accentColor,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                             }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Share Link: sunbodh.app/join/$generatedInviteCode",
-                                color = textMuted,
-                                fontSize = 11.sp
-                            )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // Create Button (48dp+ touch target)
             Button(
                 onClick = {
                     if (groupName.isNotBlank()) {
@@ -267,8 +264,8 @@ fun CreateGroupSheet(
                 enabled = groupName.isNotBlank(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(25.dp),
+                    .height(48.dp),
+                shape = RoundedCornerShape(24.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = accentColor,
                     contentColor = if (isDark) Color.Black else Color.White,
