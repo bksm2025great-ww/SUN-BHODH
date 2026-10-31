@@ -1,9 +1,7 @@
 package com.amon.timer.groups
 
 import android.content.Intent
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,25 +31,20 @@ fun GroupDetailScreen(
     userNickname: String = MockRepository.CURRENT_USER_NICKNAME,
     onBackClick: () -> Unit = {},
     onInviteClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {},
-    onStartFocusClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
     val isDark = ThemeManager.isDarkTheme.value
     val bgColor = ThemeManager.getBackgroundColor()
-    val cardBg = ThemeManager.getCardColor()
     val textMain = ThemeManager.getTextColor()
     val textMuted = ThemeManager.getTextMutedColor()
     val accentColor = ThemeManager.getAccentColor()
-    val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
-    val accentSubtle = accentColor.copy(alpha = 0.15f)
+    val accentSubtle = accentColor.copy(alpha = 0.16f)
     val focusingGreen = Color(0xFF22C55E)
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var showWeekPickerSheet by remember { mutableStateOf(false) }
-
-    // ⚡ बॉटम शीट को एक ही बार में पूरा खोलने का स्टेट
     val weekSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val availableWeeks = remember {
@@ -65,7 +58,6 @@ fun GroupDetailScreen(
     val members = group.members.ifEmpty { MockRepository.getSampleMembers() }
     val activeMembers = members.filter { it.isCurrentlyFocusing }
 
-    // 🚀 असली शेयर फंक्शन (WhatsApp / Telegram / Messages)
     val triggerShareIntent = {
         val inviteCode = group.inviteCode ?: "AMON-GLOBAL"
         val shareMessage = """
@@ -110,7 +102,6 @@ fun GroupDetailScreen(
                     }
                 },
                 actions = {
-                    // 🔗 स्लीक और वर्किंग Invite चिप
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = accentSubtle,
@@ -158,43 +149,6 @@ fun GroupDetailScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = bgColor)
             )
         },
-        bottomBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = cardBg,
-                border = BorderStroke(1.dp, cardBorder)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Button(
-                        onClick = onStartFocusClick,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(46.dp),
-                        shape = RoundedCornerShape(23.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = accentColor,
-                            contentColor = if (isDark) Color.Black else Color.White
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowForward,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Start Focus",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        },
         containerColor = bgColor
     ) { paddingValues ->
         Column(
@@ -202,7 +156,7 @@ fun GroupDetailScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // 🌿 अल्ट्रा-कॉम्पैक्ट ग्रुप हेडर
+            // 🌿 अल्ट्रा-कॉम्पैक्ट ग्रुप हेडर (बॉर्डर-फ्री)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -213,10 +167,9 @@ fun GroupDetailScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(34.dp)
+                            .size(36.dp)
                             .clip(CircleShape)
-                            .background(accentSubtle)
-                            .border(1.dp, accentColor.copy(alpha = 0.5f), CircleShape),
+                            .background(accentSubtle),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -246,7 +199,7 @@ fun GroupDetailScreen(
 
                 if (group.category.isNotBlank() && group.category != "All") {
                     Surface(
-                        color = cardBorder.copy(alpha = 0.25f),
+                        color = if (isDark) Color(0x22FFFFFF) else Color(0x12000000),
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
@@ -306,7 +259,6 @@ fun GroupDetailScreen(
             }
 
             if (selectedTabIndex == 0) {
-                // 🗓️ हफ़्ते की लाइन
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -343,7 +295,6 @@ fun GroupDetailScreen(
                     )
                 }
 
-                // 🏆 लीडरबोर्ड लिस्ट
                 if (members.isEmpty()) {
                     Box(
                         modifier = Modifier
@@ -352,7 +303,7 @@ fun GroupDetailScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No study sessions yet this week.\nStart focus to claim #1 rank!",
+                            text = "No study sessions yet this week.",
                             color = textMuted,
                             fontSize = 13.sp,
                             textAlign = TextAlign.Center
@@ -361,16 +312,14 @@ fun GroupDetailScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 2.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         itemsIndexed(members) { index, member ->
                             LeaderboardRow(
                                 rank = index + 1,
                                 member = member,
                                 isCurrentUser = member.nickname == userNickname,
-                                cardBg = cardBg,
-                                cardBorder = cardBorder,
                                 textMain = textMain,
                                 textMuted = textMuted,
                                 accentColor = accentColor,
@@ -382,7 +331,6 @@ fun GroupDetailScreen(
                     }
                 }
             } else {
-                // 🟢 एक्टिव मेंबर्स लिस्ट
                 if (activeMembers.isEmpty()) {
                     Box(
                         modifier = Modifier
@@ -400,17 +348,16 @@ fun GroupDetailScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 2.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         itemsIndexed(activeMembers) { _, member ->
                             ActiveMemberRow(
                                 member = member,
-                                cardBg = cardBg,
-                                cardBorder = cardBorder,
                                 textMain = textMain,
                                 textMuted = textMuted,
-                                focusingGreen = focusingGreen
+                                focusingGreen = focusingGreen,
+                                isDark = isDark
                             )
                         }
                     }
@@ -419,13 +366,12 @@ fun GroupDetailScreen(
         }
     }
 
-    // 📅 हफ़्ते चुनने वाली बॉटम शीट (Full Expanded)
     if (showWeekPickerSheet) {
         ModalBottomSheet(
             onDismissRequest = { showWeekPickerSheet = false },
             sheetState = weekSheetState,
-            containerColor = cardBg,
-            dragHandle = { BottomSheetDefaults.DragHandle(color = cardBorder) }
+            containerColor = if (isDark) Color(0xFF1E1E24) else Color.White,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
         ) {
             Column(
                 modifier = Modifier
@@ -448,16 +394,11 @@ fun GroupDetailScreen(
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .border(
-                                1.dp,
-                                if (isSelected) accentColor else cardBorder,
-                                RoundedCornerShape(12.dp)
-                            )
                             .clickable {
                                 selectedWeek = week
                                 showWeekPickerSheet = false
                             },
-                        color = if (isSelected) accentSubtle else bgColor
+                        color = if (isSelected) accentSubtle else Color.Transparent
                     ) {
                         Row(
                             modifier = Modifier
@@ -494,8 +435,6 @@ fun LeaderboardRow(
     rank: Int,
     member: GroupMember,
     isCurrentUser: Boolean,
-    cardBg: Color,
-    cardBorder: Color,
     textMain: Color,
     textMuted: Color,
     accentColor: Color,
@@ -503,118 +442,114 @@ fun LeaderboardRow(
     focusingGreen: Color,
     isDark: Boolean
 ) {
-    val rowBorder = when {
-        isCurrentUser -> BorderStroke(1.5.dp, accentColor)
-        rank == 1 -> BorderStroke(1.5.dp, Color(0xFFF59E0B).copy(alpha = 0.65f)) // Gold
-        rank == 2 -> BorderStroke(1.5.dp, Color(0xFF94A3B8).copy(alpha = 0.65f)) // Silver
-        rank == 3 -> BorderStroke(1.5.dp, Color(0xFFD97706).copy(alpha = 0.65f)) // Bronze
-        else -> BorderStroke(1.dp, cardBorder)
+    // 🥇🥈🥉 Top 3 Podium Colors
+    val colorGold = Color(0xFFF59E0B)
+    val colorSilver = if (isDark) Color(0xFFE2E8F0) else Color(0xFF475569)
+    val colorBronze = Color(0xFFD97706)
+
+    val itemContentColor = when (rank) {
+        1 -> colorGold
+        2 -> colorSilver
+        3 -> colorBronze
+        else -> textMain
     }
 
-    val rowBackground = when {
-        isCurrentUser -> accentSubtle
-        rank == 1 -> Color(0xFFF59E0B).copy(alpha = 0.06f)
-        rank == 2 -> Color(0xFF94A3B8).copy(alpha = 0.06f)
-        rank == 3 -> Color(0xFFD97706).copy(alpha = 0.06f)
-        else -> cardBg
-    }
-
-    val rankTextColor = when {
-        isCurrentUser -> accentColor
-        rank == 1 -> Color(0xFFF59E0B)
-        rank == 2 -> Color(0xFF94A3B8)
-        rank == 3 -> Color(0xFFD97706)
+    val rankTextColor = when (rank) {
+        1 -> colorGold
+        2 -> colorSilver
+        3 -> colorBronze
         else -> textMuted
     }
 
-    Card(
+    val rankFontSize = when (rank) {
+        1 -> 16.sp
+        2, 3 -> 15.sp
+        else -> 13.sp
+    }
+
+    // 🎨 बिना बॉर्डर के केवल बैकग्राउंड हाइलाइट
+    val rowBackground = if (isCurrentUser) {
+        accentSubtle
+    } else {
+        Color.Transparent
+    }
+
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp)),
-        border = rowBorder,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = rowBackground)
+            .clip(RoundedCornerShape(10.dp))
+            .background(rowBackground)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier.width(36.dp),
+            contentAlignment = Alignment.CenterStart
         ) {
-            Box(
-                modifier = Modifier.size(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            Text(
+                text = "#$rank",
+                color = rankTextColor,
+                fontWeight = if (rank <= 3) FontWeight.Black else FontWeight.SemiBold,
+                fontSize = rankFontSize
+            )
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "#$rank",
-                    color = rankTextColor,
+                    text = member.nickname,
+                    color = itemContentColor,
                     fontWeight = if (rank <= 3 || isCurrentUser) FontWeight.Bold else FontWeight.Medium,
-                    fontSize = 13.5.sp
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isCurrentUser) {
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = member.nickname,
-                        color = if (isCurrentUser) accentColor else textMain,
-                        fontWeight = if (isCurrentUser || rank <= 3) FontWeight.Bold else FontWeight.Medium,
-                        fontSize = 13.5.sp,
-                        maxLines = 1
+                        text = "You",
+                        color = accentColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
                     )
-                    if (isCurrentUser) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Surface(
-                            color = accentColor,
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text(
-                                text = "YOU",
-                                color = if (isDark) Color.Black else Color.White,
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
                 }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = if (member.studyTimeMinutes == 0) member.lastActive else "Last active: ${member.lastActive}",
-                    color = textMuted,
-                    fontSize = 11.sp
-                )
             }
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = if (member.studyTimeMinutes == 0) member.lastActive else "Last active: ${member.lastActive}",
+                color = textMuted,
+                fontSize = 11.sp
+            )
+        }
 
-            val hours = member.studyTimeMinutes / 60
-            val mins = member.studyTimeMinutes % 60
-            val formattedTime = if (member.studyTimeMinutes == 0) "0h 00m" else "${hours}h ${mins.toString().padStart(2, '0')}m"
+        val hours = member.studyTimeMinutes / 60
+        val mins = member.studyTimeMinutes % 60
+        val formattedTime = if (member.studyTimeMinutes == 0) "0h 00m" else "${hours}h ${mins.toString().padStart(2, '0')}m"
 
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = formattedTime,
-                    color = if (isCurrentUser) accentColor else textMain,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.5.sp
-                )
-                if (member.isCurrentlyFocusing) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(focusingGreen)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Live",
-                            color = focusingGreen,
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = formattedTime,
+                color = itemContentColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.5.sp
+            )
+            if (member.isCurrentlyFocusing) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(focusingGreen)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Live",
+                        color = focusingGreen,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
@@ -624,72 +559,64 @@ fun LeaderboardRow(
 @Composable
 fun ActiveMemberRow(
     member: GroupMember,
-    cardBg: Color,
-    cardBorder: Color,
     textMain: Color,
     textMuted: Color,
-    focusingGreen: Color
+    focusingGreen: Color,
+    isDark: Boolean
 ) {
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.dp, cardBorder, RoundedCornerShape(12.dp)),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = cardBg)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isDark) Color(0x0FFFFFFF) else Color(0x08000000))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(9.dp)
-                    .clip(CircleShape)
-                    .background(focusingGreen)
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(focusingGreen)
+        )
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = member.nickname,
+                color = textMain,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.5.sp
             )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = member.currentSubject ?: "Deep Focus Sprint",
+                color = textMuted,
+                fontSize = 11.5.sp
+            )
+        }
 
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = member.nickname,
-                    color = textMain,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.5.sp
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = member.currentSubject ?: "Deep Focus Sprint",
-                    color = textMuted,
-                    fontSize = 11.5.sp
-                )
-            }
-
-            Surface(
-                color = focusingGreen.copy(alpha = 0.15f),
-                shape = RoundedCornerShape(10.dp)
+        Surface(
+            color = focusingGreen.copy(alpha = 0.15f),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(5.dp)
-                            .clip(CircleShape)
-                            .background(focusingGreen)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = "Studying now",
-                        color = focusingGreen,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 11.sp
-                    )
-                }
+                Box(
+                    modifier = Modifier
+                        .size(5.dp)
+                        .clip(CircleShape)
+                        .background(focusingGreen)
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = "Studying now",
+                    color = focusingGreen,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.sp
+                )
             }
         }
     }
