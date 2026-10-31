@@ -51,8 +51,7 @@ fun ExploreGroupsScreen(
         val matchesCategory = selectedCategory == "All" || group.category == selectedCategory
         val matchesQuery = searchQuery.isBlank() ||
                 group.name.contains(searchQuery, ignoreCase = true) ||
-                group.category.contains(searchQuery, ignoreCase = true) ||
-                group.description.contains(searchQuery, ignoreCase = true)
+                group.category.contains(searchQuery, ignoreCase = true)
         matchesCategory && matchesQuery
     }
 
