@@ -1,7 +1,6 @@
 package com.amon.timer.groups
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,11 +41,9 @@ fun GroupsHomeScreen(
     val textMain = ThemeManager.getTextColor()
     val textMuted = ThemeManager.getTextMutedColor()
     val accentColor = ThemeManager.getAccentColor()
-    val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
     val accentSubtle = accentColor.copy(alpha = 0.15f)
     val focusingGreen = Color(0xFF22C55E)
 
-    // यूज़रनेम के अक्षरों का इनिशियल (जैसे "Amon_Admin" -> AA)
     val userInitials = remember(userNickname) {
         val parts = userNickname.trim().split(" ", "_", "-").filter { it.isNotBlank() }
         when {
@@ -57,8 +54,8 @@ fun GroupsHomeScreen(
         }
     }
 
-    val yourGroups = groups.filter { it.isJoined }
-    val suggestedGroups = groups.filter { !it.isJoined && it.isPublic }
+    // 🌟 केवल Universal Library / Joined ग्रुप्स ही लिस्ट होंगे (कोई डमी सजेस्टेड ग्रुप नहीं)
+    val yourGroups = groups.filter { it.isJoined || it.isDefault }
 
     Scaffold(
         topBar = {
@@ -131,10 +128,9 @@ fun GroupsHomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Section Header: Your Groups
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -155,12 +151,10 @@ fun GroupsHomeScreen(
                 }
             }
 
-            // Your groups cards sorted: pinned first
             items(yourGroups.sortedByDescending { it.isPinned }, key = { it.id }) { group ->
                 GroupCard(
                     group = group,
                     cardBg = cardBg,
-                    cardBorder = cardBorder,
                     textMain = textMain,
                     textMuted = textMuted,
                     accentColor = accentColor,
@@ -169,66 +163,6 @@ fun GroupsHomeScreen(
                     onCardClick = { onGroupClick(group) },
                     onPinToggle = { onTogglePin(group.id) }
                 )
-            }
-
-            // Section Header: Suggested Groups
-            item {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Suggested Groups",
-                        color = textMain,
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    TextButton(
-                        onClick = onViewAllSuggested,
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-                    ) {
-                        Text(
-                            text = "View all",
-                            color = accentColor,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            }
-
-            if (suggestedGroups.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 14.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "You've joined all available groups!",
-                            color = textMuted,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            } else {
-                items(suggestedGroups.take(3), key = { it.id }) { group ->
-                    SuggestedGroupCard(
-                        group = group,
-                        cardBg = cardBg,
-                        cardBorder = cardBorder,
-                        textMain = textMain,
-                        textMuted = textMuted,
-                        accentColor = accentColor,
-                        accentSubtle = accentSubtle,
-                        isDark = isDark,
-                        onJoinClick = { onJoinGroup(group.id) },
-                        onCardClick = { onGroupClick(group) }
-                    )
-                }
             }
 
             item {
@@ -242,7 +176,6 @@ fun GroupsHomeScreen(
 fun GroupCard(
     group: StudyGroup,
     cardBg: Color,
-    cardBorder: Color,
     textMain: Color,
     textMuted: Color,
     accentColor: Color,
@@ -255,7 +188,6 @@ fun GroupCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .border(1.dp, cardBorder, RoundedCornerShape(14.dp))
             .clickable { onCardClick() },
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg)
@@ -264,22 +196,21 @@ fun GroupCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
-                        .background(accentSubtle)
-                        .border(1.dp, accentColor, CircleShape),
+                        .background(accentSubtle),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = group.name.take(2).uppercase(),
                         color = accentColor,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.5.sp
+                        fontSize = 14.sp
                     )
                 }
 
@@ -291,7 +222,7 @@ fun GroupCard(
                             text = group.name,
                             color = textMain,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
+                            fontSize = 14.5.sp,
                             maxLines = 1
                         )
                         if (group.isDefault) {
@@ -305,7 +236,7 @@ fun GroupCard(
                                     color = accentColor,
                                     fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                 )
                             }
                         }
@@ -331,12 +262,11 @@ fun GroupCard(
                 }
             }
 
-            // Strip: focusing now + Category (अगर All नहीं है केवल तभी)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(cardBorder.copy(alpha = 0.08f))
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                    .background(textMuted.copy(alpha = 0.06f))
+                    .padding(horizontal = 14.dp, vertical = 7.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
@@ -363,87 +293,6 @@ fun GroupCard(
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun SuggestedGroupCard(
-    group: StudyGroup,
-    cardBg: Color,
-    cardBorder: Color,
-    textMain: Color,
-    textMuted: Color,
-    accentColor: Color,
-    accentSubtle: Color,
-    isDark: Boolean,
-    onJoinClick: () -> Unit,
-    onCardClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-            .clickable { onCardClick() }, // कार्ड पर क्लिक करने से सिर्फ ग्रुप प्रीव्यू खुलेगा, ऑटोमैटिक जॉइन नहीं होगा
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = cardBg)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(accentSubtle),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = group.name.take(2).uppercase(),
-                    color = accentColor,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = group.name,
-                    color = textMain,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.5.sp,
-                    maxLines = 1
-                )
-                Text(
-                    text = "${group.memberCount} members · ${group.category}",
-                    color = textMuted,
-                    fontSize = 11.sp
-                )
-            }
-
-            // जॉइन केवल इस बटन पर क्लिक करने पर ही होगा
-            Button(
-                onClick = onJoinClick,
-                modifier = Modifier.height(32.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = accentColor,
-                    contentColor = if (isDark) Color.Black else Color.White
-                ),
-                shape = RoundedCornerShape(16.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp)
-            ) {
-                Text(
-                    text = "Join",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
-                )
             }
         }
     }
