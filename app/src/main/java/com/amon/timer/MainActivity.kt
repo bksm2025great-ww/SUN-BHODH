@@ -12,7 +12,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -46,9 +45,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.amon.timer.ui.theme.AmonTheme
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
-// 🌟 स्क्रीन स्टेट: SPLASH -> AUTH (सिर्फ पहली बार) -> MAIN
 private enum class AppScreenState {
     SPLASH,
     AUTH,
@@ -94,7 +91,6 @@ class MainActivity : ComponentActivity() {
 
                 var currentScreen by remember { mutableStateOf(AppScreenState.SPLASH) }
 
-                // स्टेटस बार कलर हैंडलिंग
                 val currentStatusBarColor = when (currentScreen) {
                     AppScreenState.SPLASH -> Color(0xFF0F0F12)
                     AppScreenState.AUTH -> Color(0xFFF3F4F6)
@@ -115,7 +111,6 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = currentStatusBarColor
                 ) {
-                    // स्प्लैश के 1.2 सेकंड बाद तय करेंगे कि AuthScreen दिखाना है या MainScreen
                     LaunchedEffect(Unit) {
                         delay(1200)
                         if (!userManager.isFreshAuthDone()) {
@@ -147,8 +142,6 @@ class MainActivity : ComponentActivity() {
                                     MainScreen()
 
                                     FocusRotateButtonOverlay(activity = this@MainActivity)
-
-                                    AutoUpdatePopupEngine()
 
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                         val localContext = LocalContext.current
@@ -188,152 +181,98 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// 🔔 ओरिजिनल पर्पल-वाइट नोटिफिकेशन परमिशन कार्ड
 @Composable
-private fun AutoUpdatePopupEngine() {
-    val context = LocalContext.current
-    val updateManager = remember { UpdateManager(context) }
-    val scope = rememberCoroutineScope()
-
-    var updateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
-    var showDialog by remember { mutableStateOf(false) }
-    var isDownloading by remember { mutableStateOf(false) }
-    var downloadProgress by remember { mutableIntStateOf(0) }
-
-    LaunchedEffect(Unit) {
-        delay(1200)
-        val info = updateManager.checkLatestUpdate()
-        if (info.hasUpdate && updateManager.shouldShowOneTimePopup(info.latestVersion)) {
-            updateInfo = info
-            showDialog = true
-        }
-    }
-
-    if (showDialog && updateInfo != null) {
-        val info = updateInfo!!
-        val mintGreen = Color(0xFF05B67A)
-
-        Dialog(onDismissRequest = {
-            if (!isDownloading) {
-                updateManager.markPopupAsDismissed(info.latestVersion)
-                showDialog = false
-            }
-        }) {
-            Surface(
-                shape = RoundedCornerShape(26.dp),
-                color = Color(0xFF181820),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                border = BorderStroke(1.2.dp, mintGreen.copy(alpha = 0.4f)),
-                shadowElevation = 14.dp
+private fun NotificationPermissionDialog(
+    onAllowClick: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = Color.White,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            shadowElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
-                    modifier = Modifier.padding(22.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .background(Color(0xFF5B3BA5), CircleShape),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(68.dp)
-                            .shadow(10.dp, CircleShape, spotColor = mintGreen, ambientColor = mintGreen.copy(alpha = 0.4f))
-                            .clip(CircleShape)
-                            .background(mintGreen),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CanvasRocketWithFlames(modifier = Modifier.size(36.dp))
-                    }
+                    Text(text = "🔔", fontSize = 26.sp)
+                }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
+                Text(
+                    text = "Never miss a\nfocus session",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E1E24),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 28.sp
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "Enable notifications to unlock the\nfull timer experience:",
+                    fontSize = 14.sp,
+                    color = Color(0xFF4A5568),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    NotificationBulletItem(text = "Live countdown on lock screen and status bar")
+                    NotificationBulletItem(text = "Instant chime when focus block ends")
+                    NotificationBulletItem(text = "Smart reminders to protect study streak")
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = onAllowClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF5B3BA5)
+                    )
+                ) {
                     Text(
-                        text = "New Update Available! 🚀",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black,
+                        text = "Allow Notifications",
                         color = Color.White,
-                        textAlign = TextAlign.Center
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text(
-                        text = "Version ${info.latestVersion} is ready to install",
-                        fontSize = 12.5.sp,
-                        color = mintGreen,
-                        fontWeight = FontWeight.Bold
+                        text = "Maybe Later",
+                        color = Color(0xFF5B3BA5),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
                     )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF22222C))
-                            .padding(12.dp)
-                    ) {
-                        FeatureOneLinerBullet(text = "Desk Flip Mode: आड़े मोड में नया साइड-बाय-साइड लेआउट")
-                        FeatureOneLinerBullet(text = "Ultra-Bold: 160sp का विशाल और साफ़ डिस्प्ले")
-                        FeatureOneLinerBullet(text = "Direct Updates: 1-टैप में आसान इन-ऐप इंस्टॉलेशन")
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    Button(
-                        onClick = {
-                            if (!isDownloading) {
-                                isDownloading = true
-                                scope.launch {
-                                    val apkFile = updateManager.downloadUpdateApk(info.downloadUrl) { progress ->
-                                        downloadProgress = progress
-                                    }
-                                    isDownloading = false
-                                    if (apkFile != null) {
-                                        showDialog = false
-                                        updateManager.installApk(apkFile)
-                                    }
-                                }
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = mintGreen)
-                    ) {
-                        if (isDownloading) {
-                            Text(
-                                text = "Downloading... $downloadProgress%",
-                                color = Color.White,
-                                fontSize = 14.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        } else {
-                            Text(
-                                text = "Update Now ⚡",
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
-
-                    if (!isDownloading) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        TextButton(
-                            onClick = {
-                                updateManager.markPopupAsDismissed(info.latestVersion)
-                                showDialog = false
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "Maybe Later",
-                                color = Color(0xFF94A3B8),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -341,83 +280,22 @@ private fun AutoUpdatePopupEngine() {
 }
 
 @Composable
-private fun FeatureOneLinerBullet(text: String) {
+private fun NotificationBulletItem(text: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top
     ) {
-        Text(text = "• ", color = Color(0xFF05B67A), fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text(text = text, color = Color(0xFFE2E8F0), fontSize = 12.sp, lineHeight = 17.sp)
-    }
-}
-
-@Composable
-private fun CanvasRocketWithFlames(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-
-        val flameCenterX = w * 0.50f
-        val flameTopY = h * 0.70f
-
-        val redFlame = Path().apply {
-            moveTo(flameCenterX - w * 0.18f, flameTopY)
-            quadraticBezierTo(flameCenterX - w * 0.22f, h * 0.88f, flameCenterX, h * 0.98f)
-            quadraticBezierTo(flameCenterX + w * 0.22f, h * 0.88f, flameCenterX + w * 0.18f, flameTopY)
-            close()
-        }
-        drawPath(redFlame, color = Color(0xFFEF4444))
-
-        val orangeFlame = Path().apply {
-            moveTo(flameCenterX - w * 0.12f, flameTopY)
-            quadraticBezierTo(flameCenterX - w * 0.15f, h * 0.85f, flameCenterX, h * 0.92f)
-            quadraticBezierTo(flameCenterX + w * 0.15f, h * 0.85f, flameCenterX + w * 0.12f, flameTopY)
-            close()
-        }
-        drawPath(orangeFlame, color = Color(0xFFFB923C))
-
-        val yellowFlame = Path().apply {
-            moveTo(flameCenterX - w * 0.06f, flameTopY)
-            quadraticBezierTo(flameCenterX - w * 0.08f, h * 0.80f, flameCenterX, h * 0.86f)
-            quadraticBezierTo(flameCenterX + w * 0.08f, h * 0.80f, flameCenterX + w * 0.06f, flameTopY)
-            close()
-        }
-        drawPath(yellowFlame, color = Color(0xFFFDE047))
-
-        val leftFin = Path().apply {
-            moveTo(w * 0.35f, h * 0.50f)
-            lineTo(w * 0.15f, h * 0.68f)
-            lineTo(w * 0.35f, h * 0.68f)
-            close()
-        }
-        drawPath(leftFin, color = Color.White.copy(alpha = 0.85f))
-
-        val rightFin = Path().apply {
-            moveTo(w * 0.65f, h * 0.50f)
-            lineTo(w * 0.85f, h * 0.68f)
-            lineTo(w * 0.65f, h * 0.68f)
-            close()
-        }
-        drawPath(rightFin, color = Color.White.copy(alpha = 0.85f))
-
-        val bodyPath = Path().apply {
-            moveTo(w * 0.50f, h * 0.12f)
-            cubicTo(w * 0.70f, h * 0.28f, w * 0.68f, h * 0.62f, w * 0.65f, h * 0.70f)
-            lineTo(w * 0.35f, h * 0.70f)
-            cubicTo(w * 0.32f, h * 0.62f, w * 0.30f, h * 0.28f, w * 0.50f, h * 0.12f)
-            close()
-        }
-        drawPath(bodyPath, color = Color.White)
-
-        drawCircle(
-            color = Color(0xFF05B67A),
-            radius = w * 0.09f,
-            center = Offset(w * 0.50f, h * 0.38f)
+        Text(
+            text = "• ",
+            color = Color(0xFF1E1E24),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
         )
-        drawCircle(
-            color = Color.White,
-            radius = w * 0.035f,
-            center = Offset(w * 0.48f, h * 0.36f)
+        Text(
+            text = text,
+            color = Color(0xFF2D3748),
+            fontSize = 14.sp,
+            lineHeight = 20.sp
         )
     }
 }
@@ -545,124 +423,6 @@ private fun AndroidAutoRotateLineIcon(
             close()
         }
         drawPath(path = arrowPath2, color = tint)
-    }
-}
-
-@Composable
-private fun NotificationPermissionDialog(
-    onAllowClick: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = Color.White,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            shadowElevation = 8.dp
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .background(Color(0xFF5B3BA5), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "🔔", fontSize = 26.sp)
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                Text(
-                    text = "Never miss a\nfocus session",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E1E24),
-                    textAlign = TextAlign.Center,
-                    lineHeight = 28.sp
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = "Enable notifications to unlock the\nfull timer experience:",
-                    fontSize = 14.sp,
-                    color = Color(0xFF4A5568),
-                    textAlign = TextAlign.Center,
-                    lineHeight = 20.sp
-                )
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    NotificationBulletItem(text = "Live countdown on lock screen and status bar")
-                    NotificationBulletItem(text = "Instant chime when focus block ends")
-                    NotificationBulletItem(text = "Smart reminders to protect study streak")
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Button(
-                    onClick = onAllowClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF5B3BA5)
-                    )
-                ) {
-                    Text(
-                        text = "Allow Notifications",
-                        color = Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Maybe Later",
-                        color = Color(0xFF5B3BA5),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun NotificationBulletItem(text: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = "• ",
-            color = Color(0xFF1E1E24),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = text,
-            color = Color(0xFF2D3748),
-            fontSize = 14.sp,
-            lineHeight = 20.sp
-        )
     }
 }
 
