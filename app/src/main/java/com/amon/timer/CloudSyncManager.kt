@@ -2,7 +2,6 @@ package com.amon.timer
 
 import android.content.Context
 import android.util.Log
-import com.amon.timer.groups.GroupMember
 import com.amon.timer.groups.StudyGroup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,7 +37,8 @@ object CloudSyncManager {
     private const val SUPABASE_KEY = "sb_publishable_flD-UULZ2YGzMrVLw2QHoA_7cXEg7FX"
 
     /**
-     * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम, UUID और ईमेल दर्ज करना (UPSERT)
+     * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम, UUID और ईमेल दर्ज करना
+     * (पहले चेक करेगा कि यह Gmail पहले से है या नहीं, ताकि वही पुरानी UUID रीस्टोर हो सके)
      */
     fun registerUserOnCloud(
         context: Context,
@@ -52,23 +52,76 @@ object CloudSyncManager {
         }
 
         val userManager = UserManager(context)
-        val finalUserId = userId ?: userManager.getUserId()
+        val finalEmail = (email ?: userManager.getUserEmail()).trim()
         val finalUserName = (nickname ?: userManager.getUserName()).trim()
 
         if (finalUserName.isBlank() || finalUserName.equals("Guest", ignoreCase = true)) {
             return
         }
 
+        // 🔍 Gmail चेक: अगर ईमेल पहले से Supabase में है, तो पुरानी UUID निकालो
+        if (finalEmail.isNotBlank()) {
+            val checkUrl = "$SUPABASE_URL/rest/v1/profiles?email=eq.$finalEmail&select=id,display_name&limit=1"
+            val checkRequest = Request.Builder()
+                .url(checkUrl)
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+                .get()
+                .build()
+
+            client.newCall(checkRequest).enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    Log.e(TAG, "Email check failed, fallback to local UUID: ${e.message}")
+                    saveProfileDirectly(context, userId ?: userManager.getUserId(), finalUserName, finalEmail)
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    response.use {
+                        val responseText = response.body?.string().orEmpty()
+                        var targetUserId = userId ?: userManager.getUserId()
+
+                        if (response.isSuccessful && responseText.isNotBlank()) {
+                            try {
+                                val arr = JSONArray(responseText)
+                                if (arr.length() > 0) {
+                                    val existingId = arr.getJSONObject(0).getString("id")
+                                    userManager.setUserId(existingId)
+                                    targetUserId = existingId
+                                    Log.d(TAG, "Purana account mila! UUID restored: $existingId")
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "JSON parse error during email check: ${e.message}")
+                            }
+                        }
+
+                        saveProfileDirectly(context, targetUserId, finalUserName, finalEmail)
+                    }
+                }
+            })
+        } else {
+            val targetUserId = userId ?: userManager.getUserId()
+            saveProfileDirectly(context, targetUserId, finalUserName, null)
+        }
+    }
+
+    /**
+     * 💾 profiles टेबल में डेटा UPSERT करने का इंटरनल फ़ंक्शन
+     */
+    private fun saveProfileDirectly(
+        context: Context,
+        finalUserId: String,
+        finalUserName: String,
+        finalEmail: String?
+    ) {
         val jsonPayload = JSONObject().apply {
             put("id", finalUserId)
             put("display_name", finalUserName)
-            if (!email.isNullOrBlank()) {
-                put("email", email.trim())
+            if (!finalEmail.isNullOrBlank()) {
+                put("email", finalEmail)
             }
         }
 
         val requestBody = jsonPayload.toString().toRequestBody(JSON_MEDIA_TYPE)
-        // on_conflict=id जोड़ा गया है ताकि डेटा सही से अपडेट हो
         val request = Request.Builder()
             .url("$SUPABASE_URL/rest/v1/profiles?on_conflict=id")
             .addHeader("apikey", SUPABASE_KEY)
@@ -96,7 +149,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 👥 2. ग्रुप्स को Supabase से लोड करना (study_groups टेबल से)
+     * 👥 2. ग्रुप्स को Supabase से लोड करना (Universal Library auto-join नहीं होगी)
      */
     suspend fun fetchGroups(context: Context): List<StudyGroup> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
@@ -104,7 +157,7 @@ object CloudSyncManager {
         val userManager = UserManager(context)
         val currentUserId = userManager.getUserId()
 
-        // 1. सबसे पहले चेक करेंगे कि यूज़र कौन-कौन से ग्रुप में जुड़ा है
+        // 1. जाँचें कि यूज़र किन-किन ग्रुप्स में जुड़ा है
         val joinedGroupIds = mutableSetOf<String>()
         try {
             val memberReq = Request.Builder()
@@ -126,7 +179,7 @@ object CloudSyncManager {
             Log.e(TAG, "Joined groups fetch error: ${e.message}")
         }
 
-        // 2. अब study_groups टेबल से सारे ग्रुप्स लोड करेंगे
+        // 2. study_groups टेबल से सारे ग्रुप्स लोड करें
         val groupsUrl = "$SUPABASE_URL/rest/v1/study_groups?select=*&order=created_at.desc"
         val request = Request.Builder()
             .url(groupsUrl)
@@ -145,7 +198,6 @@ object CloudSyncManager {
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
                     val gId = obj.optString("id")
-                    val isDef = obj.optBoolean("is_default", false) || gId == "universal_lib"
                     val isJoined = joinedGroupIds.contains(gId)
 
                     list.add(
@@ -158,13 +210,13 @@ object CloudSyncManager {
                             focusingCount = 0,
                             isPinned = false,
                             isJoined = isJoined,
-                            isDefault = isDef,
+                            isDefault = false, // ज़बरन ऑटो-जॉइन हटाने के लिए false रखा गया
                             inviteCode = obj.optString("invite_code", "AMON-GLOBAL")
                         )
                     )
                 }
 
-                // अगर यूनिवर्सल लाइब्रेरी लिस्ट में नहीं है तो जोड़ेंगे
+                // अगर यूनिवर्सल लाइब्रेरी सूची में नहीं है तो जोड़ें (बिना ज़बरन जोड़े)
                 if (list.none { it.id == "universal_lib" }) {
                     list.add(
                         0,
@@ -177,7 +229,7 @@ object CloudSyncManager {
                             focusingCount = 0,
                             isPinned = true,
                             isJoined = joinedGroupIds.contains("universal_lib"),
-                            isDefault = true,
+                            isDefault = false, // यूज़र अपनी मर्ज़ी से जुड़ेगा
                             inviteCode = "AMON-GLOBAL"
                         )
                     )
@@ -193,7 +245,7 @@ object CloudSyncManager {
     }
 
     /**
-     * ➕ 3. नया ग्रुप बनाना (study_groups टेबल के सटीक कॉलम्स के अनुसार)
+     * ➕ 3. नया ग्रुप बनाना
      */
     suspend fun createGroupOnCloud(
         context: Context,
@@ -201,7 +253,6 @@ object CloudSyncManager {
     ): Boolean = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext false
 
-        // केवल वही कॉलम्स भेजे जा रहे हैं जो Supabase की study_groups टेबल में मौजूद हैं
         val jsonPayload = JSONObject().apply {
             put("id", group.id)
             put("name", group.name)
@@ -224,7 +275,6 @@ object CloudSyncManager {
         try {
             val response = client.newCall(request).execute()
             if (response.isSuccessful) {
-                // ग्रुप बनते ही बनाने वाले को मेंबर के रूप में जोड़ेंगे
                 joinGroupOnCloud(context, group.id)
                 return@withContext true
             } else {
@@ -237,14 +287,13 @@ object CloudSyncManager {
     }
 
     /**
-     * 🚪 4. ग्रुप जॉइन करना (group_members टेबल के अनुसार)
+     * 🚪 4. ग्रुप जॉइन करना
      */
     suspend fun joinGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
         val userManager = UserManager(context)
         val userId = userManager.getUserId()
         val userName = userManager.getUserName()
 
-        // role हटा दिया गया है क्योंकि टेबल में केवल group_id, user_id, nickname हैं
         val payload = JSONObject().apply {
             put("group_id", groupId)
             put("user_id", userId)
@@ -270,7 +319,7 @@ object CloudSyncManager {
     }
 
     /**
-     * ❌ 5. ग्रुप छोड़ना (group_members से डिलीट करना)
+     * ❌ 5. ग्रुप छोड़ना (Leave Group)
      */
     suspend fun leaveGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
         val userManager = UserManager(context)
@@ -293,7 +342,7 @@ object CloudSyncManager {
     }
 
     /**
-     * ⏱️ 6. पढ़ाई पूरी होने पर डेटा Supabase में भेजना
+     * ⏱️ 6. पढ़ाई पूरी होने पर सेशन सिंक करना
      */
     fun syncSession(
         context: Context,
@@ -311,8 +360,6 @@ object CloudSyncManager {
 
         val userManager = UserManager(context)
         val userId = userManager.getUserId()
-
-        // आज की तारीख format (YYYY-MM-DD)
         val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
         val jsonPayload = JSONObject().apply {
@@ -349,7 +396,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 📥 7. Supabase से पढ़ाई का पूरा हिसाब वापस मंगाना (GET)
+     * 📥 7. पढ़ाई का पिछला डेटा मंगाना
      */
     suspend fun fetchSessions(context: Context): List<FocusSession> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
@@ -395,7 +442,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 👑 8. Supabase से लाइव लीडरबोर्ड डेटा खींचना
+     * 👑 8. लाइव लीडरबोर्ड डेटा खींचना
      */
     suspend fun fetchLeaderboard(): List<LeaderboardItem> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
