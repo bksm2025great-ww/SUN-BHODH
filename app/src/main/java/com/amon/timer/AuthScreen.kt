@@ -42,6 +42,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 
 // 🔒 पासवर्ड को सुरक्षित SHA-256 हैश में बदलने का फ़ंक्शन
@@ -59,32 +60,27 @@ fun AuthScreen(
     val userManager = remember { UserManager(context) }
     val scrollState = rememberScrollState()
 
-    // 🎨 Phone 1 कलर पैलेट (डार्क ऑब्सिडियन + सॉफ्ट लैवेंडर + वार्म गोल्ड)
-    val screenBg = Color(0xFF0F0E17)
-    val cardBg = Color(0xFF16151F)
-    val inputBg = Color(0xFF1A1826)
-    val lavenderAccent = Color(0xFFC084FC) // हेडर और आइकन्स का सॉफ्ट लैवेंडर
-    val goldButton = Color(0xFFF5A524)     // मुख्य बटन का वार्म गोल्ड
-    val textMain = Color(0xFFFFFFFF)
+    // 🎨 प्रीमियम डार्क ऑब्सीडियन + वार्म गोल्ड (पर्पल टिंट पूरी तरह साफ़)
+    val screenBg = Color(0xFF0A0A0E)
+    val cardBg = Color(0xFF131318)
+    val inputBg = Color(0xFF1A1A22)
+    val goldAccent = Color(0xFFF5A524)       // वार्म गोल्ड एक्सेंट
+    val textMain = Color(0xFFF8FAFC)
     val textMuted = Color(0xFF94A3B8)
-    
-    // 🪶 अल्ट्रा-स्लिम हेयरलाइन बॉर्डर्स (0.8dp)
+    val cardBorder = Color(0x22FFFFFF)       // क्लीन सब्टल बॉर्डर
+    val inputBorder = Color(0xFF282834)
     val slimBorderStroke = 0.8.dp
-    val cardBorder = Color(0x33C084FC)
-    val inputBorder = Color(0xFF4A3E68)
 
     val credentialManager = remember { CredentialManager.create(context) }
     val webClientId = stringResource(id = R.string.default_web_client_id)
 
-    // स्टेट्स
-    var isLoginMode by remember { mutableStateOf(false) } // false = Sign Up, true = Sign In
+    var isLoginMode by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    // 🟢 रियल-टाइम ईमेल वेरिफिकेशन चेक (Professional Check Rule)
     val isEmailValid = remember(email) {
         android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
     }
@@ -104,7 +100,6 @@ fun AuthScreen(
         }
     }
 
-    // 🛡️ Sign Up / Sign In सबमिशन लॉजिक
     val handleAuthSubmit = {
         val cleanName = name.trim()
         val cleanEmail = email.trim()
@@ -124,7 +119,6 @@ fun AuthScreen(
             val hashedPass = hashPassword(cleanPass)
 
             if (isLoginMode) {
-                // 🔑 Login Mode: पासवर्ड हैश मैच और सुप्राबेस सिंक
                 val savedHashedPass = userManager.getPassword()
                 val savedName = userManager.getUserName()
 
@@ -134,18 +128,25 @@ fun AuthScreen(
                 } else {
                     userManager.setGuestUser(false)
                     userManager.setUserEmail(cleanEmail)
+                    
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
+                            val finalDisplayName = if (savedName.isNotBlank() && !savedName.equals("Guest", true)) {
+                                savedName
+                            } else {
+                                cleanEmail.substringBefore("@")
+                            }
+                            
                             CloudSyncManager.registerUserOnCloud(
                                 context = context,
                                 userId = userManager.getUserId(),
-                                nickname = savedName.ifBlank { cleanEmail.substringBefore("@") },
+                                nickname = finalDisplayName,
                                 email = cleanEmail
                             )
                         } catch (e: Exception) {
                             e.printStackTrace()
                         } finally {
-                            coroutineScope.launch(Dispatchers.Main) {
+                            withContext(Dispatchers.Main) {
                                 isLoading = false
                                 proceedToApp()
                             }
@@ -153,7 +154,6 @@ fun AuthScreen(
                     }
                 }
             } else {
-                // ✨ Sign Up Mode: लोकल मेमोरी में हैश स्टोर और सुप्राबेस रजिस्ट्रेशन
                 userManager.setUserName(cleanName)
                 userManager.setUserEmail(cleanEmail)
                 userManager.setPassword(hashedPass)
@@ -171,7 +171,7 @@ fun AuthScreen(
                     } catch (e: Exception) {
                         e.printStackTrace()
                     } finally {
-                        coroutineScope.launch(Dispatchers.Main) {
+                        withContext(Dispatchers.Main) {
                             isLoading = false
                             proceedToApp()
                         }
@@ -181,7 +181,6 @@ fun AuthScreen(
         }
     }
 
-    // 🌐 Google Sign-In Action
     val handleGoogleSignIn = {
         coroutineScope.launch {
             try {
@@ -204,6 +203,7 @@ fun AuthScreen(
                 if (credential is androidx.credentials.CustomCredential &&
                     credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
                 ) {
+                    isLoading = true
                     val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                     val displayName = googleIdTokenCredential.displayName 
                         ?: googleIdTokenCredential.id.substringBefore("@")
@@ -213,7 +213,7 @@ fun AuthScreen(
                     userManager.setUserEmail(userEmail)
                     userManager.setGuestUser(false)
 
-                    coroutineScope.launch(Dispatchers.IO) {
+                    withContext(Dispatchers.IO) {
                         try {
                             val userId = userManager.getUserId()
                             CloudSyncManager.registerUserOnCloud(
@@ -227,12 +227,14 @@ fun AuthScreen(
                         }
                     }
 
+                    isLoading = false
                     Toast.makeText(context, "Welcome $displayName!", Toast.LENGTH_SHORT).show()
                     proceedToApp()
                 }
             } catch (e: GetCredentialCancellationException) {
-                // User closed login
+                // Cancelled
             } catch (e: Exception) {
+                isLoading = false
                 errorMessage = "Google Sign-In विफल: ${e.localizedMessage}"
             }
         }
@@ -242,110 +244,107 @@ fun AuthScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(screenBg)
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .imePadding() // 🚀 कीबोर्ड खुलते ही स्क्रीन को सुरक्षित ऊपर रखेगा
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Card(
             modifier = Modifier
-                .widthIn(max = 420.dp)
+                .widthIn(max = 380.dp)
                 .fillMaxWidth()
                 .verticalScroll(scrollState),
-            shape = RoundedCornerShape(26.dp),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = cardBg),
             border = BorderStroke(slimBorderStroke, cardBorder)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .padding(horizontal = 20.dp, vertical = 18.dp), // कॉम्पैक्ट इनर पैडिंग
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // 🌟 AMON हेडर
+                // 🌟 हेडर (कॉम्पैक्ट और ऊपर की तरफ)
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = "AMON",
-                        fontSize = 32.sp,
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Black,
-                        color = lavenderAccent,
-                        letterSpacing = 3.sp
+                        color = goldAccent,
+                        letterSpacing = 2.5.sp
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "Focus Timer App",
-                        fontSize = 12.5.sp,
+                        fontSize = 11.sp,
                         color = textMuted,
                         letterSpacing = 0.5.sp
                     )
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
                         text = if (isLoginMode) "Welcome Back" else "Create Account",
-                        fontSize = 22.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = textMain
                     )
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // 👤 Name फ़ील्ड (सिर्फ Sign Up में दिखेगा, Sign In में छिप जाएगा)
+                // 👤 Name फ़ील्ड
                 AnimatedVisibility(
                     visible = !isLoginMode,
-                    enter = expandVertically(tween(250)) + fadeIn(tween(250)),
-                    exit = shrinkVertically(tween(200)) + fadeOut(tween(200))
+                    enter = expandVertically(tween(200)) + fadeIn(tween(200)),
+                    exit = shrinkVertically(tween(150)) + fadeOut(tween(150))
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = "Name",
                             fontWeight = FontWeight.SemiBold,
                             color = textMain,
-                            fontSize = 13.sp,
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 4.dp)
                         )
                         OutlinedTextField(
                             value = name,
                             onValueChange = { 
-                                name = it
+                                name = it 
                                 if (errorMessage.isNotEmpty()) errorMessage = ""
                             },
-                            placeholder = { Text("Enter your Name", color = textMuted.copy(alpha = 0.6f), fontSize = 13.sp) },
+                            placeholder = { Text("Enter your Name", color = textMuted.copy(alpha = 0.5f), fontSize = 12.5.sp) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Person,
                                     contentDescription = "Name",
-                                    tint = lavenderAccent,
-                                    modifier = Modifier.size(19.dp)
+                                    tint = goldAccent,
+                                    modifier = Modifier.size(17.dp)
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = inputBg,
                                 unfocusedContainerColor = inputBg,
-                                focusedBorderColor = lavenderAccent,
+                                focusedBorderColor = goldAccent,
                                 unfocusedBorderColor = inputBorder,
                                 focusedTextColor = textMain,
                                 unfocusedTextColor = textMain,
-                                cursorColor = lavenderAccent
+                                cursorColor = goldAccent
                             ),
                             singleLine = true
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
 
-                // ✉️ Email फ़ील्ड (ग्रीन वेरिफिकेशन टिक के साथ)
+                // ✉️ Email फ़ील्ड
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "Email",
                         fontWeight = FontWeight.SemiBold,
                         color = textMain,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 4.dp)
                     )
                     OutlinedTextField(
                         value = email,
@@ -353,41 +352,39 @@ fun AuthScreen(
                             email = it 
                             if (errorMessage.isNotEmpty()) errorMessage = ""
                         },
-                        placeholder = { Text("Enter your Email", color = textMuted.copy(alpha = 0.6f), fontSize = 13.sp) },
+                        placeholder = { Text("Enter your Email", color = textMuted.copy(alpha = 0.5f), fontSize = 12.5.sp) },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Email,
                                 contentDescription = "Email",
-                                tint = lavenderAccent,
-                                modifier = Modifier.size(19.dp)
+                                tint = goldAccent,
+                                modifier = Modifier.size(17.dp)
                             )
                         },
-                        // 🟢 दाएँ कोने में वेरिफिकेशन ग्रीन टिक
                         trailingIcon = {
                             AnimatedVisibility(
                                 visible = isEmailValid,
-                                enter = fadeIn(tween(200)),
+                                enter = fadeIn(tween(150)),
                                 exit = fadeOut(tween(150))
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "Valid Email Verified",
-                                    tint = Color(0xFF22C55E), // वाइब्रेंट ग्रीन टिक
-                                    modifier = Modifier.size(20.dp)
+                                    contentDescription = "Verified",
+                                    tint = Color(0xFF22C55E),
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = inputBg,
                             unfocusedContainerColor = inputBg,
-                            // ✅ ईमेल सत्यापित होने पर बॉर्डर का रंग भी हल्का हरा हो जाएगा
-                            focusedBorderColor = if (isEmailValid) Color(0xFF22C55E) else lavenderAccent,
-                            unfocusedBorderColor = if (isEmailValid) Color(0xFF22C55E).copy(alpha = 0.6f) else inputBorder,
+                            focusedBorderColor = if (isEmailValid) Color(0xFF22C55E) else goldAccent,
+                            unfocusedBorderColor = if (isEmailValid) Color(0xFF22C55E).copy(alpha = 0.5f) else inputBorder,
                             focusedTextColor = textMain,
                             unfocusedTextColor = textMain,
-                            cursorColor = lavenderAccent
+                            cursorColor = goldAccent
                         ),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                         singleLine = true
@@ -400,8 +397,8 @@ fun AuthScreen(
                         text = "Password",
                         fontWeight = FontWeight.SemiBold,
                         color = textMain,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 4.dp)
                     )
                     OutlinedTextField(
                         value = password,
@@ -409,25 +406,25 @@ fun AuthScreen(
                             password = it 
                             if (errorMessage.isNotEmpty()) errorMessage = ""
                         },
-                        placeholder = { Text("Enter your Password", color = textMuted.copy(alpha = 0.6f), fontSize = 13.sp) },
+                        placeholder = { Text("Enter your Password", color = textMuted.copy(alpha = 0.5f), fontSize = 12.5.sp) },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Lock,
                                 contentDescription = "Password",
-                                tint = lavenderAccent,
-                                modifier = Modifier.size(19.dp)
+                                tint = goldAccent,
+                                modifier = Modifier.size(17.dp)
                             )
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = inputBg,
                             unfocusedContainerColor = inputBg,
-                            focusedBorderColor = lavenderAccent,
+                            focusedBorderColor = goldAccent,
                             unfocusedBorderColor = inputBorder,
                             focusedTextColor = textMain,
                             unfocusedTextColor = textMain,
-                            cursorColor = lavenderAccent
+                            cursorColor = goldAccent
                         ),
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
@@ -436,61 +433,58 @@ fun AuthScreen(
                     )
                 }
 
-                // एरर टेक्स्ट (गलत/अधूरे इनपुट पर)
                 if (errorMessage.isNotEmpty()) {
                     Text(
                         text = errorMessage,
                         color = Color(0xFFEF4444),
-                        fontSize = 12.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
 
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // 🎯 मुख्य बटन (Sign Up / Sign In) - सॉलिड गोल्ड पिल
+                // 🎯 मुख्य बटन (Sign Up / Sign In)
                 Button(
                     onClick = { handleAuthSubmit() },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(24.dp),
+                        .height(44.dp),
+                    shape = RoundedCornerShape(22.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = goldButton,
+                        containerColor = goldAccent,
                         contentColor = Color.Black
                     ),
                     enabled = !isLoading
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.Black, strokeWidth = 2.dp)
                     } else {
                         Text(
                             text = if (isLoginMode) "Sign In" else "Sign Up",
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Black
                         )
                     }
                 }
 
-                // 🔄 स्विच टेक्स्ट (Sign Up <-> login)
+                // 🔄 स्विच टेक्स्ट
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 2.dp),
+                        .padding(vertical = 1.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = if (isLoginMode) "Don't have an account? " else "Already have an account? ",
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         color = textMuted
                     )
                     Text(
-                        text = if (isLoginMode) "Sign Up" else "login",
-                        fontSize = 13.sp,
-                        color = goldButton,
+                        text = if (isLoginMode) "Sign Up" else "Sign In",
+                        fontSize = 12.sp,
+                        color = goldAccent,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.clickable { 
                             isLoginMode = !isLoginMode
@@ -499,14 +493,15 @@ fun AuthScreen(
                     )
                 }
 
-                // 🌐 Continue with Google बटन (स्लिम आउटलाइन पिल)
+                // 🌐 Continue with Google बटन
                 OutlinedButton(
                     onClick = { handleGoogleSignIn() },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(24.dp),
+                        .height(44.dp),
+                    shape = RoundedCornerShape(22.dp),
                     border = BorderStroke(slimBorderStroke, cardBorder),
+                    enabled = !isLoading,
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = Color.Transparent
                     )
@@ -517,16 +512,16 @@ fun AuthScreen(
                     ) {
                         Text(
                             text = "G",
-                            fontSize = 18.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Black,
                             color = Color(0xFF4285F4)
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Continue with Google",
                             color = textMain,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 13.sp
                         )
                     }
                 }
