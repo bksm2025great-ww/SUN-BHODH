@@ -2,6 +2,9 @@ package com.amon.timer
 
 import android.content.Context
 import android.util.Log
+import com.amon.timer.groups.GroupMember
+import com.amon.timer.groups.MemberRole
+import com.amon.timer.groups.StudyGroup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Call
@@ -33,25 +36,33 @@ object CloudSyncManager {
     private const val SUPABASE_KEY = "sb_publishable_flD-UULZ2YGzMrVLw2QHoA_7cXEg7FX"
 
     /**
-     * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम और UUID दर्ज करना
+     * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम, UUID और ईमेल दर्ज करना (UPSERT)
      */
-    fun registerUserOnCloud(context: Context) {
+    fun registerUserOnCloud(
+        context: Context,
+        userId: String? = null,
+        nickname: String? = null,
+        email: String? = null
+    ) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) {
             Log.w(TAG, "Supabase credentials set nahi hai!")
             return
         }
 
         val userManager = UserManager(context)
-        val userName = userManager.getUserName().trim()
-        val userId = userManager.getUserId()
+        val finalUserId = userId ?: userManager.getUserId()
+        val finalUserName = (nickname ?: userManager.getUserName()).trim()
 
-        if (userName.isBlank() || userName.equals("Guest", ignoreCase = true)) {
+        if (finalUserName.isBlank() || finalUserName.equals("Guest", ignoreCase = true)) {
             return
         }
 
         val jsonPayload = JSONObject().apply {
-            put("id", userId) // 🔑 Supabase की profiles टेबल का UUID
-            put("display_name", userName)
+            put("id", finalUserId)
+            put("display_name", finalUserName)
+            if (!email.isNullOrBlank()) {
+                put("email", email.trim())
+            }
         }
 
         val requestBody = jsonPayload.toString().toRequestBody(JSON_MEDIA_TYPE)
@@ -72,9 +83,9 @@ object CloudSyncManager {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (response.isSuccessful) {
-                        Log.d(TAG, "User '$userName' ($userId) profiles me safalta se jud gaya!")
+                        Log.d(TAG, "User '$finalUserName' ($finalUserId) profiles me safalta se jud gaya!")
                     } else {
-                        Log.e(TAG, "Registration error code: ${response.code}")
+                        Log.e(TAG, "Registration error code: ${response.code} body: ${response.body?.string()}")
                     }
                 }
             }
@@ -82,7 +93,212 @@ object CloudSyncManager {
     }
 
     /**
-     * ⏱️ 2. पढ़ाई पूरी होने पर डेटा Supabase में भेजना (user_id और sessionId के साथ)
+     * 👥 2. ग्रुप्स को Supabase से लोड करना (ताकि Hope या कोई भी ग्रुप गायब न हो)
+     */
+    suspend fun fetchGroups(context: Context): List<StudyGroup> = withContext(Dispatchers.IO) {
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
+
+        val userManager = UserManager(context)
+        val currentUserId = userManager.getUserId()
+
+        // 1. सबसे पहले चेक करेंगे कि यूज़र कौन-कौन से ग्रुप में जुड़ा है
+        val joinedGroupIds = mutableSetOf<String>()
+        try {
+            val memberReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/group_members?user_id=eq.$currentUserId&select=group_id")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+                .get()
+                .build()
+
+            val memberRes = client.newCall(memberReq).execute()
+            val memberText = memberRes.body?.string().orEmpty()
+            if (memberRes.isSuccessful && memberText.isNotBlank()) {
+                val arr = JSONArray(memberText)
+                for (i in 0 until arr.length()) {
+                    joinedGroupIds.add(arr.getJSONObject(i).optString("group_id"))
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Joined groups fetch error: ${e.message}")
+        }
+
+        // 2. अब सारे ग्रुप्स लोड करेंगे
+        val groupsUrl = "$SUPABASE_URL/rest/v1/groups?select=*&order=created_at.desc"
+        val request = Request.Builder()
+            .url(groupsUrl)
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .get()
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+            val text = response.body?.string().orEmpty()
+            if (response.isSuccessful && text.isNotBlank()) {
+                val arr = JSONArray(text)
+                val list = mutableListOf<StudyGroup>()
+
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val gId = obj.optString("id")
+                    val isDef = obj.optBoolean("is_default", false) || gId == "universal_lib"
+                    
+                    // ⚠️ ऑटो-जॉइन बंद: सिर्फ तभी joined माना जाएगा जब डेटाबेस में एंट्री हो
+                    val isJoined = joinedGroupIds.contains(gId)
+
+                    list.add(
+                        StudyGroup(
+                            id = gId,
+                            name = obj.optString("name", "Study Group"),
+                            category = obj.optString("category", "General"),
+                            isPublic = obj.optBoolean("is_public", true),
+                            memberCount = obj.optInt("member_count", 1),
+                            focusingCount = obj.optInt("focusing_count", 0),
+                            isPinned = obj.optBoolean("is_pinned", false),
+                            isJoined = isJoined,
+                            isDefault = isDef,
+                            inviteCode = obj.optString("invite_code", "AMON-GLOBAL")
+                        )
+                    )
+                }
+
+                // अगर यूनिवर्सल लाइब्रेरी लिस्ट में नहीं है तो डिफ़ॉल्ट जोड़ेंगे (Not Joined by default)
+                if (list.none { it.id == "universal_lib" }) {
+                    list.add(
+                        0,
+                        StudyGroup(
+                            id = "universal_lib",
+                            name = "Universal Library",
+                            category = "Global",
+                            isPublic = true,
+                            memberCount = 1,
+                            focusingCount = 0,
+                            isPinned = true,
+                            isJoined = joinedGroupIds.contains("universal_lib"),
+                            isDefault = true,
+                            inviteCode = "GLOBAL"
+                        )
+                    )
+                }
+
+                return@withContext list
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Groups fetch error: ${e.message}")
+        }
+
+        return@withContext emptyList()
+    }
+
+    /**
+     * ➕ 3. नया ग्रुप बनाना (Supabase 'groups' टेबल में परमानेंट सेव होगा)
+     */
+    suspend fun createGroupOnCloud(
+        context: Context,
+        group: StudyGroup
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext false
+
+        val userManager = UserManager(context)
+        val userId = userManager.getUserId()
+        val userName = userManager.getUserName()
+
+        val jsonPayload = JSONObject().apply {
+            put("id", group.id)
+            put("name", group.name)
+            put("category", group.category)
+            put("is_public", group.isPublic)
+            put("member_count", 1)
+            put("focusing_count", 0)
+            put("is_pinned", false)
+            put("is_default", false)
+            put("created_by", userId)
+            put("invite_code", group.inviteCode)
+        }
+
+        val request = Request.Builder()
+            .url("$SUPABASE_URL/rest/v1/groups")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "resolution=merge-duplicates")
+            .post(jsonPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                // ग्रुप बनते ही बनाने वाले को एडमिन के रूप में जॉइन कराएंगे
+                joinGroupOnCloud(context, group.id)
+                return@withContext true
+            } else {
+                Log.e(TAG, "Create group failed: ${response.code} body: ${response.body?.string()}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Create group exception: ${e.message}")
+        }
+        return@withContext false
+    }
+
+    /**
+     * 🚪 4. ग्रुप जॉइन करना (Supabase 'group_members' टेबल में एंट्री)
+     */
+    suspend fun joinGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
+        val userManager = UserManager(context)
+        val userId = userManager.getUserId()
+        val userName = userManager.getUserName()
+
+        val payload = JSONObject().apply {
+            put("group_id", groupId)
+            put("user_id", userId)
+            put("nickname", userName)
+            put("role", "member")
+        }
+
+        val request = Request.Builder()
+            .url("$SUPABASE_URL/rest/v1/group_members")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "resolution=merge-duplicates")
+            .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+            return@withContext response.isSuccessful
+        } catch (e: Exception) {
+            Log.e(TAG, "Join group error: ${e.message}")
+            return@withContext false
+        }
+    }
+
+    /**
+     * ❌ 5. ग्रुप छोड़ना (Supabase 'group_members' से रो डिलीट करना)
+     */
+    suspend fun leaveGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
+        val userManager = UserManager(context)
+        val userId = userManager.getUserId()
+
+        val request = Request.Builder()
+            .url("$SUPABASE_URL/rest/v1/group_members?group_id=eq.$groupId&user_id=eq.$userId")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .delete()
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+            return@withContext response.isSuccessful
+        } catch (e: Exception) {
+            Log.e(TAG, "Leave group error: ${e.message}")
+            return@withContext false
+        }
+    }
+
+    /**
+     * ⏱️ 6. पढ़ाई पूरी होने पर डेटा Supabase में भेजना (user_id और sessionId के साथ)
      */
     fun syncSession(
         context: Context,
@@ -102,8 +318,8 @@ object CloudSyncManager {
         val userId = userManager.getUserId()
 
         val jsonPayload = JSONObject().apply {
-            put("id", sessionId) // 🔑 यूनिक ID ताकि डुप्लीकेट न बने
-            put("user_id", userId) // 👈 इससे study_sessions में NULL आना बंद होगा
+            put("id", sessionId)
+            put("user_id", userId)
             put("subject", subject.ifBlank { "General" })
             put("duration_minutes", durationMinutes)
         }
@@ -114,7 +330,7 @@ object CloudSyncManager {
             .addHeader("apikey", SUPABASE_KEY)
             .addHeader("Authorization", "Bearer $SUPABASE_KEY")
             .addHeader("Content-Type", "application/json")
-            .addHeader("Prefer", "resolution=merge-duplicates") // 🛡️ डुप्लीकेट एंट्री की जगह अपडेट करेगा
+            .addHeader("Prefer", "resolution=merge-duplicates")
             .post(requestBody)
             .build()
 
@@ -136,7 +352,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 📥 3. Supabase से पढ़ाई का पूरा हिसाब वापस मंगाना (GET)
+     * 📥 7. Supabase से पढ़ाई का पूरा हिसाब वापस मंगाना (GET)
      */
     suspend fun fetchSessions(context: Context): List<FocusSession> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
@@ -144,7 +360,6 @@ object CloudSyncManager {
         val userManager = UserManager(context)
         val userId = userManager.getUserId()
 
-        // 🔒 केवल वर्तमान छात्र का डेटा वापस आएगा
         val fetchUrl = "$SUPABASE_URL/rest/v1/study_sessions?user_id=eq.$userId&select=*&order=created_at.desc"
         val request = Request.Builder()
             .url(fetchUrl)
@@ -183,7 +398,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 👑 4. Supabase से लाइव लीडरबोर्ड डेटा खींचना (टॉपर्स की लिस्ट)
+     * 👑 8. Supabase से लाइव लीडरबोर्ड डेटा खींचना
      */
     suspend fun fetchLeaderboard(): List<LeaderboardItem> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
