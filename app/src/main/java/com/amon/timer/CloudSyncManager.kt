@@ -179,8 +179,8 @@ object CloudSyncManager {
             Log.e(TAG, "Joined groups fetch error: ${e.message}")
         }
 
-        // 2. study_groups टेबल से सारे ग्रुप्स लोड करें
-        val groupsUrl = "$SUPABASE_URL/rest/v1/study_groups?select=*&order=created_at.desc"
+        // 2. study_groups टेबल से सारे ग्रुप्स लोड करें (सुरक्षित URL)
+        val groupsUrl = "$SUPABASE_URL/rest/v1/study_groups?select=*"
         val request = Request.Builder()
             .url(groupsUrl)
             .addHeader("apikey", SUPABASE_KEY)
