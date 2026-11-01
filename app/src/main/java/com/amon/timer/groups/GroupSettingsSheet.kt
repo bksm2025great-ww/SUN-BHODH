@@ -1,5 +1,7 @@
 package com.amon.timer.groups
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,6 +37,7 @@ fun GroupSettingsSheet(
     onReportGroup: () -> Unit = {},
     onLeaveGroup: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val isDark = ThemeManager.isDarkTheme.value
     val cardBg = ThemeManager.getCardColor()
     val textMain = ThemeManager.getTextColor()
@@ -43,8 +46,77 @@ fun GroupSettingsSheet(
     val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
     val dangerColor = Color(0xFFEF4444)
 
-    var notificationsEnabled by remember { mutableStateOf(group.notificationsEnabled) }
+    var showLeaveConfirmDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // 🚀 1. शेयर शीट (WhatsApp, Telegram आदि)
+    fun launchShareSheet() {
+        val shareMessage = """
+            Hey! Join my study group "${group.name}" on Sun Bhodh.
+            Use Invite Code: ${group.inviteCode}
+            Let's focus together! 📚✨
+        """.trimIndent()
+
+        val sendIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, shareMessage)
+            type = "text/plain"
+        }
+        context.startActivity(Intent.createChooser(sendIntent, "Invite Aspirants"))
+    }
+
+    // 📩 2. असली रिपोर्ट ईमेल इंटेंट
+    fun launchReportEmail() {
+        try {
+            val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                data = Uri.parse("mailto:")
+                putExtra(Intent.EXTRA_EMAIL, arrayOf("support@sunbhodh.app")) // अपना सपोर्ट ईमेल यहाँ डाल सकते हैं
+                putExtra(Intent.EXTRA_SUBJECT, "Report Group: ${group.name} (${group.id})")
+                putExtra(Intent.EXTRA_TEXT, "Hi Team,\n\nI want to report this group due to inappropriate content or spam.\n\nDetails:\n")
+            }
+            context.startActivity(Intent.createChooser(emailIntent, "Send Report"))
+        } catch (e: Exception) {
+            // अगर ईमेल ऐप न मिले
+        }
+    }
+
+    // ⚠️ ग्रुप छोड़ने से पहले पक्का करने वाला डायलॉग
+    if (showLeaveConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showLeaveConfirmDialog = false },
+            containerColor = cardBg,
+            title = {
+                Text(
+                    text = "Leave Group?",
+                    color = textMain,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to leave \"${group.name}\"? You can join back anytime using the group code.",
+                    color = textMuted,
+                    fontSize = 13.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLeaveConfirmDialog = false
+                        onLeaveGroup()
+                    }
+                ) {
+                    Text("Leave", color = dangerColor, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLeaveConfirmDialog = false }) {
+                    Text("Cancel", color = textMain)
+                }
+            }
+        )
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -95,13 +167,16 @@ fun GroupSettingsSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 1. Invite Aspirants (1-Tap Share Sheet)
+            // 1. Invite Aspirants (एक्टिव)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-                    .clickable { onInvite() },
+                    .clickable {
+                        onInvite()
+                        launchShareSheet()
+                    },
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = cardBg)
             ) {
@@ -126,7 +201,7 @@ fun GroupSettingsSheet(
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "Share group link or invite code",
+                            text = "Code: ${group.inviteCode} · Tap to share",
                             color = textMuted,
                             fontSize = 11.5.sp
                         )
@@ -136,73 +211,16 @@ fun GroupSettingsSheet(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 2. Study Notifications Toggle
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, cardBorder, RoundedCornerShape(12.dp)),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = cardBg)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = null,
-                            tint = accentColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "Study Notifications",
-                                color = textMain,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                            Text(
-                                text = "Daily focus reminders & milestone alerts",
-                                color = textMuted,
-                                fontSize = 11.5.sp
-                            )
-                        }
-                    }
-
-                    Switch(
-                        checked = notificationsEnabled,
-                        onCheckedChange = {
-                            notificationsEnabled = it
-                            onToggleNotifications(it)
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = accentColor,
-                            uncheckedThumbColor = textMuted,
-                            uncheckedTrackColor = cardBorder.copy(alpha = 0.5f)
-                        )
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // 3. Report Group
+            // 2. Report Group (सीधा ईमेल रिपोर्ट)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-                    .clickable { onReportGroup() },
+                    .clickable {
+                        onReportGroup()
+                        launchReportEmail()
+                    },
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = cardBg)
             ) {
@@ -227,7 +245,7 @@ fun GroupSettingsSheet(
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "Flag spam or inappropriate content",
+                            text = "Flag spam or inappropriate content via email",
                             color = textMuted,
                             fontSize = 11.5.sp
                         )
@@ -237,9 +255,9 @@ fun GroupSettingsSheet(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // 4. Leave Group Button (रेड आउटलाइन)
+            // 3. Leave Group Button (कन्फ़र्मेशन के साथ)
             OutlinedButton(
-                onClick = onLeaveGroup,
+                onClick = { showLeaveConfirmDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(46.dp),
@@ -264,7 +282,6 @@ fun GroupSettingsSheet(
                 )
             }
 
-            // नीचे का सुरक्षित मार्जिन ताकि नेविगेशन बार से न दबे
             Spacer(modifier = Modifier.height(28.dp))
         }
     }
