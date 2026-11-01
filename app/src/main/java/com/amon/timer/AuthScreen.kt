@@ -5,12 +5,8 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
@@ -62,7 +59,7 @@ fun AuthScreen(
     val userManager = remember { UserManager(context) }
     val scrollState = rememberScrollState()
 
-    // 🎨 Phone 1 कलर पैलेट
+    // 🎨 Phone 1 कलर पैलेट (डार्क ऑब्सिडियन + सॉफ्ट लैवेंडर + वार्म गोल्ड)
     val screenBg = Color(0xFF0F0E17)
     val cardBg = Color(0xFF16151F)
     val inputBg = Color(0xFF1A1826)
@@ -79,12 +76,18 @@ fun AuthScreen(
     val credentialManager = remember { CredentialManager.create(context) }
     val webClientId = stringResource(id = R.string.default_web_client_id)
 
+    // स्टेट्स
     var isLoginMode by remember { mutableStateOf(false) } // false = Sign Up, true = Sign In
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+
+    // 🟢 रियल-टाइम ईमेल वेरिफिकेशन चेक (Professional Check Rule)
+    val isEmailValid = remember(email) {
+        android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
+    }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -111,7 +114,7 @@ fun AuthScreen(
             errorMessage = "कृपया अपना नाम दर्ज करें!"
         } else if (cleanEmail.isBlank()) {
             errorMessage = "कृपया अपना ईमेल दर्ज करें!"
-        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
+        } else if (!isEmailValid) {
             errorMessage = "कृपया सही ईमेल पता दर्ज करें!"
         } else if (cleanPass.length < 6) {
             errorMessage = "पासवर्ड कम से कम 6 अक्षरों का होना चाहिए!"
@@ -130,6 +133,7 @@ fun AuthScreen(
                     errorMessage = "गलत पासवर्ड! कृपया दोबारा प्रयास करें।"
                 } else {
                     userManager.setGuestUser(false)
+                    userManager.setUserEmail(cleanEmail)
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
                             CloudSyncManager.registerUserOnCloud(
@@ -151,6 +155,7 @@ fun AuthScreen(
             } else {
                 // ✨ Sign Up Mode: लोकल मेमोरी में हैश स्टोर और सुप्राबेस रजिस्ट्रेशन
                 userManager.setUserName(cleanName)
+                userManager.setUserEmail(cleanEmail)
                 userManager.setPassword(hashedPass)
                 userManager.setGuestUser(false)
 
@@ -205,6 +210,7 @@ fun AuthScreen(
                     val userEmail = googleIdTokenCredential.id
 
                     userManager.setUserName(displayName)
+                    userManager.setUserEmail(userEmail)
                     userManager.setGuestUser(false)
 
                     coroutineScope.launch(Dispatchers.IO) {
@@ -225,7 +231,7 @@ fun AuthScreen(
                     proceedToApp()
                 }
             } catch (e: GetCredentialCancellationException) {
-                // User dismissed sheet
+                // User closed login
             } catch (e: Exception) {
                 errorMessage = "Google Sign-In विफल: ${e.localizedMessage}"
             }
@@ -286,7 +292,7 @@ fun AuthScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // 👤 Name फ़ील्ड (Sign Up में दिखता है, Sign In में स्मूथली हट जाता है)
+                // 👤 Name फ़ील्ड (सिर्फ Sign Up में दिखेगा, Sign In में छिप जाएगा)
                 AnimatedVisibility(
                     visible = !isLoginMode,
                     enter = expandVertically(tween(250)) + fadeIn(tween(250)),
@@ -332,7 +338,7 @@ fun AuthScreen(
                     }
                 }
 
-                // ✉️ Email फ़ील्ड
+                // ✉️ Email फ़ील्ड (ग्रीन वेरिफिकेशन टिक के साथ)
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "Email",
@@ -356,13 +362,29 @@ fun AuthScreen(
                                 modifier = Modifier.size(19.dp)
                             )
                         },
+                        // 🟢 दाएँ कोने में वेरिफिकेशन ग्रीन टिक
+                        trailingIcon = {
+                            AnimatedVisibility(
+                                visible = isEmailValid,
+                                enter = fadeIn(tween(200)),
+                                exit = fadeOut(tween(150))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Valid Email Verified",
+                                    tint = Color(0xFF22C55E), // वाइब्रेंट ग्रीन टिक
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = inputBg,
                             unfocusedContainerColor = inputBg,
-                            focusedBorderColor = lavenderAccent,
-                            unfocusedBorderColor = inputBorder,
+                            // ✅ ईमेल सत्यापित होने पर बॉर्डर का रंग भी हल्का हरा हो जाएगा
+                            focusedBorderColor = if (isEmailValid) Color(0xFF22C55E) else lavenderAccent,
+                            unfocusedBorderColor = if (isEmailValid) Color(0xFF22C55E).copy(alpha = 0.6f) else inputBorder,
                             focusedTextColor = textMain,
                             unfocusedTextColor = textMain,
                             cursorColor = lavenderAccent
@@ -414,7 +436,7 @@ fun AuthScreen(
                     )
                 }
 
-                // एरर टेक्स्ट
+                // एरर टेक्स्ट (गलत/अधूरे इनपुट पर)
                 if (errorMessage.isNotEmpty()) {
                     Text(
                         text = errorMessage,
@@ -452,7 +474,7 @@ fun AuthScreen(
                     }
                 }
 
-                // 🔄 स्विच टेक्स्ट (Sign Up <-> Sign In)
+                // 🔄 स्विच टेक्स्ट (Sign Up <-> login)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
