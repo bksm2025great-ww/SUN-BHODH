@@ -19,7 +19,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,10 +46,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import com.airbnb.lottie.compose.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen() {
     var showAchievementsScreen by remember { mutableStateOf(false) }
@@ -79,8 +83,11 @@ fun ProfileScreen() {
     val currentAppVersion = remember { updateManager.currentVersion }
 
     var currentUserName by remember { mutableStateOf(userManager.getUserName().trim()) }
+    var currentNickname by remember { mutableStateOf(userManager.getNickName().trim()) }
     val hasCustomName = currentUserName.isNotEmpty()
-    var showEditNameDialog by remember { mutableStateOf(false) }
+
+    // 🌟 फ़्लोटिंग बॉटम शीट स्टेट
+    var showEditProfileSheet by remember { mutableStateOf(false) }
 
     val backupFilePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -122,7 +129,10 @@ fun ProfileScreen() {
     val textMain = ThemeManager.getTextColor()
     val textMuted = ThemeManager.getTextMutedColor()
     val goldColor = ThemeManager.getAccentColor()
-    val cardBorder = if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1)
+    
+    // 🪶 अल्ट्रा-स्लिम 0.8dp बॉर्डर्स
+    val slimBorderStroke = 0.8.dp
+    val cardBorder = if (isDark) Color(0x28C084FC) else Color(0xFFCBD5E1)
 
     var isSyncing by remember { mutableStateOf(false) }
     var showSyncPopup by remember { mutableStateOf(false) }
@@ -158,132 +168,74 @@ fun ProfileScreen() {
             .verticalScroll(scrollState)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // ----------------- TOP TITLE -----------------
-        Text(
-            text = "PROFILE & SETTINGS",
-            color = textMain,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = 1.2.sp,
-            modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
-        )
-
-        // ================= SECTION 1: ACCOUNT =================
-        SectionHeader(title = "ACCOUNT", color = textMuted)
-
-        Box(
+        // ================= TOP PROFILE HEADER (PHOTO STYLE) =================
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
-                .background(cardBg)
-                .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
-                .clickable { showEditNameDialog = true }
-                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .padding(top = 10.dp, bottom = 6.dp, start = 4.dp, end = 4.dp)
+                .clickable { showEditProfileSheet = true },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            val initialLetter = if (hasCustomName) {
+                currentUserName.take(2).uppercase()
+            } else "AA"
+
+            // 🌟 गोल अवतार (Avatar Circle)
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(if (isDark) Color(0x1FFFFFFF) else Color(0x10000000))
+                    .border(slimBorderStroke, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape),
+                contentAlignment = Alignment.Center
             ) {
+                Text(
+                    text = initialLetter,
+                    color = textMain,
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+
+            // 🌟 नाम और सबटाइटल
+            Column(modifier = Modifier.weight(1f)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val initialLetter = if (hasCustomName) {
-                        currentUserName.first().uppercaseChar().toString()
-                    } else "A"
-
-                    Box(
+                    Text(
+                        text = if (hasCustomName) currentUserName else "Amon_Admin",
+                        color = textMain,
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    OutlinedPencilIcon(
+                        tint = textMuted.copy(alpha = 0.8f),
                         modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(goldColor.copy(alpha = 0.18f))
-                            .border(1.5.dp, goldColor.copy(alpha = 0.6f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = initialLetter,
-                            color = goldColor,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = if (hasCustomName) currentUserName else "Set your name",
-                            color = if (hasCustomName) textMain else textMuted,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(goldColor.copy(alpha = 0.12f))
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = currentRankTitle,
-                                color = goldColor,
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                            .size(15.dp)
+                            .clickable { showEditProfileSheet = true }
+                    )
                 }
-
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(CircleShape)
-                        .background(if (isDark) Color(0x18FFFFFF) else Color(0x0E000000)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    OutlinedPencilIcon(tint = goldColor)
-                }
-            }
-        }
-
-        // ================= SECTION 2: APPEARANCE & CONTROLS =================
-        SectionHeader(title = "APPEARANCE & ACHIEVEMENTS", color = textMuted)
-
-        // Achievements Card
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(cardBg)
-                .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
-                .clickable { showAchievementsScreen = true }
-                .padding(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(13.dp)
-            ) {
-                OutlinedTrophyIcon(tint = goldColor)
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Achievements & Badges",
-                    color = textMain,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "@${if (currentNickname.isNotBlank()) currentNickname.lowercase().replace(" ", "_") else "amon_admin"} • Study Group",
+                    color = textMuted,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Normal
                 )
             }
         }
 
-        // Preferences Card
+        // ================= SECTION 1: APPEARANCE & ACHIEVEMENTS =================
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
-                .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
+                .border(slimBorderStroke, cardBorder, RoundedCornerShape(16.dp))
                 .clickable { showPreferencesScreen = true }
                 .padding(14.dp)
         ) {
@@ -310,7 +262,7 @@ fun ProfileScreen() {
             }
         }
 
-        // ================= SECTION 3: DATA & STORAGE =================
+        // ================= SECTION 2: DATA & STORAGE =================
         SectionHeader(title = "DATA & STORAGE", color = textMuted)
 
         // Amon Vault (Backup & Restore)
@@ -321,7 +273,7 @@ fun ProfileScreen() {
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
                 .border(
-                    width = 1.dp,
+                    width = slimBorderStroke,
                     color = if (isVaultExpanded) goldColor.copy(alpha = 0.7f) else cardBorder,
                     shape = RoundedCornerShape(16.dp)
                 )
@@ -365,7 +317,7 @@ fun ProfileScreen() {
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
-                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                            .border(slimBorderStroke, cardBorder, RoundedCornerShape(12.dp))
                             .clickable {
                                 val success = BackupManager.exportBackup(context, currentUserName)
                                 if (!success) {
@@ -406,7 +358,7 @@ fun ProfileScreen() {
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
-                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                            .border(slimBorderStroke, cardBorder, RoundedCornerShape(12.dp))
                             .clickable { backupFilePicker.launch("*/*") }
                             .padding(vertical = 10.dp, horizontal = 12.dp)
                     ) {
@@ -442,7 +394,7 @@ fun ProfileScreen() {
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
-                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                            .border(slimBorderStroke, cardBorder, RoundedCornerShape(12.dp))
                             .clickable {
                                 val success = BackupManager.exportCsvReport(context, currentUserName)
                                 if (!success) {
@@ -485,7 +437,7 @@ fun ProfileScreen() {
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isDark) Color(0x11FFFFFF) else Color(0x08000000))
-                            .border(1.dp, cardBorder.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+                            .border(slimBorderStroke, cardBorder.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
@@ -518,7 +470,7 @@ fun ProfileScreen() {
                                 .height(36.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(goldColor.copy(alpha = 0.15f))
-                                .border(1.dp, goldColor.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                                .border(slimBorderStroke, goldColor.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
                                 .clickable(enabled = !isSyncing) {
                                     coroutineScope.launch {
                                         isSyncing = true
@@ -582,17 +534,17 @@ fun ProfileScreen() {
             }
         }
 
-        // ================= SECTION 4: SUPPORT & UPDATES =================
+        // ================= SECTION 3: SUPPORT & UPDATES =================
         SectionHeader(title = "SUPPORT & ABOUT", color = textMuted)
 
-        // App Updates Card (Fixed Version Label Typo)
+        // App Updates Card
         val isUpdateExpanded = activeExpandedCard == "update"
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
-                .border(1.dp, if (hasNewUpdate) Color(0xFF10B981).copy(alpha = 0.8f) else cardBorder, RoundedCornerShape(16.dp))
+                .border(slimBorderStroke, if (hasNewUpdate) Color(0xFF10B981).copy(alpha = 0.8f) else cardBorder, RoundedCornerShape(16.dp))
                 .padding(14.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -662,7 +614,7 @@ fun ProfileScreen() {
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (isDownloading) Color(0x2210B981) else Color(0xFF10B981))
                                 .border(
-                                    width = 1.dp,
+                                    width = slimBorderStroke,
                                     color = if (isDownloading) goldColor.copy(alpha = 0.5f) else Color.Transparent,
                                     shape = RoundedCornerShape(12.dp)
                                 )
@@ -750,7 +702,7 @@ fun ProfileScreen() {
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(50))
                                     .background(Color(0xFF10B981).copy(alpha = 0.15f))
-                                    .border(1.dp, Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape(50))
+                                    .border(slimBorderStroke, Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape(50))
                                     .padding(horizontal = 9.dp, vertical = 3.dp)
                             ) {
                                 Text(
@@ -773,7 +725,7 @@ fun ProfileScreen() {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
-                .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
+                .border(slimBorderStroke, cardBorder, RoundedCornerShape(16.dp))
                 .padding(14.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -814,7 +766,7 @@ fun ProfileScreen() {
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
-                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                            .border(slimBorderStroke, cardBorder, RoundedCornerShape(12.dp))
                             .clickable {
                                 sendSupportEmail(
                                     context = context,
@@ -857,7 +809,7 @@ fun ProfileScreen() {
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
-                            .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                            .border(slimBorderStroke, cardBorder, RoundedCornerShape(12.dp))
                             .clickable {
                                 sendSupportEmail(
                                     context = context,
@@ -901,7 +853,7 @@ fun ProfileScreen() {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
-                .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
+                .border(slimBorderStroke, cardBorder, RoundedCornerShape(16.dp))
                 .clickable(enabled = !isPreparingApkShare) {
                     coroutineScope.launch {
                         isPreparingApkShare = true
@@ -945,7 +897,7 @@ fun ProfileScreen() {
         }
 
         // ================= BOTTOM BALANCED ILLUSTRATION & FOOTER =================
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         val lottieComposition by rememberLottieComposition(
             LottieCompositionSpec.RawRes(R.raw.profile_anim)
@@ -955,12 +907,11 @@ fun ProfileScreen() {
             iterations = LottieConstants.IterateForever
         )
 
-        // 🌟 Lottie Wrapper with Soft Ambient Glow
+        // 🌟 Pure Floating Lottie Animation (No Dark Box / Fully Transparent)
         Box(
             modifier = Modifier
-                .size(108.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(goldColor.copy(alpha = if (isDark) 0.04f else 0.02f)),
+                .size(118.dp)
+                .padding(vertical = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             LottieAnimation(
@@ -968,15 +919,15 @@ fun ProfileScreen() {
                 progress = { lottieProgress },
                 modifier = Modifier
                     .fillMaxSize()
-                    .alpha(if (isDark) 0.90f else 1.0f)
+                    .alpha(if (isDark) 0.95f else 1.0f)
             )
         }
 
-        // 🌟 Centered Student Footer Note (Accent Colored Favorite Icon)
+        // 🌟 Student Footer Note
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 1.dp, bottom = 12.dp),
+                .padding(top = 2.dp, bottom = 14.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -989,56 +940,146 @@ fun ProfileScreen() {
             Icon(
                 imageVector = Icons.Filled.Favorite,
                 contentDescription = "Love",
-                tint = goldColor,
+                tint = Color(0xFFA855F7), // Soft Lavender Purple
                 modifier = Modifier.size(13.dp)
             )
         }
     }
 
-    // ✏️ Edit Name Dialog
-    if (showEditNameDialog) {
-        var editInput by remember { mutableStateOf(currentUserName) }
-        AlertDialog(
-            onDismissRequest = { showEditNameDialog = false },
-            title = {
-                Text(text = "Edit Display Name", color = textMain, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            },
-            text = {
-                OutlinedTextField(
-                    value = editInput,
-                    onValueChange = { editInput = it },
-                    placeholder = { Text("Enter your name", color = textMuted) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = textMain,
-                        unfocusedTextColor = textMain,
-                        focusedBorderColor = goldColor,
-                        unfocusedBorderColor = cardBorder
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
+    // 🌟 फ़्लोटिंग बॉटम शीट (Profile & Nickname Edit)
+    if (showEditProfileSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        var tempName by remember { mutableStateOf(currentUserName) }
+        var tempNick by remember { mutableStateOf(currentNickname) }
+
+        ModalBottomSheet(
+            onDismissRequest = { showEditProfileSheet = false },
+            sheetState = sheetState,
+            containerColor = if (isDark) Color(0xFF16151F) else Color.White,
+            shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
+            dragHandle = {
+                BottomSheetDefaults.DragHandle(color = textMuted.copy(alpha = 0.4f))
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                    .padding(bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Edit Study Profile",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textMain
+                    )
+                    IconButton(onClick = { showEditProfileSheet = false }) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = textMuted)
+                    }
+                }
+
+                // 1. Display Name Input
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Display Name",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = textMain,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    OutlinedTextField(
+                        value = tempName,
+                        onValueChange = { tempName = it },
+                        placeholder = { Text("e.g. Amon Admin", color = textMuted.copy(alpha = 0.6f), fontSize = 13.sp) },
+                        leadingIcon = {
+                            Icon(imageVector = Icons.Default.Person, contentDescription = null, tint = goldColor, modifier = Modifier.size(19.dp))
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = if (isDark) Color(0xFF1A1826) else Color(0xFFF8FAFC),
+                            unfocusedContainerColor = if (isDark) Color(0xFF1A1826) else Color(0xFFF8FAFC),
+                            focusedBorderColor = goldColor,
+                            unfocusedBorderColor = cardBorder,
+                            focusedTextColor = textMain,
+                            unfocusedTextColor = textMain
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // 2. Nickname Input
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Group Nickname",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = textMain,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    OutlinedTextField(
+                        value = tempNick,
+                        onValueChange = { tempNick = it },
+                        placeholder = { Text("e.g. amon_admin", color = textMuted.copy(alpha = 0.6f), fontSize = 13.sp) },
+                        prefix = { Text("@", color = goldColor, fontWeight = FontWeight.Bold) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = if (isDark) Color(0xFF1A1826) else Color(0xFFF8FAFC),
+                            unfocusedContainerColor = if (isDark) Color(0xFF1A1826) else Color(0xFFF8FAFC),
+                            focusedBorderColor = goldColor,
+                            unfocusedBorderColor = cardBorder,
+                            focusedTextColor = textMain,
+                            unfocusedTextColor = textMain
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Save Button
                 Button(
                     onClick = {
-                        val trimmed = editInput.trim()
-                        userManager.setUserName(trimmed)
-                        currentUserName = trimmed
-                        CloudSyncManager.registerUserOnCloud(context)
-                        showEditNameDialog = false
+                        val trimmedName = tempName.trim()
+                        val trimmedNick = tempNick.trim()
+                        if (trimmedName.isNotBlank()) {
+                            userManager.setUserName(trimmedName)
+                            userManager.setNickName(trimmedNick.ifBlank { trimmedName })
+                            currentUserName = trimmedName
+                            currentNickname = trimmedNick.ifBlank { trimmedName }
+
+                            // 🚀 सुप्राबेस क्लाउड सिंक
+                            coroutineScope.launch(Dispatchers.IO) {
+                                CloudSyncManager.registerUserOnCloud(
+                                    context = context,
+                                    userId = userManager.getUserId(),
+                                    nickname = trimmedName,
+                                    email = userManager.getUserEmail()
+                                )
+                            }
+                            showEditProfileSheet = false
+                            Toast.makeText(context, "Profile updated successfully!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Name cannot be empty!", Toast.LENGTH_SHORT).show()
+                        }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = goldColor)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = goldColor, contentColor = Color.Black)
                 ) {
-                    Text("Save", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text("Save Changes", fontWeight = FontWeight.Black, fontSize = 14.sp)
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditNameDialog = false }) {
-                    Text("Cancel", color = textMuted)
-                }
-            },
-            containerColor = if (isDark) Color(0xFF1E1E24) else Color.White
-        )
+            }
+        }
     }
 
     // 🟢 Sync Popup View
@@ -1056,7 +1097,7 @@ fun ProfileScreen() {
                         .padding(top = 26.dp)
                         .clip(RoundedCornerShape(24.dp))
                         .background(if (isDark) Color(0xFF1C1C24) else Color.White)
-                        .border(1.dp, if (isDark) Color(0x33FFFFFF) else Color(0xFFE2E8F0), RoundedCornerShape(24.dp))
+                        .border(slimBorderStroke, if (isDark) Color(0x33FFFFFF) else Color(0xFFE2E8F0), RoundedCornerShape(24.dp))
                         .padding(top = 38.dp, bottom = 22.dp, start = 24.dp, end = 24.dp)
                 ) {
                     Column(
@@ -1158,7 +1199,7 @@ App Version: v$appVersion
 }
 
 // =============================================================================
-// ✨ HAND-DRAWN CANVAS ART ICONS
+// ✨ CANVAS ART ICONS
 // =============================================================================
 
 @Composable
@@ -1368,39 +1409,6 @@ private fun OutlinedPencilIcon(tint: Color, modifier: Modifier = Modifier) {
             strokeWidth = stroke * 0.85f,
             cap = StrokeCap.Round
         )
-    }
-}
-
-@Composable
-private fun OutlinedTrophyIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(22.dp)) {
-        val w = size.width
-        val h = size.height
-        val stroke = 1.8.dp.toPx()
-
-        val cup = Path().apply {
-            moveTo(w * 0.26f, h * 0.18f)
-            lineTo(w * 0.74f, h * 0.18f)
-            lineTo(w * 0.70f, h * 0.50f)
-            cubicTo(w * 0.68f, h * 0.68f, w * 0.32f, h * 0.68f, w * 0.30f, h * 0.50f)
-            close()
-        }
-        drawPath(cup, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
-
-        val leftHandle = Path().apply {
-            moveTo(w * 0.26f, h * 0.24f)
-            cubicTo(w * 0.10f, h * 0.24f, w * 0.10f, h * 0.46f, w * 0.29f, h * 0.46f)
-        }
-        drawPath(leftHandle, color = tint, style = Stroke(width = stroke * 0.9f, cap = StrokeCap.Round))
-
-        val rightHandle = Path().apply {
-            moveTo(w * 0.74f, h * 0.24f)
-            cubicTo(w * 0.90f, h * 0.24f, w * 0.90f, h * 0.46f, w * 0.71f, h * 0.46f)
-        }
-        drawPath(rightHandle, color = tint, style = Stroke(width = stroke * 0.9f, cap = StrokeCap.Round))
-
-        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.64f), end = Offset(w * 0.5f, h * 0.82f), strokeWidth = stroke, cap = StrokeCap.Round)
-        drawLine(color = tint, start = Offset(w * 0.30f, h * 0.82f), end = Offset(w * 0.70f, h * 0.82f), strokeWidth = stroke, cap = StrokeCap.Round)
     }
 }
 
