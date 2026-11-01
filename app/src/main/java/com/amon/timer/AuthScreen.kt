@@ -5,13 +5,19 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -22,13 +28,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
@@ -38,6 +45,13 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.security.MessageDigest
+
+// 🔒 पासवर्ड को सुरक्षित SHA-256 हैश में बदलने का फ़ंक्शन
+fun hashPassword(password: String): String {
+    val bytes = MessageDigest.getInstance("SHA-256").digest(password.toByteArray())
+    return bytes.joinToString("") { "%02x".format(it) }
+}
 
 @Composable
 fun AuthScreen(
@@ -48,17 +62,24 @@ fun AuthScreen(
     val userManager = remember { UserManager(context) }
     val scrollState = rememberScrollState()
 
-    val isDark = ThemeManager.isDarkTheme.value
-    val bgColor = ThemeManager.getBackgroundColor()
-    val cardBg = ThemeManager.getCardColor()
-    val textMain = ThemeManager.getTextColor()
-    val textMuted = ThemeManager.getTextMutedColor()
-    val goldColor = ThemeManager.getAccentColor()
-    val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
+    // 🎨 Phone 1 कलर पैलेट
+    val screenBg = Color(0xFF0F0E17)
+    val cardBg = Color(0xFF16151F)
+    val inputBg = Color(0xFF1A1826)
+    val lavenderAccent = Color(0xFFC084FC) // हेडर और आइकन्स का सॉफ्ट लैवेंडर
+    val goldButton = Color(0xFFF5A524)     // मुख्य बटन का वार्म गोल्ड
+    val textMain = Color(0xFFFFFFFF)
+    val textMuted = Color(0xFF94A3B8)
+    
+    // 🪶 अल्ट्रा-स्लिम हेयरलाइन बॉर्डर्स (0.8dp)
+    val slimBorderStroke = 0.8.dp
+    val cardBorder = Color(0x33C084FC)
+    val inputBorder = Color(0xFF4A3E68)
 
     val credentialManager = remember { CredentialManager.create(context) }
     val webClientId = stringResource(id = R.string.default_web_client_id)
 
+    var isLoginMode by remember { mutableStateOf(false) } // false = Sign Up, true = Sign In
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -80,45 +101,82 @@ fun AuthScreen(
         }
     }
 
-    // 🛡️ Sign Up / Login Action (Supabase Sync Integrated)
-    val handleSignUp = {
+    // 🛡️ Sign Up / Sign In सबमिशन लॉजिक
+    val handleAuthSubmit = {
         val cleanName = name.trim()
         val cleanEmail = email.trim()
         val cleanPass = password.trim()
 
-        if (cleanName.isBlank()) {
+        if (!isLoginMode && cleanName.isBlank()) {
             errorMessage = "कृपया अपना नाम दर्ज करें!"
+        } else if (cleanEmail.isBlank()) {
+            errorMessage = "कृपया अपना ईमेल दर्ज करें!"
+        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
+            errorMessage = "कृपया सही ईमेल पता दर्ज करें!"
         } else if (cleanPass.length < 6) {
             errorMessage = "पासवर्ड कम से कम 6 अक्षरों का होना चाहिए!"
         } else {
             isLoading = true
-            userManager.setUserName(cleanName)
-            userManager.setPassword(cleanPass)
-            userManager.setGuestUser(false)
+            errorMessage = ""
+            val hashedPass = hashPassword(cleanPass)
 
-            // 🚀 सुप्राबेस पर प्रोफ़ाइल सिंक
-            coroutineScope.launch(Dispatchers.IO) {
-                try {
-                    val userId = userManager.getUserId()
-                    CloudSyncManager.registerUserOnCloud(
-                        context = context,
-                        userId = userId,
-                        nickname = cleanName,
-                        email = cleanEmail
-                    )
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                } finally {
-                    coroutineScope.launch(Dispatchers.Main) {
-                        isLoading = false
-                        proceedToApp()
+            if (isLoginMode) {
+                // 🔑 Login Mode: पासवर्ड हैश मैच और सुप्राबेस सिंक
+                val savedHashedPass = userManager.getPassword()
+                val savedName = userManager.getUserName()
+
+                if (savedHashedPass.isNotBlank() && savedHashedPass != hashedPass) {
+                    isLoading = false
+                    errorMessage = "गलत पासवर्ड! कृपया दोबारा प्रयास करें।"
+                } else {
+                    userManager.setGuestUser(false)
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            CloudSyncManager.registerUserOnCloud(
+                                context = context,
+                                userId = userManager.getUserId(),
+                                nickname = savedName.ifBlank { cleanEmail.substringBefore("@") },
+                                email = cleanEmail
+                            )
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        } finally {
+                            coroutineScope.launch(Dispatchers.Main) {
+                                isLoading = false
+                                proceedToApp()
+                            }
+                        }
+                    }
+                }
+            } else {
+                // ✨ Sign Up Mode: लोकल मेमोरी में हैश स्टोर और सुप्राबेस रजिस्ट्रेशन
+                userManager.setUserName(cleanName)
+                userManager.setPassword(hashedPass)
+                userManager.setGuestUser(false)
+
+                coroutineScope.launch(Dispatchers.IO) {
+                    try {
+                        val userId = userManager.getUserId()
+                        CloudSyncManager.registerUserOnCloud(
+                            context = context,
+                            userId = userId,
+                            nickname = cleanName,
+                            email = cleanEmail
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    } finally {
+                        coroutineScope.launch(Dispatchers.Main) {
+                            isLoading = false
+                            proceedToApp()
+                        }
                     }
                 }
             }
         }
     }
 
-    // 🌐 Google Sign-In Action (Supabase Sync Integrated)
+    // 🌐 Google Sign-In Action
     val handleGoogleSignIn = {
         coroutineScope.launch {
             try {
@@ -149,7 +207,6 @@ fun AuthScreen(
                     userManager.setUserName(displayName)
                     userManager.setGuestUser(false)
 
-                    // 🚀 सुप्राबेस पर गूगल यूज़र सिंक
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
                             val userId = userManager.getUserId()
@@ -178,8 +235,8 @@ fun AuthScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(bgColor)
-            .padding(16.dp),
+            .background(screenBg)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Card(
@@ -187,155 +244,199 @@ fun AuthScreen(
                 .widthIn(max = 420.dp)
                 .fillMaxWidth()
                 .verticalScroll(scrollState),
-            shape = RoundedCornerShape(22.dp),
+            shape = RoundedCornerShape(26.dp),
             colors = CardDefaults.cardColors(containerColor = cardBg),
-            border = BorderStroke(1.dp, cardBorder)
+            border = BorderStroke(slimBorderStroke, cardBorder)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(26.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(horizontal = 24.dp, vertical = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // 🌟 AMON हेडर
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = "AMON",
-                        fontSize = 22.sp,
+                        fontSize = 32.sp,
                         fontWeight = FontWeight.Black,
-                        color = textMain,
+                        color = lavenderAccent,
                         letterSpacing = 3.sp
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Focus Timer & Study Circle",
-                        fontSize = 12.sp,
-                        color = textMuted
+                        text = "Focus Timer App",
+                        fontSize = 12.5.sp,
+                        color = textMuted,
+                        letterSpacing = 0.5.sp
                     )
-                }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
-                Text(
-                    text = "Name",
-                    fontWeight = FontWeight.SemiBold,
-                    color = textMain,
-                    fontSize = 13.5.sp
-                )
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { 
-                        name = it
-                        if (errorMessage.isNotEmpty()) errorMessage = ""
-                    },
-                    placeholder = { Text("Enter your Name", color = textMuted.copy(alpha = 0.7f), fontSize = 13.sp) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Name",
-                            tint = goldColor
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = goldColor,
-                        unfocusedBorderColor = cardBorder,
-                        focusedTextColor = textMain,
-                        unfocusedTextColor = textMain,
-                        cursorColor = goldColor
-                    ),
-                    singleLine = true
-                )
-
-                Text(
-                    text = "Email",
-                    fontWeight = FontWeight.SemiBold,
-                    color = textMain,
-                    fontSize = 13.5.sp
-                )
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { 
-                        email = it 
-                        if (errorMessage.isNotEmpty()) errorMessage = ""
-                    },
-                    placeholder = { Text("Enter your Email", color = textMuted.copy(alpha = 0.7f), fontSize = 13.sp) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Email,
-                            contentDescription = "Email",
-                            tint = goldColor
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = goldColor,
-                        unfocusedBorderColor = cardBorder,
-                        focusedTextColor = textMain,
-                        unfocusedTextColor = textMain,
-                        cursorColor = goldColor
-                    ),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    singleLine = true
-                )
-
-                Text(
-                    text = "Password",
-                    fontWeight = FontWeight.SemiBold,
-                    color = textMain,
-                    fontSize = 13.5.sp
-                )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { 
-                        password = it 
-                        if (errorMessage.isNotEmpty()) errorMessage = ""
-                    },
-                    placeholder = { Text("Enter your Password", color = textMuted.copy(alpha = 0.7f), fontSize = 13.sp) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Password",
-                            tint = goldColor
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = goldColor,
-                        unfocusedBorderColor = cardBorder,
-                        focusedTextColor = textMain,
-                        unfocusedTextColor = textMain,
-                        cursorColor = goldColor
-                    ),
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    singleLine = true
-                )
-
-                if (errorMessage.isNotEmpty()) {
                     Text(
-                        text = errorMessage,
-                        color = Color(0xFFEF4444),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
+                        text = if (isLoginMode) "Welcome Back" else "Create Account",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textMain
                     )
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
+                // 👤 Name फ़ील्ड (Sign Up में दिखता है, Sign In में स्मूथली हट जाता है)
+                AnimatedVisibility(
+                    visible = !isLoginMode,
+                    enter = expandVertically(tween(250)) + fadeIn(tween(250)),
+                    exit = shrinkVertically(tween(200)) + fadeOut(tween(200))
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "Name",
+                            fontWeight = FontWeight.SemiBold,
+                            color = textMain,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { 
+                                name = it
+                                if (errorMessage.isNotEmpty()) errorMessage = ""
+                            },
+                            placeholder = { Text("Enter your Name", color = textMuted.copy(alpha = 0.6f), fontSize = 13.sp) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Name",
+                                    tint = lavenderAccent,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = inputBg,
+                                unfocusedContainerColor = inputBg,
+                                focusedBorderColor = lavenderAccent,
+                                unfocusedBorderColor = inputBorder,
+                                focusedTextColor = textMain,
+                                unfocusedTextColor = textMain,
+                                cursorColor = lavenderAccent
+                            ),
+                            singleLine = true
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
+
+                // ✉️ Email फ़ील्ड
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Email",
+                        fontWeight = FontWeight.SemiBold,
+                        color = textMain,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { 
+                            email = it 
+                            if (errorMessage.isNotEmpty()) errorMessage = ""
+                        },
+                        placeholder = { Text("Enter your Email", color = textMuted.copy(alpha = 0.6f), fontSize = 13.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Email,
+                                contentDescription = "Email",
+                                tint = lavenderAccent,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = inputBg,
+                            unfocusedContainerColor = inputBg,
+                            focusedBorderColor = lavenderAccent,
+                            unfocusedBorderColor = inputBorder,
+                            focusedTextColor = textMain,
+                            unfocusedTextColor = textMain,
+                            cursorColor = lavenderAccent
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                        singleLine = true
+                    )
+                }
+
+                // 🔒 Password फ़ील्ड
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Password",
+                        fontWeight = FontWeight.SemiBold,
+                        color = textMain,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { 
+                            password = it 
+                            if (errorMessage.isNotEmpty()) errorMessage = ""
+                        },
+                        placeholder = { Text("Enter your Password", color = textMuted.copy(alpha = 0.6f), fontSize = 13.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Password",
+                                tint = lavenderAccent,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = inputBg,
+                            unfocusedContainerColor = inputBg,
+                            focusedBorderColor = lavenderAccent,
+                            unfocusedBorderColor = inputBorder,
+                            focusedTextColor = textMain,
+                            unfocusedTextColor = textMain,
+                            cursorColor = lavenderAccent
+                        ),
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { handleAuthSubmit() }),
+                        singleLine = true
+                    )
+                }
+
+                // एरर टेक्स्ट
+                if (errorMessage.isNotEmpty()) {
+                    Text(
+                        text = errorMessage,
+                        color = Color(0xFFEF4444),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // 🎯 मुख्य बटन (Sign Up / Sign In) - सॉलिड गोल्ड पिल
                 Button(
-                    onClick = { handleSignUp() },
+                    onClick = { handleAuthSubmit() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = goldColor,
+                        containerColor = goldButton,
                         contentColor = Color.Black
                     ),
                     enabled = !isLoading
@@ -344,43 +445,48 @@ fun AuthScreen(
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
                     } else {
                         Text(
-                            text = "Sign Up",
+                            text = if (isLoginMode) "Sign In" else "Sign Up",
                             fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold
+                            fontWeight = FontWeight.Black
                         )
                     }
                 }
 
+                // 🔄 स्विच टेक्स्ट (Sign Up <-> Sign In)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
+                        .padding(vertical = 2.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Already have an account? ",
-                        fontSize = 13.5.sp,
+                        text = if (isLoginMode) "Don't have an account? " else "Already have an account? ",
+                        fontSize = 13.sp,
                         color = textMuted
                     )
                     Text(
-                        text = "login",
-                        fontSize = 13.5.sp,
-                        color = goldColor,
+                        text = if (isLoginMode) "Sign Up" else "login",
+                        fontSize = 13.sp,
+                        color = goldButton,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { handleSignUp() }
+                        modifier = Modifier.clickable { 
+                            isLoginMode = !isLoginMode
+                            errorMessage = ""
+                        }
                     )
                 }
 
+                // 🌐 Continue with Google बटन (स्लिम आउटलाइन पिल)
                 OutlinedButton(
                     onClick = { handleGoogleSignIn() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, cardBorder),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(slimBorderStroke, cardBorder),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = if (isDark) Color(0x18FFFFFF) else Color(0xFFF8FAFC)
+                        containerColor = Color.Transparent
                     )
                 ) {
                     Row(
@@ -389,7 +495,7 @@ fun AuthScreen(
                     ) {
                         Text(
                             text = "G",
-                            fontSize = 19.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Black,
                             color = Color(0xFF4285F4)
                         )
