@@ -81,24 +81,31 @@ class MainActivity : ComponentActivity() {
             Log.e("AmonLaunch", "Safe Reminder catch: ${e.localizedMessage}")
         }
 
+        // ⚡ 1. ऐप लॉन्च होते ही Supabase पर प्रोफ़ाइल सिंक का बैकअप चेक
+        val userManager = UserManager(this)
+        if (userManager.getUserName().isNotBlank() && !userManager.getUserName().equals("Guest", ignoreCase = true)) {
+            CloudSyncManager.registerUserOnCloud(this)
+        }
+
         setContent {
             AmonTheme {
                 val context = LocalContext.current
-                val userManager = remember { UserManager(context) }
+                val localUserManager = remember { UserManager(context) }
 
                 val isDark = ThemeManager.isDarkTheme.value
                 val appBgColor = ThemeManager.getBackgroundColor()
 
                 var currentScreen by remember { mutableStateOf(AppScreenState.SPLASH) }
 
+                // 🎨 2. स्टेटस बार का सटीक डार्क मैच
                 val currentStatusBarColor = when (currentScreen) {
                     AppScreenState.SPLASH -> Color(0xFF0F0F12)
-                    AppScreenState.AUTH -> Color(0xFFF3F4F6)
+                    AppScreenState.AUTH -> Color(0xFF0A0A0E) // डार्क ऑब्सीडियन से मैच
                     AppScreenState.MAIN -> appBgColor
                 }
                 val isLightStatusBarIcons = when (currentScreen) {
                     AppScreenState.SPLASH -> false
-                    AppScreenState.AUTH -> true
+                    AppScreenState.AUTH -> false // डार्क बैकग्राउंड पर वाइट आइकॉन्स
                     AppScreenState.MAIN -> !isDark
                 }
 
@@ -113,9 +120,11 @@ class MainActivity : ComponentActivity() {
                 ) {
                     LaunchedEffect(Unit) {
                         delay(1200)
-                        if (!userManager.isFreshAuthDone()) {
+                        if (!localUserManager.isFreshAuthDone()) {
                             currentScreen = AppScreenState.AUTH
                         } else {
+                            // 🚀 मेन स्क्रीन पर पहुँचते ही भी एक बार ताज़ा प्रोफ़ाइल सिंक सुनिश्चित करें
+                            CloudSyncManager.registerUserOnCloud(context)
                             currentScreen = AppScreenState.MAIN
                         }
                     }
@@ -132,7 +141,7 @@ class MainActivity : ComponentActivity() {
                             AppScreenState.AUTH -> {
                                 AuthScreen(
                                     onAuthComplete = {
-                                        userManager.setFreshAuthDone(true)
+                                        localUserManager.setFreshAuthDone(true)
                                         currentScreen = AppScreenState.MAIN
                                     }
                                 )
@@ -144,10 +153,10 @@ class MainActivity : ComponentActivity() {
                                     FocusRotateButtonOverlay(activity = this@MainActivity)
 
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        val localContext = LocalContext.current
+                                        val localCtx = LocalContext.current
                                         var showPermissionDialog by remember {
                                             val isGranted = ContextCompat.checkSelfPermission(
-                                                localContext,
+                                                localCtx,
                                                 Manifest.permission.POST_NOTIFICATIONS
                                             ) == PackageManager.PERMISSION_GRANTED
                                             mutableStateOf(!isGranted)
