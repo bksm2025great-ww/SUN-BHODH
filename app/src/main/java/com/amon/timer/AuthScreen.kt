@@ -36,6 +36,7 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
@@ -47,7 +48,6 @@ fun AuthScreen(
     val userManager = remember { UserManager(context) }
     val scrollState = rememberScrollState()
 
-    // 🎨 Theme Colors Integration
     val isDark = ThemeManager.isDarkTheme.value
     val bgColor = ThemeManager.getBackgroundColor()
     val cardBg = ThemeManager.getCardColor()
@@ -56,7 +56,6 @@ fun AuthScreen(
     val goldColor = ThemeManager.getAccentColor()
     val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
 
-    // 🔑 Google Credential Manager & Client ID
     val credentialManager = remember { CredentialManager.create(context) }
     val webClientId = stringResource(id = R.string.default_web_client_id)
 
@@ -64,8 +63,8 @@ fun AuthScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
 
-    // 🔔 Notification Permission Launcher
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { _ ->
@@ -73,7 +72,7 @@ fun AuthScreen(
     }
 
     val proceedToApp = {
-        userManager.setFreshAuthDone(true) // 🔒 दोबारा कभी लॉगिन स्क्रीन नहीं आएगी
+        userManager.setFreshAuthDone(true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
@@ -81,7 +80,7 @@ fun AuthScreen(
         }
     }
 
-    // 🛡️ Sign Up / Login Action
+    // 🛡️ Sign Up / Login Action (Supabase Sync Integrated)
     val handleSignUp = {
         val cleanName = name.trim()
         val cleanEmail = email.trim()
@@ -92,14 +91,34 @@ fun AuthScreen(
         } else if (cleanPass.length < 6) {
             errorMessage = "पासवर्ड कम से कम 6 अक्षरों का होना चाहिए!"
         } else {
+            isLoading = true
             userManager.setUserName(cleanName)
             userManager.setPassword(cleanPass)
             userManager.setGuestUser(false)
-            proceedToApp()
+
+            // 🚀 सुप्राबेस पर प्रोफ़ाइल सिंक
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val userId = userManager.getUserId()
+                    CloudSyncManager.registerUserOnCloud(
+                        context = context,
+                        userId = userId,
+                        nickname = cleanName,
+                        email = cleanEmail
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    coroutineScope.launch(Dispatchers.Main) {
+                        isLoading = false
+                        proceedToApp()
+                    }
+                }
+            }
         }
     }
 
-    // 🌐 Google Sign-In Action
+    // 🌐 Google Sign-In Action (Supabase Sync Integrated)
     val handleGoogleSignIn = {
         coroutineScope.launch {
             try {
@@ -125,9 +144,25 @@ fun AuthScreen(
                     val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
                     val displayName = googleIdTokenCredential.displayName 
                         ?: googleIdTokenCredential.id.substringBefore("@")
+                    val userEmail = googleIdTokenCredential.id
 
                     userManager.setUserName(displayName)
                     userManager.setGuestUser(false)
+
+                    // 🚀 सुप्राबेस पर गूगल यूज़र सिंक
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            val userId = userManager.getUserId()
+                            CloudSyncManager.registerUserOnCloud(
+                                context = context,
+                                userId = userId,
+                                nickname = displayName,
+                                email = userEmail
+                            )
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
 
                     Toast.makeText(context, "Welcome $displayName!", Toast.LENGTH_SHORT).show()
                     proceedToApp()
@@ -162,7 +197,6 @@ fun AuthScreen(
                     .padding(26.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // App Brand Header
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -184,7 +218,6 @@ fun AuthScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Name Field
                 Text(
                     text = "Name",
                     fontWeight = FontWeight.SemiBold,
@@ -217,7 +250,6 @@ fun AuthScreen(
                     singleLine = true
                 )
 
-                // Email Field
                 Text(
                     text = "Email",
                     fontWeight = FontWeight.SemiBold,
@@ -251,7 +283,6 @@ fun AuthScreen(
                     singleLine = true
                 )
 
-                // Password Field
                 Text(
                     text = "Password",
                     fontWeight = FontWeight.SemiBold,
@@ -286,7 +317,6 @@ fun AuthScreen(
                     singleLine = true
                 )
 
-                // Error Text
                 if (errorMessage.isNotEmpty()) {
                     Text(
                         text = errorMessage,
@@ -298,7 +328,6 @@ fun AuthScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Sign Up Button (Accent Filled, Dark Text)
                 Button(
                     onClick = { handleSignUp() },
                     modifier = Modifier
@@ -308,16 +337,20 @@ fun AuthScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = goldColor,
                         contentColor = Color.Black
-                    )
+                    ),
+                    enabled = !isLoading
                 ) {
-                    Text(
-                        text = "Sign Up",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
+                    } else {
+                        Text(
+                            text = "Sign Up",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
                 }
 
-                // Switch text with Accent Link
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -339,7 +372,6 @@ fun AuthScreen(
                     )
                 }
 
-                // Google Sign-In Button (Outlined with Google "G" colors)
                 OutlinedButton(
                     onClick = { handleGoogleSignIn() },
                     modifier = Modifier
