@@ -38,7 +38,7 @@ object CloudSyncManager {
 
     /**
      * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम, UUID और ईमेल दर्ज करना
-     * (पहले चेक करेगा कि यह Gmail पहले से है या नहीं, ताकि वही पुरानी UUID रीस्टोर हो सके)
+     * (पहले चेक करेगा कि यह Gmail पहले से है या नहीं, ताकि पुरानी UUID रीस्टोर हो सके)
      */
     fun registerUserOnCloud(
         context: Context,
@@ -149,7 +149,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 👥 2. ग्रुप्स को Supabase से लोड करना (Universal Library auto-join नहीं होगी)
+     * 👥 2. ग्रुप्स को Supabase से लोड करना (केवल शुद्ध Supabase डेटा)
      */
     suspend fun fetchGroups(context: Context): List<StudyGroup> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
@@ -210,27 +210,8 @@ object CloudSyncManager {
                             focusingCount = 0,
                             isPinned = false,
                             isJoined = isJoined,
-                            isDefault = false, // ज़बरन ऑटो-जॉइन हटाने के लिए false रखा गया
-                            inviteCode = obj.optString("invite_code", "AMON-GLOBAL")
-                        )
-                    )
-                }
-
-                // अगर यूनिवर्सल लाइब्रेरी सूची में नहीं है तो जोड़ें (बिना ज़बरन जोड़े)
-                if (list.none { it.id == "universal_lib" }) {
-                    list.add(
-                        0,
-                        StudyGroup(
-                            id = "universal_lib",
-                            name = "Universal Library",
-                            category = "All",
-                            isPublic = true,
-                            memberCount = 1,
-                            focusingCount = 0,
-                            isPinned = true,
-                            isJoined = joinedGroupIds.contains("universal_lib"),
-                            isDefault = false, // यूज़र अपनी मर्ज़ी से जुड़ेगा
-                            inviteCode = "AMON-GLOBAL"
+                            isDefault = false,
+                            inviteCode = obj.optString("invite_code", "")
                         )
                     )
                 }
