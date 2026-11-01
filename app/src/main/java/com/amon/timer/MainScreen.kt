@@ -73,6 +73,9 @@ fun MainScreen() {
     var stopwatchAccumulatedMillis by rememberSaveable { mutableStateOf(0L) }
     var stopwatchElapsedMillis by rememberSaveable { mutableStateOf(0L) }
 
+    var selectedSubjectName by rememberSaveable { mutableStateOf("All") }
+    var initialTotalSeconds by rememberSaveable { mutableIntStateOf(25 * 60) }
+
     LaunchedEffect(Unit) {
         try {
             ThemeManager.loadTheme(context)
@@ -136,6 +139,7 @@ fun MainScreen() {
         } catch (_: Exception) {}
     }
 
+    // 🎯 डायरेक्ट सेशन एंड लॉजिक (Supabase Sync के साथ)
     val onDirectEndSession: () -> Unit = {
         if (isStopwatchFocusActive) {
             val elapsedMins = (stopwatchElapsedMillis / 60000).toInt()
@@ -144,12 +148,12 @@ fun MainScreen() {
             }
             context.startService(intent)
 
-            if (elapsedMins >= 5) {
+            if (elapsedMins >= 1) {
                 val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                 val session = FocusSession(
                     id = System.currentTimeMillis(),
                     date = sdf.format(Date()),
-                    subject = "General",
+                    subject = selectedSubjectName.ifBlank { "General" },
                     durationMinutes = elapsedMins,
                     earnedTrees = when {
                         elapsedMins >= 105 -> 4
@@ -160,16 +164,58 @@ fun MainScreen() {
                     }
                 )
                 FocusSessionManager.saveSession(context, session)
+
+                // 🚀 1. स्टॉपवॉच सेशन को Supabase क्लाउड में सिंक करें
+                CloudSyncManager.syncSession(
+                    context = context,
+                    subject = selectedSubjectName.ifBlank { "General" },
+                    durationMinutes = elapsedMins.toLong(),
+                    earnedTrees = session.earnedTrees,
+                    sessionId = session.id
+                )
             }
             isStopwatchRunning = false
             isStopwatchFocusActive = false
             stopwatchAccumulatedMillis = 0L
             stopwatchElapsedMillis = 0L
         } else {
+            // 🎯 2. टाइमर / पोमोडोरो सेशन का बीता हुआ समय निकालना
+            val totalSecsPlanned = initialTotalSeconds
+            val remainingSecs = TimerService.remainingSeconds.intValue
+            val elapsedSecs = (totalSecsPlanned - remainingSecs).coerceAtLeast(0)
+            val elapsedMins = elapsedSecs / 60
+
             val intent = Intent(context, TimerService::class.java).apply {
                 action = TimerService.ACTION_STOP
             }
             context.startService(intent)
+
+            if (elapsedMins >= 1) {
+                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                val session = FocusSession(
+                    id = System.currentTimeMillis(),
+                    date = sdf.format(Date()),
+                    subject = selectedSubjectName.ifBlank { "General" },
+                    durationMinutes = elapsedMins,
+                    earnedTrees = when {
+                        elapsedMins >= 105 -> 4
+                        elapsedMins >= 75 -> 3
+                        elapsedMins >= 45 -> 2
+                        elapsedMins >= 15 -> 1
+                        else -> 0
+                    }
+                )
+                FocusSessionManager.saveSession(context, session)
+
+                // 🚀 टाइमर / पोमोडोरो सेशन को Supabase क्लाउड में सिंक करें
+                CloudSyncManager.syncSession(
+                    context = context,
+                    subject = selectedSubjectName.ifBlank { "General" },
+                    durationMinutes = elapsedMins.toLong(),
+                    earnedTrees = session.earnedTrees,
+                    sessionId = session.id
+                )
+            }
         }
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
@@ -252,6 +298,10 @@ fun MainScreen() {
                     isStopwatchRunning = isStopwatchRunning,
                     isStopwatchFocusActive = isStopwatchFocusActive,
                     stopwatchElapsedMillis = stopwatchElapsedMillis,
+                    selectedSubjectName = selectedSubjectName,
+                    onSelectedSubjectChange = { selectedSubjectName = it },
+                    initialTotalSeconds = initialTotalSeconds,
+                    onInitialTotalSecondsChange = { initialTotalSeconds = it },
                     onStartStopwatch = {
                         isStopwatchRunning = true
                         isStopwatchFocusActive = true
@@ -372,6 +422,10 @@ fun HomeTimerTab(
     isStopwatchRunning: Boolean,
     isStopwatchFocusActive: Boolean,
     stopwatchElapsedMillis: Long,
+    selectedSubjectName: String,
+    onSelectedSubjectChange: (String) -> Unit,
+    initialTotalSeconds: Int,
+    onInitialTotalSecondsChange: (Int) -> Unit,
     onStartStopwatch: () -> Unit,
     onPauseStopwatch: () -> Unit,
     onResumeStopwatch: () -> Unit,
@@ -383,7 +437,6 @@ fun HomeTimerTab(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     var userSubjects by remember { mutableStateOf(listOf<String>()) }
-    var selectedSubjectName by rememberSaveable { mutableStateOf("All") }
     var showAddDialog by remember { mutableStateOf(false) }
     var newSubjectInput by remember { mutableStateOf("") }
 
@@ -439,7 +492,6 @@ fun HomeTimerTab(
 
     var dialMinutes by rememberSaveable { mutableFloatStateOf(25f) }
     var isCustomMode by rememberSaveable { mutableStateOf(false) }
-    var initialTotalSeconds by rememberSaveable { mutableIntStateOf(25 * 60) }
 
     val totalSeconds = TimerService.remainingSeconds.intValue
 
@@ -502,7 +554,7 @@ fun HomeTimerTab(
                     hiddenSubjects = newHidden
                     subjectPrefs.edit().putStringSet("hidden_subjects", newHidden).apply()
                 }
-                selectedSubjectName = cleanInput
+                onSelectedSubjectChange(cleanInput)
                 newSubjectInput = ""
             }
         }
@@ -512,7 +564,7 @@ fun HomeTimerTab(
         isBreakActive = true
         val breakMins = if (currentSessionIndex >= pomodoroTotalSessions) pomodoroLongBreakMinutes else pomodoroShortBreakMinutes
         val breakSecs = breakMins * 60
-        initialTotalSeconds = breakSecs
+        onInitialTotalSecondsChange(breakSecs)
         val intent = Intent(context, TimerService::class.java).apply {
             action = TimerService.ACTION_START
             putExtra(TimerService.EXTRA_SECONDS, breakSecs)
@@ -525,10 +577,11 @@ fun HomeTimerTab(
         isBreakActive = false
         currentSessionIndex = if (currentSessionIndex >= pomodoroTotalSessions) 1 else currentSessionIndex + 1
         val targetSecs = if (selectedFocusMode == 2) pomodoroFocusMinutes * 60 else (dialMinutes.toInt() * 60)
-        initialTotalSeconds = if (targetSecs > 0) targetSecs else 1500
+        val finalSecs = if (targetSecs > 0) targetSecs else 1500
+        onInitialTotalSecondsChange(finalSecs)
         val intent = Intent(context, TimerService::class.java).apply {
             action = TimerService.ACTION_START
-            putExtra(TimerService.EXTRA_SECONDS, initialTotalSeconds)
+            putExtra(TimerService.EXTRA_SECONDS, finalSecs)
             putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
         }
         context.startService(intent)
@@ -624,7 +677,7 @@ fun HomeTimerTab(
                                     .clip(RoundedCornerShape(50))
                                     .background(if (isSelected) goldColor else cardBg)
                                     .border(1.dp, if (isSelected) goldColor else glassBorder, RoundedCornerShape(50))
-                                    .clickable { selectedSubjectName = "All" }
+                                    .clickable { onSelectedSubjectChange("All") }
                                     .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
                                 Text(
@@ -644,7 +697,7 @@ fun HomeTimerTab(
                                     .clip(RoundedCornerShape(50))
                                     .background(if (isSelected) goldColor else cardBg)
                                     .border(1.dp, if (isSelected) goldColor else glassBorder, RoundedCornerShape(50))
-                                    .clickable { selectedSubjectName = subj }
+                                    .clickable { onSelectedSubjectChange(subj) }
                                     .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
                                 Text(
@@ -732,7 +785,7 @@ fun HomeTimerTab(
                                         dialMinutes = nextMins
                                         val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
                                         TimerService.remainingSeconds.intValue = secs
-                                        initialTotalSeconds = if (secs > 0) secs else 60
+                                        onInitialTotalSecondsChange(if (secs > 0) secs else 60)
                                     }
                                 },
                                 totalSeconds = if (selectedFocusMode == 2) (pomodoroFocusMinutes * 60) else totalSeconds,
@@ -800,7 +853,7 @@ fun HomeTimerTab(
                                                 dialMinutes = mins
                                                 val secs = mins.toInt() * 60
                                                 TimerService.remainingSeconds.intValue = secs
-                                                initialTotalSeconds = secs
+                                                onInitialTotalSecondsChange(secs)
                                             }
                                     ) {
                                         Text(
@@ -914,11 +967,12 @@ fun HomeTimerTab(
                                     pomodoroFocusMinutes * 60
                                 } else totalSeconds
 
-                                initialTotalSeconds = if (targetSecs > 0) targetSecs else 1500
+                                val finalSecs = if (targetSecs > 0) targetSecs else 1500
+                                onInitialTotalSecondsChange(finalSecs)
 
                                 val intent = Intent(context, TimerService::class.java).apply {
                                     action = TimerService.ACTION_START
-                                    putExtra(TimerService.EXTRA_SECONDS, initialTotalSeconds)
+                                    putExtra(TimerService.EXTRA_SECONDS, finalSecs)
                                     putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
                                 }
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -1213,7 +1267,7 @@ fun HomeTimerTab(
                                     dialMinutes = nextMins
                                     val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
                                     TimerService.remainingSeconds.intValue = secs
-                                    initialTotalSeconds = if (secs > 0) secs else 60
+                                    onInitialTotalSecondsChange(if (secs > 0) secs else 60)
                                 },
                                 totalSeconds = totalSeconds,
                                 initialTotalSeconds = initialTotalSeconds,
@@ -1372,7 +1426,7 @@ fun HomeTimerTab(
                                     dialMinutes = nextMins
                                     val secs = if (nextMins == 0f) 0 else (nextMins.toInt() * 60)
                                     TimerService.remainingSeconds.intValue = secs
-                                    initialTotalSeconds = if (secs > 0) secs else 60
+                                    onInitialTotalSecondsChange(if (secs > 0) secs else 60)
                                 },
                                 totalSeconds = totalSeconds,
                                 initialTotalSeconds = initialTotalSeconds,
@@ -1518,7 +1572,7 @@ fun HomeTimerTab(
                     isCustomMode = true
                     val secs = it.toInt() * 60
                     TimerService.remainingSeconds.intValue = secs
-                    initialTotalSeconds = secs
+                    onInitialTotalSecondsChange(secs)
                 },
                 isDark = isDark,
                 goldColor = goldColor,
@@ -1662,7 +1716,7 @@ fun HomeTimerTab(
                                                         .apply()
 
                                                     if (!isHidden && selectedSubjectName.equals(subj, ignoreCase = true)) {
-                                                        selectedSubjectName = "All"
+                                                        onSelectedSubjectChange("All")
                                                     }
                                                 }
                                                 .padding(vertical = 10.dp, horizontal = 4.dp)
