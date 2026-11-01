@@ -11,6 +11,7 @@ class UserManager(private val context: Context) {
     companion object {
         private const val KEY_USER_ID = "user_unique_uuid"
         private const val KEY_NAME = "display_name"
+        private const val KEY_EMAIL = "user_email"
         private const val KEY_PASSWORD = "user_password"
         private const val KEY_BIRTHDAY = "user_birthday"
         private const val KEY_IS_GUEST = "is_guest_user"
@@ -23,7 +24,6 @@ class UserManager(private val context: Context) {
     fun getUserId(): String {
         var id = prefs.getString(KEY_USER_ID, "") ?: ""
         if (id.isBlank()) {
-            // अगर पहले से ID नहीं है, तो वैध UUID बनाकर हमेशा के लिए सेव कर लो
             id = UUID.randomUUID().toString()
             prefs.edit().putString(KEY_USER_ID, id).apply()
         }
@@ -36,7 +36,7 @@ class UserManager(private val context: Context) {
         }
     }
 
-    // ----------------- 1. USER DETAILS (नाम, पासवर्ड, बर्थडे) -----------------
+    // ----------------- 1. USER DETAILS (नाम, ईमेल, पासवर्ड, बर्थडे) -----------------
 
     fun setUserName(name: String) {
         prefs.edit().putString(KEY_NAME, name.trim()).apply()
@@ -44,6 +44,23 @@ class UserManager(private val context: Context) {
 
     fun getUserName(): String {
         return prefs.getString(KEY_NAME, "") ?: ""
+    }
+
+    // ग्रुप्स और प्रोफ़ाइल के बीच सिंगल नेम सिंक
+    fun setNickName(nickname: String) {
+        setUserName(nickname)
+    }
+
+    fun getNickName(): String {
+        return getUserName().ifBlank { "Student" }
+    }
+
+    fun setUserEmail(email: String) {
+        prefs.edit().putString(KEY_EMAIL, email.trim()).apply()
+    }
+
+    fun getUserEmail(): String {
+        return prefs.getString(KEY_EMAIL, "") ?: ""
     }
 
     fun setPassword(password: String) {
