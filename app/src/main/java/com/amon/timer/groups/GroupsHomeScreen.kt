@@ -54,8 +54,9 @@ fun GroupsHomeScreen(
         }
     }
 
-    // 🌟 केवल Universal Library / Joined ग्रुप्स ही लिस्ट होंगे (कोई डमी सजेस्टेड ग्रुप नहीं)
-    val yourGroups = groups.filter { it.isJoined || it.isDefault }
+    // 🎯 सुधार 1: जबरन isDefault वाला ऑटो-जॉइन हटा दिया! अब केवल सच में जॉइन किए ग्रुप्स दिखेंगे
+    val yourGroups = groups.filter { it.isJoined }
+    val discoverGroups = groups.filter { !it.isJoined }
 
     Scaffold(
         topBar = {
@@ -131,6 +132,7 @@ fun GroupsHomeScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            // --- SECTION 1: YOUR JOINED GROUPS ---
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -143,26 +145,78 @@ fun GroupsHomeScreen(
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = "Pinned on top",
-                        color = textMuted,
-                        fontSize = 11.sp
+                    if (yourGroups.isNotEmpty()) {
+                        Text(
+                            text = "Pinned on top",
+                            color = textMuted,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+
+            if (yourGroups.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(cardBg)
+                            .padding(20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "You haven't joined any groups yet.\nExplore below to join Universal Library or create one!",
+                            color = textMuted,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                items(yourGroups.sortedByDescending { it.isPinned }, key = { it.id }) { group ->
+                    GroupCard(
+                        group = group,
+                        cardBg = cardBg,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        accentColor = accentColor,
+                        accentSubtle = accentSubtle,
+                        focusingGreen = focusingGreen,
+                        onCardClick = { onGroupClick(group) },
+                        onPinToggle = { onTogglePin(group.id) },
+                        onJoinClick = { onJoinGroup(group.id) }
                     )
                 }
             }
 
-            items(yourGroups.sortedByDescending { it.isPinned }, key = { it.id }) { group ->
-                GroupCard(
-                    group = group,
-                    cardBg = cardBg,
-                    textMain = textMain,
-                    textMuted = textMuted,
-                    accentColor = accentColor,
-                    accentSubtle = accentSubtle,
-                    focusingGreen = focusingGreen,
-                    onCardClick = { onGroupClick(group) },
-                    onPinToggle = { onTogglePin(group.id) }
-                )
+            // --- SECTION 2: DISCOVER / JOIN GROUPS (जैसे Universal Library जब जॉइन न हो) ---
+            if (discoverGroups.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Explore & Join Groups",
+                        color = textMain,
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                items(discoverGroups, key = { it.id }) { group ->
+                    GroupCard(
+                        group = group,
+                        cardBg = cardBg,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        accentColor = accentColor,
+                        accentSubtle = accentSubtle,
+                        focusingGreen = focusingGreen,
+                        onCardClick = { onGroupClick(group) },
+                        onPinToggle = { onTogglePin(group.id) },
+                        onJoinClick = { onJoinGroup(group.id) }
+                    )
+                }
             }
 
             item {
@@ -182,7 +236,8 @@ fun GroupCard(
     accentSubtle: Color,
     focusingGreen: Color,
     onCardClick: () -> Unit,
-    onPinToggle: () -> Unit
+    onPinToggle: () -> Unit,
+    onJoinClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -225,7 +280,7 @@ fun GroupCard(
                             fontSize = 14.5.sp,
                             maxLines = 1
                         )
-                        if (group.isDefault) {
+                        if (group.id == "universal_lib") {
                             Spacer(modifier = Modifier.width(6.dp))
                             Surface(
                                 color = accentSubtle,
@@ -249,16 +304,34 @@ fun GroupCard(
                     )
                 }
 
-                IconButton(
-                    onClick = onPinToggle,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = "Pin Group",
-                        tint = if (group.isPinned) Color(0xFFF59E0B) else textMuted.copy(alpha = 0.35f),
-                        modifier = Modifier.size(20.dp)
-                    )
+                // 🎯 अगर जॉइन नहीं है तो साफ़ "Join" बटन दिखेगा, अगर जॉइन है तो पिन स्टार दिखेगा
+                if (!group.isJoined) {
+                    Button(
+                        onClick = onJoinClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text(
+                            text = "Join",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    }
+                } else {
+                    IconButton(
+                        onClick = onPinToggle,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = "Pin Group",
+                            tint = if (group.isPinned) Color(0xFFF59E0B) else textMuted.copy(alpha = 0.35f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
