@@ -104,22 +104,6 @@ fun ProfileScreen() {
         totalMinutes / 60
     }
 
-    val currentRankTitle = remember(totalFocusedHours) {
-        when {
-            totalFocusedHours >= 1950 -> "Grandmaster of Eternity"
-            totalFocusedHours >= 1000 -> "Emperor of Amon"
-            totalFocusedHours >= 800  -> "Crown Sovereign"
-            totalFocusedHours >= 750  -> "Ace of Amon"
-            totalFocusedHours >= 500  -> "Platinum Master"
-            totalFocusedHours >= 350  -> "Vanguard Knight"
-            totalFocusedHours >= 250  -> "Elite Focus"
-            totalFocusedHours >= 100  -> "Century King"
-            totalFocusedHours >= 50   -> "Silver Master"
-            totalFocusedHours >= 10   -> "Bronze Scholar"
-            else                      -> "Focus Initiate"
-        }
-    }
-
     val isDark = ThemeManager.isDarkTheme.value
     val currentAccent = ThemeManager.currentTheme.value
     val currentMode = ThemeManager.appMode.value
@@ -130,9 +114,9 @@ fun ProfileScreen() {
     val textMuted = ThemeManager.getTextMutedColor()
     val goldColor = ThemeManager.getAccentColor()
     
-    // 🪶 अल्ट्रा-स्लिम 0.8dp बॉर्डर्स
+    // 🪶 पहली फोटो का न्यूट्रल स्लिम 0.8dp बॉर्डर कलर
     val slimBorderStroke = 0.8.dp
-    val cardBorder = if (isDark) Color(0x28C084FC) else Color(0xFFCBD5E1)
+    val cardBorder = if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1)
 
     var isSyncing by remember { mutableStateOf(false) }
     var showSyncPopup by remember { mutableStateOf(false) }
@@ -170,7 +154,7 @@ fun ProfileScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // ================= TOP PROFILE HEADER (PHOTO STYLE) =================
+        // ================= TOP PROFILE HEADER =================
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -183,13 +167,12 @@ fun ProfileScreen() {
                 currentUserName.take(2).uppercase()
             } else "AA"
 
-            // 🌟 गोल अवतार (Avatar Circle)
             Box(
                 modifier = Modifier
                     .size(52.dp)
                     .clip(CircleShape)
                     .background(if (isDark) Color(0x1FFFFFFF) else Color(0x10000000))
-                    .border(slimBorderStroke, if (isDark) Color(0x44FFFFFF) else Color(0xFFCBD5E1), CircleShape),
+                    .border(slimBorderStroke, cardBorder, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -200,14 +183,13 @@ fun ProfileScreen() {
                 )
             }
 
-            // 🌟 नाम और सबटाइटल
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = if (hasCustomName) currentUserName else "Amon_Admin",
+                        text = if (hasCustomName) currentUserName else "Set your name",
                         color = textMain,
                         fontSize = 19.sp,
                         fontWeight = FontWeight.Bold
@@ -221,7 +203,7 @@ fun ProfileScreen() {
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "@${if (currentNickname.isNotBlank()) currentNickname.lowercase().replace(" ", "_") else "amon_admin"} • Study Group",
+                    text = "@${if (currentNickname.isNotBlank()) currentNickname.lowercase().replace(" ", "_") else "student"} • Study Group",
                     color = textMuted,
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.Normal
@@ -230,6 +212,34 @@ fun ProfileScreen() {
         }
 
         // ================= SECTION 1: APPEARANCE & ACHIEVEMENTS =================
+        SectionHeader(title = "APPEARANCE & ACHIEVEMENTS", color = textMuted)
+
+        // 🏆 Achievements & Badges Card (यह रहा आपका कार्ड!)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(cardBg)
+                .border(slimBorderStroke, cardBorder, RoundedCornerShape(16.dp))
+                .clickable { showAchievementsScreen = true }
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(13.dp)
+            ) {
+                OutlinedTrophyIcon(tint = goldColor)
+                Text(
+                    text = "Achievements & Badges",
+                    color = textMain,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        // Preferences & Controls Card
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -265,7 +275,7 @@ fun ProfileScreen() {
         // ================= SECTION 2: DATA & STORAGE =================
         SectionHeader(title = "DATA & STORAGE", color = textMuted)
 
-        // Amon Vault (Backup & Restore)
+        // Amon Vault
         val isVaultExpanded = activeExpandedCard == "vault"
         Box(
             modifier = Modifier
@@ -907,7 +917,6 @@ fun ProfileScreen() {
             iterations = LottieConstants.IterateForever
         )
 
-        // 🌟 Pure Floating Lottie Animation (No Dark Box / Fully Transparent)
         Box(
             modifier = Modifier
                 .size(118.dp)
@@ -923,7 +932,6 @@ fun ProfileScreen() {
             )
         }
 
-        // 🌟 Student Footer Note
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -940,13 +948,13 @@ fun ProfileScreen() {
             Icon(
                 imageVector = Icons.Filled.Favorite,
                 contentDescription = "Love",
-                tint = Color(0xFFA855F7), // Soft Lavender Purple
+                tint = goldColor,
                 modifier = Modifier.size(13.dp)
             )
         }
     }
 
-    // 🌟 फ़्लोटिंग बॉटम शीट (Profile & Nickname Edit)
+    // 🌟 फ़्लोटिंग बॉटम शीट (Clean Placeholders & Matching Border)
     if (showEditProfileSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         var tempName by remember { mutableStateOf(currentUserName) }
@@ -996,19 +1004,25 @@ fun ProfileScreen() {
                     OutlinedTextField(
                         value = tempName,
                         onValueChange = { tempName = it },
-                        placeholder = { Text("e.g. Amon Admin", color = textMuted.copy(alpha = 0.6f), fontSize = 13.sp) },
+                        placeholder = { Text("Enter your name", color = textMuted.copy(alpha = 0.5f), fontSize = 13.sp) },
                         leadingIcon = {
-                            Icon(imageVector = Icons.Default.Person, contentDescription = null, tint = goldColor, modifier = Modifier.size(19.dp))
+                            Icon(
+                                imageVector = Icons.Default.Person, 
+                                contentDescription = null, 
+                                tint = textMuted, 
+                                modifier = Modifier.size(19.dp)
+                            )
                         },
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = if (isDark) Color(0xFF1A1826) else Color(0xFFF8FAFC),
-                            unfocusedContainerColor = if (isDark) Color(0xFF1A1826) else Color(0xFFF8FAFC),
-                            focusedBorderColor = goldColor,
+                            focusedContainerColor = if (isDark) Color(0xFF1E1E28) else Color(0xFFF8FAFC),
+                            unfocusedContainerColor = if (isDark) Color(0xFF1E1E28) else Color(0xFFF8FAFC),
+                            focusedBorderColor = if (isDark) Color(0x66FFFFFF) else Color(0xFF64748B),
                             unfocusedBorderColor = cardBorder,
                             focusedTextColor = textMain,
-                            unfocusedTextColor = textMain
+                            unfocusedTextColor = textMain,
+                            cursorColor = textMain
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1026,17 +1040,18 @@ fun ProfileScreen() {
                     OutlinedTextField(
                         value = tempNick,
                         onValueChange = { tempNick = it },
-                        placeholder = { Text("e.g. amon_admin", color = textMuted.copy(alpha = 0.6f), fontSize = 13.sp) },
-                        prefix = { Text("@", color = goldColor, fontWeight = FontWeight.Bold) },
+                        placeholder = { Text("Give yourself a nickname", color = textMuted.copy(alpha = 0.5f), fontSize = 13.sp) },
+                        prefix = { Text("@", color = textMuted, fontWeight = FontWeight.Bold) },
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = if (isDark) Color(0xFF1A1826) else Color(0xFFF8FAFC),
-                            unfocusedContainerColor = if (isDark) Color(0xFF1A1826) else Color(0xFFF8FAFC),
-                            focusedBorderColor = goldColor,
+                            focusedContainerColor = if (isDark) Color(0xFF1E1E28) else Color(0xFFF8FAFC),
+                            unfocusedContainerColor = if (isDark) Color(0xFF1E1E28) else Color(0xFFF8FAFC),
+                            focusedBorderColor = if (isDark) Color(0x66FFFFFF) else Color(0xFF64748B),
                             unfocusedBorderColor = cardBorder,
                             focusedTextColor = textMain,
-                            unfocusedTextColor = textMain
+                            unfocusedTextColor = textMain,
+                            cursorColor = textMain
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1055,7 +1070,6 @@ fun ProfileScreen() {
                             currentUserName = trimmedName
                             currentNickname = trimmedNick.ifBlank { trimmedName }
 
-                            // 🚀 सुप्राबेस क्लाउड सिंक
                             coroutineScope.launch(Dispatchers.IO) {
                                 CloudSyncManager.registerUserOnCloud(
                                     context = context,
@@ -1097,7 +1111,7 @@ fun ProfileScreen() {
                         .padding(top = 26.dp)
                         .clip(RoundedCornerShape(24.dp))
                         .background(if (isDark) Color(0xFF1C1C24) else Color.White)
-                        .border(slimBorderStroke, if (isDark) Color(0x33FFFFFF) else Color(0xFFE2E8F0), RoundedCornerShape(24.dp))
+                        .border(slimBorderStroke, cardBorder, RoundedCornerShape(24.dp))
                         .padding(top = 38.dp, bottom = 22.dp, start = 24.dp, end = 24.dp)
                 ) {
                     Column(
@@ -1201,6 +1215,39 @@ App Version: v$appVersion
 // =============================================================================
 // ✨ CANVAS ART ICONS
 // =============================================================================
+
+@Composable
+private fun OutlinedTrophyIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(22.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.8.dp.toPx()
+
+        val cup = Path().apply {
+            moveTo(w * 0.26f, h * 0.18f)
+            lineTo(w * 0.74f, h * 0.18f)
+            lineTo(w * 0.70f, h * 0.50f)
+            cubicTo(w * 0.68f, h * 0.68f, w * 0.32f, h * 0.68f, w * 0.30f, h * 0.50f)
+            close()
+        }
+        drawPath(cup, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+        val leftHandle = Path().apply {
+            moveTo(w * 0.26f, h * 0.24f)
+            cubicTo(w * 0.10f, h * 0.24f, w * 0.10f, h * 0.46f, w * 0.29f, h * 0.46f)
+        }
+        drawPath(leftHandle, color = tint, style = Stroke(width = stroke * 0.9f, cap = StrokeCap.Round))
+
+        val rightHandle = Path().apply {
+            moveTo(w * 0.74f, h * 0.24f)
+            cubicTo(w * 0.90f, h * 0.24f, w * 0.90f, h * 0.46f, w * 0.71f, h * 0.46f)
+        }
+        drawPath(rightHandle, color = tint, style = Stroke(width = stroke * 0.9f, cap = StrokeCap.Round))
+
+        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.64f), end = Offset(w * 0.5f, h * 0.82f), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(color = tint, start = Offset(w * 0.30f, h * 0.82f), end = Offset(w * 0.70f, h * 0.82f), strokeWidth = stroke, cap = StrokeCap.Round)
+    }
+}
 
 @Composable
 private fun OutlinedControlsIcon(tint: Color, modifier: Modifier = Modifier) {
