@@ -390,16 +390,27 @@ class TimerService : Service() {
 
             val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
             val currentDate = sdf.format(Date())
+            val currentSessionId = System.currentTimeMillis()
 
             val session = FocusSession(
+                id = currentSessionId,
                 date = currentDate,
                 subject = currentSubjectName.value,
                 durationMinutes = minutes,
                 earnedTrees = trees
             )
             
-            // 🛡️ केवल एक बार यहाँ से सेव होगा (और इसके अंदर से ही Supabase सिंक होगा)
+            // 🛡️ 1. लोकल रूम डेटाबेस में सुरक्षित सेव करें
             FocusSessionManager.saveSession(this, session)
+
+            // 🚀 2. Supabase क्लाउड डेटाबेस में भी लाइव सिंक करें
+            CloudSyncManager.syncSession(
+                context = this,
+                subject = currentSubjectName.value.ifBlank { "All" },
+                durationMinutes = minutes.toLong(),
+                earnedTrees = trees,
+                sessionId = currentSessionId
+            )
 
         } catch (e: Exception) {
             Log.e("AmonTimer", "Safe session save catch: ${e.localizedMessage}")
