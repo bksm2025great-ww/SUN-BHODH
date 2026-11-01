@@ -3,7 +3,6 @@ package com.amon.timer
 import android.content.Context
 import android.util.Log
 import com.amon.timer.groups.GroupMember
-import com.amon.timer.groups.MemberRole
 import com.amon.timer.groups.StudyGroup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,6 +16,9 @@ import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 // 🏆 लीडरबोर्ड के लिए शुद्ध डेटा मॉडल
 data class LeaderboardItem(
@@ -66,8 +68,9 @@ object CloudSyncManager {
         }
 
         val requestBody = jsonPayload.toString().toRequestBody(JSON_MEDIA_TYPE)
+        // on_conflict=id जोड़ा गया है ताकि डेटा सही से अपडेट हो
         val request = Request.Builder()
-            .url("$SUPABASE_URL/rest/v1/profiles")
+            .url("$SUPABASE_URL/rest/v1/profiles?on_conflict=id")
             .addHeader("apikey", SUPABASE_KEY)
             .addHeader("Authorization", "Bearer $SUPABASE_KEY")
             .addHeader("Content-Type", "application/json")
@@ -93,7 +96,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 👥 2. ग्रुप्स को Supabase से लोड करना (ताकि Hope या कोई भी ग्रुप गायब न हो)
+     * 👥 2. ग्रुप्स को Supabase से लोड करना (study_groups टेबल से)
      */
     suspend fun fetchGroups(context: Context): List<StudyGroup> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
@@ -123,8 +126,8 @@ object CloudSyncManager {
             Log.e(TAG, "Joined groups fetch error: ${e.message}")
         }
 
-        // 2. अब सारे ग्रुप्स लोड करेंगे
-        val groupsUrl = "$SUPABASE_URL/rest/v1/groups?select=*&order=created_at.desc"
+        // 2. अब study_groups टेबल से सारे ग्रुप्स लोड करेंगे
+        val groupsUrl = "$SUPABASE_URL/rest/v1/study_groups?select=*&order=created_at.desc"
         val request = Request.Builder()
             .url(groupsUrl)
             .addHeader("apikey", SUPABASE_KEY)
@@ -143,8 +146,6 @@ object CloudSyncManager {
                     val obj = arr.getJSONObject(i)
                     val gId = obj.optString("id")
                     val isDef = obj.optBoolean("is_default", false) || gId == "universal_lib"
-                    
-                    // ⚠️ ऑटो-जॉइन बंद: सिर्फ तभी joined माना जाएगा जब डेटाबेस में एंट्री हो
                     val isJoined = joinedGroupIds.contains(gId)
 
                     list.add(
@@ -154,8 +155,8 @@ object CloudSyncManager {
                             category = obj.optString("category", "General"),
                             isPublic = obj.optBoolean("is_public", true),
                             memberCount = obj.optInt("member_count", 1),
-                            focusingCount = obj.optInt("focusing_count", 0),
-                            isPinned = obj.optBoolean("is_pinned", false),
+                            focusingCount = 0,
+                            isPinned = false,
                             isJoined = isJoined,
                             isDefault = isDef,
                             inviteCode = obj.optString("invite_code", "AMON-GLOBAL")
@@ -163,21 +164,21 @@ object CloudSyncManager {
                     )
                 }
 
-                // अगर यूनिवर्सल लाइब्रेरी लिस्ट में नहीं है तो डिफ़ॉल्ट जोड़ेंगे (Not Joined by default)
+                // अगर यूनिवर्सल लाइब्रेरी लिस्ट में नहीं है तो जोड़ेंगे
                 if (list.none { it.id == "universal_lib" }) {
                     list.add(
                         0,
                         StudyGroup(
                             id = "universal_lib",
                             name = "Universal Library",
-                            category = "Global",
+                            category = "All",
                             isPublic = true,
                             memberCount = 1,
                             focusingCount = 0,
                             isPinned = true,
                             isJoined = joinedGroupIds.contains("universal_lib"),
                             isDefault = true,
-                            inviteCode = "GLOBAL"
+                            inviteCode = "AMON-GLOBAL"
                         )
                     )
                 }
@@ -192,7 +193,7 @@ object CloudSyncManager {
     }
 
     /**
-     * ➕ 3. नया ग्रुप बनाना (Supabase 'groups' टेबल में परमानेंट सेव होगा)
+     * ➕ 3. नया ग्रुप बनाना (study_groups टेबल के सटीक कॉलम्स के अनुसार)
      */
     suspend fun createGroupOnCloud(
         context: Context,
@@ -200,25 +201,19 @@ object CloudSyncManager {
     ): Boolean = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext false
 
-        val userManager = UserManager(context)
-        val userId = userManager.getUserId()
-        val userName = userManager.getUserName()
-
+        // केवल वही कॉलम्स भेजे जा रहे हैं जो Supabase की study_groups टेबल में मौजूद हैं
         val jsonPayload = JSONObject().apply {
             put("id", group.id)
             put("name", group.name)
             put("category", group.category)
             put("is_public", group.isPublic)
             put("member_count", 1)
-            put("focusing_count", 0)
-            put("is_pinned", false)
             put("is_default", false)
-            put("created_by", userId)
             put("invite_code", group.inviteCode)
         }
 
         val request = Request.Builder()
-            .url("$SUPABASE_URL/rest/v1/groups")
+            .url("$SUPABASE_URL/rest/v1/study_groups?on_conflict=id")
             .addHeader("apikey", SUPABASE_KEY)
             .addHeader("Authorization", "Bearer $SUPABASE_KEY")
             .addHeader("Content-Type", "application/json")
@@ -229,7 +224,7 @@ object CloudSyncManager {
         try {
             val response = client.newCall(request).execute()
             if (response.isSuccessful) {
-                // ग्रुप बनते ही बनाने वाले को एडमिन के रूप में जॉइन कराएंगे
+                // ग्रुप बनते ही बनाने वाले को मेंबर के रूप में जोड़ेंगे
                 joinGroupOnCloud(context, group.id)
                 return@withContext true
             } else {
@@ -242,18 +237,18 @@ object CloudSyncManager {
     }
 
     /**
-     * 🚪 4. ग्रुप जॉइन करना (Supabase 'group_members' टेबल में एंट्री)
+     * 🚪 4. ग्रुप जॉइन करना (group_members टेबल के अनुसार)
      */
     suspend fun joinGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
         val userManager = UserManager(context)
         val userId = userManager.getUserId()
         val userName = userManager.getUserName()
 
+        // role हटा दिया गया है क्योंकि टेबल में केवल group_id, user_id, nickname हैं
         val payload = JSONObject().apply {
             put("group_id", groupId)
             put("user_id", userId)
             put("nickname", userName)
-            put("role", "member")
         }
 
         val request = Request.Builder()
@@ -275,7 +270,7 @@ object CloudSyncManager {
     }
 
     /**
-     * ❌ 5. ग्रुप छोड़ना (Supabase 'group_members' से रो डिलीट करना)
+     * ❌ 5. ग्रुप छोड़ना (group_members से डिलीट करना)
      */
     suspend fun leaveGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
         val userManager = UserManager(context)
@@ -298,7 +293,7 @@ object CloudSyncManager {
     }
 
     /**
-     * ⏱️ 6. पढ़ाई पूरी होने पर डेटा Supabase में भेजना (user_id और sessionId के साथ)
+     * ⏱️ 6. पढ़ाई पूरी होने पर डेटा Supabase में भेजना
      */
     fun syncSession(
         context: Context,
@@ -317,11 +312,14 @@ object CloudSyncManager {
         val userManager = UserManager(context)
         val userId = userManager.getUserId()
 
+        // आज की तारीख format (YYYY-MM-DD)
+        val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
         val jsonPayload = JSONObject().apply {
-            put("id", sessionId)
             put("user_id", userId)
-            put("subject", subject.ifBlank { "General" })
+            put("subject", subject.ifBlank { "All" })
             put("duration_minutes", durationMinutes)
+            put("session_date", currentDate)
         }
 
         val requestBody = jsonPayload.toString().toRequestBody(JSON_MEDIA_TYPE)
@@ -330,7 +328,6 @@ object CloudSyncManager {
             .addHeader("apikey", SUPABASE_KEY)
             .addHeader("Authorization", "Bearer $SUPABASE_KEY")
             .addHeader("Content-Type", "application/json")
-            .addHeader("Prefer", "resolution=merge-duplicates")
             .post(requestBody)
             .build()
 
@@ -344,7 +341,7 @@ object CloudSyncManager {
                     if (response.isSuccessful) {
                         Log.d(TAG, "Session safely synced to Supabase for user: $userId")
                     } else {
-                        Log.e(TAG, "Server error code: ${response.code}")
+                        Log.e(TAG, "Server error code: ${response.code} body: ${response.body?.string()}")
                     }
                 }
             }
@@ -382,7 +379,7 @@ object CloudSyncManager {
                         FocusSession(
                             id = item.optLong("id", System.currentTimeMillis() + i),
                             date = item.optString("session_date", ""),
-                            subject = item.optString("subject", "General"),
+                            subject = item.optString("subject", "All"),
                             durationMinutes = item.optInt("duration_minutes", 0),
                             earnedTrees = 0
                         )
