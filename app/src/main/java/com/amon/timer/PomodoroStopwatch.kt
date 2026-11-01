@@ -633,7 +633,6 @@ fun PomodoroFocusControls(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Break switch chip (सिर्फ पॉज होने पर)
         if (isPaused && !isBreakActive) {
             Surface(
                 color = cardBg,
@@ -657,7 +656,6 @@ fun PomodoroFocusControls(
             }
         }
 
-        // Action Buttons Row
         Row(
             modifier = Modifier.fillMaxWidth(0.92f),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
