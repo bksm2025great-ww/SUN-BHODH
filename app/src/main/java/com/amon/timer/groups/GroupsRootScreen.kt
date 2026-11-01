@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.amon.timer.CloudSyncManager
+import com.amon.timer.UserManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 private enum class GroupsScreenState {
     HOME,
@@ -19,16 +23,45 @@ fun GroupsRootScreen(
     onStartFocus: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val userManager = remember { UserManager(context) }
+    
     var currentScreen by remember { mutableStateOf(GroupsScreenState.HOME) }
     
-    // 🌟 असली स्टेट जो हर बदलाव को तुरंत UI में दिखाती है
-    var groupsList by remember { mutableStateOf(MockRepository.sampleGroups) }
-    var selectedGroup by remember { mutableStateOf(groupsList[0]) }
-    var currentNickname by remember { mutableStateOf(MockRepository.CURRENT_USER_NICKNAME) }
+    // 🌟 असली स्टेट जो क्लाउड से ग्रुप्स सिंक करके रखती है
+    var groupsList by remember { mutableStateOf<List<StudyGroup>>(emptyList()) }
+    var selectedGroup by remember { 
+        mutableStateOf(
+            StudyGroup(
+                id = "universal_lib",
+                name = "Universal Library",
+                category = "Global",
+                isPublic = true,
+                memberCount = 1,
+                focusingCount = 0,
+                isPinned = true,
+                isJoined = false, // ⚠️ डिफ़ॉल्ट रूप से जॉइन नहीं रहेगा
+                isDefault = true,
+                inviteCode = "GLOBAL"
+            )
+        ) 
+    }
+    var currentNickname by remember { mutableStateOf(userManager.getUserName().ifBlank { MockRepository.CURRENT_USER_NICKNAME }) }
 
     var showCreateSheet by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
     var showNicknameDialog by remember { mutableStateOf(false) }
+
+    // 🚀 सुप्राबेस से ग्रुप्स फेच करना
+    LaunchedEffect(Unit) {
+        val cloudGroups = CloudSyncManager.fetchGroups(context)
+        if (cloudGroups.isNotEmpty()) {
+            groupsList = cloudGroups
+            selectedGroup = cloudGroups[0]
+        } else {
+            groupsList = listOf(selectedGroup)
+        }
+    }
 
     BackHandler(enabled = currentScreen != GroupsScreenState.HOME) {
         currentScreen = GroupsScreenState.HOME
@@ -54,10 +87,13 @@ fun GroupsRootScreen(
                             if (g.id == groupId) g.copy(isPinned = !g.isPinned) else g
                         }
                     },
-                    // ➕ जॉइन ग्रुप
+                    // ➕ जॉइन ग्रुप (सुप्राबेस सिंक के साथ)
                     onJoinGroup = { groupId ->
                         groupsList = groupsList.map { g ->
                             if (g.id == groupId) g.copy(isJoined = true, memberCount = g.memberCount + 1) else g
+                        }
+                        coroutineScope.launch(Dispatchers.IO) {
+                            CloudSyncManager.joinGroupOnCloud(context, groupId)
                         }
                     }
                 )
@@ -72,14 +108,24 @@ fun GroupsRootScreen(
                         currentScreen = GroupsScreenState.DETAIL
                     },
                     onToggleJoinGroup = { groupId ->
+                        val target = groupsList.find { it.id == groupId }
+                        val willJoin = target?.isJoined != true
+
                         groupsList = groupsList.map { g ->
                             if (g.id == groupId) {
-                                val newJoined = !g.isJoined
                                 g.copy(
-                                    isJoined = newJoined,
-                                    memberCount = if (newJoined) g.memberCount + 1 else (g.memberCount - 1).coerceAtLeast(1)
+                                    isJoined = willJoin,
+                                    memberCount = if (willJoin) g.memberCount + 1 else (g.memberCount - 1).coerceAtLeast(1)
                                 )
                             } else g
+                        }
+
+                        coroutineScope.launch(Dispatchers.IO) {
+                            if (willJoin) {
+                                CloudSyncManager.joinGroupOnCloud(context, groupId)
+                            } else {
+                                CloudSyncManager.leaveGroupOnCloud(context, groupId)
+                            }
                         }
                     }
                 )
@@ -96,7 +142,7 @@ fun GroupsRootScreen(
             }
         }
 
-        // ➕ नया ग्रुप बनाने का पूरा फंक्शन
+        // ➕ नया ग्रुप बनाने का पूरा फ़ंक्शन (सुप्राबेस में परमानेंट सेव)
         if (showCreateSheet) {
             CreateGroupSheet(
                 onDismiss = { showCreateSheet = false },
@@ -113,14 +159,21 @@ fun GroupsRootScreen(
                         isDefault = false,
                         inviteCode = inviteCode,
                         members = listOf(
-                            GroupMember(id = "user_me", nickname = currentNickname, role = MemberRole.ADMIN, lastActive = "Just now")
+                            GroupMember(id = userManager.getUserId(), nickname = currentNickname, role = MemberRole.ADMIN, lastActive = "Just now")
                         )
                     )
+
+                    // 1. तुरंत UI में दिखाएँ
                     groupsList = listOf(newGroup) + groupsList
                     selectedGroup = newGroup
                     showCreateSheet = false
                     currentScreen = GroupsScreenState.DETAIL
                     Toast.makeText(context, "Group created successfully!", Toast.LENGTH_SHORT).show()
+
+                    // 2. सुप्राबेस में परमानेंट इन्सर्ट करें
+                    coroutineScope.launch(Dispatchers.IO) {
+                        CloudSyncManager.createGroupOnCloud(context, newGroup)
+                    }
                 }
             )
         }
@@ -143,31 +196,41 @@ fun GroupsRootScreen(
                     showSettingsSheet = false
                     Toast.makeText(context, "Group has been reported. We will review it shortly.", Toast.LENGTH_LONG).show()
                 },
-                // 🚪 लीव ग्रुप फंक्शन
+                // 🚪 लीव ग्रुप फ़ंक्शन (सुप्राबेस से डिलीट)
                 onLeaveGroup = {
-                    if (selectedGroup.isDefault) {
-                        Toast.makeText(context, "You cannot leave the default Global Library.", Toast.LENGTH_SHORT).show()
-                    } else {
-                        groupsList = groupsList.map { g ->
-                            if (g.id == selectedGroup.id) g.copy(isJoined = false, isPinned = false) else g
-                        }
-                        showSettingsSheet = false
-                        currentScreen = GroupsScreenState.HOME
-                        Toast.makeText(context, "You left ${selectedGroup.name}", Toast.LENGTH_SHORT).show()
+                    val groupId = selectedGroup.id
+                    groupsList = groupsList.map { g ->
+                        if (g.id == groupId) g.copy(isJoined = false, isPinned = false) else g
+                    }
+                    showSettingsSheet = false
+                    currentScreen = GroupsScreenState.HOME
+                    Toast.makeText(context, "You left ${selectedGroup.name}", Toast.LENGTH_SHORT).show()
+
+                    coroutineScope.launch(Dispatchers.IO) {
+                        CloudSyncManager.leaveGroupOnCloud(context, groupId)
                     }
                 }
             )
         }
 
-        // ✏️ निकनेम बदलने का डायलॉग
+        // ✏️ निकनेम बदलने का डायलॉग (सुप्राबेस प्रोफ़ाइल अपडेट के साथ)
         if (showNicknameDialog) {
             NicknameDialog(
                 currentNickname = currentNickname,
                 onDismiss = { showNicknameDialog = false },
                 onSaveNickname = { newName ->
                     currentNickname = newName
+                    userManager.setUserName(newName)
                     showNicknameDialog = false
                     Toast.makeText(context, "Nickname updated to $newName", Toast.LENGTH_SHORT).show()
+
+                    coroutineScope.launch(Dispatchers.IO) {
+                        CloudSyncManager.registerUserOnCloud(
+                            context = context,
+                            userId = userManager.getUserId(),
+                            nickname = newName
+                        )
+                    }
                 }
             )
         }
