@@ -40,13 +40,16 @@ fun GroupsRootScreen(
                 memberCount = 1,
                 focusingCount = 0,
                 isPinned = true,
-                isJoined = false, // ⚠️ डिफ़ॉल्ट रूप से जॉइन नहीं रहेगा
+                isJoined = false,
                 isDefault = true,
                 inviteCode = "GLOBAL"
             )
         ) 
     }
-    var currentNickname by remember { mutableStateOf(userManager.getUserName().ifBlank { MockRepository.CURRENT_USER_NICKNAME }) }
+    // ✅ MockRepository.CURRENT_USER_NICKNAME हटाकर सेफ़ फ़ॉलबैक दिया गया
+    var currentNickname by remember { 
+        mutableStateOf(userManager.getUserName().ifBlank { "Aspirant" }) 
+    }
 
     var showCreateSheet by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
