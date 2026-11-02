@@ -46,8 +46,9 @@ fun GroupsRootScreen(
             )
         ) 
     }
-    // ✅ MockRepository.CURRENT_USER_NICKNAME हटाकर सेफ़ फ़ॉलबैक दिया गया
-    var currentNickname by remember { 
+
+    // ✅ फिक्स: MockRepository.CURRENT_USER_NICKNAME हटाकर डायरेक्ट String टाइप और सेफ फॉलबैक
+    var currentNickname: String by remember { 
         mutableStateOf(userManager.getUserName().ifBlank { "Aspirant" }) 
     }
 
