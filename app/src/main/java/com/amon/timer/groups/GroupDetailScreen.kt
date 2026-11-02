@@ -24,9 +24,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.amon.timer.CloudSyncManager
 import com.amon.timer.ThemeManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-// 💾 Local Cache Manager: Data offline / fast load karne ke liye
+// 💾 Local Cache Manager: Fast / Offline UI rendering
 object GroupCacheManager {
     private const val PREF_NAME = "amon_group_cache"
 
@@ -35,7 +39,6 @@ object GroupCacheManager {
     }
 
     fun saveLeaderboard(context: Context, groupId: String, members: List<GroupMember>) {
-        // Format: id|nickname|minutes|isFocusing|lastActive;...
         val serialized = members.joinToString(";;") {
             "${it.id}::${it.nickname}::${it.studyTimeMinutes}::${it.isCurrentlyFocusing}::${it.lastActive}"
         }
@@ -67,13 +70,14 @@ object GroupCacheManager {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailScreen(
-    group: StudyGroup = MockRepository.sampleGroups[0],
+    group: StudyGroup = StudyGroup(id = "default", name = "Study Group"),
     userNickname: String = "",
     onBackClick: () -> Unit = {},
     onInviteClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     val isDark = ThemeManager.isDarkTheme.value
     val bgColor = ThemeManager.getBackgroundColor()
@@ -95,28 +99,41 @@ fun GroupDetailScreen(
     }
     var selectedWeek by remember { mutableStateOf(availableWeeks[0]) }
 
-    // ⚡ Cache-First Strategy:
-    // Pehle local cache dekho, jaise hi Supabase se group.members aayein to cache update karo
+    // ⚡ 1. Cache-First Initialization
     val cachedMembers = remember(group.id) {
         GroupCacheManager.getCachedLeaderboard(context, group.id)
     }
 
-    val displayMembers = remember(group.members, cachedMembers) {
-        if (group.members.isNotEmpty()) {
-            // Naya data aaya Supabase se, use cache me save karo
-            GroupCacheManager.saveLeaderboard(context, group.id, group.members)
-            group.members
-        } else if (cachedMembers.isNotEmpty()) {
-            cachedMembers
-        } else {
-            emptyList()
+    // 🏆 2. Dynamic Leaderboard State (This Week vs Last Week)
+    var leaderboardMembers by remember {
+        mutableStateOf(
+            if (group.members.isNotEmpty()) group.members else cachedMembers
+        )
+    }
+
+    // 🔄 3. Week Selector Trigger: This Week / Last Week badalte hi Supabase se fetch
+    LaunchedEffect(selectedWeek.id, group.id) {
+        coroutineScope.launch(Dispatchers.IO) {
+            val freshMembers = CloudSyncManager.fetchGroupLeaderboard(
+                context = context,
+                groupId = group.id,
+                isCurrentWeek = selectedWeek.isCurrent
+            )
+            if (freshMembers.isNotEmpty()) {
+                withContext(Dispatchers.Main) {
+                    leaderboardMembers = freshMembers
+                }
+                if (selectedWeek.isCurrent) {
+                    GroupCacheManager.saveLeaderboard(context, group.id, freshMembers)
+                }
+            }
         }
     }
 
-    val activeMembers = displayMembers.filter { it.isCurrentlyFocusing }
+    val activeMembers = leaderboardMembers.filter { it.isCurrentlyFocusing }
 
     val triggerShareIntent = {
-        val inviteCode = group.inviteCode ?: "AMON-GLOBAL"
+        val inviteCode = group.inviteCode ?: "SUNBODH-GROUP"
         val shareMessage = """
             Hey! Join my study group "${group.name}" on Sun Bodh to track study hours together.
             
@@ -213,7 +230,7 @@ fun GroupDetailScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // 🌿 अल्ट्रा-कॉम्पैक्ट ग्रुप हेडर
+            // 🌿 Group Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -272,7 +289,7 @@ fun GroupDetailScreen(
 
             Spacer(modifier = Modifier.height(2.dp))
 
-            // 🎯 कॉम्पैक्ट टैब्स
+            // 🎯 Compact Tabs (Leaderboard / Active)
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = bgColor,
@@ -316,6 +333,7 @@ fun GroupDetailScreen(
             }
 
             if (selectedTabIndex == 0) {
+                // 📅 Week Filter Header
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -352,7 +370,7 @@ fun GroupDetailScreen(
                     )
                 }
 
-                if (displayMembers.isEmpty()) {
+                if (leaderboardMembers.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -360,7 +378,7 @@ fun GroupDetailScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No study sessions yet this week.",
+                            text = "No study sessions yet for ${selectedWeek.label.lowercase()}.",
                             color = textMuted,
                             fontSize = 13.sp,
                             textAlign = TextAlign.Center
@@ -372,11 +390,11 @@ fun GroupDetailScreen(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        itemsIndexed(displayMembers) { index, member ->
+                        itemsIndexed(leaderboardMembers, key = { _, m -> m.id }) { index, member ->
                             LeaderboardRow(
                                 rank = index + 1,
                                 member = member,
-                                isCurrentUser = userNickname.isNotBlank() && member.nickname == userNickname,
+                                isCurrentUser = userNickname.isNotBlank() && member.nickname.equals(userNickname, ignoreCase = true),
                                 textMain = textMain,
                                 textMuted = textMuted,
                                 accentColor = accentColor,
@@ -408,7 +426,7 @@ fun GroupDetailScreen(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        itemsIndexed(activeMembers) { _, member ->
+                        itemsIndexed(activeMembers, key = { _, m -> m.id }) { _, member ->
                             ActiveMemberRow(
                                 member = member,
                                 textMain = textMain,
