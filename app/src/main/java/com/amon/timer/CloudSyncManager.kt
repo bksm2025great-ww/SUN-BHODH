@@ -39,6 +39,10 @@ object CloudSyncManager {
     private const val SUPABASE_URL = "https://mgenghztpcqaqaepvevw.supabase.co"
     private const val SUPABASE_KEY = "sb_publishable_flD-UULZ2YGzMrVLw2QHoA_7cXEg7FX"
 
+    // 🛡️ डुप्लीकेट सेशन सिंक रोकने के लिए गार्ड
+    private var lastSyncTimestamp: Long = 0L
+    private var lastSyncedMinutes: Long = 0L
+
     /**
      * 📅 हफ़्ते (Current Week vs Last Week) की Monday से Sunday की तारीखें निकालना
      */
@@ -343,7 +347,81 @@ object CloudSyncManager {
     }
 
     /**
-     * ⏱️ 6. पढ़ाई पूरी होने पर सेशन सिंक करना
+     * 🗑️ 6. ग्रुप हमेशा के लिए डिलीट करना (Only Admin)
+     */
+    suspend fun deleteGroupOnCloud(groupId: String): Boolean = withContext(Dispatchers.IO) {
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext false
+
+        try {
+            // 1. ग्रुप के सभी मेंबर्स डिलीट करें
+            val delMembersReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/group_members?group_id=eq.$groupId")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+                .delete()
+                .build()
+            client.newCall(delMembersReq).execute()
+
+            // 2. ग्रुप को study_groups टेबल से हमेशा के लिए डिलीट करें
+            val delGroupReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/study_groups?id=eq.$groupId")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+                .delete()
+                .build()
+
+            val res = client.newCall(delGroupReq).execute()
+            return@withContext res.isSuccessful
+        } catch (e: Exception) {
+            Log.e(TAG, "Delete group error: ${e.message}")
+            return@withContext false
+        }
+    }
+
+    /**
+     * 🔍 7. इनवाइट कोड से प्राइवेट ग्रुप ढूँढना
+     */
+    suspend fun fetchGroupByInviteCode(inviteCode: String): StudyGroup? = withContext(Dispatchers.IO) {
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank() || inviteCode.isBlank()) return@withContext null
+
+        val cleanCode = inviteCode.trim()
+        val url = "$SUPABASE_URL/rest/v1/study_groups?invite_code=eq.$cleanCode&limit=1"
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .get()
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+            val text = response.body?.string().orEmpty()
+            if (response.isSuccessful && text.isNotBlank()) {
+                val arr = JSONArray(text)
+                if (arr.length() > 0) {
+                    val obj = arr.getJSONObject(0)
+                    return@withContext StudyGroup(
+                        id = obj.optString("id"),
+                        name = obj.optString("name", "Private Group"),
+                        category = obj.optString("category", "General"),
+                        isPublic = obj.optBoolean("is_public", false),
+                        memberCount = obj.optInt("member_count", 1),
+                        focusingCount = 0,
+                        isPinned = false,
+                        isJoined = false,
+                        isDefault = false,
+                        inviteCode = obj.optString("invite_code", cleanCode)
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Search by invite code error: ${e.message}")
+        }
+        return@withContext null
+    }
+
+    /**
+     * ⏱️ 8. पढ़ाई पूरी होने पर सेशन सिंक करना (डुप्लीकेट गार्ड के साथ)
      */
     fun syncSession(
         context: Context,
@@ -358,6 +436,17 @@ object CloudSyncManager {
         }
 
         if (durationMinutes <= 0) return
+
+        val now = System.currentTimeMillis()
+
+        // 🛑 डुप्लीकेट फ़िल्टर: पिछले 3 सेकंड में अगर वही मिनट दोबारा आए तो रोक दो
+        if (now - lastSyncTimestamp < 3000 && lastSyncedMinutes == durationMinutes) {
+            Log.w(TAG, "Duplicate session sync blocked!")
+            return
+        }
+
+        lastSyncTimestamp = now
+        lastSyncedMinutes = durationMinutes
 
         val userManager = UserManager(context)
         val userId = userManager.getUserId()
@@ -397,7 +486,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 📥 7. पढ़ाई का पिछला डेटा मंगाना
+     * 📥 9. पढ़ाई का पिछला डेटा मंगाना
      */
     suspend fun fetchSessions(context: Context): List<FocusSession> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
@@ -443,7 +532,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 👑 8. ग्लोबल लीडरबोर्ड डेटा खींचना
+     * 👑 10. ग्लोबल लीडरबोर्ड डेटा खींचना
      */
     suspend fun fetchLeaderboard(): List<LeaderboardItem> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
@@ -479,7 +568,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 🏆 9. ग्रुप लीडरबोर्ड (This Week vs Last Week) एक्टिव फ़िल्टर
+     * 🏆 11. ग्रुप लीडरबोर्ड (This Week vs Last Week) एक्टिव फ़िल्टर
      */
     suspend fun fetchGroupLeaderboard(
         context: Context,
