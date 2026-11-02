@@ -91,7 +91,7 @@ fun GroupsHomeScreen(
     val accentSubtle = accentColor.copy(alpha = 0.15f)
     val focusingGreen = Color(0xFF22C55E)
 
-    // ⚡ 1. Local Cache: Agar purana data hai to turant dikhega, warna bilkul clean empty state
+    // ⚡ 1. Local Cache: अगर पुराना डेटा है तो तुरंत लोड होगा
     val initialGroups = remember {
         GroupCacheManager.getCachedGroupsList(context)
     }
@@ -107,7 +107,7 @@ fun GroupsHomeScreen(
 
     val effectiveNickname = if (userNickname.isNotBlank()) userNickname else userManager.getUserName().ifBlank { "Aspirant" }
 
-    // 🔄 2. Background Fetch: Supabase se real data aate hi screen par list update hogi
+    // 🔄 2. Background Fetch: Supabase से डेटा आते ही स्टेट अपडेट होगी
     LaunchedEffect(Unit) {
         coroutineScope.launch(Dispatchers.IO) {
             val freshGroups = CloudSyncManager.fetchGroups(context)
@@ -130,8 +130,11 @@ fun GroupsHomeScreen(
         }
     }
 
+    // 👥 जो ग्रुप्स छात्र जॉइन कर चुका है (चाहे प्राइवेट हों या पब्लिक)
     val yourGroups = liveGroups.filter { it.isJoined }
-    val discoverGroups = liveGroups.filter { !it.isJoined }
+
+    // 🔒 एक्सप्लोर सेक्शन में सिर्फ़ और सिर्फ़ PUBLIC ग्रुप्स दिखेंगे (प्राइवेट पूरी तरह सुरक्षित)
+    val discoverGroups = liveGroups.filter { !it.isJoined && it.isPublic }
 
     Scaffold(
         topBar = {
@@ -266,7 +269,7 @@ fun GroupsHomeScreen(
                 }
             }
 
-            // --- SECTION 2: बाकी उपलब्ध ग्रुप्स ---
+            // --- SECTION 2: बाकी उपलब्ध पब्लिक ग्रुप्स ---
             if (discoverGroups.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(10.dp))
