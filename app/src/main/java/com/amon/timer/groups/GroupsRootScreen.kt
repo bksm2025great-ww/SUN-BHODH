@@ -47,7 +47,6 @@ fun GroupsRootScreen(
         ) 
     }
 
-    // ✅ फिक्स: MockRepository.CURRENT_USER_NICKNAME हटाकर डायरेक्ट String टाइप और सेफ फॉलबैक
     var currentNickname: String by remember { 
         mutableStateOf(userManager.getUserName().ifBlank { "Aspirant" }) 
     }
@@ -182,7 +181,7 @@ fun GroupsRootScreen(
             )
         }
 
-        // ⚙️ सेटिंग्स शीट (Leave Group और Notifications के साथ)
+        // ⚙️ सेटिंग्स शीट (Leave Group, Delete Group और Notifications के साथ)
         if (showSettingsSheet) {
             GroupSettingsSheet(
                 group = selectedGroup,
@@ -200,7 +199,7 @@ fun GroupsRootScreen(
                     showSettingsSheet = false
                     Toast.makeText(context, "Group has been reported. We will review it shortly.", Toast.LENGTH_LONG).show()
                 },
-                // 🚪 लीव ग्रुप फ़ंक्शन (सुप्राबेस से डिलीट)
+                // 🚪 लीव ग्रुप फ़ंक्शन (एडमिन और मेंबर दोनों के लिए)
                 onLeaveGroup = {
                     val groupId = selectedGroup.id
                     groupsList = groupsList.map { g ->
@@ -212,6 +211,18 @@ fun GroupsRootScreen(
 
                     coroutineScope.launch(Dispatchers.IO) {
                         CloudSyncManager.leaveGroupOnCloud(context, groupId)
+                    }
+                },
+                // 🗑️ परमानेंट डिलीट ग्रुप फ़ंक्शन (केवल एडमिन के लिए)
+                onDeleteGroup = {
+                    val groupId = selectedGroup.id
+                    groupsList = groupsList.filter { it.id != groupId }
+                    showSettingsSheet = false
+                    currentScreen = GroupsScreenState.HOME
+                    Toast.makeText(context, "Group \"${selectedGroup.name}\" deleted permanently", Toast.LENGTH_SHORT).show()
+
+                    coroutineScope.launch(Dispatchers.IO) {
+                        CloudSyncManager.deleteGroupOnCloud(groupId)
                     }
                 }
             )
