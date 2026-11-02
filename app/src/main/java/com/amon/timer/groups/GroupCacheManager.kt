@@ -10,13 +10,31 @@ object GroupCacheManager {
         return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
     }
 
-    // Leaderboard cache save karna
-    fun saveLeaderboard(context: Context, groupId: String, jsonString: String) {
-        getPrefs(context).edit().putString("cache_group_$groupId", jsonString).apply()
+    fun saveLeaderboard(context: Context, groupId: String, members: List<GroupMember>) {
+        val serialized = members.joinToString(";;") {
+            "${it.id}::${it.nickname}::${it.studyTimeMinutes}::${it.isCurrentlyFocusing}::${it.lastActive}"
+        }
+        getPrefs(context).edit().putString("cache_group_$groupId", serialized).apply()
     }
 
-    // Leaderboard cache read karna
-    fun getCachedLeaderboard(context: Context, groupId: String): String? {
-        return getPrefs(context).getString("cache_group_$groupId", null)
+    fun getCachedLeaderboard(context: Context, groupId: String): List<GroupMember> {
+        val serialized = getPrefs(context).getString("cache_group_$groupId", null) ?: return emptyList()
+        if (serialized.isBlank()) return emptyList()
+        return try {
+            serialized.split(";;").mapNotNull { row ->
+                val parts = row.split("::")
+                if (parts.size >= 5) {
+                    GroupMember(
+                        id = parts[0],
+                        nickname = parts[1],
+                        studyTimeMinutes = parts[2].toIntOrNull() ?: 0,
+                        isCurrentlyFocusing = parts[3].toBoolean(),
+                        lastActive = parts[4]
+                    )
+                } else null
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 }
