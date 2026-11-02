@@ -55,24 +55,20 @@ object MockRepository {
         WeekPeriod("w_prev", "Last Week", "Previous", false)
     )
 
-    const val CURRENT_USER_NICKNAME = "Amon_Admin"
-
-    // 🏛️ शुरूआती ग्रुप्स (सार्वजनिक और कुछ सुझाव ताकि एक्सप्लोर खाली न दिखे)
+    // 🏛️ शुरूआती ग्रुप्स (सार्वजनिक सुझाव ताकि एक्सप्लोर खाली न दिखे)
     val sampleGroups = listOf(
         StudyGroup(
             id = "universal_lib",
             name = "Universal Library",
             category = "Self Study",
             isPublic = true,
-            memberCount = 1,
+            memberCount = 0,
             focusingCount = 0,
             isPinned = false,
             isJoined = true,
             isDefault = true,
             inviteCode = "AMON-GLOBAL",
-            members = listOf(
-                GroupMember(id = "user_me", nickname = CURRENT_USER_NICKNAME, role = MemberRole.ADMIN, lastActive = "Active now")
-            )
+            members = emptyList() // कोई फ़र्ज़ी यूज़र नहीं, सीधा सुप्राबेस से लोड होगा
         ),
         StudyGroup(
             id = "rpsc_sprint",
@@ -112,9 +108,8 @@ object MockRepository {
         )
     )
 
+    // फ़र्ज़ी यूज़र लिस्ट को पूरी तरह खाली कर दिया गया है
     fun getSampleMembers(): List<GroupMember> {
-        return listOf(
-            GroupMember(id = "user_me", nickname = CURRENT_USER_NICKNAME, role = MemberRole.ADMIN, studyTimeMinutes = 120, lastActive = "Active now")
-        )
+        return emptyList()
     }
 }
