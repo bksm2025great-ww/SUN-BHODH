@@ -1,6 +1,8 @@
 package com.amon.timer.groups
 
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,11 +26,49 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.amon.timer.ThemeManager
 
+// 💾 Local Cache Manager: Data offline / fast load karne ke liye
+object GroupCacheManager {
+    private const val PREF_NAME = "amon_group_cache"
+
+    private fun getPrefs(context: Context): SharedPreferences {
+        return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+    }
+
+    fun saveLeaderboard(context: Context, groupId: String, members: List<GroupMember>) {
+        // Format: id|nickname|minutes|isFocusing|lastActive;...
+        val serialized = members.joinToString(";;") {
+            "${it.id}::${it.nickname}::${it.studyTimeMinutes}::${it.isCurrentlyFocusing}::${it.lastActive}"
+        }
+        getPrefs(context).edit().putString("cache_group_$groupId", serialized).apply()
+    }
+
+    fun getCachedLeaderboard(context: Context, groupId: String): List<GroupMember> {
+        val serialized = getPrefs(context).getString("cache_group_$groupId", null) ?: return emptyList()
+        if (serialized.isBlank()) return emptyList()
+        return try {
+            serialized.split(";;").mapNotNull { row ->
+                val parts = row.split("::")
+                if (parts.size >= 5) {
+                    GroupMember(
+                        id = parts[0],
+                        nickname = parts[1],
+                        studyTimeMinutes = parts[2].toIntOrNull() ?: 0,
+                        isCurrentlyFocusing = parts[3].toBoolean(),
+                        lastActive = parts[4]
+                    )
+                } else null
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailScreen(
     group: StudyGroup = MockRepository.sampleGroups[0],
-    userNickname: String = MockRepository.CURRENT_USER_NICKNAME,
+    userNickname: String = "",
     onBackClick: () -> Unit = {},
     onInviteClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {}
@@ -55,8 +95,25 @@ fun GroupDetailScreen(
     }
     var selectedWeek by remember { mutableStateOf(availableWeeks[0]) }
 
-    val members = group.members.ifEmpty { MockRepository.getSampleMembers() }
-    val activeMembers = members.filter { it.isCurrentlyFocusing }
+    // ⚡ Cache-First Strategy:
+    // Pehle local cache dekho, jaise hi Supabase se group.members aayein to cache update karo
+    val cachedMembers = remember(group.id) {
+        GroupCacheManager.getCachedLeaderboard(context, group.id)
+    }
+
+    val displayMembers = remember(group.members, cachedMembers) {
+        if (group.members.isNotEmpty()) {
+            // Naya data aaya Supabase se, use cache me save karo
+            GroupCacheManager.saveLeaderboard(context, group.id, group.members)
+            group.members
+        } else if (cachedMembers.isNotEmpty()) {
+            cachedMembers
+        } else {
+            emptyList()
+        }
+    }
+
+    val activeMembers = displayMembers.filter { it.isCurrentlyFocusing }
 
     val triggerShareIntent = {
         val inviteCode = group.inviteCode ?: "AMON-GLOBAL"
@@ -156,7 +213,7 @@ fun GroupDetailScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // 🌿 अल्ट्रा-कॉम्पैक्ट ग्रुप हेडर (बॉर्डर-फ्री)
+            // 🌿 अल्ट्रा-कॉम्पैक्ट ग्रुप हेडर
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -295,7 +352,7 @@ fun GroupDetailScreen(
                     )
                 }
 
-                if (members.isEmpty()) {
+                if (displayMembers.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -315,11 +372,11 @@ fun GroupDetailScreen(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        itemsIndexed(members) { index, member ->
+                        itemsIndexed(displayMembers) { index, member ->
                             LeaderboardRow(
                                 rank = index + 1,
                                 member = member,
-                                isCurrentUser = member.nickname == userNickname,
+                                isCurrentUser = userNickname.isNotBlank() && member.nickname == userNickname,
                                 textMain = textMain,
                                 textMuted = textMuted,
                                 accentColor = accentColor,
@@ -442,7 +499,6 @@ fun LeaderboardRow(
     focusingGreen: Color,
     isDark: Boolean
 ) {
-    // 🥇🥈🥉 Top 3 Podium Colors
     val colorGold = Color(0xFFF59E0B)
     val colorSilver = if (isDark) Color(0xFFE2E8F0) else Color(0xFF475569)
     val colorBronze = Color(0xFFD97706)
@@ -467,7 +523,6 @@ fun LeaderboardRow(
         else -> 13.sp
     }
 
-    // 🎨 बिना बॉर्डर के केवल बैकग्राउंड हाइलाइट
     val rowBackground = if (isCurrentUser) {
         accentSubtle
     } else {
