@@ -1,8 +1,6 @@
 package com.amon.timer.groups
 
-import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -29,43 +27,6 @@ import com.amon.timer.ThemeManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-// 💾 Local Cache Manager: Fast / Offline UI rendering
-object GroupCacheManager {
-    private const val PREF_NAME = "amon_group_cache"
-
-    private fun getPrefs(context: Context): SharedPreferences {
-        return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-    }
-
-    fun saveLeaderboard(context: Context, groupId: String, members: List<GroupMember>) {
-        val serialized = members.joinToString(";;") {
-            "${it.id}::${it.nickname}::${it.studyTimeMinutes}::${it.isCurrentlyFocusing}::${it.lastActive}"
-        }
-        getPrefs(context).edit().putString("cache_group_$groupId", serialized).apply()
-    }
-
-    fun getCachedLeaderboard(context: Context, groupId: String): List<GroupMember> {
-        val serialized = getPrefs(context).getString("cache_group_$groupId", null) ?: return emptyList()
-        if (serialized.isBlank()) return emptyList()
-        return try {
-            serialized.split(";;").mapNotNull { row ->
-                val parts = row.split("::")
-                if (parts.size >= 5) {
-                    GroupMember(
-                        id = parts[0],
-                        nickname = parts[1],
-                        studyTimeMinutes = parts[2].toIntOrNull() ?: 0,
-                        isCurrentlyFocusing = parts[3].toBoolean(),
-                        lastActive = parts[4]
-                    )
-                } else null
-            }
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,22 +60,17 @@ fun GroupDetailScreen(
     }
     var selectedWeek by remember { mutableStateOf(availableWeeks[0]) }
 
-    // ⚡ 1. Cache-First Initialization
-    val cachedMembers = remember(group.id) {
+    val cachedMembers: List<GroupMember> = remember(group.id) {
         GroupCacheManager.getCachedLeaderboard(context, group.id)
     }
 
-    // 🏆 2. Dynamic Leaderboard State (This Week vs Last Week)
-    var leaderboardMembers by remember {
-        mutableStateOf(
-            if (group.members.isNotEmpty()) group.members else cachedMembers
-        )
+    var leaderboardMembers: List<GroupMember> by remember {
+        mutableStateOf(if (group.members.isNotEmpty()) group.members else cachedMembers)
     }
 
-    // 🔄 3. Week Selector Trigger: This Week / Last Week badalte hi Supabase se fetch
     LaunchedEffect(selectedWeek.id, group.id) {
         coroutineScope.launch(Dispatchers.IO) {
-            val freshMembers = CloudSyncManager.fetchGroupLeaderboard(
+            val freshMembers: List<GroupMember> = CloudSyncManager.fetchGroupLeaderboard(
                 context = context,
                 groupId = group.id,
                 isCurrentWeek = selectedWeek.isCurrent
@@ -130,7 +86,9 @@ fun GroupDetailScreen(
         }
     }
 
-    val activeMembers = leaderboardMembers.filter { it.isCurrentlyFocusing }
+    val activeMembers: List<GroupMember> = remember(leaderboardMembers) {
+        leaderboardMembers.filter { it.isCurrentlyFocusing }
+    }
 
     val triggerShareIntent = {
         val inviteCode = group.inviteCode ?: "SUNBODH-GROUP"
@@ -230,7 +188,6 @@ fun GroupDetailScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // 🌿 Group Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -289,7 +246,6 @@ fun GroupDetailScreen(
 
             Spacer(modifier = Modifier.height(2.dp))
 
-            // 🎯 Compact Tabs (Leaderboard / Active)
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = bgColor,
@@ -333,7 +289,6 @@ fun GroupDetailScreen(
             }
 
             if (selectedTabIndex == 0) {
-                // 📅 Week Filter Header
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -390,7 +345,10 @@ fun GroupDetailScreen(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        itemsIndexed(leaderboardMembers, key = { _, m -> m.id }) { index, member ->
+                        itemsIndexed(
+                            items = leaderboardMembers,
+                            key = { _, m -> m.id }
+                        ) { index, member ->
                             LeaderboardRow(
                                 rank = index + 1,
                                 member = member,
@@ -426,7 +384,10 @@ fun GroupDetailScreen(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        itemsIndexed(activeMembers, key = { _, m -> m.id }) { _, member ->
+                        itemsIndexed(
+                            items = activeMembers,
+                            key = { _, m -> m.id }
+                        ) { _, member ->
                             ActiveMemberRow(
                                 member = member,
                                 textMain = textMain,
@@ -541,11 +502,7 @@ fun LeaderboardRow(
         else -> 13.sp
     }
 
-    val rowBackground = if (isCurrentUser) {
-        accentSubtle
-    } else {
-        Color.Transparent
-    }
+    val rowBackground = if (isCurrentUser) accentSubtle else Color.Transparent
 
     Row(
         modifier = Modifier
