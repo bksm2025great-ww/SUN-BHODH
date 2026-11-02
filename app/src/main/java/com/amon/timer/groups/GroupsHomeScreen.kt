@@ -1,5 +1,6 @@
 package com.amon.timer.groups
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,7 +25,45 @@ import androidx.compose.ui.unit.sp
 import com.amon.timer.CloudSyncManager
 import com.amon.timer.ThemeManager
 import com.amon.timer.UserManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+// 💾 Groups Cache Extensions
+fun GroupCacheManager.saveCachedGroupsList(context: Context, groups: List<StudyGroup>) {
+    val serialized = groups.joinToString("###") { g ->
+        "${g.id}::${g.name}::${g.category}::${g.isPublic}::${g.memberCount}::${g.focusingCount}::${g.isPinned}::${g.isJoined}::${g.isDefault}::${g.inviteCode ?: ""}"
+    }
+    context.getSharedPreferences("amon_group_cache", Context.MODE_PRIVATE)
+        .edit().putString("cache_home_groups", serialized).apply()
+}
+
+fun GroupCacheManager.getCachedGroupsList(context: Context): List<StudyGroup> {
+    val serialized = context.getSharedPreferences("amon_group_cache", Context.MODE_PRIVATE)
+        .getString("cache_home_groups", null) ?: return emptyList()
+    if (serialized.isBlank()) return emptyList()
+    return try {
+        serialized.split("###").mapNotNull { row ->
+            val parts = row.split("::")
+            if (parts.size >= 10) {
+                StudyGroup(
+                    id = parts[0],
+                    name = parts[1],
+                    category = parts[2],
+                    isPublic = parts[3].toBoolean(),
+                    memberCount = parts[4].toIntOrNull() ?: 1,
+                    focusingCount = parts[5].toIntOrNull() ?: 0,
+                    isPinned = parts[6].toBoolean(),
+                    isJoined = parts[7].toBoolean(),
+                    isDefault = parts[8].toBoolean(),
+                    inviteCode = parts[9].ifBlank { null }
+                )
+            } else null
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,26 +91,33 @@ fun GroupsHomeScreen(
     val accentSubtle = accentColor.copy(alpha = 0.15f)
     val focusingGreen = Color(0xFF22C55E)
 
-    // 🚀 लाइव डेटा स्टेट: Supabase से आने वाले ग्रुप्स
-    var liveGroups by remember { mutableStateOf<List<StudyGroup>>(groups) }
-    var isLoading by remember { mutableStateOf(groups.isEmpty()) }
+    // ⚡ 1. Local Cache: Agar purana data hai to turant dikhega, warna bilkul clean empty state
+    val initialGroups = remember {
+        GroupCacheManager.getCachedGroupsList(context)
+    }
 
-    val effectiveNickname = if (userNickname.isNotBlank()) userNickname else userManager.getUserName()
+    var liveGroups by remember { mutableStateOf(if (groups.isNotEmpty()) groups else initialGroups) }
 
-    // 🔄 डेटा रीलोड फंक्शन: Supabase से ताज़ा ग्रुप्स खींचने के लिए
-    fun reloadGroups() {
-        coroutineScope.launch {
-            val freshGroups = CloudSyncManager.fetchGroups(context)
-            if (freshGroups.isNotEmpty() || liveGroups.isEmpty()) {
-                liveGroups = freshGroups
-            }
-            isLoading = false
+    LaunchedEffect(groups) {
+        if (groups.isNotEmpty()) {
+            liveGroups = groups
+            GroupCacheManager.saveCachedGroupsList(context, groups)
         }
     }
 
-    // ⚡ स्क्रीन खुलते ही / टैब पर आते ही ऑटो-फ़ेच ट्रिगर होगा
+    val effectiveNickname = if (userNickname.isNotBlank()) userNickname else userManager.getUserName().ifBlank { "Aspirant" }
+
+    // 🔄 2. Background Fetch: Supabase se real data aate hi screen par list update hogi
     LaunchedEffect(Unit) {
-        reloadGroups()
+        coroutineScope.launch(Dispatchers.IO) {
+            val freshGroups = CloudSyncManager.fetchGroups(context)
+            if (freshGroups.isNotEmpty()) {
+                withContext(Dispatchers.Main) {
+                    liveGroups = freshGroups
+                }
+                GroupCacheManager.saveCachedGroupsList(context, freshGroups)
+            }
+        }
     }
 
     val userInitials = remember(effectiveNickname) {
@@ -84,7 +130,6 @@ fun GroupsHomeScreen(
         }
     }
 
-    // 🎯 फ़िल्टर: जॉइन किए हुए ग्रुप्स और बाकी उपलब्ध ग्रुप्स
     val yourGroups = liveGroups.filter { it.isJoined }
     val discoverGroups = liveGroups.filter { !it.isJoined }
 
@@ -155,125 +200,102 @@ fun GroupsHomeScreen(
         },
         containerColor = bgColor
     ) { paddingValues ->
-        if (isLoading && liveGroups.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = accentColor, strokeWidth = 3.dp)
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // --- SECTION 1: जुड़े हुए ग्रुप्स ---
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Your Groups (${yourGroups.size})",
+                        color = textMain,
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (yourGroups.isNotEmpty()) {
+                        Text(
+                            text = "Pinned on top",
+                            color = textMuted,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // --- SECTION 1: जुड़े हुए ग्रुप्स (YOUR JOINED GROUPS) ---
+
+            if (yourGroups.isEmpty()) {
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(cardBg)
+                            .padding(20.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Your Groups (${yourGroups.size})",
-                            color = textMain,
-                            fontSize = 14.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        if (yourGroups.isNotEmpty()) {
-                            Text(
-                                text = "Pinned on top",
-                                color = textMuted,
-                                fontSize = 11.sp
-                            )
-                        }
-                    }
-                }
-
-                if (yourGroups.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(cardBg)
-                                .padding(20.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "You haven't joined any groups yet.\nExplore below or create one!",
-                                color = textMuted,
-                                fontSize = 13.sp,
-                                lineHeight = 18.sp,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                        }
-                    }
-                } else {
-                    items(yourGroups.sortedByDescending { it.isPinned }, key = { it.id }) { group ->
-                        GroupCard(
-                            group = group,
-                            cardBg = cardBg,
-                            textMain = textMain,
-                            textMuted = textMuted,
-                            accentColor = accentColor,
-                            accentSubtle = accentSubtle,
-                            focusingGreen = focusingGreen,
-                            onCardClick = { onGroupClick(group) },
-                            onPinToggle = { onTogglePin(group.id) },
-                            onJoinClick = {
-                                coroutineScope.launch {
-                                    onJoinGroup(group.id)
-                                    CloudSyncManager.joinGroupOnCloud(context, group.id)
-                                    reloadGroups()
-                                }
-                            }
+                            text = "You haven't joined any groups yet.\nExplore below or create one!",
+                            color = textMuted,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
                 }
-
-                // --- SECTION 2: बाकी उपलब्ध ग्रुप्स (DISCOVER / JOIN) ---
-                if (discoverGroups.isNotEmpty()) {
-                    item {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = "Explore & Join Groups",
-                            color = textMain,
-                            fontSize = 14.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    items(discoverGroups, key = { it.id }) { group ->
-                        GroupCard(
-                            group = group,
-                            cardBg = cardBg,
-                            textMain = textMain,
-                            textMuted = textMuted,
-                            accentColor = accentColor,
-                            accentSubtle = accentSubtle,
-                            focusingGreen = focusingGreen,
-                            onCardClick = { onGroupClick(group) },
-                            onPinToggle = { onTogglePin(group.id) },
-                            onJoinClick = {
-                                coroutineScope.launch {
-                                    onJoinGroup(group.id)
-                                    CloudSyncManager.joinGroupOnCloud(context, group.id)
-                                    reloadGroups()
-                                }
-                            }
-                        )
-                    }
+            } else {
+                items(yourGroups.sortedByDescending { it.isPinned }, key = { it.id }) { group ->
+                    GroupCard(
+                        group = group,
+                        cardBg = cardBg,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        accentColor = accentColor,
+                        accentSubtle = accentSubtle,
+                        focusingGreen = focusingGreen,
+                        onCardClick = { onGroupClick(group) },
+                        onPinToggle = { onTogglePin(group.id) },
+                        onJoinClick = { onJoinGroup(group.id) }
+                    )
                 }
+            }
 
+            // --- SECTION 2: बाकी उपलब्ध ग्रुप्स ---
+            if (discoverGroups.isNotEmpty()) {
                 item {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Explore & Join Groups",
+                        color = textMain,
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
+
+                items(discoverGroups, key = { it.id }) { group ->
+                    GroupCard(
+                        group = group,
+                        cardBg = cardBg,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        accentColor = accentColor,
+                        accentSubtle = accentSubtle,
+                        focusingGreen = focusingGreen,
+                        onCardClick = { onGroupClick(group) },
+                        onPinToggle = { onTogglePin(group.id) },
+                        onJoinClick = { onJoinGroup(group.id) }
+                    )
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -340,7 +362,6 @@ fun GroupCard(
                     )
                 }
 
-                // 🎯 अगर जॉइन नहीं है तो साफ़ "Join" बटन दिखेगा, अगर जॉइन है तो पिन स्टार
                 if (!group.isJoined) {
                     Button(
                         onClick = onJoinClick,
