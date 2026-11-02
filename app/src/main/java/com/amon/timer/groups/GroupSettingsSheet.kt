@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -30,12 +31,13 @@ import com.amon.timer.ThemeManager
 @Composable
 fun GroupSettingsSheet(
     group: StudyGroup,
-    isAdmin: Boolean = true,
+    isAdmin: Boolean = false,
     onDismiss: () -> Unit = {},
     onInvite: () -> Unit = {},
     onToggleNotifications: (Boolean) -> Unit = {},
     onReportGroup: () -> Unit = {},
-    onLeaveGroup: () -> Unit = {}
+    onLeaveGroup: () -> Unit = {},
+    onDeleteGroup: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isDark = ThemeManager.isDarkTheme.value
@@ -47,6 +49,7 @@ fun GroupSettingsSheet(
     val dangerColor = Color(0xFFEF4444)
 
     var showLeaveConfirmDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // 🚀 1. शेयर शीट (WhatsApp, Telegram आदि)
@@ -70,7 +73,7 @@ fun GroupSettingsSheet(
         try {
             val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("mailto:")
-                putExtra(Intent.EXTRA_EMAIL, arrayOf("support@sunbhodh.app")) // अपना सपोर्ट ईमेल यहाँ डाल सकते हैं
+                putExtra(Intent.EXTRA_EMAIL, arrayOf("support@sunbhodh.app"))
                 putExtra(Intent.EXTRA_SUBJECT, "Report Group: ${group.name} (${group.id})")
                 putExtra(Intent.EXTRA_TEXT, "Hi Team,\n\nI want to report this group due to inappropriate content or spam.\n\nDetails:\n")
             }
@@ -80,7 +83,7 @@ fun GroupSettingsSheet(
         }
     }
 
-    // ⚠️ ग्रुप छोड़ने से पहले पक्का करने वाला डायलॉग
+    // ⚠️ 3. ग्रुप छोड़ने का कन्फ़र्मेशन डायलॉग (Leave Confirmation)
     if (showLeaveConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showLeaveConfirmDialog = false },
@@ -118,6 +121,45 @@ fun GroupSettingsSheet(
         )
     }
 
+    // 🚨 4. ग्रुप परमानेंट डिलीट करने का कन्फ़र्मेशन डायलॉग (Delete Confirmation - Only Admin)
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            containerColor = cardBg,
+            title = {
+                Text(
+                    text = "Delete Group?",
+                    color = dangerColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to permanently delete \"${group.name}\"? All members will be removed and this cannot be undone.",
+                    color = textMuted,
+                    fontSize = 13.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirmDialog = false
+                        onDeleteGroup()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = dangerColor)
+                ) {
+                    Text("Delete Permanently", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancel", color = textMain)
+                }
+            }
+        )
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -146,9 +188,10 @@ fun GroupSettingsSheet(
                         fontSize = 18.sp
                     )
                     Text(
-                        text = group.name,
-                        color = textMuted,
-                        fontSize = 12.sp
+                        text = "${group.name} ${if (isAdmin) "· (Admin)" else ""}",
+                        color = if (isAdmin) accentColor else textMuted,
+                        fontSize = 12.sp,
+                        fontWeight = if (isAdmin) FontWeight.SemiBold else FontWeight.Normal
                     )
                 }
 
@@ -167,7 +210,7 @@ fun GroupSettingsSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 1. Invite Aspirants (एक्टिव)
+            // 1. Invite Aspirants
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -201,7 +244,7 @@ fun GroupSettingsSheet(
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "Code: ${group.inviteCode} · Tap to share",
+                            text = "Code: ${group.inviteCode ?: "N/A"} · Tap to share",
                             color = textMuted,
                             fontSize = 11.5.sp
                         )
@@ -211,7 +254,7 @@ fun GroupSettingsSheet(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 2. Report Group (सीधा ईमेल रिपोर्ट)
+            // 2. Report Group
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -253,9 +296,9 @@ fun GroupSettingsSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // 3. Leave Group Button (कन्फ़र्मेशन के साथ)
+            // 🚪 3. Leave Group Button (एडमिन और मेंबर दोनों के लिए उपलब्ध)
             OutlinedButton(
                 onClick = { showLeaveConfirmDialog = true },
                 modifier = Modifier
@@ -280,6 +323,34 @@ fun GroupSettingsSheet(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
+            }
+
+            // 🗑️ 4. Delete Group Button (केवल Admin के लिए एक्स्ट्रा ऑप्शन)
+            if (isAdmin) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { showDeleteConfirmDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    shape = RoundedCornerShape(23.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = dangerColor,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteForever,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Delete Group",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(28.dp))
