@@ -2,6 +2,8 @@ package com.amon.timer
 
 import android.content.Context
 import android.util.Log
+import com.amon.timer.groups.GroupMember
+import com.amon.timer.groups.MemberRole
 import com.amon.timer.groups.StudyGroup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,6 +18,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -37,8 +40,27 @@ object CloudSyncManager {
     private const val SUPABASE_KEY = "sb_publishable_flD-UULZ2YGzMrVLw2QHoA_7cXEg7FX"
 
     /**
+     * 📅 हफ़्ते (Current Week vs Last Week) की Monday से Sunday की तारीखें निकालना
+     */
+    fun getWeekDateRange(isCurrentWeek: Boolean): Pair<String, String> {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val cal = Calendar.getInstance()
+        val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+        val daysFromMonday = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
+        cal.add(Calendar.DAY_OF_MONTH, -daysFromMonday)
+
+        if (!isCurrentWeek) {
+            cal.add(Calendar.DAY_OF_MONTH, -7)
+        }
+        val startDate = sdf.format(cal.time)
+        cal.add(Calendar.DAY_OF_MONTH, 6)
+        val endDate = sdf.format(cal.time)
+
+        return Pair(startDate, endDate)
+    }
+
+    /**
      * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम, UUID और ईमेल दर्ज करना
-     * (पहले चेक करेगा कि यह Gmail पहले से है या नहीं, ताकि पुरानी UUID रीस्टोर हो सके)
      */
     fun registerUserOnCloud(
         context: Context,
@@ -149,7 +171,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 👥 2. ग्रुप्स को Supabase से लोड करना (केवल शुद्ध Supabase डेटा)
+     * 👥 2. ग्रुप्स को Supabase से लोड करना
      */
     suspend fun fetchGroups(context: Context): List<StudyGroup> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
@@ -157,7 +179,6 @@ object CloudSyncManager {
         val userManager = UserManager(context)
         val currentUserId = userManager.getUserId()
 
-        // 1. जाँचें कि यूज़र किन-किन ग्रुप्स में जुड़ा है
         val joinedGroupIds = mutableSetOf<String>()
         try {
             val memberReq = Request.Builder()
@@ -179,7 +200,6 @@ object CloudSyncManager {
             Log.e(TAG, "Joined groups fetch error: ${e.message}")
         }
 
-        // 2. study_groups टेबल से सारे ग्रुप्स लोड करें (सुरक्षित URL)
         val groupsUrl = "$SUPABASE_URL/rest/v1/study_groups?select=*"
         val request = Request.Builder()
             .url(groupsUrl)
@@ -423,7 +443,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 👑 8. लाइव लीडरबोर्ड डेटा खींचना
+     * 👑 8. ग्लोबल लीडरबोर्ड डेटा खींचना
      */
     suspend fun fetchLeaderboard(): List<LeaderboardItem> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
@@ -455,6 +475,92 @@ object CloudSyncManager {
         } catch (e: Exception) {
             Log.e(TAG, "Leaderboard fetch error: ${e.message}")
         }
+        return@withContext emptyList()
+    }
+
+    /**
+     * 🏆 9. ग्रुप लीडरबोर्ड (This Week vs Last Week) एक्टिव फ़िल्टर
+     */
+    suspend fun fetchGroupLeaderboard(
+        context: Context,
+        groupId: String,
+        isCurrentWeek: Boolean
+    ): List<GroupMember> = withContext(Dispatchers.IO) {
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
+
+        try {
+            // 1. उस ग्रुप के सभी जुड़े हुए मेंबर्स लाओ
+            val membersUrl = "$SUPABASE_URL/rest/v1/group_members?group_id=eq.$groupId&select=user_id,nickname"
+            val memReq = Request.Builder()
+                .url(membersUrl)
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+                .get()
+                .build()
+
+            val memRes = client.newCall(memReq).execute()
+            val memText = memRes.body?.string().orEmpty()
+            if (!memRes.isSuccessful || memText.isBlank()) return@withContext emptyList()
+
+            val memArray = JSONArray(memText)
+            val membersMap = mutableMapOf<String, String>() // userId -> nickname
+            for (i in 0 until memArray.length()) {
+                val obj = memArray.getJSONObject(i)
+                val uId = obj.optString("user_id")
+                val nick = obj.optString("nickname", "Aspirant")
+                if (uId.isNotBlank()) {
+                    membersMap[uId] = nick
+                }
+            }
+
+            if (membersMap.isEmpty()) return@withContext emptyList()
+
+            // 2. उस हफ़्ते (Current vs Last) की तारीखें निकालो
+            val (startDate, endDate) = getWeekDateRange(isCurrentWeek)
+
+            // 3. उन तारीखों के बीच के सभी सेशन फ़ेच करो
+            val sessionsUrl = "$SUPABASE_URL/rest/v1/study_sessions?session_date=gte.$startDate&session_date=lte.$endDate&select=user_id,duration_minutes"
+            val sessReq = Request.Builder()
+                .url(sessionsUrl)
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+                .get()
+                .build()
+
+            val sessRes = client.newCall(sessReq).execute()
+            val sessText = sessRes.body?.string().orEmpty()
+
+            val minutesMap = mutableMapOf<String, Int>()
+            if (sessRes.isSuccessful && sessText.isNotBlank()) {
+                val sessArray = JSONArray(sessText)
+                for (i in 0 until sessArray.length()) {
+                    val sObj = sessArray.getJSONObject(i)
+                    val uId = sObj.optString("user_id")
+                    val duration = sObj.optInt("duration_minutes", 0)
+                    if (uId.isNotBlank()) {
+                        minutesMap[uId] = (minutesMap[uId] ?: 0) + duration
+                    }
+                }
+            }
+
+            // 4. मेंबर्स को उनके पढ़े गए कुल मिनटों के हिसाब से रैंक करें
+            val result = membersMap.map { (uId, nick) ->
+                val totalMins = minutesMap[uId] ?: 0
+                GroupMember(
+                    id = uId,
+                    nickname = nick,
+                    role = MemberRole.MEMBER,
+                    studyTimeMinutes = totalMins,
+                    isCurrentlyFocusing = false,
+                    lastActive = if (totalMins > 0) "This week" else "No sessions"
+                )
+            }.sortedByDescending { it.studyTimeMinutes }
+
+            return@withContext result
+        } catch (e: Exception) {
+            Log.e(TAG, "Group leaderboard fetch error: ${e.message}")
+        }
+
         return@withContext emptyList()
     }
 }
