@@ -12,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -52,7 +51,6 @@ fun GroupSettingsSheet(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // 🚀 1. शेयर शीट (WhatsApp, Telegram आदि)
     fun launchShareSheet() {
         val shareMessage = """
             Hey! Join my study group "${group.name}" on Sun Bhodh.
@@ -68,7 +66,6 @@ fun GroupSettingsSheet(
         context.startActivity(Intent.createChooser(sendIntent, "Invite Aspirants"))
     }
 
-    // 📩 2. असली रिपोर्ट ईमेल इंटेंट
     fun launchReportEmail() {
         try {
             val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
@@ -79,11 +76,10 @@ fun GroupSettingsSheet(
             }
             context.startActivity(Intent.createChooser(emailIntent, "Send Report"))
         } catch (e: Exception) {
-            // अगर ईमेल ऐप न मिले
+            // No email client found
         }
     }
 
-    // ⚠️ 3. ग्रुप छोड़ने का कन्फ़र्मेशन डायलॉग (Leave Confirmation)
     if (showLeaveConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showLeaveConfirmDialog = false },
@@ -121,7 +117,6 @@ fun GroupSettingsSheet(
         )
     }
 
-    // 🚨 4. ग्रुप परमानेंट डिलीट करने का कन्फ़र्मेशन डायलॉग (Delete Confirmation - Only Admin)
     if (showDeleteConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
@@ -174,7 +169,6 @@ fun GroupSettingsSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 6.dp)
         ) {
-            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -210,7 +204,6 @@ fun GroupSettingsSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 1. Invite Aspirants
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -254,7 +247,6 @@ fun GroupSettingsSheet(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 2. Report Group
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -298,7 +290,6 @@ fun GroupSettingsSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 🚪 3. Leave Group Button (एडमिन और मेंबर दोनों के लिए उपलब्ध)
             OutlinedButton(
                 onClick = { showLeaveConfirmDialog = true },
                 modifier = Modifier
@@ -325,7 +316,6 @@ fun GroupSettingsSheet(
                 )
             }
 
-            // 🗑️ 4. Delete Group Button (केवल Admin के लिए एक्स्ट्रा ऑप्शन)
             if (isAdmin) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
@@ -340,7 +330,7 @@ fun GroupSettingsSheet(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.DeleteForever,
+                        imageVector = Icons.Default.Delete,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
