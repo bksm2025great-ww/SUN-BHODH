@@ -90,10 +90,15 @@ fun GroupDetailScreen(
         leaderboardMembers.filter { it.isCurrentlyFocusing }
     }
 
+    // 👥 डायनामिक मेंबर काउंट: डेटाबेस के पुराने 1 की जगह असल मेंबर्स की संख्या
+    val displayMemberCount = remember(leaderboardMembers, group.memberCount) {
+        if (leaderboardMembers.isNotEmpty()) leaderboardMembers.size else maxOf(group.memberCount, 1)
+    }
+
     val triggerShareIntent = {
         val inviteCode = group.inviteCode ?: "SUNBODH-GROUP"
         val shareMessage = """
-            Hey! Join my study group "${group.name}" on Sun Bodh to track study hours together.
+            Hey! Join my study group "${group.name}" on Sun Bhodh to track study hours together.
             
             Group Code: $inviteCode
             Join Link: https://sunbodh.app/join/$inviteCode
@@ -221,7 +226,7 @@ fun GroupDetailScreen(
                             fontSize = 14.5.sp
                         )
                         Text(
-                            text = "${group.memberCount} members · ${if (group.isPublic) "Public" else "Private"}",
+                            text = "$displayMemberCount members · ${if (group.isPublic) "Public" else "Private"}",
                             color = textMuted,
                             fontSize = 11.5.sp
                         )
