@@ -70,7 +70,7 @@ fun GroupSettingsSheet(
         try {
             val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("mailto:")
-                putExtra(Intent.EXTRA_EMAIL, arrayOf("support@sunbhodh.app"))
+                putExtra(Intent.EXTRA_EMAIL, arrayOf("bksm2025great@gmail.com"))
                 putExtra(Intent.EXTRA_SUBJECT, "Report Group: ${group.name} (${group.id})")
                 putExtra(Intent.EXTRA_TEXT, "Hi Team,\n\nI want to report this group due to inappropriate content or spam.\n\nDetails:\n")
             }
