@@ -1,9 +1,14 @@
 package com.amon.timer
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,14 +21,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,16 +60,26 @@ fun WeeklyComparisonBottomSheet(
         bars.map { it.minutes }
     }
 
-    // Y-Axis Max Hours (Dynamic Screen-Time calculation)
+    // Y-Axis Dynamic Scale
     val maxMinutesInBoth = maxOf(
         (thisWeekDaysMins + lastWeekDaysMins).maxOrNull() ?: 60,
         60
     )
-    val maxHoursCeil = ((maxMinutesInBoth + 59) / 60).coerceAtLeast(3) // कम से कम 3h का स्केल
+    val maxHoursCeil = ((maxMinutesInBoth + 59) / 60).coerceAtLeast(3)
     val avgThisWeekMins = (thisWeekDaysMins.sum().toFloat() / 7f).toInt()
 
-    // इंटरैक्शन स्टेट: कौन सा दिन चुना गया है (डिफ़ॉल्ट रूप से गुरुवार - 3)
-    var selectedDayIndex by remember { mutableIntStateOf(3) }
+    // ✨ 1. ENTRANCE LINE DRAW & FADE ANIMATION
+    val drawAnimProgress = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        drawAnimProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 1100, easing = FastOutSlowInEasing)
+        )
+    }
+
+    // 🖐️ 2. SCRUB & DRAG INTERACTION STATE
+    var selectedDayIndex by remember { mutableIntStateOf(3) } // Default Thursday
+    var isScrubbing by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -98,9 +118,10 @@ fun WeeklyComparisonBottomSheet(
                         color = textMain
                     )
                     Text(
-                        text = "This Week vs Last Week",
-                        fontSize = 12.sp,
-                        color = textMuted
+                        text = "Drag along curve to inspect days",
+                        fontSize = 11.5.sp,
+                        color = if (isScrubbing) goldColor else textMuted,
+                        fontWeight = if (isScrubbing) FontWeight.Bold else FontWeight.Normal
                     )
                 }
 
@@ -109,17 +130,11 @@ fun WeeklyComparisonBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(goldColor))
                         Text("This Week", fontSize = 11.sp, color = textMain, fontWeight = FontWeight.SemiBold)
                     }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF94A3B8)))
                         Text("Last Week", fontSize = 11.sp, color = textMuted, fontWeight = FontWeight.SemiBold)
                     }
@@ -136,7 +151,7 @@ fun WeeklyComparisonBottomSheet(
                 }
             }
 
-            // 🌟 WAVE CHART BOX (Canvas with Dynamic Y-Axis)
+            // 🌟 WAVE CHART BOX (Canvas with Line-Draw + Gradient Fill + Touch-Scrub)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -147,7 +162,7 @@ fun WeeklyComparisonBottomSheet(
                     .padding(14.dp)
             ) {
                 Row(modifier = Modifier.fillMaxSize()) {
-                    // Left Side: Y-Axis Hours (Screen-Time Style)
+                    // Left Y-Axis Labels
                     Column(
                         modifier = Modifier
                             .fillMaxHeight()
@@ -161,97 +176,137 @@ fun WeeklyComparisonBottomSheet(
                         Text("0h", fontSize = 10.sp, color = textMuted)
                     }
 
-                    // Main Chart Canvas & Touch Handler
+                    // Main Chart Interactive Area
                     Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                // 👆 TOUCH & DRAG DETECTOR (उंगली से ड्रैग और टैप करने के लिए)
+                                .pointerInput(Unit) {
+                                    detectTapGestures { offset ->
+                                        val stepX = size.width / 6f
+                                        val tappedIndex = ((offset.x + stepX / 2f) / stepX).toInt().coerceIn(0, 6)
+                                        selectedDayIndex = tappedIndex
+                                    }
+                                }
+                                .pointerInput(Unit) {
+                                    detectDragGestures(
+                                        onDragStart = { isScrubbing = true },
+                                        onDragEnd = { isScrubbing = false },
+                                        onDragCancel = { isScrubbing = false }
+                                    ) { change, _ ->
+                                        val stepX = size.width / 6f
+                                        val dragIndex = ((change.position.x + stepX / 2f) / stepX).toInt().coerceIn(0, 6)
+                                        selectedDayIndex = dragIndex
+                                    }
+                                }
+                        ) {
                             Canvas(modifier = Modifier.fillMaxSize()) {
                                 val w = size.width
                                 val h = size.height
                                 val maxMins = maxHoursCeil * 60f
+                                val progress = drawAnimProgress.value
 
-                                // Grid Lines
+                                // Background Subtle Grids
                                 val gridY1 = h * 0.33f
                                 val gridY2 = h * 0.66f
-                                drawLine(
-                                    if (isDark) Color(0x15FFFFFF) else Color(0x15000000),
-                                    Offset(0f, gridY1),
-                                    Offset(w, gridY1),
-                                    strokeWidth = 1.dp.toPx()
-                                )
-                                drawLine(
-                                    if (isDark) Color(0x15FFFFFF) else Color(0x15000000),
-                                    Offset(0f, gridY2),
-                                    Offset(w, gridY2),
-                                    strokeWidth = 1.dp.toPx()
-                                )
+                                val gridColor = if (isDark) Color(0x15FFFFFF) else Color(0x15000000)
+                                drawLine(gridColor, Offset(0f, gridY1), Offset(w, gridY1), strokeWidth = 1.dp.toPx())
+                                drawLine(gridColor, Offset(0f, gridY2), Offset(w, gridY2), strokeWidth = 1.dp.toPx())
 
                                 val stepX = w / 6f
-
                                 fun getPoint(index: Int, mins: Int): Offset {
                                     val x = index * stepX
-                                    val y = h - ((mins.toFloat() / maxMins) * h).coerceIn(4f, h - 4f)
+                                    val y = h - ((mins.toFloat() / maxMins) * h).coerceIn(6f, h - 6f)
                                     return Offset(x, y)
                                 }
 
                                 val thisPoints = thisWeekDaysMins.mapIndexed { idx, m -> getPoint(idx, m) }
                                 val lastPoints = lastWeekDaysMins.mapIndexed { idx, m -> getPoint(idx, m) }
 
-                                // 1. Draw Last Week Wave (Smooth Grey)
-                                val lastPath = Path().apply {
+                                // 1. FULL PATH CREATION (Smooth Cubic Spline)
+                                val fullLastPath = Path().apply {
                                     moveTo(lastPoints[0].x, lastPoints[0].y)
                                     for (i in 0 until lastPoints.size - 1) {
                                         val p0 = lastPoints[i]
                                         val p1 = lastPoints[i + 1]
-                                        cubicTo(
-                                            (p0.x + p1.x) / 2f, p0.y,
-                                            (p0.x + p1.x) / 2f, p1.y,
-                                            p1.x, p1.y
-                                        )
+                                        cubicTo((p0.x + p1.x) / 2f, p0.y, (p0.x + p1.x) / 2f, p1.y, p1.x, p1.y)
                                     }
                                 }
-                                drawPath(
-                                    path = lastPath,
-                                    color = Color(0xFF64748B),
-                                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-                                )
 
-                                // 2. Draw This Week Wave (Smooth Gold Glowing)
-                                val thisPath = Path().apply {
+                                val fullThisPath = Path().apply {
                                     moveTo(thisPoints[0].x, thisPoints[0].y)
                                     for (i in 0 until thisPoints.size - 1) {
                                         val p0 = thisPoints[i]
                                         val p1 = thisPoints[i + 1]
-                                        cubicTo(
-                                            (p0.x + p1.x) / 2f, p0.y,
-                                            (p0.x + p1.x) / 2f, p1.y,
-                                            p1.x, p1.y
-                                        )
+                                        cubicTo((p0.x + p1.x) / 2f, p0.y, (p0.x + p1.x) / 2f, p1.y, p1.x, p1.y)
                                     }
                                 }
-                                drawPath(
-                                    path = thisPath,
-                                    color = goldColor,
-                                    style = Stroke(width = 2.8.dp.toPx(), cap = StrokeCap.Round)
-                                )
 
-                                // 3. Vertical Projection Line on Selected Day
-                                val selX = selectedDayIndex * stepX
-                                drawLine(
-                                    color = goldColor.copy(alpha = 0.6f),
-                                    start = Offset(selX, 0f),
-                                    end = Offset(selX, h),
-                                    strokeWidth = 1.5.dp.toPx()
-                                )
+                                // 2. 🌈 GRADIENT AREA FILL (नीचे से ऊपर स्मूथ शेड)
+                                if (progress > 0.05f) {
+                                    val areaPath = Path().apply {
+                                        addPath(fullThisPath)
+                                        lineTo(w * progress, h)
+                                        lineTo(0f, h)
+                                        close()
+                                    }
+                                    drawPath(
+                                        path = areaPath,
+                                        brush = Brush.verticalGradient(
+                                            colors = listOf(
+                                                goldColor.copy(alpha = 0.28f * progress),
+                                                goldColor.copy(alpha = 0.08f * progress),
+                                                Color.Transparent
+                                            ),
+                                            startY = 0f,
+                                            endY = h
+                                        )
+                                    )
+                                }
 
-                                // Highlight Dots on the line
-                                drawCircle(Color.White, radius = 5.dp.toPx(), center = thisPoints[selectedDayIndex])
-                                drawCircle(goldColor, radius = 3.5.dp.toPx(), center = thisPoints[selectedDayIndex])
+                                // 3. ✍️ ANIMATED PATH DRAWING (पेंसिल की तरह लाइन ड्रॉ होना)
+                                val lastMeasure = PathMeasure().apply { setPath(fullLastPath, false) }
+                                val animatedLastPath = Path()
+                                lastMeasure.getSegment(0f, lastMeasure.length * progress, animatedLastPath, true)
+                                drawPath(animatedLastPath, color = Color(0xFF64748B), style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
 
-                                drawCircle(Color.White, radius = 4.dp.toPx(), center = lastPoints[selectedDayIndex])
-                                drawCircle(Color(0xFF64748B), radius = 2.5.dp.toPx(), center = lastPoints[selectedDayIndex])
+                                val thisMeasure = PathMeasure().apply { setPath(fullThisPath, false) }
+                                val animatedThisPath = Path()
+                                thisMeasure.getSegment(0f, thisMeasure.length * progress, animatedThisPath, true)
+                                drawPath(animatedThisPath, color = goldColor, style = Stroke(width = 2.8.dp.toPx(), cap = StrokeCap.Round))
+
+                                // 4. 📍 VERTICAL PROJECTION LINE & GLOWING SCRUB DOTS
+                                if (progress >= 0.8f) {
+                                    val selX = selectedDayIndex * stepX
+                                    val currentThisPoint = thisPoints[selectedDayIndex]
+                                    val currentLastPoint = lastPoints[selectedDayIndex]
+
+                                    // Vertical Projection Line
+                                    drawLine(
+                                        color = goldColor.copy(alpha = if (isScrubbing) 0.85f else 0.5f),
+                                        start = Offset(selX, 0f),
+                                        end = Offset(selX, h),
+                                        strokeWidth = (if (isScrubbing) 2.dp else 1.5.dp).toPx()
+                                    )
+
+                                    // Glow Ring on Touch
+                                    if (isScrubbing) {
+                                        drawCircle(goldColor.copy(alpha = 0.25f), radius = 12.dp.toPx(), center = currentThisPoint)
+                                    }
+
+                                    // This Week Dot (Gold)
+                                    drawCircle(Color.White, radius = 5.5.dp.toPx(), center = currentThisPoint)
+                                    drawCircle(goldColor, radius = 3.8.dp.toPx(), center = currentThisPoint)
+
+                                    // Last Week Dot (Grey)
+                                    drawCircle(Color.White, radius = 4.dp.toPx(), center = currentLastPoint)
+                                    drawCircle(Color(0xFF64748B), radius = 2.5.dp.toPx(), center = currentLastPoint)
+                                }
                             }
 
-                            // 💬 FLOATING TOOLTIP BOX (Positioned Dynamically)
+                            // 💬 FLOATING TOOLTIP BOX (उंगली के साथ लाइव डेटा बदलेगा)
                             val thisMin = thisWeekDaysMins.getOrElse(selectedDayIndex) { 0 }
                             val lastMin = lastWeekDaysMins.getOrElse(selectedDayIndex) { 0 }
                             Box(
@@ -284,7 +339,7 @@ fun WeeklyComparisonBottomSheet(
                             }
                         }
 
-                        // X-Axis Days Row (Clickable)
+                        // X-Axis Days Row
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
