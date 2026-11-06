@@ -52,6 +52,7 @@ fun StatsScreen() {
     var selectedTab by remember { mutableStateOf("Weekly") }
     var dateOffset by remember { mutableIntStateOf(0) }
     var showStreakSheet by remember { mutableStateOf(false) }
+    var showComparisonSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedTab) {
         dateOffset = 0
@@ -164,6 +165,34 @@ fun StatsScreen() {
         Color(0xFF8B5CF6)
     )
 
+    // 📈 Weekly Comparison Metric Calculations (Dynamic Green / Red Badge)
+    val lastWeekSessions = remember(allSessions, dateOffset) {
+        filterSessionsByPeriod(allSessions, "Weekly", dateOffset - 1)
+    }
+    val thisWeekMins = remember(filteredSessions, selectedTab, totalMinutes, allSessions) {
+        if (selectedTab == "Weekly") totalMinutes else filterSessionsByPeriod(allSessions, "Weekly", 0).sumOf { it.durationMinutes }
+    }
+    val lastWeekMins = remember(lastWeekSessions) {
+        lastWeekSessions.sumOf { it.durationMinutes }
+    }
+    val comparisonDiffPercent = remember(thisWeekMins, lastWeekMins) {
+        if (lastWeekMins == 0) {
+            if (thisWeekMins > 0) 100 else 0
+        } else {
+            Math.round(((thisWeekMins - lastWeekMins).toFloat() / lastWeekMins.toFloat()) * 100)
+        }
+    }
+    val badgeColor = when {
+        comparisonDiffPercent > 0 -> Color(0xFF10B981)
+        comparisonDiffPercent < 0 -> Color(0xFFF43F5E)
+        else -> goldColor
+    }
+    val badgeText = when {
+        comparisonDiffPercent > 0 -> "+$comparisonDiffPercent% ↗"
+        comparisonDiffPercent < 0 -> "$comparisonDiffPercent% ↘"
+        else -> "0% ⇄"
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -258,7 +287,7 @@ fun StatsScreen() {
             }
         }
 
-        // 🎯 3.1 WEEKLY GOAL RING CARD (सिर्फ़ वीकली टैब में साफ़ रिंग)
+        // 3.1 WEEKLY GOAL RING CARD
         if (selectedTab == "Weekly") {
             Box(
                 modifier = Modifier
@@ -306,14 +335,12 @@ fun StatsScreen() {
                             val radius = (size.minDimension - stroke) / 2f
                             val center = Offset(size.width / 2f, size.height / 2f)
 
-                            // Track
                             drawCircle(
                                 color = if (isDark) Color(0x22FFFFFF) else Color(0x18000000),
                                 radius = radius,
                                 center = center,
                                 style = Stroke(width = stroke)
                             )
-                            // Progress
                             drawArc(
                                 color = goldColor,
                                 startAngle = -90f,
@@ -570,7 +597,7 @@ fun StatsScreen() {
             }
         }
 
-        // 5. 4 SUMMARY CARDS (Clean, Flat, Minimalist Style)
+        // 5. 4 SUMMARY CARDS
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -641,6 +668,62 @@ fun StatsScreen() {
                     textMuted = textMuted,
                     accentColor = goldColor
                 )
+            }
+        }
+
+        // 🌟 5.1 BENTO STRIP COMPARISON CARD
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(cardBg)
+                .border(1.dp, cardBorder.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                .clickable { showComparisonSheet = true }
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "WEEKLY COMPARISON",
+                        color = textMuted,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = "This Week vs Last Week",
+                        color = textMain,
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Tap to inspect dynamic wave comparison",
+                        color = textMuted.copy(alpha = 0.7f),
+                        fontSize = 10.5.sp
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(badgeColor.copy(alpha = 0.15f))
+                        .border(1.dp, badgeColor.copy(alpha = 0.6f), RoundedCornerShape(50))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = badgeText,
+                        color = badgeColor,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
             }
         }
 
@@ -820,6 +903,22 @@ fun StatsScreen() {
             onDismiss = { showStreakSheet = false }
         )
     }
+
+    // =========================================================================
+    // 📈 WEEKLY COMPARISON BOTTOM SHEET
+    // =========================================================================
+    if (showComparisonSheet) {
+        WeeklyComparisonBottomSheet(
+            allSessions = allSessions,
+            dateOffset = dateOffset,
+            isDark = isDark,
+            goldColor = goldColor,
+            textMain = textMain,
+            textMuted = textMuted,
+            cardBorder = cardBorder,
+            onDismiss = { showComparisonSheet = false }
+        )
+    }
 }
 
 // =============================================================================
@@ -873,7 +972,6 @@ fun StreakJournalBottomSheet(
         list
     }
 
-    // Soft Tint of Accent Color
     val softAccentFill = goldColor.copy(alpha = 0.16f)
 
     ModalBottomSheet(
@@ -900,7 +998,6 @@ fun StreakJournalBottomSheet(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -925,7 +1022,6 @@ fun StreakJournalBottomSheet(
                 }
             }
 
-            // Top Flame Showcase Card (केवल यहाँ फ़्लेम आइकन दिखेगा)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -966,7 +1062,6 @@ fun StreakJournalBottomSheet(
                         )
                     }
 
-                    // Single Large Flame
                     StreakFlame(
                         streakDays = streakDays,
                         isLarge = true,
@@ -975,7 +1070,6 @@ fun StreakJournalBottomSheet(
                 }
             }
 
-            // THIS WEEK'S TRACK
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1092,7 +1186,6 @@ fun StreakJournalBottomSheet(
                 }
             }
 
-            // MONTHLY CALENDAR
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1250,7 +1343,6 @@ fun StreakJournalBottomSheet(
                 }
             }
 
-            // Bottom Rule Card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1272,7 +1364,7 @@ fun StreakJournalBottomSheet(
 }
 
 // =============================================================================
-// SUMMARY CARD COMPOSABLE (Cleaner, No Extra Heavy Borders)
+// SUMMARY CARD COMPOSABLE
 // =============================================================================
 @Composable
 fun SummaryCard(
@@ -1333,8 +1425,8 @@ data class BarItem(
     val minutes: Int
 )
 
-// 🔍 Period Filter
-private fun filterSessionsByPeriod(
+// 🔍 Period Filter (internal ताकि दूसरी फ़ाइल इसे सीधे इस्तेमाल कर सके)
+internal fun filterSessionsByPeriod(
     sessions: List<FocusSession>,
     period: String,
     offset: Int
@@ -1390,7 +1482,7 @@ private fun filterSessionsByPeriod(
     }
 }
 
-private fun generateChartBars(
+internal fun generateChartBars(
     filteredSessions: List<FocusSession>,
     period: String,
     offset: Int
@@ -1456,7 +1548,7 @@ private fun generateChartBars(
     }
 }
 
-private fun formatMinutes(minutes: Int): String {
+internal fun formatMinutes(minutes: Int): String {
     if (minutes <= 0) return "0m"
     if (minutes < 60) return "${minutes}m"
     val h = minutes / 60
@@ -1464,7 +1556,7 @@ private fun formatMinutes(minutes: Int): String {
     return if (m == 0) "${h}h" else "${h}h ${m}m"
 }
 
-private fun parseDateSafelyUniversal(dateStr: String): Date? {
+internal fun parseDateSafelyUniversal(dateStr: String): Date? {
     if (dateStr.isBlank()) return null
 
     val clean = dateStr
