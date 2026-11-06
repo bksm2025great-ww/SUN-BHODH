@@ -1,5 +1,8 @@
 package com.amon.timer
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,9 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -362,7 +364,7 @@ fun StatsScreen() {
             }
         }
 
-        // 4. INTERACTIVE BAR CHART
+        // 4. INTERACTIVE BAR CHART (Staggered Spring Animated Bars)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -456,29 +458,20 @@ fun StatsScreen() {
                             ) {
                                 itemsIndexed(chartBars) { index, bar ->
                                     val isSelected = selectedBarIndex == index
-                                    val barHeight = if (bar.minutes == 0) 3.dp else {
+                                    val barHeight = if (bar.minutes == 0) 4.dp else {
                                         ((bar.minutes.toFloat() / maxMinutes) * maxBarHeight.value).dp.coerceIn(12.dp, maxBarHeight)
                                     }
 
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.Bottom,
-                                        modifier = Modifier.fillMaxHeight()
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .width(28.dp)
-                                                .height(barHeight)
-                                                .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-                                                .background(if (isSelected) goldColor else goldColor.copy(alpha = 0.75f))
-                                                .border(
-                                                    width = if (isSelected) 1.5.dp else 0.dp,
-                                                    color = if (isSelected) Color.White else Color.Transparent,
-                                                    shape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)
-                                                )
-                                                .clickable { selectedBarIndex = if (selectedBarIndex == index) null else index }
-                                        )
-                                    }
+                                    AnimatedBarItem(
+                                        modifier = Modifier.width(28.dp),
+                                        targetHeight = barHeight,
+                                        delayMillis = index * 55,
+                                        isSelected = isSelected,
+                                        isZero = bar.minutes == 0,
+                                        goldColor = goldColor,
+                                        isDark = isDark,
+                                        onClick = { selectedBarIndex = if (selectedBarIndex == index) null else index }
+                                    )
                                 }
                             }
                         } else {
@@ -498,26 +491,15 @@ fun StatsScreen() {
                                         ((bar.minutes.toFloat() / maxMinutes) * maxBarHeight.value).dp.coerceIn(8.dp, maxBarHeight)
                                     }
 
-                                    Box(
-                                        modifier = Modifier
-                                            .width(barWidth)
-                                            .height(barHeight)
-                                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                            .background(
-                                                if (bar.minutes == 0) {
-                                                    if (isDark) Color(0xFF27272A) else Color(0xFFCBD5E1)
-                                                } else if (isSelected) {
-                                                    goldColor
-                                                } else {
-                                                    goldColor.copy(alpha = 0.8f)
-                                                }
-                                            )
-                                            .border(
-                                                width = if (isSelected && bar.minutes > 0) 1.2.dp else 0.dp,
-                                                color = if (isSelected) Color.White else Color.Transparent,
-                                                shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
-                                            )
-                                            .clickable { selectedBarIndex = if (selectedBarIndex == index) null else index }
+                                    AnimatedBarItem(
+                                        modifier = Modifier.width(barWidth),
+                                        targetHeight = barHeight,
+                                        delayMillis = index * (if (isMonthly) 20 else 50),
+                                        isSelected = isSelected,
+                                        isZero = bar.minutes == 0,
+                                        goldColor = goldColor,
+                                        isDark = isDark,
+                                        onClick = { selectedBarIndex = if (selectedBarIndex == index) null else index }
                                     )
                                 }
                             }
@@ -727,7 +709,7 @@ fun StatsScreen() {
             }
         }
 
-        // 6. SUBJECT BREAKDOWN (Multi-Color Donut Chart)
+        // 6. SUBJECT BREAKDOWN (Screen Time Inspired Minimal Columns)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -826,58 +808,81 @@ fun StatsScreen() {
                         }
                     }
 
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    // Horizontal Screen Time Style List
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        subjectMinutesList.forEachIndexed { index, (subject, mins) ->
+                        itemsIndexed(subjectMinutesList) { index, (subject, mins) ->
                             val color = subjectColors[index % subjectColors.size]
                             val percentage = Math.round((mins.toFloat() / totalSubjectMinutes) * 100)
 
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isDark) Color(0x18FFFFFF) else Color(0x0C000000))
-                                    .padding(horizontal = 12.dp, vertical = 9.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                            Column(
+                                horizontalAlignment = Alignment.Start,
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(9.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(10.dp)
+                                            .size(7.dp)
                                             .clip(CircleShape)
                                             .background(color)
                                     )
                                     Text(
                                         text = subject,
-                                        color = textMain,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold
+                                        color = color,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1
                                     )
                                 }
 
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(
-                                        text = formatMinutes(mins),
-                                        color = goldColor,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.ExtraBold
-                                    )
-                                    Text(
-                                        text = "($percentage%)",
-                                        color = textMuted,
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
+                                Text(
+                                    text = formatMinutes(mins),
+                                    color = textMain,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+
+                                Text(
+                                    text = "$percentage%",
+                                    color = textMuted.copy(alpha = 0.7f),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        item {
+                            Column(
+                                horizontalAlignment = Alignment.Start,
+                                verticalArrangement = Arrangement.spacedBy(3.dp),
+                                modifier = Modifier.padding(start = 4.dp)
+                            ) {
+                                Text(
+                                    text = "Total",
+                                    color = textMuted,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = formatMinutes(totalSubjectMinutes),
+                                    color = textMain,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Text(
+                                    text = "100%",
+                                    color = textMuted.copy(alpha = 0.7f),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
                     }
@@ -888,9 +893,7 @@ fun StatsScreen() {
         Spacer(modifier = Modifier.height(16.dp))
     }
 
-    // =========================================================================
-    // 🔥 STREAK JOURNAL BOTTOM SHEET
-    // =========================================================================
+    // Sheets
     if (showStreakSheet) {
         StreakJournalBottomSheet(
             streakDays = streakDaysCount,
@@ -904,9 +907,6 @@ fun StatsScreen() {
         )
     }
 
-    // =========================================================================
-    // 📈 WEEKLY COMPARISON BOTTOM SHEET
-    // =========================================================================
     if (showComparisonSheet) {
         WeeklyComparisonBottomSheet(
             allSessions = allSessions,
@@ -922,7 +922,57 @@ fun StatsScreen() {
 }
 
 // =============================================================================
-// 🔥 STREAK JOURNAL BOTTOM SHEET (Clean, Soft Accent Tint)
+// 📊 SPRING ANIMATED BAR (Bottom-to-Top Elastic Grow)
+// =============================================================================
+@Composable
+fun AnimatedBarItem(
+    modifier: Modifier = Modifier,
+    targetHeight: androidx.compose.ui.unit.Dp,
+    delayMillis: Int,
+    isSelected: Boolean,
+    isZero: Boolean,
+    goldColor: Color,
+    isDark: Boolean,
+    onClick: () -> Unit
+) {
+    val animatedHeight = remember(targetHeight) { Animatable(0f) }
+
+    LaunchedEffect(targetHeight) {
+        animatedHeight.snapTo(0f)
+        delay(delayMillis.toLong())
+        animatedHeight.animateTo(
+            targetValue = targetHeight.value,
+            animationSpec = spring(
+                dampingRatio = 0.68f,
+                stiffness = Spring.StiffnessLow
+            )
+        )
+    }
+
+    Box(
+        modifier = modifier
+            .height(animatedHeight.value.dp)
+            .clip(RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp))
+            .background(
+                if (isZero) {
+                    if (isDark) Color(0xFF27272A) else Color(0xFFCBD5E1)
+                } else if (isSelected) {
+                    goldColor
+                } else {
+                    goldColor.copy(alpha = 0.82f)
+                }
+            )
+            .border(
+                width = if (isSelected && !isZero) 1.5.dp else 0.dp,
+                color = if (isSelected) Color.White else Color.Transparent,
+                shape = RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp)
+            )
+            .clickable { onClick() }
+    )
+}
+
+// =============================================================================
+// 🔥 STREAK JOURNAL BOTTOM SHEET
 // =============================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1425,7 +1475,6 @@ data class BarItem(
     val minutes: Int
 )
 
-// 🔍 Period Filter (internal ताकि दूसरी फ़ाइल इसे सीधे इस्तेमाल कर सके)
 internal fun filterSessionsByPeriod(
     sessions: List<FocusSession>,
     period: String,
