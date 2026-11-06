@@ -175,7 +175,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 👥 2. ग्रुप्स को Supabase से लोड करना
+     * 👥 2. ग्रुप्स को Supabase से लोड करना (सटीक Member Count के साथ)
      */
     suspend fun fetchGroups(context: Context): List<StudyGroup> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
@@ -184,26 +184,37 @@ object CloudSyncManager {
         val currentUserId = userManager.getUserId()
 
         val joinedGroupIds = mutableSetOf<String>()
+        val groupCountsMap = mutableMapOf<String, Int>()
+
+        // 1. group_members टेबल से सही मेम्बर संख्या और यूज़र की जॉइन स्थिति निकालना
         try {
-            val memberReq = Request.Builder()
-                .url("$SUPABASE_URL/rest/v1/group_members?user_id=eq.$currentUserId&select=group_id")
+            val allMembersReq = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/group_members?select=group_id,user_id")
                 .addHeader("apikey", SUPABASE_KEY)
                 .addHeader("Authorization", "Bearer $SUPABASE_KEY")
                 .get()
                 .build()
 
-            val memberRes = client.newCall(memberReq).execute()
-            val memberText = memberRes.body?.string().orEmpty()
-            if (memberRes.isSuccessful && memberText.isNotBlank()) {
-                val arr = JSONArray(memberText)
+            val allMembersRes = client.newCall(allMembersReq).execute()
+            val allMembersText = allMembersRes.body?.string().orEmpty()
+            if (allMembersRes.isSuccessful && allMembersText.isNotBlank()) {
+                val arr = JSONArray(allMembersText)
                 for (i in 0 until arr.length()) {
-                    joinedGroupIds.add(arr.getJSONObject(i).optString("group_id"))
+                    val obj = arr.getJSONObject(i)
+                    val gId = obj.optString("group_id")
+                    val uId = obj.optString("user_id")
+
+                    if (uId == currentUserId) {
+                        joinedGroupIds.add(gId)
+                    }
+                    groupCountsMap[gId] = (groupCountsMap[gId] ?: 0) + 1
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Joined groups fetch error: ${e.message}")
+            Log.e(TAG, "Members count fetch error: ${e.message}")
         }
 
+        // 2. study_groups टेबल से ग्रुप्स लोड करके असली मेंबर काउंट जोड़ना
         val groupsUrl = "$SUPABASE_URL/rest/v1/study_groups?select=*"
         val request = Request.Builder()
             .url(groupsUrl)
@@ -223,6 +234,7 @@ object CloudSyncManager {
                     val obj = arr.getJSONObject(i)
                     val gId = obj.optString("id")
                     val isJoined = joinedGroupIds.contains(gId)
+                    val realMemberCount = groupCountsMap[gId] ?: obj.optInt("member_count", 1)
 
                     list.add(
                         StudyGroup(
@@ -230,7 +242,7 @@ object CloudSyncManager {
                             name = obj.optString("name", "Study Group"),
                             category = obj.optString("category", "General"),
                             isPublic = obj.optBoolean("is_public", true),
-                            memberCount = obj.optInt("member_count", 1),
+                            memberCount = realMemberCount,
                             focusingCount = 0,
                             isPinned = false,
                             isJoined = isJoined,
@@ -292,7 +304,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 🚪 4. ग्रुप जॉइन करना
+     * 🚪 4. ग्रुप जॉइन करना (साथ ही member_count अपडेट करना)
      */
     suspend fun joinGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
         val userManager = UserManager(context)
@@ -382,9 +394,11 @@ object CloudSyncManager {
      * 🔍 7. इनवाइट कोड से प्राइवेट ग्रुप ढूँढना
      */
     suspend fun fetchGroupByInviteCode(inviteCode: String): StudyGroup? = withContext(Dispatchers.IO) {
-        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank() || inviteCode.isBlank()) return@withContext null
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext null
 
         val cleanCode = inviteCode.trim()
+        if (cleanCode.isBlank()) return@withContext null
+
         val url = "$SUPABASE_URL/rest/v1/study_groups?invite_code=eq.$cleanCode&limit=1"
         val request = Request.Builder()
             .url(url)
@@ -592,7 +606,7 @@ object CloudSyncManager {
             if (!memRes.isSuccessful || memText.isBlank()) return@withContext emptyList()
 
             val memArray = JSONArray(memText)
-            val membersMap = mutableMapOf<String, String>() // userId -> nickname
+            val membersMap = mutableMapOf<String, String>()
             for (i in 0 until memArray.length()) {
                 val obj = memArray.getJSONObject(i)
                 val uId = obj.optString("user_id")
