@@ -114,7 +114,6 @@ fun ProfileScreen() {
     val textMuted = ThemeManager.getTextMutedColor()
     val goldColor = ThemeManager.getAccentColor()
     
-    // 🪶 पहली फोटो का न्यूट्रल स्लिम 0.8dp बॉर्डर कलर
     val slimBorderStroke = 0.8.dp
     val cardBorder = if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1)
 
@@ -211,68 +210,73 @@ fun ProfileScreen() {
             }
         }
 
-        // ================= SECTION 1: APPEARANCE & ACHIEVEMENTS =================
+        // ================= SECTION 1: APPEARANCE & ACHIEVEMENTS (SINGLE GROUPED BOX) =================
         SectionHeader(title = "APPEARANCE & ACHIEVEMENTS", color = textMuted)
 
-        // 🏆 Achievements & Badges Card (यह रहा आपका कार्ड!)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
                 .border(slimBorderStroke, cardBorder, RoundedCornerShape(16.dp))
-                .clickable { showAchievementsScreen = true }
-                .padding(14.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(13.dp)
-            ) {
-                OutlinedTrophyIcon(tint = goldColor)
-                Text(
-                    text = "Achievements & Badges",
-                    color = textMain,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        // Preferences & Controls Card
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(cardBg)
-                .border(slimBorderStroke, cardBorder, RoundedCornerShape(16.dp))
-                .clickable { showPreferencesScreen = true }
-                .padding(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(13.dp)
-            ) {
-                OutlinedControlsIcon(tint = goldColor)
-                Column {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // 🏆 Achievements & Badges Item
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showAchievementsScreen = true }
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(13.dp)
+                ) {
+                    OutlinedTrophyIcon(tint = goldColor)
                     Text(
-                        text = "Preferences & Controls",
+                        text = "Achievements & Badges",
                         color = textMain,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "$currentMode • $currentAccent",
-                        color = textMuted,
-                        fontSize = 11.5.sp
-                    )
+                }
+
+                // Thin Divider Line
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .height(0.6.dp)
+                        .background(cardBorder.copy(alpha = 0.45f))
+                )
+
+                // 🎛️ Preferences & Controls Item
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showPreferencesScreen = true }
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(13.dp)
+                ) {
+                    OutlinedControlsIcon(tint = goldColor)
+                    Column {
+                        Text(
+                            text = "Preferences & Controls",
+                            color = textMain,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "$currentMode • $currentAccent",
+                            color = textMuted,
+                            fontSize = 11.5.sp
+                        )
+                    }
                 }
             }
         }
 
-        // ================= SECTION 2: DATA & STORAGE =================
+        // ================= SECTION 2: DATA & STORAGE (SAFE & INTACT) =================
         SectionHeader(title = "DATA & STORAGE", color = textMuted)
 
         // Amon Vault
@@ -544,370 +548,386 @@ fun ProfileScreen() {
             }
         }
 
-        // ================= SECTION 3: SUPPORT & UPDATES =================
+        // ================= SECTION 3: SUPPORT & ABOUT (SINGLE GROUPED BOX) =================
         SectionHeader(title = "SUPPORT & ABOUT", color = textMuted)
 
-        // App Updates Card
         val isUpdateExpanded = activeExpandedCard == "update"
+        val isSupportExpanded = activeExpandedCard == "support"
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
-                .border(slimBorderStroke, if (hasNewUpdate) Color(0xFF10B981).copy(alpha = 0.8f) else cardBorder, RoundedCornerShape(16.dp))
-                .padding(14.dp)
+                .border(
+                    width = slimBorderStroke,
+                    color = if (hasNewUpdate) Color(0xFF10B981).copy(alpha = 0.8f) else cardBorder,
+                    shape = RoundedCornerShape(16.dp)
+                )
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
+                // 🚀 1. App Updates Item
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            activeExpandedCard = if (isUpdateExpanded) null else "update"
-                        },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(14.dp)
                 ) {
                     Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                activeExpandedCard = if (isUpdateExpanded) null else "update"
+                            },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(13.dp)
+                        ) {
+                            OutlinedRocketIcon(tint = if (hasNewUpdate) Color(0xFF10B981) else goldColor)
+                            Text(
+                                text = "App Updates",
+                                color = textMain,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (hasNewUpdate) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF10B981))
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = if (hasNewUpdate) "Update Available" else "v$currentAppVersion",
+                            color = if (hasNewUpdate) Color(0xFF10B981) else textMuted,
+                            fontSize = 11.5.sp,
+                            fontWeight = if (hasNewUpdate) FontWeight.ExtraBold else FontWeight.Medium
+                        )
+                    }
+
+                    if (isUpdateExpanded) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        if (hasNewUpdate) {
+                            Text(
+                                text = "New Version $latestReleaseVersion is Ready!",
+                                color = Color(0xFF10B981),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = "Performance polish, clean UI layouts, and system improvements.",
+                                color = textMuted,
+                                fontSize = 11.sp
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Box(
+                                contentAlignment = Alignment.CenterStart,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(42.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isDownloading) Color(0x2210B981) else Color(0xFF10B981))
+                                    .border(
+                                        width = slimBorderStroke,
+                                        color = if (isDownloading) goldColor.copy(alpha = 0.5f) else Color.Transparent,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable(enabled = !isDownloading) {
+                                        coroutineScope.launch {
+                                            isDownloading = true
+                                            downloadProgress = 0
+                                            val downloadedFile = updateManager.downloadUpdateApk(apkDownloadUrl) { progress ->
+                                                downloadProgress = progress
+                                            }
+                                            isDownloading = false
+                                            if (downloadedFile != null && downloadedFile.exists()) {
+                                                updateManager.installApk(downloadedFile)
+                                            } else {
+                                                Toast.makeText(context, "Download failed. Please check network.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                            ) {
+                                if (isDownloading) {
+                                    val progressFraction = (downloadProgress / 100f).coerceIn(0.02f, 1f)
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(progressFraction)
+                                            .fillMaxHeight()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(
+                                                Brush.horizontalGradient(
+                                                    colors = listOf(
+                                                        Color(0xFFF59E0B),
+                                                        Color(0xFFFDE047),
+                                                        Color(0x88FEF08A)
+                                                    )
+                                                )
+                                            )
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Downloading Update... $downloadProgress%",
+                                            color = if (downloadProgress > 50) Color.Black else textMain,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                } else {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Download & Install Update",
+                                            color = Color.White,
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "Amon is up to date",
+                                        color = Color(0xFF10B981),
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Installed Version: v$currentAppVersion • Auto-sync active",
+                                        color = textMuted,
+                                        fontSize = 10.5.sp
+                                    )
+                                }
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                                        .border(slimBorderStroke, Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape(50))
+                                        .padding(horizontal = 9.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = "Latest",
+                                        color = Color(0xFF10B981),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Thin Divider Line
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .height(0.6.dp)
+                        .background(cardBorder.copy(alpha = 0.45f))
+                )
+
+                // 💬 2. Help & Support Item
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                activeExpandedCard = if (isSupportExpanded) null else "support"
+                            },
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        OutlinedRocketIcon(tint = if (hasNewUpdate) Color(0xFF10B981) else goldColor)
-                        Text(
-                            text = "App Updates",
-                            color = textMain,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        if (hasNewUpdate) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF10B981))
+                        OutlinedHelpSupportIcon(tint = goldColor)
+                        Column {
+                            Text(
+                                text = "Help & Support",
+                                color = textMain,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Report issues, share feedback & ideas",
+                                color = textMuted,
+                                fontSize = 11.5.sp
                             )
                         }
                     }
 
-                    Text(
-                        text = if (hasNewUpdate) "Update Available" else "v$currentAppVersion",
-                        color = if (hasNewUpdate) Color(0xFF10B981) else textMuted,
-                        fontSize = 11.5.sp,
-                        fontWeight = if (hasNewUpdate) FontWeight.ExtraBold else FontWeight.Medium
-                    )
-                }
-
-                if (isUpdateExpanded) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    if (hasNewUpdate) {
-                        Text(
-                            text = "New Version $latestReleaseVersion is Ready!",
-                            color = Color(0xFF10B981),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = "Performance polish, clean UI layouts, and system improvements.",
-                            color = textMuted,
-                            fontSize = 11.sp
-                        )
+                    if (isSupportExpanded) {
                         Spacer(modifier = Modifier.height(12.dp))
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
+                        Spacer(modifier = Modifier.height(10.dp))
 
+                        // Report a Bug
                         Box(
-                            contentAlignment = Alignment.CenterStart,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(42.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(if (isDownloading) Color(0x2210B981) else Color(0xFF10B981))
-                                .border(
-                                    width = slimBorderStroke,
-                                    color = if (isDownloading) goldColor.copy(alpha = 0.5f) else Color.Transparent,
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .clickable(enabled = !isDownloading) {
-                                    coroutineScope.launch {
-                                        isDownloading = true
-                                        downloadProgress = 0
-                                        val downloadedFile = updateManager.downloadUpdateApk(apkDownloadUrl) { progress ->
-                                            downloadProgress = progress
-                                        }
-                                        isDownloading = false
-                                        if (downloadedFile != null && downloadedFile.exists()) {
-                                            updateManager.installApk(downloadedFile)
-                                        } else {
-                                            Toast.makeText(context, "Download failed. Please check network.", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                }
-                        ) {
-                            if (isDownloading) {
-                                val progressFraction = (downloadProgress / 100f).coerceIn(0.02f, 1f)
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(progressFraction)
-                                        .fillMaxHeight()
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(
-                                            Brush.horizontalGradient(
-                                                colors = listOf(
-                                                    Color(0xFFF59E0B),
-                                                    Color(0xFFFDE047),
-                                                    Color(0x88FEF08A)
-                                                )
-                                            )
-                                        )
-                                )
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Downloading Update... $downloadProgress%",
-                                        color = if (downloadProgress > 50) Color.Black else textMain,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
+                                .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
+                                .border(slimBorderStroke, cardBorder, RoundedCornerShape(12.dp))
+                                .clickable {
+                                    sendSupportEmail(
+                                        context = context,
+                                        subject = "[Amon Bug Report] v$currentAppVersion",
+                                        appVersion = currentAppVersion,
+                                        isBug = true
                                     )
                                 }
-                            } else {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
+                                .padding(vertical = 10.dp, horizontal = 12.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                OutlinedBugReportIcon(tint = goldColor)
+                                Column {
                                     Text(
-                                        text = "Download & Install Update",
-                                        color = Color.White,
-                                        fontSize = 12.5.sp,
+                                        text = "Report a Bug",
+                                        color = textMain,
+                                        fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Found an issue? Send diagnostics to developer",
+                                        color = textMuted,
+                                        fontSize = 10.5.sp,
+                                        fontStyle = FontStyle.Italic
                                     )
                                 }
                             }
                         }
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Send Feedback
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
+                                .border(slimBorderStroke, cardBorder, RoundedCornerShape(12.dp))
+                                .clickable {
+                                    sendSupportEmail(
+                                        context = context,
+                                        subject = "[Amon Feedback] Suggestion",
+                                        appVersion = currentAppVersion,
+                                        isBug = false
+                                    )
+                                }
+                                .padding(vertical = 10.dp, horizontal = 12.dp)
                         ) {
-                            Column {
-                                Text(
-                                    text = "Amon is up to date",
-                                    color = Color(0xFF10B981),
-                                    fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Installed Version: v$currentAppVersion • Auto-sync active",
-                                    color = textMuted,
-                                    fontSize = 10.5.sp
-                                )
-                            }
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(Color(0xFF10B981).copy(alpha = 0.15f))
-                                    .border(slimBorderStroke, Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape(50))
-                                    .padding(horizontal = 9.dp, vertical = 3.dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(
-                                    text = "Latest",
-                                    color = Color(0xFF10B981),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                OutlinedLightbulbIdeaIcon(tint = goldColor)
+                                Column {
+                                    Text(
+                                        text = "Send Feedback & Ideas",
+                                        color = textMain,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Have a feature suggestion? We'd love to hear",
+                                        color = textMuted,
+                                        fontSize = 10.5.sp,
+                                        fontStyle = FontStyle.Italic
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
-        }
 
-        // Help & Support Card
-        val isSupportExpanded = activeExpandedCard == "support"
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(cardBg)
-                .border(slimBorderStroke, cardBorder, RoundedCornerShape(16.dp))
-                .padding(14.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+                // Thin Divider Line
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .height(0.6.dp)
+                        .background(cardBorder.copy(alpha = 0.45f))
+                )
+
+                // ✈️ 3. Share with Friends Item
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            activeExpandedCard = if (isSupportExpanded) null else "support"
-                        },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(13.dp)
-                ) {
-                    OutlinedHelpSupportIcon(tint = goldColor)
-                    Column {
-                        Text(
-                            text = "Help & Support",
-                            color = textMain,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Report issues, share feedback & ideas",
-                            color = textMuted,
-                            fontSize = 11.5.sp
-                        )
-                    }
-                }
-
-                if (isSupportExpanded) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(cardBorder.copy(alpha = 0.5f)))
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Report a Bug
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
-                            .border(slimBorderStroke, cardBorder, RoundedCornerShape(12.dp))
-                            .clickable {
-                                sendSupportEmail(
-                                    context = context,
-                                    subject = "[Amon Bug Report] v$currentAppVersion",
-                                    appVersion = currentAppVersion,
-                                    isBug = true
-                                )
-                            }
-                            .padding(vertical = 10.dp, horizontal = 12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            OutlinedBugReportIcon(tint = goldColor)
-                            Column {
-                                Text(
-                                    text = "Report a Bug",
-                                    color = textMain,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Found an issue? Send diagnostics to developer",
-                                    color = textMuted,
-                                    fontSize = 10.5.sp,
-                                    fontStyle = FontStyle.Italic
-                                )
+                        .clickable(enabled = !isPreparingApkShare) {
+                            coroutineScope.launch {
+                                isPreparingApkShare = true
+                                shareApkSafely(context)
+                                isPreparingApkShare = false
                             }
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Send Feedback
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isDark) Color(0xFF27272F) else Color(0xFFF1F5F9))
-                            .border(slimBorderStroke, cardBorder, RoundedCornerShape(12.dp))
-                            .clickable {
-                                sendSupportEmail(
-                                    context = context,
-                                    subject = "[Amon Feedback] Suggestion",
-                                    appVersion = currentAppVersion,
-                                    isBug = false
-                                )
-                            }
-                            .padding(vertical = 10.dp, horizontal = 12.dp)
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            OutlinedLightbulbIdeaIcon(tint = goldColor)
-                            Column {
-                                Text(
-                                    text = "Send Feedback & Ideas",
-                                    color = textMain,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Have a feature suggestion? We'd love to hear",
-                                    color = textMuted,
-                                    fontSize = 10.5.sp,
-                                    fontStyle = FontStyle.Italic
-                                )
-                            }
+                        OutlinedPaperAirplaneIcon(tint = goldColor)
+
+                        Column {
+                            Text(
+                                text = "Share with Friends",
+                                color = textMain,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (isPreparingApkShare) "Preparing APK..." else "Share the app with your friends",
+                                color = textMuted,
+                                fontSize = 11.5.sp
+                            )
                         }
                     }
-                }
-            }
-        }
-
-        // Share Direct APK Card
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(cardBg)
-                .border(slimBorderStroke, cardBorder, RoundedCornerShape(16.dp))
-                .clickable(enabled = !isPreparingApkShare) {
-                    coroutineScope.launch {
-                        isPreparingApkShare = true
-                        shareApkSafely(context)
-                        isPreparingApkShare = false
+                    if (isPreparingApkShare) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = goldColor, strokeWidth = 2.dp)
                     }
-                }
-                .padding(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(13.dp)
-                ) {
-                    OutlinedPaperAirplaneIcon(tint = goldColor)
-
-                    Column {
-                        Text(
-                            text = "Share with Friends",
-                            color = textMain,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = if (isPreparingApkShare) "Preparing APK..." else "Share the app with your friends",
-                            color = textMuted,
-                            fontSize = 11.5.sp
-                        )
-                    }
-                }
-                if (isPreparingApkShare) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = goldColor, strokeWidth = 2.dp)
                 }
             }
         }
 
         // ================= BOTTOM BALANCED ILLUSTRATION & FOOTER =================
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         val lottieComposition by rememberLottieComposition(
             LottieCompositionSpec.RawRes(R.raw.profile_anim)
@@ -917,10 +937,11 @@ fun ProfileScreen() {
             iterations = LottieConstants.IterateForever
         )
 
+        // 🧘‍♂️ बड़ा एनीमेशन (160.dp) और नीचे के टेक्स्ट के ठीक ऊपर
         Box(
             modifier = Modifier
-                .size(118.dp)
-                .padding(vertical = 4.dp),
+                .size(160.dp)
+                .padding(vertical = 2.dp),
             contentAlignment = Alignment.Center
         ) {
             LottieAnimation(
@@ -935,7 +956,7 @@ fun ProfileScreen() {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 2.dp, bottom = 14.dp),
+                .padding(top = 2.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -954,7 +975,7 @@ fun ProfileScreen() {
         }
     }
 
-    // 🌟 फ़्लोटिंग बॉटम शीट (Clean Placeholders & Matching Border)
+    // 🌟 फ़्लोटिंग बॉटम शीट (Profile Editing)
     if (showEditProfileSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         var tempName by remember { mutableStateOf(currentUserName) }
