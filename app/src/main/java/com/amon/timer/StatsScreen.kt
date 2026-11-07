@@ -149,7 +149,7 @@ fun StatsScreen() {
         calculateStreakCount(allSessions)
     }
 
-    // 🎯 Dynamic Unified Goal Progress
+    // 🎯 Dynamic Unified Goal Progress (Auto-Scale from Daily)
     val targetGoalMinutes = remember(selectedTab, dailyGoalHours) {
         if (dailyGoalHours <= 0f) 0 else {
             val dailyMins = (dailyGoalHours * 60).toInt()
@@ -328,7 +328,7 @@ fun StatsScreen() {
             }
         }
 
-        // 4. INTERACTIVE BAR CHART (बार चार्ट ऊपर सेट है)
+        // 4. INTERACTIVE BAR CHART
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -598,7 +598,6 @@ fun StatsScreen() {
                         )
                         Spacer(modifier = Modifier.height(2.dp))
 
-                        // ओवर-अचीवमेंट टेक्स्ट (100% से ज़्यादा होने पर)
                         if (actualGoalPercentage > 100) {
                             val extraMins = totalMinutes - targetGoalMinutes
                             Text(
@@ -657,17 +656,17 @@ fun StatsScreen() {
             }
         }
 
-        // 5. 4 SUMMARY CARDS
+        // 5. 4 SUMMARY CARDS (Balanced Heights & Compact Padding)
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 SummaryCard(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                     title = "Total Time",
                     value = totalHoursStr,
                     subtitle = "Focus Time",
@@ -678,7 +677,7 @@ fun StatsScreen() {
                     accentColor = goldColor
                 )
                 SummaryCard(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                     title = "Total Sessions",
                     value = "${filteredSessions.size}",
                     subtitle = "Completed",
@@ -691,16 +690,17 @@ fun StatsScreen() {
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 SummaryCard(
                     modifier = Modifier
                         .weight(1f)
+                        .fillMaxHeight()
                         .clickable { showStreakSheet = true },
                     title = "Current Streak",
                     value = if (streakDaysCount > 0) "$streakDaysCount Days" else "__",
-                    subtitle = "Tap to view streak & calendar",
+                    subtitle = "Tap to view streak", // 🎯 Extra "& calendar" removed
                     cardBg = cardBg,
                     cardBorder = cardBorder,
                     textMain = textMain,
@@ -710,15 +710,15 @@ fun StatsScreen() {
                         {
                             StreakFlame(
                                 streakDays = streakDaysCount,
-                                isLarge = true, // 🔥 Lottie flame_stats वाला बड़ा व रिच फ्लेम
-                                modifier = Modifier.size(52.dp)
+                                isLarge = true,
+                                modifier = Modifier.size(32.dp) // 🎯 Perfectly proportioned size
                             )
                         }
                     } else null
                 )
 
                 SummaryCard(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                     title = "Daily Avg",
                     value = dailyAvgStr,
                     subtitle = "Based on $selectedTab",
@@ -787,7 +787,7 @@ fun StatsScreen() {
             }
         }
 
-        // 6. SUBJECT BREAKDOWN (ऑन-स्क्रॉल व्यू देखने पर ही एनिमेट होगा)
+        // 6. SUBJECT BREAKDOWN (Viewport Scrolled Visibility)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1537,7 +1537,7 @@ fun StreakJournalBottomSheet(
 }
 
 // =============================================================================
-// SUMMARY CARD COMPOSABLE
+// SUMMARY CARD COMPOSABLE (Compact, Balanced & Single-Line Fit)
 // =============================================================================
 @Composable
 fun SummaryCard(
@@ -1557,20 +1557,23 @@ fun SummaryCard(
             .clip(RoundedCornerShape(16.dp))
             .background(cardBg)
             .border(1.dp, cardBorder.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-            .padding(14.dp)
+            .padding(12.dp)
     ) {
-        Column {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
             Text(
                 text = title,
                 color = textMuted,
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.Medium
             )
-            Spacer(modifier = Modifier.height(4.dp))
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
             ) {
                 if (flameContent != null) {
                     flameContent()
@@ -1578,16 +1581,19 @@ fun SummaryCard(
                 Text(
                     text = value,
                     color = if (value == "__") textMuted else textMain,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
                 color = textMuted.copy(alpha = 0.7f),
-                fontSize = 10.sp
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
