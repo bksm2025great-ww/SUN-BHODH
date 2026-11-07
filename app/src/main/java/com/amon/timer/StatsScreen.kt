@@ -1,8 +1,11 @@
 package com.amon.timer
 
+import android.content.Context
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,12 +16,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetState
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,10 +30,12 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
@@ -58,6 +60,11 @@ fun StatsScreen() {
     var dateOffset by remember { mutableIntStateOf(0) }
     var showStreakSheet by remember { mutableStateOf(false) }
     var showComparisonSheet by remember { mutableStateOf(false) }
+    var showGoalDialog by remember { mutableStateOf(false) }
+
+    // 🎯 Stored Daily Goal (Default 0 = Not set)
+    val prefs = remember { context.getSharedPreferences("amon_stats_goals", Context.MODE_PRIVATE) }
+    var dailyGoalHours by remember { mutableFloatStateOf(prefs.getFloat("daily_goal_hours", 0f)) }
 
     LaunchedEffect(selectedTab) {
         dateOffset = 0
@@ -138,55 +145,57 @@ fun StatsScreen() {
         calculateStreakCount(allSessions)
     }
 
-    // 🎯 Weekly Goal Target (Default 21h = 1260 mins)
-    val weeklyGoalTargetMinutes = 21 * 60
-    val weeklyGoalProgress = remember(totalMinutes) {
-        (totalMinutes.toFloat() / weeklyGoalTargetMinutes.toFloat()).coerceIn(0f, 1f)
+    // 🎯 Dynamic Unified Goal Progress (Auto-Scale from Daily)
+    val targetGoalMinutes = remember(selectedTab, dailyGoalHours) {
+        if (dailyGoalHours <= 0f) 0 else {
+            val dailyMins = (dailyGoalHours * 60).toInt()
+            when (selectedTab) {
+                "Today" -> dailyMins
+                "Weekly" -> dailyMins * 7
+                else -> dailyMins * 30
+            }
+        }
+    }
+
+    val goalProgress = remember(totalMinutes, targetGoalMinutes) {
+        if (targetGoalMinutes <= 0) 0f else (totalMinutes.toFloat() / targetGoalMinutes.toFloat()).coerceIn(0f, 1f)
     }
 
     // 🥧 Donut Chart Data
     val subjectMinutesList = remember(filteredSessions) {
         filteredSessions.groupBy { it.subject }
-            .map { (subject, sessions) ->
-                Pair(subject, sessions.sumOf { it.durationMinutes })
-            }
+            .map { (subject, sessions) -> Pair(subject, sessions.sumOf { it.durationMinutes }) }
             .filter { it.second > 0 }
             .sortedByDescending { it.second }
     }
-    val totalSubjectMinutes = remember(subjectMinutesList) {
-        subjectMinutesList.sumOf { it.second }
+    val totalSubjectMinutes = remember(subjectMinutesList) { subjectMinutesList.sumOf { it.second } }
+
+    val donutAnimProgress = remember { Animatable(0f) }
+    LaunchedEffect(selectedTab, dateOffset, filteredSessions) {
+        donutAnimProgress.snapTo(0f)
+        donutAnimProgress.animateTo(1f, tween(durationMillis = 1000, easing = FastOutSlowInEasing))
     }
 
     val subjectColors = listOf(
-        Color(0xFFF59E0B),
-        Color(0xFF38BDF8),
-        Color(0xFFA855F7),
-        Color(0xFF10B981),
-        Color(0xFFF43F5E),
-        Color(0xFF6366F1),
-        Color(0xFFEC4899),
-        Color(0xFF14B8A6),
-        Color(0xFFEAB308),
-        Color(0xFF8B5CF6)
+        Color(0xFFF59E0B), Color(0xFF38BDF8), Color(0xFFA855F7), Color(0xFF10B981),
+        Color(0xFFF43F5E), Color(0xFF6366F1), Color(0xFFEC4899), Color(0xFF14B8A6),
+        Color(0xFFEAB308), Color(0xFF8B5CF6)
     )
 
-    // 📈 Weekly Comparison Metric Calculations (Dynamic Green / Red Badge)
-    val lastWeekSessions = remember(allSessions, dateOffset) {
-        filterSessionsByPeriod(allSessions, "Weekly", dateOffset - 1)
+    // 📈 Dynamic Comparison Calculation (Today vs Yesterday, Week vs Week, Month vs Month)
+    val prevPeriodMins = remember(allSessions, selectedTab, dateOffset) {
+        val prevSessions = filterSessionsByPeriod(allSessions, selectedTab, dateOffset - 1)
+        prevSessions.sumOf { it.durationMinutes }
     }
-    val thisWeekMins = remember(filteredSessions, selectedTab, totalMinutes, allSessions) {
-        if (selectedTab == "Weekly") totalMinutes else filterSessionsByPeriod(allSessions, "Weekly", 0).sumOf { it.durationMinutes }
-    }
-    val lastWeekMins = remember(lastWeekSessions) {
-        lastWeekSessions.sumOf { it.durationMinutes }
-    }
-    val comparisonDiffPercent = remember(thisWeekMins, lastWeekMins) {
-        if (lastWeekMins == 0) {
-            if (thisWeekMins > 0) 100 else 0
+
+    val comparisonDiffPercent = remember(totalMinutes, prevPeriodMins) {
+        if (prevPeriodMins == 0) {
+            if (totalMinutes > 0) 100 else 0
         } else {
-            Math.round(((thisWeekMins - lastWeekMins).toFloat() / lastWeekMins.toFloat()) * 100)
+            Math.round(((totalMinutes - prevPeriodMins).toFloat() / prevPeriodMins.toFloat()) * 100)
         }
     }
+
     val badgeColor = when {
         comparisonDiffPercent > 0 -> Color(0xFF10B981)
         comparisonDiffPercent < 0 -> Color(0xFFF43F5E)
@@ -196,6 +205,18 @@ fun StatsScreen() {
         comparisonDiffPercent > 0 -> "+$comparisonDiffPercent% ↗"
         comparisonDiffPercent < 0 -> "$comparisonDiffPercent% ↘"
         else -> "0% ⇄"
+    }
+
+    val comparisonTitle = when (selectedTab) {
+        "Today" -> "TODAY VS YESTERDAY"
+        "Monthly" -> "THIS MONTH VS LAST MONTH"
+        else -> "THIS WEEK VS LAST WEEK"
+    }
+
+    val comparisonSubtitle = when (selectedTab) {
+        "Today" -> "Tap to inspect 2-pillar daily comparison"
+        "Monthly" -> "Tap to inspect monthly wave comparison"
+        else -> "Tap to inspect daily wave comparison"
     }
 
     Column(
@@ -292,82 +313,129 @@ fun StatsScreen() {
             }
         }
 
-        // 3.1 WEEKLY GOAL RING CARD
-        if (selectedTab == "Weekly") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(cardBg)
-                    .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
-                    .padding(14.dp)
+        // 🎯 3.1 DYNAMIC GOAL CARD (Unified Add / Edit Goal)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(cardBg)
+                .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = "WEEKLY GOAL",
+                            text = when (selectedTab) {
+                                "Today" -> "DAILY GOAL"
+                                "Monthly" -> "MONTHLY GOAL"
+                                else -> "WEEKLY GOAL"
+                            },
                             color = textMuted,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
                         )
-                        Spacer(modifier = Modifier.height(3.dp))
+
+                        if (dailyGoalHours > 0f) {
+                            Text(
+                                text = "✎ Edit Goal",
+                                color = goldColor,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clickable { showGoalDialog = true }
+                                    .padding(4.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(3.dp))
+
+                    if (dailyGoalHours <= 0f) {
                         Text(
-                            text = "Week goal 21h",
+                            text = "+ Add Goal",
+                            color = goldColor,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.clickable { showGoalDialog = true }
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Tap to set daily focus goal",
+                            color = textMuted,
+                            fontSize = 11.5.sp
+                        )
+                    } else {
+                        val goalLabel = when (selectedTab) {
+                            "Today" -> "Today goal ${formatMinutes(targetGoalMinutes)}"
+                            "Monthly" -> "Month goal ${formatMinutes(targetGoalMinutes)}"
+                            else -> "Week goal ${formatMinutes(targetGoalMinutes)}"
+                        }
+                        Text(
+                            text = goalLabel,
                             color = textMain,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Black
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "${formatMinutes(totalMinutes)} achieved (${(weeklyGoalProgress * 100).toInt()}%)",
-                            color = if (weeklyGoalProgress >= 1f) Color(0xFF10B981) else goldColor,
+                            text = "${formatMinutes(totalMinutes)} achieved (${(goalProgress * 100).toInt()}%)",
+                            color = if (goalProgress >= 1f) Color(0xFF10B981) else goldColor,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
+                }
 
-                    Box(
-                        modifier = Modifier.size(54.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val stroke = 5.dp.toPx()
-                            val radius = (size.minDimension - stroke) / 2f
-                            val center = Offset(size.width / 2f, size.height / 2f)
+                Spacer(modifier = Modifier.width(12.dp))
 
-                            drawCircle(
-                                color = if (isDark) Color(0x22FFFFFF) else Color(0x18000000),
-                                radius = radius,
-                                center = center,
-                                style = Stroke(width = stroke)
-                            )
+                Box(
+                    modifier = Modifier.size(54.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val stroke = 5.dp.toPx()
+                        val radius = (size.minDimension - stroke) / 2f
+                        val center = Offset(size.width / 2f, size.height / 2f)
+
+                        drawCircle(
+                            color = if (isDark) Color(0x22FFFFFF) else Color(0x18000000),
+                            radius = radius,
+                            center = center,
+                            style = Stroke(width = stroke)
+                        )
+                        if (dailyGoalHours > 0f) {
                             drawArc(
-                                color = goldColor,
+                                color = if (goalProgress >= 1f) Color(0xFF10B981) else goldColor,
                                 startAngle = -90f,
-                                sweepAngle = weeklyGoalProgress * 360f,
+                                sweepAngle = goalProgress * 360f,
                                 useCenter = false,
                                 topLeft = Offset(center.x - radius, center.y - radius),
                                 size = Size(radius * 2f, radius * 2f),
                                 style = Stroke(width = stroke, cap = StrokeCap.Round)
                             )
                         }
-                        Text(
-                            text = "${(weeklyGoalProgress * 100).toInt()}%",
-                            color = textMain,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
                     }
+                    Text(
+                        text = if (dailyGoalHours > 0f) "${(goalProgress * 100).toInt()}%" else "--",
+                        color = textMain,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
 
-        // 4. INTERACTIVE BAR CHART (Staggered Spring Animated Bars)
+        // 4. INTERACTIVE BAR CHART
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -382,9 +450,7 @@ fun StatsScreen() {
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(26.dp),
+                    modifier = Modifier.fillMaxWidth().height(26.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -428,9 +494,7 @@ fun StatsScreen() {
 
                 if (chartBars.isEmpty()) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
+                        modifier = Modifier.fillMaxWidth().weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -445,16 +509,12 @@ fun StatsScreen() {
                     val maxBarHeight = 125.dp
 
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
+                        modifier = Modifier.fillMaxWidth().weight(1f),
                         verticalArrangement = Arrangement.Bottom
                     ) {
                         if (selectedTab == "Today") {
                             LazyRow(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(maxBarHeight),
+                                modifier = Modifier.fillMaxWidth().height(maxBarHeight),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalAlignment = Alignment.Bottom,
                                 contentPadding = PaddingValues(horizontal = 8.dp)
@@ -479,10 +539,7 @@ fun StatsScreen() {
                             }
                         } else {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(maxBarHeight)
-                                    .padding(horizontal = 4.dp),
+                                modifier = Modifier.fillMaxWidth().height(maxBarHeight).padding(horizontal = 4.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.Bottom
                             ) {
@@ -508,7 +565,6 @@ fun StatsScreen() {
                             }
                         }
 
-                        // Base ground line
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -516,12 +572,8 @@ fun StatsScreen() {
                                 .background(if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1))
                         )
 
-                        // Date Labels
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(22.dp)
-                                .padding(top = 4.dp)
+                            modifier = Modifier.fillMaxWidth().height(22.dp).padding(top = 4.dp)
                         ) {
                             if (selectedTab == "Today") {
                                 LazyRow(
@@ -531,10 +583,7 @@ fun StatsScreen() {
                                 ) {
                                     itemsIndexed(chartBars) { index, bar ->
                                         val isSelected = selectedBarIndex == index
-                                        Box(
-                                            modifier = Modifier.width(28.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
+                                        Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.Center) {
                                             Text(
                                                 text = bar.title,
                                                 color = if (isSelected) goldColor else textMain,
@@ -548,9 +597,7 @@ fun StatsScreen() {
                                 }
                             } else {
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(horizontal = 4.dp),
+                                    modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -559,10 +606,7 @@ fun StatsScreen() {
                                         val isMonthly = selectedTab == "Monthly"
                                         val barWidth = if (isMonthly) 5.5.dp else 22.dp
 
-                                        Box(
-                                            modifier = Modifier.width(barWidth),
-                                            contentAlignment = Alignment.Center
-                                        ) {
+                                        Box(modifier = Modifier.width(barWidth), contentAlignment = Alignment.Center) {
                                             if (!isMonthly || (index + 1) == 1 || (index + 1) % 5 == 0) {
                                                 Text(
                                                     text = bar.title,
@@ -656,7 +700,7 @@ fun StatsScreen() {
             }
         }
 
-        // 🌟 5.1 BENTO STRIP COMPARISON CARD
+        // 🌟 5.1 DYNAMIC BENTO COMPARISON STRIP CARD
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -673,7 +717,7 @@ fun StatsScreen() {
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "WEEKLY COMPARISON",
+                        text = "COMPARISON",
                         color = textMuted,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -681,14 +725,14 @@ fun StatsScreen() {
                     )
                     Spacer(modifier = Modifier.height(3.dp))
                     Text(
-                        text = "This Week vs Last Week",
+                        text = comparisonTitle,
                         color = textMain,
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Tap to inspect dynamic wave comparison",
+                        text = comparisonSubtitle,
                         color = textMuted.copy(alpha = 0.7f),
                         fontSize = 10.5.sp
                     )
@@ -712,7 +756,7 @@ fun StatsScreen() {
             }
         }
 
-        // 6. SUBJECT BREAKDOWN (Screen Time Inspired Minimal Columns)
+        // 6. SUBJECT BREAKDOWN (Screen Time Style with Animated Donut Sweep)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -748,9 +792,7 @@ fun StatsScreen() {
 
                 if (subjectMinutesList.isEmpty()) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(110.dp),
+                        modifier = Modifier.fillMaxWidth().height(110.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -763,30 +805,40 @@ fun StatsScreen() {
                 } else {
                     Box(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(176.dp)
-                            .padding(8.dp)
+                        modifier = Modifier.size(176.dp).padding(8.dp)
                     ) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val strokeWidth = 24.dp.toPx()
                             val radius = (size.minDimension - strokeWidth) / 2f
                             val center = Offset(size.width / 2f, size.height / 2f)
 
+                            drawCircle(
+                                color = if (isDark) Color(0x14FFFFFF) else Color(0x10000000),
+                                radius = radius,
+                                center = center,
+                                style = Stroke(width = strokeWidth)
+                            )
+
+                            val progress = donutAnimProgress.value
                             var currentStartAngle = -90f
+
                             subjectMinutesList.forEachIndexed { index, (_, mins) ->
-                                val sweepAngle = (mins.toFloat() / totalSubjectMinutes) * 360f
+                                val fullSweep = (mins.toFloat() / totalSubjectMinutes) * 360f
+                                val sweep = fullSweep * progress
                                 val color = subjectColors[index % subjectColors.size]
 
-                                drawArc(
-                                    color = color,
-                                    startAngle = currentStartAngle,
-                                    sweepAngle = sweepAngle,
-                                    useCenter = false,
-                                    topLeft = Offset(center.x - radius, center.y - radius),
-                                    size = Size(radius * 2f, radius * 2f),
-                                    style = Stroke(width = strokeWidth)
-                                )
-                                currentStartAngle += sweepAngle
+                                if (sweep > 0f) {
+                                    drawArc(
+                                        color = color,
+                                        startAngle = currentStartAngle,
+                                        sweepAngle = sweep,
+                                        useCenter = false,
+                                        topLeft = Offset(center.x - radius, center.y - radius),
+                                        size = Size(radius * 2f, radius * 2f),
+                                        style = Stroke(width = strokeWidth)
+                                    )
+                                }
+                                currentStartAngle += sweep
                             }
                         }
 
@@ -811,11 +863,8 @@ fun StatsScreen() {
                         }
                     }
 
-                    // Horizontal Screen Time Style List
                     LazyRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 6.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -823,69 +872,21 @@ fun StatsScreen() {
                             val color = subjectColors[index % subjectColors.size]
                             val percentage = Math.round((mins.toFloat() / totalSubjectMinutes) * 100)
 
-                            Column(
-                                horizontalAlignment = Alignment.Start,
-                                verticalArrangement = Arrangement.spacedBy(3.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(7.dp)
-                                            .clip(CircleShape)
-                                            .background(color)
-                                    )
-                                    Text(
-                                        text = subject,
-                                        color = color,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1
-                                    )
+                            Column(horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(color))
+                                    Text(text = subject, color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                                 }
-
-                                Text(
-                                    text = formatMinutes(mins),
-                                    color = textMain,
-                                    fontSize = 13.5.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-
-                                Text(
-                                    text = "$percentage%",
-                                    color = textMuted.copy(alpha = 0.7f),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                Text(text = formatMinutes(mins), color = textMain, fontSize = 13.5.sp, fontWeight = FontWeight.Black)
+                                Text(text = "$percentage%", color = textMuted.copy(alpha = 0.7f), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
 
                         item {
-                            Column(
-                                horizontalAlignment = Alignment.Start,
-                                verticalArrangement = Arrangement.spacedBy(3.dp),
-                                modifier = Modifier.padding(start = 4.dp)
-                            ) {
-                                Text(
-                                    text = "Total",
-                                    color = textMuted,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = formatMinutes(totalSubjectMinutes),
-                                    color = textMain,
-                                    fontSize = 13.5.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                                Text(
-                                    text = "100%",
-                                    color = textMuted.copy(alpha = 0.7f),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                            Column(horizontalAlignment = Alignment.Start, verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.padding(start = 4.dp)) {
+                                Text(text = "Total", color = textMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(text = formatMinutes(totalSubjectMinutes), color = textMain, fontSize = 13.5.sp, fontWeight = FontWeight.Black)
+                                Text(text = "100%", color = textMuted.copy(alpha = 0.7f), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -896,7 +897,82 @@ fun StatsScreen() {
         Spacer(modifier = Modifier.height(16.dp))
     }
 
-    // Sheets
+    // 🌟 GOAL SETTING DIALOG (Keyboard input)
+    if (showGoalDialog) {
+        var inputHours by remember { mutableStateOf(if (dailyGoalHours > 0f) dailyGoalHours.toString() else "") }
+
+        Dialog(onDismissRequest = { showGoalDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (isDark) Color(0xFF1E1E2D) else Color.White)
+                    .border(1.dp, cardBorder, RoundedCornerShape(20.dp))
+                    .padding(20.dp)
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Set Daily Focus Goal",
+                        color = textMain,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Text(
+                        text = "Weekly (x7) & Monthly (x30) will auto-calculate",
+                        color = textMuted,
+                        fontSize = 11.5.sp,
+                        textAlign = TextAlign.Center
+                    )
+
+                    OutlinedTextField(
+                        value = inputHours,
+                        onValueChange = { inputHours = it },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        placeholder = { Text("e.g. 3 or 4.5", color = textMuted) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = goldColor,
+                            unfocusedBorderColor = cardBorder,
+                            focusedTextColor = textMain,
+                            unfocusedTextColor = textMain
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = { showGoalDialog = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancel", color = textMuted)
+                        }
+
+                        Button(
+                            onClick = {
+                                val parsed = inputHours.toFloatOrNull() ?: 0f
+                                dailyGoalHours = parsed
+                                prefs.edit().putFloat("daily_goal_hours", parsed).apply()
+                                showGoalDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Save Goal", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Streak Sheet
     if (showStreakSheet) {
         StreakJournalBottomSheet(
             streakDays = streakDaysCount,
@@ -910,8 +986,10 @@ fun StatsScreen() {
         )
     }
 
+    // Dynamic Comparison Sheet (Today / Weekly / Monthly)
     if (showComparisonSheet) {
         WeeklyComparisonBottomSheet(
+            selectedPeriod = selectedTab,
             allSessions = allSessions,
             dateOffset = dateOffset,
             isDark = isDark,
@@ -925,7 +1003,7 @@ fun StatsScreen() {
 }
 
 // =============================================================================
-// 📊 SPRING ANIMATED BAR (Bottom-to-Top Elastic Grow)
+// 📊 SPRING ANIMATED BAR
 // =============================================================================
 @Composable
 fun AnimatedBarItem(
@@ -1162,11 +1240,7 @@ fun StreakJournalBottomSheet(
                                         .weight(1f)
                                         .height(4.dp)
                                         .background(
-                                            if (isGoalMet && isPrevMet) {
-                                                goldColor.copy(alpha = 0.40f)
-                                            } else {
-                                                Color.Transparent
-                                            }
+                                            if (isGoalMet && isPrevMet) goldColor.copy(alpha = 0.40f) else Color.Transparent
                                         )
                                 )
                             }
@@ -1188,11 +1262,7 @@ fun StreakJournalBottomSheet(
                                         .size(30.dp)
                                         .clip(CircleShape)
                                         .background(
-                                            if (isGoalMet) {
-                                                softAccentFill
-                                            } else {
-                                                if (isDark) Color(0x22FFFFFF) else Color(0x11000000)
-                                            }
+                                            if (isGoalMet) softAccentFill else (if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
                                         )
                                         .border(
                                             width = 1.5.dp,
@@ -1226,11 +1296,7 @@ fun StreakJournalBottomSheet(
                                         .weight(1f)
                                         .height(4.dp)
                                         .background(
-                                            if (isGoalMet && isNextMet) {
-                                                goldColor.copy(alpha = 0.40f)
-                                            } else {
-                                                Color.Transparent
-                                            }
+                                            if (isGoalMet && isNextMet) goldColor.copy(alpha = 0.40f) else Color.Transparent
                                         )
                                 )
                             }
@@ -1249,9 +1315,7 @@ fun StreakJournalBottomSheet(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 val activeCalendar = remember(calendarMonthOffset) {
-                    Calendar.getInstance().apply {
-                        add(Calendar.MONTH, calendarMonthOffset)
-                    }
+                    Calendar.getInstance().apply { add(Calendar.MONTH, calendarMonthOffset) }
                 }
                 val currentMonthName = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(activeCalendar.time)
 
@@ -1266,9 +1330,7 @@ fun StreakJournalBottomSheet(
                             .size(30.dp)
                             .clip(CircleShape)
                             .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
-                            .clickable(enabled = calendarMonthOffset > -11) {
-                                calendarMonthOffset--
-                            }
+                            .clickable(enabled = calendarMonthOffset > -11) { calendarMonthOffset-- }
                     ) {
                         Text(
                             text = "◀",
@@ -1292,9 +1354,7 @@ fun StreakJournalBottomSheet(
                             .size(30.dp)
                             .clip(CircleShape)
                             .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
-                            .clickable(enabled = calendarMonthOffset < 0) {
-                                calendarMonthOffset++
-                            }
+                            .clickable(enabled = calendarMonthOffset < 0) { calendarMonthOffset++ }
                     ) {
                         Text(
                             text = "▶",
@@ -1369,11 +1429,7 @@ fun StreakJournalBottomSheet(
                                             .size(34.dp)
                                             .clip(CircleShape)
                                             .background(
-                                                if (isGoalMet) {
-                                                    softAccentFill
-                                                } else {
-                                                    Color.Transparent
-                                                }
+                                                if (isGoalMet) softAccentFill else Color.Transparent
                                             )
                                             .border(
                                                 width = if (isGoalMet) 1.5.dp else 0.dp,
