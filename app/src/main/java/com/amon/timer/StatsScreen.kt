@@ -680,7 +680,7 @@ fun StatsScreen() {
                             StreakFlame(
                                 streakDays = streakDaysCount,
                                 isLarge = false,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(48.dp) // 2X Size
                             )
                         }
                     } else null
