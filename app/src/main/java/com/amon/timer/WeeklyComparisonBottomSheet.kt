@@ -36,7 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,8 +97,8 @@ fun WeeklyComparisonBottomSheet(
                     )
                     Text(
                         text = when (selectedPeriod) {
-                            "Today" -> "Today vs Yesterday"
-                            "Monthly" -> "Scroll horizontally to inspect all 30/31 days"
+                            "Today" -> if (dateOffset == 0) "Today vs Yesterday" else "Selected Day vs Previous Day"
+                            "Monthly" -> "Tap any day or scroll horizontally"
                             else -> "Drag along curve to inspect days"
                         },
                         fontSize = 11.5.sp,
@@ -117,7 +119,7 @@ fun WeeklyComparisonBottomSheet(
             }
 
             if (selectedPeriod == "Today") {
-                // 📊 2-PILLAR BAR CHART (Yesterday vs Today)
+                // 📊 2-PILLAR BAR CHART
                 TwoPillarDailyComparison(
                     allSessions = allSessions,
                     dateOffset = dateOffset,
@@ -128,7 +130,7 @@ fun WeeklyComparisonBottomSheet(
                     cardBorder = cardBorder
                 )
             } else {
-                // 📈 WAVE COMPARISON CHART (Weekly 7 Days / Monthly 30-31 Days Scrollable)
+                // 📈 WAVE COMPARISON CHART
                 WaveComparisonChart(
                     selectedPeriod = selectedPeriod,
                     allSessions = allSessions,
@@ -145,7 +147,7 @@ fun WeeklyComparisonBottomSheet(
 }
 
 // =============================================================================
-// 📊 2-PILLAR COMPARISON (Yesterday vs Today)
+// 📊 2-PILLAR COMPARISON (Dynamic Labels on Date Offset)
 // =============================================================================
 @Composable
 private fun TwoPillarDailyComparison(
@@ -162,6 +164,21 @@ private fun TwoPillarDailyComparison(
     }
     val yestMins = remember(allSessions, dateOffset) {
         filterSessionsByPeriod(allSessions, "Today", dateOffset - 1).sumOf { it.durationMinutes }
+    }
+
+    // Dynamic Labels based on offset
+    val sdf = SimpleDateFormat("dd MMM", Locale.getDefault())
+    val todayLabel = remember(dateOffset) {
+        if (dateOffset == 0) "Today" else {
+            val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, dateOffset) }
+            sdf.format(cal.time)
+        }
+    }
+    val yestLabel = remember(dateOffset) {
+        if (dateOffset == 0) "Yesterday" else {
+            val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, dateOffset - 1) }
+            sdf.format(cal.time)
+        }
     }
 
     val maxMins = maxOf(todayMins, yestMins, 60)
@@ -198,11 +215,11 @@ private fun TwoPillarDailyComparison(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Yesterday", color = textMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(yestLabel, color = textMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Text(formatMinutes(yestMins), color = Color(0xFF94A3B8), fontSize = 18.sp, fontWeight = FontWeight.Black)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Today", color = goldColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(todayLabel, color = goldColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Text(formatMinutes(todayMins), color = textMain, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 }
             }
@@ -237,7 +254,7 @@ private fun TwoPillarDailyComparison(
             }
 
             val diff = todayMins - yestMins
-            val diffText = if (diff >= 0) "+${formatMinutes(diff)} more than yesterday" else "-${formatMinutes(Math.abs(diff))} less than yesterday"
+            val diffText = if (diff >= 0) "+${formatMinutes(diff)} more" else "-${formatMinutes(Math.abs(diff))} less"
             Text(
                 text = diffText,
                 color = if (diff >= 0) Color(0xFF10B981) else Color(0xFFF43F5E),
@@ -249,7 +266,7 @@ private fun TwoPillarDailyComparison(
 }
 
 // =============================================================================
-// 📈 WAVE COMPARISON (Weekly 7-Days & Monthly 30/31-Days Scrollable)
+// 📈 WAVE COMPARISON (Safe Gestures & Sticky Top Tooltip)
 // =============================================================================
 @Composable
 private fun WaveComparisonChart(
@@ -310,15 +327,55 @@ private fun WaveComparisonChart(
     var isScrubbing by remember { mutableStateOf(false) }
 
     val chartScrollState = rememberScrollState()
-
-    // 20 दिन स्क्रीन पर फ़िट होंगे (~19dp प्रति दिन), बाकी 10/11 दिन स्क्रॉल होंगे
-    val perDayWidth = 19.dp
+    val perDayWidth = 20.dp
     val totalScrollableWidth = if (isMonthly) (daysLabels.size * perDayWidth.value).dp else 0.dp
+
+    val selectedMinThis = thisPeriodMins.getOrElse(selectedIndex) { 0 }
+    val selectedMinLast = lastPeriodMins.getOrElse(selectedIndex) { 0 }
+    val selectedLabel = if (isMonthly) "Day ${daysLabels.getOrElse(selectedIndex) { "1" }}" else daysLabels.getOrElse(selectedIndex) { "Mon" }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        // 🌟 STICKY LIVE INSPECT BAR (कभी स्क्रॉल होकर गायब नहीं होगा)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (isDark) Color(0xFF1E1E2D) else Color(0xFFF1F5F9))
+                .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                .padding(horizontal = 14.dp, vertical = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = selectedLabel,
+                    color = textMain,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Black
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Current: ${formatMinutes(selectedMinThis)}",
+                        color = goldColor,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Prev: ${formatMinutes(selectedMinLast)}",
+                        color = textMuted,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
         // Main Chart Box
         Box(
             modifier = Modifier
@@ -343,7 +400,7 @@ private fun WaveComparisonChart(
                     Text("0h", fontSize = 10.sp, color = textMuted)
                 }
 
-                // Scrollable Chart Canvas & X-Axis
+                // Scrollable Chart Area
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -361,24 +418,37 @@ private fun WaveComparisonChart(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(154.dp)
-                                .pointerInput(Unit) {
-                                    detectTapGestures { offset ->
-                                        val stepX = size.width / (daysLabels.size - 1).toFloat()
-                                        val tapped = ((offset.x + stepX / 2f) / stepX).toInt().coerceIn(0, daysLabels.size - 1)
-                                        selectedIndex = tapped
+                                .then(
+                                    if (!isMonthly) {
+                                        Modifier
+                                            .pointerInput(Unit) {
+                                                detectTapGestures { offset ->
+                                                    val stepX = size.width / (daysLabels.size - 1).toFloat()
+                                                    val tapped = ((offset.x + stepX / 2f) / stepX).toInt().coerceIn(0, daysLabels.size - 1)
+                                                    selectedIndex = tapped
+                                                }
+                                            }
+                                            .pointerInput(Unit) {
+                                                detectDragGestures(
+                                                    onDragStart = { isScrubbing = true },
+                                                    onDragEnd = { isScrubbing = false },
+                                                    onDragCancel = { isScrubbing = false }
+                                                ) { change, _ ->
+                                                    val stepX = size.width / (daysLabels.size - 1).toFloat()
+                                                    val drag = ((change.position.x + stepX / 2f) / stepX).toInt().coerceIn(0, daysLabels.size - 1)
+                                                    selectedIndex = drag
+                                                }
+                                            }
+                                    } else {
+                                        Modifier.pointerInput(Unit) {
+                                            detectTapGestures { offset ->
+                                                val stepX = size.width / (daysLabels.size - 1).toFloat()
+                                                val tapped = ((offset.x + stepX / 2f) / stepX).toInt().coerceIn(0, daysLabels.size - 1)
+                                                selectedIndex = tapped
+                                            }
+                                        }
                                     }
-                                }
-                                .pointerInput(Unit) {
-                                    detectDragGestures(
-                                        onDragStart = { isScrubbing = true },
-                                        onDragEnd = { isScrubbing = false },
-                                        onDragCancel = { isScrubbing = false }
-                                    ) { change, _ ->
-                                        val stepX = size.width / (daysLabels.size - 1).toFloat()
-                                        val drag = ((change.position.x + stepX / 2f) / stepX).toInt().coerceIn(0, daysLabels.size - 1)
-                                        selectedIndex = drag
-                                    }
-                                }
+                                )
                         ) {
                             Canvas(modifier = Modifier.fillMaxSize()) {
                                 val w = size.width
@@ -472,26 +542,6 @@ private fun WaveComparisonChart(
                                     drawCircle(Color(0xFF64748B), radius = 2.2.dp.toPx(), center = ptLast)
                                 }
                             }
-
-                            // Dynamic Floating Tooltip
-                            val thisMin = thisPeriodMins.getOrElse(selectedIndex) { 0 }
-                            val lastMin = lastPeriodMins.getOrElse(selectedIndex) { 0 }
-                            val dayLabelText = if (isMonthly) "Day ${daysLabels[selectedIndex]}" else daysLabels[selectedIndex]
-
-                            Box(
-                                modifier = Modifier
-                                    .align(if (selectedIndex > daysLabels.size / 2) Alignment.TopStart else Alignment.TopEnd)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(if (isDark) Color(0xEE1E1E2D) else Color(0xEEFFFFFF))
-                                    .border(1.dp, cardBorder, RoundedCornerShape(10.dp))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Text(dayLabelText, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textMain)
-                                    Text("• Current: ${formatMinutes(thisMin)}", fontSize = 10.5.sp, color = goldColor, fontWeight = FontWeight.SemiBold)
-                                    Text("• Previous: ${formatMinutes(lastMin)}", fontSize = 10.5.sp, color = textMuted)
-                                }
-                            }
                         }
 
                         // Ground Line
@@ -502,7 +552,7 @@ private fun WaveComparisonChart(
                                 .background(if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1))
                         )
 
-                        // X-Axis Labels Row (स्पष्ट रूप से अलग रो)
+                        // X-Axis Labels Row (स्पष्ट रो)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -535,7 +585,7 @@ private fun WaveComparisonChart(
             }
         }
 
-        // Summary Line (अलग नीचे सेट, ताकि कभी ओवरलैप न हो)
+        // Summary Line
         Text(
             text = "Daily Average: ${formatMinutes(avgThisPeriodMins)} • Max Day: ${formatMinutes(thisPeriodMins.maxOrNull() ?: 0)}",
             fontSize = 11.5.sp,
@@ -547,6 +597,7 @@ private fun WaveComparisonChart(
     }
 }
 
+// 🗓️ 30/31 सुरक्षित गणना
 private fun calculateDaysInMonth(sessions: List<FocusSession>, monthOffset: Int, totalDays: Int): List<Int> {
     val targetCal = Calendar.getInstance().apply {
         add(Calendar.MONTH, monthOffset)
