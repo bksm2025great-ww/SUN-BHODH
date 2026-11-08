@@ -149,7 +149,7 @@ fun StatsScreen() {
         calculateStreakCount(allSessions)
     }
 
-    // 🎯 Dynamic Unified Goal Progress (Auto-Scale from Daily)
+    // 🎯 Dynamic Unified Goal Progress
     val targetGoalMinutes = remember(selectedTab, dailyGoalHours) {
         if (dailyGoalHours <= 0f) 0 else {
             val dailyMins = (dailyGoalHours * 60).toInt()
@@ -230,7 +230,7 @@ fun StatsScreen() {
 
     val comparisonSubtitle = when (selectedTab) {
         "Today" -> "Tap to inspect 2-pillar daily comparison"
-        "Monthly" -> "Tap to inspect 30-day wave comparison"
+        "Monthly" -> "Tap to inspect 4-week comparison"
         else -> "Tap to inspect daily wave comparison"
     }
 
@@ -328,7 +328,7 @@ fun StatsScreen() {
             }
         }
 
-        // 4. INTERACTIVE BAR CHART
+        // 4. INTERACTIVE BAR CHART (WITH SPOTLIGHT HIGHLIGHT - NO WHITE BORDER)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -400,6 +400,7 @@ fun StatsScreen() {
                 } else {
                     val maxMinutes = maxOf(chartBars.maxOf { it.minutes }, 60)
                     val maxBarHeight = 125.dp
+                    val hasSelection = selectedBarIndex != null
 
                     Column(
                         modifier = Modifier.fillMaxWidth().weight(1f),
@@ -423,6 +424,7 @@ fun StatsScreen() {
                                         targetHeight = barHeight,
                                         delayMillis = index * 55,
                                         isSelected = isSelected,
+                                        hasSelection = hasSelection,
                                         isZero = bar.minutes == 0,
                                         goldColor = goldColor,
                                         isDark = isDark,
@@ -439,7 +441,9 @@ fun StatsScreen() {
                                 chartBars.forEachIndexed { index, bar ->
                                     val isSelected = selectedBarIndex == index
                                     val isMonthly = selectedTab == "Monthly"
-                                    val barWidth = if (isMonthly) 5.5.dp else 22.dp
+                                    val barWidth = if (isMonthly) {
+                                        if (isSelected) 7.5.dp else 5.5.dp
+                                    } else 22.dp
                                     val barHeight = if (bar.minutes == 0) 3.dp else {
                                         ((bar.minutes.toFloat() / maxMinutes) * maxBarHeight.value).dp.coerceIn(8.dp, maxBarHeight)
                                     }
@@ -449,6 +453,7 @@ fun StatsScreen() {
                                         targetHeight = barHeight,
                                         delayMillis = index * (if (isMonthly) 20 else 50),
                                         isSelected = isSelected,
+                                        hasSelection = hasSelection,
                                         isZero = bar.minutes == 0,
                                         goldColor = goldColor,
                                         isDark = isDark,
@@ -519,7 +524,7 @@ fun StatsScreen() {
             }
         }
 
-        // 🎯 4.1 DYNAMIC GOAL CARD (बार चार्ट के ठीक नीचे सेट)
+        // 🎯 4.1 DYNAMIC GOAL CARD (BAR CHART KE THEEK NEECHE)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -656,7 +661,7 @@ fun StatsScreen() {
             }
         }
 
-        // 5. 4 SUMMARY CARDS (Balanced Heights & Compact Padding)
+        // 5. 4 SUMMARY CARDS (BALANCED HEIGHTS & COMPACT FIT)
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -700,7 +705,7 @@ fun StatsScreen() {
                         .clickable { showStreakSheet = true },
                     title = "Current Streak",
                     value = if (streakDaysCount > 0) "$streakDaysCount Days" else "__",
-                    subtitle = "Tap to view streak", // 🎯 Extra "& calendar" removed
+                    subtitle = "Tap to view streak",
                     cardBg = cardBg,
                     cardBorder = cardBorder,
                     textMain = textMain,
@@ -711,7 +716,7 @@ fun StatsScreen() {
                             StreakFlame(
                                 streakDays = streakDaysCount,
                                 isLarge = true,
-                                modifier = Modifier.size(32.dp) // 🎯 Perfectly proportioned size
+                                modifier = Modifier.size(32.dp)
                             )
                         }
                     } else null
@@ -787,7 +792,7 @@ fun StatsScreen() {
             }
         }
 
-        // 6. SUBJECT BREAKDOWN (Viewport Scrolled Visibility)
+        // 6. SUBJECT BREAKDOWN (ON-SCROLL ANIMATED DONUT)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1050,7 +1055,7 @@ fun StatsScreen() {
         )
     }
 
-    // Dynamic Comparison Sheet (Today / Weekly / Monthly)
+    // Dynamic Comparison Sheet
     if (showComparisonSheet) {
         WeeklyComparisonBottomSheet(
             selectedPeriod = selectedTab,
@@ -1067,7 +1072,7 @@ fun StatsScreen() {
 }
 
 // =============================================================================
-// 📊 SPRING ANIMATED BAR
+// 📊 SPRING ANIMATED BAR (SPOTLIGHT BRIGHT & DIM EFFECT - NO BORDER)
 // =============================================================================
 @Composable
 fun AnimatedBarItem(
@@ -1075,6 +1080,7 @@ fun AnimatedBarItem(
     targetHeight: androidx.compose.ui.unit.Dp,
     delayMillis: Int,
     isSelected: Boolean,
+    hasSelection: Boolean,
     isZero: Boolean,
     goldColor: Color,
     isDark: Boolean,
@@ -1097,20 +1103,17 @@ fun AnimatedBarItem(
     Box(
         modifier = modifier
             .height(animatedHeight.value.dp)
-            .clip(RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp))
+            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
             .background(
                 if (isZero) {
                     if (isDark) Color(0xFF27272A) else Color(0xFFCBD5E1)
                 } else if (isSelected) {
-                    goldColor
+                    goldColor // 🌟 चुना हुआ बार: 100% सॉलिड ब्राइट
+                } else if (hasSelection) {
+                    goldColor.copy(alpha = 0.22f) // 🌟 बाकी बार्स: हल्के डिम
                 } else {
-                    goldColor.copy(alpha = 0.82f)
+                    goldColor.copy(alpha = 0.82f) // सामान्य स्थिति
                 }
-            )
-            .border(
-                width = if (isSelected && !isZero) 1.5.dp else 0.dp,
-                color = if (isSelected) Color.White else Color.Transparent,
-                shape = RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp)
             )
             .clickable { onClick() }
     )
@@ -1537,7 +1540,7 @@ fun StreakJournalBottomSheet(
 }
 
 // =============================================================================
-// SUMMARY CARD COMPOSABLE (Compact, Balanced & Single-Line Fit)
+// SUMMARY CARD COMPOSABLE
 // =============================================================================
 @Composable
 fun SummaryCard(
