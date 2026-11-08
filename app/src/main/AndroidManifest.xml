@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 🌐 Internet chalane ka license (Google Sheet me data bhejne ke liye) -->
+    <!-- 🌐 Internet chalane ka license (Supabase & Cloud Sync ke liye) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- 1. Session complete hone par halki vibration ki permission -->
@@ -34,10 +34,33 @@
             android:exported="true"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize">
+            
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- 🎯 1. Web Link Handling (https://amon.app/join?code=...) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="amon.app"
+                    android:pathPrefix="/join" />
+            </intent-filter>
+
+            <!-- 🎯 2. Custom App Scheme Handling (amon://join?code=...) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="amon"
+                    android:host="join" />
+            </intent-filter>
+
         </activity>
 
         <!-- Background me timer chalane wala pehredaar (TimerService) -->
