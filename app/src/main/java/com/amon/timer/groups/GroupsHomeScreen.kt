@@ -1,6 +1,7 @@
 package com.amon.timer.groups
 
 import android.content.Context
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,7 +11,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -18,7 +18,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,6 +34,57 @@ import com.amon.timer.UserManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+// 🔑 Clean Vector Key Icon (Zero Extra Dependency)
+@Composable
+fun GroupKeyIcon(
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = 2.dp.toPx()
+
+        val headRadius = w * 0.22f
+        val headCenter = Offset(w * 0.30f, h * 0.5f)
+
+        // Key head ring
+        drawCircle(
+            color = tint,
+            radius = headRadius,
+            center = headCenter,
+            style = Stroke(width = stroke)
+        )
+
+        // Key shaft
+        drawLine(
+            color = tint,
+            start = Offset(headCenter.x + headRadius, h * 0.5f),
+            end = Offset(w * 0.88f, h * 0.5f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+
+        // Teeth 1
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.68f, h * 0.5f),
+            end = Offset(w * 0.68f, h * 0.72f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+
+        // Teeth 2
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.84f, h * 0.5f),
+            end = Offset(w * 0.84f, h * 0.66f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+    }
+}
 
 // 💾 Groups Cache Extensions
 fun GroupCacheManager.saveCachedGroupsList(context: Context, groups: List<StudyGroup>) {
@@ -202,6 +256,7 @@ fun GroupsHomeScreen(
                     }
                 },
                 actions = {
+                    // 🔑 Join by Code Button (Custom Vector KeyIcon)
                     IconButton(
                         onClick = {
                             inviteCodeInput = ""
@@ -210,9 +265,7 @@ fun GroupsHomeScreen(
                         },
                         modifier = Modifier.size(40.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Key,
-                            contentDescription = "Join by Code",
+                        GroupKeyIcon(
                             tint = accentColor,
                             modifier = Modifier.size(20.dp)
                         )
