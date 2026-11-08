@@ -58,7 +58,7 @@ fun PomodoroSessionTracker(
             .padding(horizontal = 20.dp)
             .height(38.dp)
             .clip(RoundedCornerShape(50))
-            .background(if (isDark) Color(0xFF14141E) else Color(0xFFF1F5F9))
+            .background(if (isDark) Color(0xFF161620) else Color(0xFFF1F5F9))
             .border(1.dp, if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1), RoundedCornerShape(50))
             .padding(horizontal = 14.dp)
     ) {
@@ -194,7 +194,7 @@ fun PomodoroSettingsBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = if (isDark) Color(0xFF14141E) else Color(0xFFFFFFFF),
+        containerColor = if (isDark) cardBg else Color.White,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         dragHandle = {
             Box(
@@ -238,7 +238,7 @@ fun PomodoroSettingsBottomSheet(
                 }
             }
 
-            // Clean 3-Tab Selector
+            // 3-Tab Selector
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
