@@ -85,7 +85,6 @@ object CloudSyncManager {
             return
         }
 
-        // 🔍 Gmail चेक: अगर ईमेल पहले से Supabase में है, तो पुरानी UUID निकालो
         if (finalEmail.isNotBlank()) {
             val checkUrl = "$SUPABASE_URL/rest/v1/profiles?email=eq.$finalEmail&select=id,display_name&limit=1"
             val checkRequest = Request.Builder()
@@ -186,7 +185,6 @@ object CloudSyncManager {
         val joinedGroupIds = mutableSetOf<String>()
         val groupCountsMap = mutableMapOf<String, Int>()
 
-        // 1. group_members टेबल से सही मेम्बर संख्या और यूज़र की जॉइन स्थिति निकालना
         try {
             val allMembersReq = Request.Builder()
                 .url("$SUPABASE_URL/rest/v1/group_members?select=group_id,user_id")
@@ -214,7 +212,6 @@ object CloudSyncManager {
             Log.e(TAG, "Members count fetch error: ${e.message}")
         }
 
-        // 2. study_groups टेबल से ग्रुप्स लोड करके असली मेंबर काउंट जोड़ना
         val groupsUrl = "$SUPABASE_URL/rest/v1/study_groups?select=*"
         val request = Request.Builder()
             .url(groupsUrl)
@@ -304,7 +301,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 🚪 4. ग्रुप जॉइन करना (साथ ही member_count अपडेट करना)
+     * 🚪 4. ग्रुप जॉइन करना (साथ ही तुरंत weekly_study_minutes अपडेट करना)
      */
     suspend fun joinGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
         val userManager = UserManager(context)
@@ -328,7 +325,11 @@ object CloudSyncManager {
 
         try {
             val response = client.newCall(request).execute()
-            return@withContext response.isSuccessful
+            if (response.isSuccessful) {
+                updateUserWeeklyMinutes(userId)
+                return@withContext true
+            }
+            return@withContext false
         } catch (e: Exception) {
             Log.e(TAG, "Join group error: ${e.message}")
             return@withContext false
@@ -365,7 +366,6 @@ object CloudSyncManager {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext false
 
         try {
-            // 1. ग्रुप के सभी मेंबर्स डिलीट करें
             val delMembersReq = Request.Builder()
                 .url("$SUPABASE_URL/rest/v1/group_members?group_id=eq.$groupId")
                 .addHeader("apikey", SUPABASE_KEY)
@@ -374,7 +374,6 @@ object CloudSyncManager {
                 .build()
             client.newCall(delMembersReq).execute()
 
-            // 2. ग्रुप को study_groups टेबल से हमेशा के लिए डिलीट करें
             val delGroupReq = Request.Builder()
                 .url("$SUPABASE_URL/rest/v1/study_groups?id=eq.$groupId")
                 .addHeader("apikey", SUPABASE_KEY)
@@ -435,7 +434,7 @@ object CloudSyncManager {
     }
 
     /**
-     * ⏱️ 8. पढ़ाई पूरी होने पर सेशन सिंक करना (डुप्लीकेट गार्ड के साथ)
+     * ⏱️ 8. पढ़ाई पूरी होने पर सेशन सिंक करना + group_members में weekly_study_minutes अपडेट करना
      */
     fun syncSession(
         context: Context,
@@ -453,7 +452,6 @@ object CloudSyncManager {
 
         val now = System.currentTimeMillis()
 
-        // 🛑 डुप्लीकेट फ़िल्टर: पिछले 3 सेकंड में अगर वही मिनट दोबारा आए तो रोक दो
         if (now - lastSyncTimestamp < 3000 && lastSyncedMinutes == durationMinutes) {
             Log.w(TAG, "Duplicate session sync blocked!")
             return
@@ -491,8 +489,78 @@ object CloudSyncManager {
                 response.use {
                     if (response.isSuccessful) {
                         Log.d(TAG, "Session safely synced to Supabase for user: $userId")
+                        // 🎯 सेशन सफलतापूर्वक जुड़ते ही group_members के साप्ताहिक मिनट अपडेट करें
+                        updateUserWeeklyMinutes(userId)
                     } else {
                         Log.e(TAG, "Server error code: ${response.code} body: ${response.body?.string()}")
+                    }
+                }
+            }
+        })
+    }
+
+    /**
+     * 🔄 8.1 group_members टेबल में weekly_study_minutes को गणना करके अपडेट (PATCH) करना
+     */
+    fun updateUserWeeklyMinutes(userId: String) {
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank() || userId.isBlank()) return
+
+        val (startDate, endDate) = getWeekDateRange(isCurrentWeek = true)
+        val queryUrl = "$SUPABASE_URL/rest/v1/study_sessions?user_id=eq.$userId&session_date=gte.$startDate&session_date=lte.$endDate&select=duration_minutes"
+
+        val request = Request.Builder()
+            .url(queryUrl)
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .get()
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "Failed to calculate weekly minutes for sync: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    val text = response.body?.string().orEmpty()
+                    if (response.isSuccessful && text.isNotBlank()) {
+                        try {
+                            val arr = JSONArray(text)
+                            var totalWeeklyMins = 0L
+                            for (i in 0 until arr.length()) {
+                                totalWeeklyMins += arr.getJSONObject(i).optLong("duration_minutes", 0L)
+                            }
+
+                            val patchPayload = JSONObject().apply {
+                                put("weekly_study_minutes", totalWeeklyMins)
+                            }
+
+                            val patchRequest = Request.Builder()
+                                .url("$SUPABASE_URL/rest/v1/group_members?user_id=eq.$userId")
+                                .addHeader("apikey", SUPABASE_KEY)
+                                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+                                .addHeader("Content-Type", "application/json")
+                                .patch(patchPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                                .build()
+
+                            client.newCall(patchRequest).enqueue(object : Callback {
+                                override fun onFailure(pCall: Call, pE: IOException) {
+                                    Log.e(TAG, "Failed to update weekly_study_minutes in group_members: ${pE.message}")
+                                }
+
+                                override fun onResponse(pCall: Call, pResponse: Response) {
+                                    pResponse.use {
+                                        if (pResponse.isSuccessful) {
+                                            Log.d(TAG, "weekly_study_minutes successfully updated to $totalWeeklyMins for user $userId")
+                                        } else {
+                                            Log.e(TAG, "Error updating weekly_study_minutes: ${pResponse.code}")
+                                        }
+                                    }
+                                }
+                            })
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error parsing weekly minutes: ${e.message}")
+                        }
                     }
                 }
             }
@@ -592,7 +660,6 @@ object CloudSyncManager {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
 
         try {
-            // 1. उस ग्रुप के सभी जुड़े हुए मेंबर्स लाओ
             val membersUrl = "$SUPABASE_URL/rest/v1/group_members?group_id=eq.$groupId&select=user_id,nickname"
             val memReq = Request.Builder()
                 .url(membersUrl)
@@ -618,10 +685,8 @@ object CloudSyncManager {
 
             if (membersMap.isEmpty()) return@withContext emptyList()
 
-            // 2. उस हफ़्ते (Current vs Last) की तारीखें निकालो
             val (startDate, endDate) = getWeekDateRange(isCurrentWeek)
 
-            // 3. उन तारीखों के बीच के सभी सेशन फ़ेच करो
             val sessionsUrl = "$SUPABASE_URL/rest/v1/study_sessions?session_date=gte.$startDate&session_date=lte.$endDate&select=user_id,duration_minutes"
             val sessReq = Request.Builder()
                 .url(sessionsUrl)
@@ -646,7 +711,6 @@ object CloudSyncManager {
                 }
             }
 
-            // 4. मेंबर्स को उनके पढ़े गए कुल मिनटों के हिसाब से रैंक करें
             val result = membersMap.map { (uId, nick) ->
                 val totalMins = minutesMap[uId] ?: 0
                 GroupMember(
