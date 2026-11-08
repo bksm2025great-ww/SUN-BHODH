@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.amon.timer.ThemeManager
+import com.amon.timer.UserManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,15 +48,25 @@ fun GroupSettingsSheet(
     val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
     val dangerColor = Color(0xFFEF4444)
 
+    val userManager = remember { UserManager(context) }
+    val currentUserName = remember { userManager.getUserName().ifBlank { "An Aspirant" } }
+
     var showLeaveConfirmDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     fun launchShareSheet() {
+        val inviteCode = group.inviteCode.ifBlank { "AMON-GROUP" }
         val shareMessage = """
-            Hey! Join my study group "${group.name}" on Sun Bhodh.
-            Use Invite Code: ${group.inviteCode}
-            Let's focus together! 📚✨
+            🎯 AMON STUDY CIRCLE
+            ━━━━━━━━━━━━━━━━━━━━━━
+            Hey! $currentUserName has invited you to join their study group "${group.name}".
+
+            Join using the link below:
+            👉 https://amon.app/join?code=$inviteCode
+
+            (Or enter this invite code in the Amon app: $inviteCode)
+            ━━━━━━━━━━━━━━━━━━━━━━
         """.trimIndent()
 
         val sendIntent = Intent().apply {
@@ -63,7 +74,7 @@ fun GroupSettingsSheet(
             putExtra(Intent.EXTRA_TEXT, shareMessage)
             type = "text/plain"
         }
-        context.startActivity(Intent.createChooser(sendIntent, "Invite Aspirants"))
+        context.startActivity(Intent.createChooser(sendIntent, "Invite to ${group.name}"))
     }
 
     fun launchReportEmail() {
@@ -75,9 +86,7 @@ fun GroupSettingsSheet(
                 putExtra(Intent.EXTRA_TEXT, "Hi Team,\n\nI want to report this group due to inappropriate content or spam.\n\nDetails:\n")
             }
             context.startActivity(Intent.createChooser(emailIntent, "Send Report"))
-        } catch (e: Exception) {
-            // No email client found
-        }
+        } catch (_: Exception) {}
     }
 
     if (showLeaveConfirmDialog) {
@@ -204,6 +213,7 @@ fun GroupSettingsSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // 🎯 Invite Aspirants Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -237,7 +247,7 @@ fun GroupSettingsSheet(
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "Code: ${group.inviteCode ?: "N/A"} · Tap to share",
+                            text = "Code: ${group.inviteCode.ifBlank { "N/A" }} · Tap to share",
                             color = textMuted,
                             fontSize = 11.5.sp
                         )
@@ -247,6 +257,7 @@ fun GroupSettingsSheet(
 
             Spacer(modifier = Modifier.height(10.dp))
 
+            // Report Group Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -290,6 +301,7 @@ fun GroupSettingsSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            // Leave Group Action
             OutlinedButton(
                 onClick = { showLeaveConfirmDialog = true },
                 modifier = Modifier
