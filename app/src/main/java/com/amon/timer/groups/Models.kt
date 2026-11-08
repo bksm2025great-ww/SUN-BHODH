@@ -25,7 +25,7 @@ data class StudyGroup(
     val isPinned: Boolean = false,
     val isJoined: Boolean = false,
     val isDefault: Boolean = false,
-    val inviteCode: String? = null,
+    val inviteCode: String = "",
     val notificationsEnabled: Boolean = true,
     val members: List<GroupMember> = emptyList()
 )
@@ -55,7 +55,7 @@ object MockRepository {
         WeekPeriod("w_prev", "Last Week", "Previous", false)
     )
 
-    // 🏛️ शुरूआती ग्रुप्स (सार्वजनिक सुझाव ताकि एक्सप्लोर खाली न दिखे)
+    // 🏛️ शुरूआती ग्रुप्स (सार्वजनिक सुझाव ताकि नया यूजर आने पर एक्सप्लोर खाली न दिखे)
     val sampleGroups = listOf(
         StudyGroup(
             id = "universal_lib",
@@ -80,7 +80,7 @@ object MockRepository {
             isPinned = false,
             isJoined = false,
             isDefault = false,
-            inviteCode = "RAS-2026"
+            inviteCode = "AMON-RAS26"
         ),
         StudyGroup(
             id = "upsc_prelims",
@@ -92,7 +92,7 @@ object MockRepository {
             isPinned = false,
             isJoined = false,
             isDefault = false,
-            inviteCode = "UPSC-SPRINT"
+            inviteCode = "AMON-UPSC2"
         ),
         StudyGroup(
             id = "neet_crack",
@@ -104,11 +104,10 @@ object MockRepository {
             isPinned = false,
             isJoined = false,
             isDefault = false,
-            inviteCode = "NEET-MED"
+            inviteCode = "AMON-NEET9"
         )
     )
 
-    // फ़र्ज़ी यूज़र लिस्ट को पूरी तरह खाली कर दिया गया है
     fun getSampleMembers(): List<GroupMember> {
         return emptyList()
     }
