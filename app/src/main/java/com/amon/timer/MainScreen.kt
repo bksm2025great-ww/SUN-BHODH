@@ -8,7 +8,10 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Build
 import android.os.SystemClock
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -139,7 +142,6 @@ fun MainScreen() {
         } catch (_: Exception) {}
     }
 
-    // 🎯 डायरेक्ट सेशन एंड लॉजिक (Supabase Sync के साथ)
     val onDirectEndSession: () -> Unit = {
         if (isStopwatchFocusActive) {
             val elapsedMins = (stopwatchElapsedMillis / 60000).toInt()
@@ -165,7 +167,6 @@ fun MainScreen() {
                 )
                 FocusSessionManager.saveSession(context, session)
 
-                // 🚀 1. स्टॉपवॉच सेशन को Supabase क्लाउड में सिंक करें
                 CloudSyncManager.syncSession(
                     context = context,
                     subject = selectedSubjectName.ifBlank { "General" },
@@ -179,7 +180,6 @@ fun MainScreen() {
             stopwatchAccumulatedMillis = 0L
             stopwatchElapsedMillis = 0L
         } else {
-            // 🎯 2. टाइमर / पोमोडोरो सेशन का बीता हुआ समय निकालना
             val totalSecsPlanned = initialTotalSeconds
             val remainingSecs = TimerService.remainingSeconds.intValue
             val elapsedSecs = (totalSecsPlanned - remainingSecs).coerceAtLeast(0)
@@ -207,7 +207,6 @@ fun MainScreen() {
                 )
                 FocusSessionManager.saveSession(context, session)
 
-                // 🚀 टाइमर / पोमोडोरो सेशन को Supabase क्लाउड में सिंक करें
                 CloudSyncManager.syncSession(
                     context = context,
                     subject = selectedSubjectName.ifBlank { "General" },
@@ -225,6 +224,16 @@ fun MainScreen() {
         if (window != null) {
             val insetsController = WindowCompat.getInsetsController(window, view)
             if (isFocusActive) {
+                // 🎯 1. कैमरा कटआउट के कोने-कोने तक ऐप का बैकग्राउंड फैलाएँ (ऊपर की काली पट्टी ख़त्म)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    window.attributes = window.attributes.apply {
+                        layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                    }
+                }
+                // 🎯 2. सिस्टम बार्स को पारदर्शी करें ताकि कोई लेटरबॉक्सिंग पट्टी न दिखे
+                window.statusBarColor = android.graphics.Color.TRANSPARENT
+                window.navigationBarColor = android.graphics.Color.TRANSPARENT
+
                 insetsController.hide(WindowInsetsCompat.Type.systemBars())
                 insetsController.systemBarsBehavior =
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -269,8 +278,8 @@ fun MainScreen() {
                     onTabSelected = { newIndex -> currentNavIndex = newIndex },
                     isDark = isDark,
                     goldColor = goldColor,
-                    cardBg = cardBg,
-                    borderCol = glassBorder,
+                    cardBg = bgColor,
+                    borderCol = Color.Transparent,
                     hasNewUpdate = hasNewUpdate
                 )
             }
