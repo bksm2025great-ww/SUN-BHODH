@@ -6,11 +6,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.graphics.Color as AndroidColor
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.SystemClock
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -219,32 +220,41 @@ fun MainScreen() {
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
+    // 🎯 काली पट्टी को पूरी तरह मिटाकर बैकग्राउंड से 100% ब्लेंड करने वाला लॉजिक
     DisposableEffect(isFocusActive) {
         val window = activity?.window
         if (window != null) {
             val insetsController = WindowCompat.getInsetsController(window, view)
+            val bgHex = if (isDark) "#121216" else "#F8FAFC"
+            window.setBackgroundDrawable(ColorDrawable(AndroidColor.parseColor(bgHex)))
+
             if (isFocusActive) {
-                // 🎯 1. कैमरा कटआउट के कोने-कोने तक ऐप का बैकग्राउंड फैलाएँ (ऊपर की काली पट्टी ख़त्म)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    window.attributes = window.attributes.apply {
-                        layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-                    }
+                    val params = window.attributes
+                    params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                    window.attributes = params
                 }
-                // 🎯 2. सिस्टम बार्स को पारदर्शी करें ताकि कोई लेटरबॉक्सिंग पट्टी न दिखे
-                window.statusBarColor = android.graphics.Color.TRANSPARENT
-                window.navigationBarColor = android.graphics.Color.TRANSPARENT
+
+                // सीमाओं को खत्म कर सीधे कैमरे के आर-पार बैकग्राउंड फैलाएँ
+                window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+                window.statusBarColor = AndroidColor.TRANSPARENT
+                window.navigationBarColor = AndroidColor.TRANSPARENT
 
                 insetsController.hide(WindowInsetsCompat.Type.systemBars())
                 insetsController.systemBarsBehavior =
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
             } else {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+                window.statusBarColor = AndroidColor.TRANSPARENT
+                window.navigationBarColor = AndroidColor.TRANSPARENT
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
                 activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             }
         }
         onDispose {
             activity?.window?.let { win ->
+                win.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 WindowCompat.getInsetsController(win, view).show(WindowInsetsCompat.Type.systemBars())
             }
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -441,7 +451,6 @@ fun HomeTimerTab(
     onResetStopwatch: () -> Unit,
     onDirectEndSession: () -> Unit
 ) {
-    val activity = context as? Activity
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -1008,13 +1017,15 @@ fun HomeTimerTab(
                 }
             }
         } else {
+            // 🎯 फ़ोकस एक्टिव मोड: statusBarsPadding के साथ बैकग्राउंड को ऊपर तक ब्लेंड किया गया
             if (isStopwatchFocusActive) {
                 if (!isLandscape) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
+                            .statusBarsPadding()
                             .padding(horizontal = 20.dp)
-                            .padding(top = 22.dp, bottom = 48.dp),
+                            .padding(top = 10.dp, bottom = 44.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -1210,8 +1221,9 @@ fun HomeTimerTab(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
+                            .statusBarsPadding()
                             .padding(horizontal = 20.dp)
-                            .padding(top = 18.dp, bottom = 44.dp),
+                            .padding(top = 10.dp, bottom = 44.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
