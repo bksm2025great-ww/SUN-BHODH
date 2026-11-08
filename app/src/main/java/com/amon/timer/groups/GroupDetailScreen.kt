@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.amon.timer.CloudSyncManager
 import com.amon.timer.ThemeManager
+import com.amon.timer.UserManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -47,6 +48,9 @@ fun GroupDetailScreen(
     val accentColor = ThemeManager.getAccentColor()
     val accentSubtle = accentColor.copy(alpha = 0.16f)
     val focusingGreen = Color(0xFF22C55E)
+
+    val userManager = remember { UserManager(context) }
+    val currentUserName = remember { userManager.getUserName().ifBlank { "An Aspirant" } }
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var showWeekPickerSheet by remember { mutableStateOf(false) }
@@ -90,18 +94,23 @@ fun GroupDetailScreen(
         leaderboardMembers.filter { it.isCurrentlyFocusing }
     }
 
-    // 👥 डायनामिक मेंबर काउंट: डेटाबेस के पुराने 1 की जगह असल मेंबर्स की संख्या
     val displayMemberCount = remember(leaderboardMembers, group.memberCount) {
         if (leaderboardMembers.isNotEmpty()) leaderboardMembers.size else maxOf(group.memberCount, 1)
     }
 
+    // 🎯 शुद्ध डायनामिक Amon इनवाइट मैसेज
     val triggerShareIntent = {
-        val inviteCode = group.inviteCode ?: "SUNBODH-GROUP"
+        val inviteCode = group.inviteCode.ifBlank { "AMON-GROUP" }
         val shareMessage = """
-            Hey! Join my study group "${group.name}" on Sun Bhodh to track study hours together.
-            
-            Group Code: $inviteCode
-            Join Link: https://sunbodh.app/join/$inviteCode
+            🎯 AMON STUDY CIRCLE
+            ━━━━━━━━━━━━━━━━━━━━━━
+            Hey! $currentUserName has invited you to join their study group "${group.name}".
+
+            Join using the link below:
+            👉 https://amon.app/join?code=$inviteCode
+
+            (Or enter this invite code in the Amon app: $inviteCode)
+            ━━━━━━━━━━━━━━━━━━━━━━
         """.trimIndent()
 
         val sendIntent = Intent().apply {
@@ -109,7 +118,7 @@ fun GroupDetailScreen(
             putExtra(Intent.EXTRA_TEXT, shareMessage)
             type = "text/plain"
         }
-        val shareIntent = Intent.createChooser(sendIntent, "Invite Aspirants to ${group.name}")
+        val shareIntent = Intent.createChooser(sendIntent, "Invite to ${group.name}")
         context.startActivity(shareIntent)
     }
 
