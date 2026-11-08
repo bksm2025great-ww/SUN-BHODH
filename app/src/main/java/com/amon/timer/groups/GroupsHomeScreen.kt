@@ -1,6 +1,7 @@
 package com.amon.timer.groups
 
 import android.content.Context
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -20,8 +22,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.amon.timer.CloudSyncManager
 import com.amon.timer.ThemeManager
 import com.amon.timer.UserManager
@@ -60,7 +64,7 @@ fun GroupCacheManager.getCachedGroupsList(context: Context): List<StudyGroup> {
                 )
             } else null
         }
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         emptyList()
     }
 }
@@ -90,8 +94,15 @@ fun GroupsHomeScreen(
     val accentColor = ThemeManager.getAccentColor()
     val accentSubtle = accentColor.copy(alpha = 0.15f)
     val focusingGreen = Color(0xFF22C55E)
+    val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
 
-    // ⚡ 1. Local Cache: अगर पुराना डेटा है तो तुरंत लोड होगा
+    // State for Join by Code flow
+    var showJoinCodeDialog by remember { mutableStateOf(false) }
+    var inviteCodeInput by remember { mutableStateOf("") }
+    var isSearchingCode by remember { mutableStateOf(false) }
+    var codeErrorMessage by remember { mutableStateOf("") }
+    var previewGroupToJoin by remember { mutableStateOf<StudyGroup?>(null) }
+
     val initialGroups = remember {
         GroupCacheManager.getCachedGroupsList(context)
     }
@@ -107,7 +118,6 @@ fun GroupsHomeScreen(
 
     val effectiveNickname = if (userNickname.isNotBlank()) userNickname else userManager.getUserName().ifBlank { "Aspirant" }
 
-    // 🔄 2. Background Fetch: Supabase से डेटा आते ही स्टेट अपडेट होगी
     LaunchedEffect(Unit) {
         coroutineScope.launch(Dispatchers.IO) {
             val freshGroups = CloudSyncManager.fetchGroups(context)
@@ -126,15 +136,34 @@ fun GroupsHomeScreen(
             parts.size >= 2 -> "${parts[0].first().uppercase()}${parts[1].first().uppercase()}"
             parts.isNotEmpty() && parts[0].length >= 2 -> parts[0].take(2).uppercase()
             parts.isNotEmpty() -> parts[0].take(1).uppercase()
-            else -> "SB"
+            else -> "AM"
         }
     }
 
-    // 👥 जो ग्रुप्स छात्र जॉइन कर चुका है (चाहे प्राइवेट हों या पब्लिक)
     val yourGroups = liveGroups.filter { it.isJoined }
-
-    // 🔒 एक्सप्लोर सेक्शन में सिर्फ़ और सिर्फ़ PUBLIC ग्रुप्स दिखेंगे (प्राइवेट पूरी तरह सुरक्षित)
     val discoverGroups = liveGroups.filter { !it.isJoined && it.isPublic }
+
+    val onSearchByCodeAction = {
+        val clean = inviteCodeInput.trim()
+        if (clean.isBlank()) {
+            codeErrorMessage = "Please enter an invite code"
+        } else {
+            isSearchingCode = true
+            codeErrorMessage = ""
+            coroutineScope.launch(Dispatchers.IO) {
+                val found = CloudSyncManager.fetchGroupByInviteCode(clean)
+                withContext(Dispatchers.Main) {
+                    isSearchingCode = false
+                    if (found != null) {
+                        showJoinCodeDialog = false
+                        previewGroupToJoin = found
+                    } else {
+                        codeErrorMessage = "Invalid code. No study circle found."
+                    }
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -175,6 +204,23 @@ fun GroupsHomeScreen(
                     }
                 },
                 actions = {
+                    // 🔑 Join by Code Button
+                    IconButton(
+                        onClick = {
+                            inviteCodeInput = ""
+                            codeErrorMessage = ""
+                            showJoinCodeDialog = true
+                        },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Key,
+                            contentDescription = "Join by Code",
+                            tint = accentColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
                     IconButton(
                         onClick = onSearchClick,
                         modifier = Modifier.size(40.dp)
@@ -186,6 +232,7 @@ fun GroupsHomeScreen(
                             modifier = Modifier.size(22.dp)
                         )
                     }
+
                     IconButton(
                         onClick = onCreateGroupClick,
                         modifier = Modifier.size(40.dp)
@@ -244,11 +291,11 @@ fun GroupsHomeScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "You haven't joined any groups yet.\nExplore below or create one!",
+                            text = "You haven't joined any groups yet.\nExplore below or join with an invite code!",
                             color = textMuted,
                             fontSize = 13.sp,
                             lineHeight = 18.sp,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -299,6 +346,214 @@ fun GroupsHomeScreen(
 
             item {
                 Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+
+    // 🎯 1. इनवाइट कोड डालने का इनपुट डायलॉग
+    if (showJoinCodeDialog) {
+        Dialog(onDismissRequest = { showJoinCodeDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(cardBg)
+                    .padding(20.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Join with Code 🔑",
+                        color = textMain,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Enter the unique 8-character code sent by your friend",
+                        color = textMuted,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = inviteCodeInput,
+                        onValueChange = {
+                            inviteCodeInput = it
+                            codeErrorMessage = ""
+                        },
+                        placeholder = { Text("e.g. AMON-X7K2", color = textMuted, fontSize = 13.sp) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = accentColor,
+                            unfocusedBorderColor = cardBorder,
+                            focusedTextColor = textMain,
+                            unfocusedTextColor = textMain,
+                            cursorColor = accentColor
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (codeErrorMessage.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = codeErrorMessage,
+                            color = Color(0xFFEF4444),
+                            fontSize = 11.5.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { showJoinCodeDialog = false },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Cancel", color = textMain)
+                        }
+
+                        Button(
+                            onClick = { onSearchByCodeAction() },
+                            enabled = !isSearchingCode,
+                            colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            if (isSearchingCode) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = Color.Black,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text("Find Group", color = Color.Black, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 🎯 2. स्मार्ट इनविटेशन प्रीव्यू कार्ड (Confirm & Join)
+    if (previewGroupToJoin != null) {
+        val targetGroup = previewGroupToJoin!!
+        Dialog(onDismissRequest = { previewGroupToJoin = null }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(cardBg)
+                    .padding(22.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(accentSubtle),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = targetGroup.name.take(2).uppercase(),
+                            color = accentColor,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 20.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "You are invited to join",
+                        color = textMuted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    Text(
+                        text = targetGroup.name,
+                        color = textMain,
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Surface(
+                        color = if (isDark) Color(0x1AFFFFFF) else Color(0x0A000000),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Category", color = textMuted, fontSize = 12.sp)
+                                Text(targetGroup.category, color = textMain, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Access", color = textMuted, fontSize = 12.sp)
+                                Text(
+                                    if (targetGroup.isPublic) "Public Circle" else "Private Circle",
+                                    color = accentColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { previewGroupToJoin = null },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(50)
+                        ) {
+                            Text("Decline", color = textMuted)
+                        }
+
+                        Button(
+                            onClick = {
+                                val groupId = targetGroup.id
+                                previewGroupToJoin = null
+                                onJoinGroup(groupId)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                            modifier = Modifier.weight(1.3f),
+                            shape = RoundedCornerShape(50)
+                        ) {
+                            Text("Accept & Join 🚀", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                        }
+                    }
+                }
             }
         }
     }
