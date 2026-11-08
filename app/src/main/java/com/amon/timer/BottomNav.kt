@@ -52,7 +52,7 @@ fun SimpleNavIcon(
             )
         }
         1 -> {
-            // 🟢 Naya Circle Icon: Circular Badge with 3 People Silhouette Cutout
+            // 🟢 Circular Badge with 3 People Silhouette Cutout
             Canvas(modifier = modifier) {
                 val w = size.width
                 val h = size.height
@@ -60,13 +60,11 @@ fun SimpleNavIcon(
                 val cy = h / 2f
                 val r = size.minDimension * 0.48f
 
-                // Outer circle clipping taaki saare shapes badge ke andar rahein
                 val circlePath = Path().apply {
                     addOval(Rect(cx - r, cy - r, cx + r, cy + r))
                 }
 
                 clipPath(circlePath) {
-                    // Base filled circular badge
                     drawCircle(
                         color = tint,
                         radius = r,
@@ -115,7 +113,7 @@ fun SimpleNavIcon(
                         size = Size(sideBodyW, sideBodyH * 1.4f)
                     )
 
-                    // Center person ke peeche ka boundary separation gap (tint color)
+                    // Center boundary gap
                     val gapStroke = 1.8.dp.toPx()
                     drawCircle(
                         color = tint,
@@ -131,7 +129,7 @@ fun SimpleNavIcon(
                         size = Size(centerBodyW + gapStroke * 2f, (centerBodyH * 1.5f) + gapStroke * 2f)
                     )
 
-                    // Center main person (In front)
+                    // Center main person
                     drawCircle(
                         color = cutoutColor,
                         radius = centerHeadR,
@@ -149,12 +147,11 @@ fun SimpleNavIcon(
             }
         }
         2 -> {
-            // 🟢 Naya Stats Icon: 4 Growth Bars with Rising Trend Arrow
+            // 🟢 Stats Growth Bars Icon
             Canvas(modifier = modifier) {
                 val w = size.width
                 val h = size.height
 
-                // Baseline
                 val baseStroke = 1.8.dp.toPx()
                 drawLine(
                     color = tint,
@@ -164,7 +161,6 @@ fun SimpleNavIcon(
                     cap = StrokeCap.Round
                 )
 
-                // 4 Growth Bars
                 val barW = w * 0.13f
                 val barCorner = CornerRadius(2.dp.toPx(), 2.dp.toPx())
                 val barHeights = listOf(0.24f, 0.40f, 0.56f, 0.72f)
@@ -180,7 +176,6 @@ fun SimpleNavIcon(
                     )
                 }
 
-                // Rising Trend Arrow Curve
                 val arrowStroke = 2.4.dp.toPx()
                 val arrowCurvePath = Path().apply {
                     moveTo(w * 0.08f, h * 0.62f)
@@ -196,7 +191,6 @@ fun SimpleNavIcon(
                     style = Stroke(width = arrowStroke, cap = StrokeCap.Round)
                 )
 
-                // Arrowhead
                 val arrowHeadPath = Path().apply {
                     moveTo(w * 0.62f, h * 0.18f)
                     lineTo(w * 0.88f, h * 0.14f)
@@ -221,7 +215,7 @@ fun SimpleNavIcon(
 }
 
 // =============================================================================
-// 🟢 2. CURVED BOTTOM BAR
+// 🟢 2. SEAMLESS CURVED BOTTOM BAR (NO BORDER, PURE SCREEN COLOR)
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
@@ -233,7 +227,7 @@ fun AmonCurvedBottomBar(
     borderCol: Color,
     hasNewUpdate: Boolean = false
 ) {
-   val tabTitles = listOf("Home", "Groups", "Stats", "Profile")
+    val tabTitles = listOf("Home", "Groups", "Stats", "Profile")
 
     val animatedIndex by animateFloatAsState(
         targetValue = selectedIndex.toFloat(),
@@ -272,8 +266,8 @@ fun AmonCurvedBottomBar(
                 close()
             }
 
+            // 🎯 केवल स्क्रीन बैकग्राउंड कलर से ड्रा करें — कोई स्ट्रोक या बॉर्डर लाइन नहीं
             drawPath(path = path, color = cardBg)
-            drawPath(path = path, color = borderCol, style = Stroke(width = 1.2.dp.toPx()))
         }
 
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -281,20 +275,21 @@ fun AmonCurvedBottomBar(
             val bubbleSize = 54.dp
             val bubbleX = (tabWidth * animatedIndex) + (tabWidth / 2) - (bubbleSize / 2)
 
+            // 🎯 फ्लोटिंग एक्टिव बबल का बैकग्राउंड भी स्क्रीन बैकग्राउंड (cardBg) जैसा
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .offset(x = bubbleX, y = 2.dp)
                     .size(bubbleSize)
                     .clip(CircleShape)
-                    .background(if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC))
+                    .background(cardBg)
                     .border(2.6.dp, goldColor, CircleShape)
             ) {
                 Box(contentAlignment = Alignment.TopEnd) {
                     SimpleNavIcon(
                         index = selectedIndex,
                         tint = goldColor,
-                        cutoutColor = if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC),
+                        cutoutColor = cardBg,
                         modifier = Modifier.size(26.dp)
                     )
 
@@ -305,7 +300,7 @@ fun AmonCurvedBottomBar(
                                 .size(9.dp)
                                 .clip(CircleShape)
                                 .background(Color(0xFF10B981))
-                                .border(1.5.dp, if (isDark) Color(0xFF08080B) else Color(0xFFF8FAFC), CircleShape)
+                                .border(1.5.dp, cardBg, CircleShape)
                         )
                     }
                 }
