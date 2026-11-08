@@ -20,7 +20,6 @@ private enum class GroupsScreenState {
     DETAIL
 }
 
-// 🔐 8-अक्षरी Base58 सिक्योर रैंडम कोड जनरेटर (No 0, O, I, l)
 fun generateSecureGroupCode(): String {
     val chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
     val random = SecureRandom()
@@ -67,7 +66,6 @@ fun GroupsRootScreen(
     var showSettingsSheet by remember { mutableStateOf(false) }
     var showNicknameDialog by remember { mutableStateOf(false) }
 
-    // 🚀 Supabase से ग्रुप्स फ़ेच करना
     LaunchedEffect(Unit) {
         val cloudGroups = CloudSyncManager.fetchGroups(context)
         if (cloudGroups.isNotEmpty()) {
@@ -96,13 +94,11 @@ fun GroupsRootScreen(
                     },
                     onViewAllSuggested = { currentScreen = GroupsScreenState.EXPLORE },
                     onNicknameClick = { showNicknameDialog = true },
-                    // ⭐ स्टार / पिन टॉगल
                     onTogglePin = { groupId ->
                         groupsList = groupsList.map { g ->
                             if (g.id == groupId) g.copy(isPinned = !g.isPinned) else g
                         }
                     },
-                    // ➕ जॉइन ग्रुप (सुपाबेस सिंक + सीधे ग्रुप के अंदर जाना)
                     onJoinGroup = { groupId ->
                         val existing = groupsList.find { it.id == groupId }
                         if (existing != null) {
@@ -114,7 +110,7 @@ fun GroupsRootScreen(
                         }
 
                         coroutineScope.launch(Dispatchers.IO) {
-                            val success = CloudSyncManager.joinGroupOnCloud(context, groupId)
+                            CloudSyncManager.joinGroupOnCloud(context, groupId)
                             val fresh = CloudSyncManager.fetchGroups(context)
                             withContext(Dispatchers.Main) {
                                 if (fresh.isNotEmpty()) {
@@ -169,13 +165,12 @@ fun GroupsRootScreen(
                     group = selectedGroup,
                     userNickname = currentNickname,
                     onBackClick = { currentScreen = GroupsScreenState.HOME },
-                    onInviteClick = { /* Share handled inside GroupDetailScreen */ },
+                    onInviteClick = { },
                     onSettingsClick = { showSettingsSheet = true }
                 )
             }
         }
 
-        // ➕ नया ग्रुप बनाना (8-अक्षर का सिक्योर कोड और परमानेंट क्लाउड सेव)
         if (showCreateSheet) {
             CreateGroupSheet(
                 onDismiss = { showCreateSheet = false },
@@ -211,7 +206,6 @@ fun GroupsRootScreen(
             )
         }
 
-        // ⚙️ सेटिंग्स शीट
         if (showSettingsSheet) {
             GroupSettingsSheet(
                 group = selectedGroup,
@@ -256,7 +250,6 @@ fun GroupsRootScreen(
             )
         }
 
-        // ✏️ निकनेम बदलने का डायलॉग
         if (showNicknameDialog) {
             NicknameDialog(
                 currentNickname = currentNickname,
