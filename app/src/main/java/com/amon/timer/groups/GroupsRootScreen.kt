@@ -11,11 +11,24 @@ import com.amon.timer.CloudSyncManager
 import com.amon.timer.UserManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.security.SecureRandom
 
 private enum class GroupsScreenState {
     HOME,
     EXPLORE,
     DETAIL
+}
+
+// 🔐 8-अक्षरी Base58 सिक्योर रैंडम कोड जनरेटर (No 0, O, I, l)
+fun generateSecureGroupCode(): String {
+    val chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+    val random = SecureRandom()
+    val sb = StringBuilder(8)
+    for (i in 0 until 8) {
+        sb.append(chars[random.nextInt(chars.length)])
+    }
+    return "AMON-$sb"
 }
 
 @Composable
@@ -28,7 +41,6 @@ fun GroupsRootScreen(
     
     var currentScreen by remember { mutableStateOf(GroupsScreenState.HOME) }
     
-    // 🌟 असली स्टेट जो क्लाउड से ग्रुप्स सिंक करके रखती है
     var groupsList by remember { mutableStateOf<List<StudyGroup>>(emptyList()) }
     var selectedGroup by remember { 
         mutableStateOf(
@@ -55,7 +67,7 @@ fun GroupsRootScreen(
     var showSettingsSheet by remember { mutableStateOf(false) }
     var showNicknameDialog by remember { mutableStateOf(false) }
 
-    // 🚀 सुप्राबेस से ग्रुप्स फेच करना
+    // 🚀 Supabase से ग्रुप्स फ़ेच करना
     LaunchedEffect(Unit) {
         val cloudGroups = CloudSyncManager.fetchGroups(context)
         if (cloudGroups.isNotEmpty()) {
@@ -84,19 +96,37 @@ fun GroupsRootScreen(
                     },
                     onViewAllSuggested = { currentScreen = GroupsScreenState.EXPLORE },
                     onNicknameClick = { showNicknameDialog = true },
-                    // ⭐ स्टार टॉगल
+                    // ⭐ स्टार / पिन टॉगल
                     onTogglePin = { groupId ->
                         groupsList = groupsList.map { g ->
                             if (g.id == groupId) g.copy(isPinned = !g.isPinned) else g
                         }
                     },
-                    // ➕ जॉइन ग्रुप (सुप्राबेस सिंक के साथ)
+                    // ➕ जॉइन ग्रुप (सुपाबेस सिंक + सीधे ग्रुप के अंदर जाना)
                     onJoinGroup = { groupId ->
-                        groupsList = groupsList.map { g ->
-                            if (g.id == groupId) g.copy(isJoined = true, memberCount = g.memberCount + 1) else g
+                        val existing = groupsList.find { it.id == groupId }
+                        if (existing != null) {
+                            val updated = existing.copy(isJoined = true, memberCount = existing.memberCount + 1)
+                            groupsList = groupsList.map { if (it.id == groupId) updated else it }
+                            selectedGroup = updated
+                            currentScreen = GroupsScreenState.DETAIL
+                            Toast.makeText(context, "Joined ${updated.name}!", Toast.LENGTH_SHORT).show()
                         }
+
                         coroutineScope.launch(Dispatchers.IO) {
-                            CloudSyncManager.joinGroupOnCloud(context, groupId)
+                            val success = CloudSyncManager.joinGroupOnCloud(context, groupId)
+                            val fresh = CloudSyncManager.fetchGroups(context)
+                            withContext(Dispatchers.Main) {
+                                if (fresh.isNotEmpty()) {
+                                    groupsList = fresh
+                                    val joinedTarget = fresh.find { it.id == groupId }
+                                    if (joinedTarget != null) {
+                                        selectedGroup = joinedTarget
+                                        currentScreen = GroupsScreenState.DETAIL
+                                        Toast.makeText(context, "Welcome to ${joinedTarget.name}!", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
                         }
                     }
                 )
@@ -145,35 +175,35 @@ fun GroupsRootScreen(
             }
         }
 
-        // ➕ नया ग्रुप बनाने का पूरा फ़ंक्शन (सुप्राबेस में परमानेंट सेव)
+        // ➕ नया ग्रुप बनाना (8-अक्षर का सिक्योर कोड और परमानेंट क्लाउड सेव)
         if (showCreateSheet) {
             CreateGroupSheet(
                 onDismiss = { showCreateSheet = false },
                 onCreateGroup = { name, category, isPublic, inviteCode ->
+                    val finalCode = if (inviteCode.isNullOrBlank()) generateSecureGroupCode() else inviteCode.trim()
+
                     val newGroup = StudyGroup(
                         id = "grp_${System.currentTimeMillis()}",
-                        name = name,
-                        category = category,
+                        name = name.trim(),
+                        category = category.trim(),
                         isPublic = isPublic,
                         memberCount = 1,
                         focusingCount = 0,
                         isPinned = false,
                         isJoined = true,
                         isDefault = false,
-                        inviteCode = inviteCode,
+                        inviteCode = finalCode,
                         members = listOf(
                             GroupMember(id = userManager.getUserId(), nickname = currentNickname, role = MemberRole.ADMIN, lastActive = "Just now")
                         )
                     )
 
-                    // 1. तुरंत UI में दिखाएँ
                     groupsList = listOf(newGroup) + groupsList
                     selectedGroup = newGroup
                     showCreateSheet = false
                     currentScreen = GroupsScreenState.DETAIL
                     Toast.makeText(context, "Group created successfully!", Toast.LENGTH_SHORT).show()
 
-                    // 2. सुप्राबेस में परमानेंट इन्सर्ट करें
                     coroutineScope.launch(Dispatchers.IO) {
                         CloudSyncManager.createGroupOnCloud(context, newGroup)
                     }
@@ -181,7 +211,7 @@ fun GroupsRootScreen(
             )
         }
 
-        // ⚙️ सेटिंग्स शीट (Leave Group, Delete Group और Notifications के साथ)
+        // ⚙️ सेटिंग्स शीट
         if (showSettingsSheet) {
             GroupSettingsSheet(
                 group = selectedGroup,
@@ -199,7 +229,6 @@ fun GroupsRootScreen(
                     showSettingsSheet = false
                     Toast.makeText(context, "Group has been reported. We will review it shortly.", Toast.LENGTH_LONG).show()
                 },
-                // 🚪 लीव ग्रुप फ़ंक्शन (एडमिन और मेंबर दोनों के लिए)
                 onLeaveGroup = {
                     val groupId = selectedGroup.id
                     groupsList = groupsList.map { g ->
@@ -213,7 +242,6 @@ fun GroupsRootScreen(
                         CloudSyncManager.leaveGroupOnCloud(context, groupId)
                     }
                 },
-                // 🗑️ परमानेंट डिलीट ग्रुप फ़ंक्शन (केवल एडमिन के लिए)
                 onDeleteGroup = {
                     val groupId = selectedGroup.id
                     groupsList = groupsList.filter { it.id != groupId }
@@ -228,7 +256,7 @@ fun GroupsRootScreen(
             )
         }
 
-        // ✏️ निकनेम बदलने का डायलॉग (सुप्राबेस प्रोफ़ाइल अपडेट के साथ)
+        // ✏️ निकनेम बदलने का डायलॉग
         if (showNicknameDialog) {
             NicknameDialog(
                 currentNickname = currentNickname,
