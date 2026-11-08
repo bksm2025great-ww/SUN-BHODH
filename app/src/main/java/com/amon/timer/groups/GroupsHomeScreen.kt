@@ -1,7 +1,6 @@
 package com.amon.timer.groups
 
 import android.content.Context
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -36,7 +35,7 @@ import kotlinx.coroutines.withContext
 // 💾 Groups Cache Extensions
 fun GroupCacheManager.saveCachedGroupsList(context: Context, groups: List<StudyGroup>) {
     val serialized = groups.joinToString("###") { g ->
-        "${g.id}::${g.name}::${g.category}::${g.isPublic}::${g.memberCount}::${g.focusingCount}::${g.isPinned}::${g.isJoined}::${g.isDefault}::${g.inviteCode ?: ""}"
+        "${g.id}::${g.name}::${g.category}::${g.isPublic}::${g.memberCount}::${g.focusingCount}::${g.isPinned}::${g.isJoined}::${g.isDefault}::${g.inviteCode}"
     }
     context.getSharedPreferences("amon_group_cache", Context.MODE_PRIVATE)
         .edit().putString("cache_home_groups", serialized).apply()
@@ -60,7 +59,7 @@ fun GroupCacheManager.getCachedGroupsList(context: Context): List<StudyGroup> {
                     isPinned = parts[6].toBoolean(),
                     isJoined = parts[7].toBoolean(),
                     isDefault = parts[8].toBoolean(),
-                    inviteCode = parts[9].ifBlank { null }
+                    inviteCode = parts.getOrNull(9)?.ifBlank { "" } ?: ""
                 )
             } else null
         }
@@ -96,7 +95,6 @@ fun GroupsHomeScreen(
     val focusingGreen = Color(0xFF22C55E)
     val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
 
-    // State for Join by Code flow
     var showJoinCodeDialog by remember { mutableStateOf(false) }
     var inviteCodeInput by remember { mutableStateOf("") }
     var isSearchingCode by remember { mutableStateOf(false) }
@@ -204,7 +202,6 @@ fun GroupsHomeScreen(
                     }
                 },
                 actions = {
-                    // 🔑 Join by Code Button
                     IconButton(
                         onClick = {
                             inviteCodeInput = ""
@@ -257,7 +254,6 @@ fun GroupsHomeScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // --- SECTION 1: जुड़े हुए ग्रुप्स ---
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -316,7 +312,6 @@ fun GroupsHomeScreen(
                 }
             }
 
-            // --- SECTION 2: बाकी उपलब्ध पब्लिक ग्रुप्स ---
             if (discoverGroups.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(10.dp))
@@ -350,7 +345,6 @@ fun GroupsHomeScreen(
         }
     }
 
-    // 🎯 1. इनवाइट कोड डालने का इनपुट डायलॉग
     if (showJoinCodeDialog) {
         Dialog(onDismissRequest = { showJoinCodeDialog = false }) {
             Box(
@@ -444,7 +438,6 @@ fun GroupsHomeScreen(
         }
     }
 
-    // 🎯 2. स्मार्ट इनविटेशन प्रीव्यू कार्ड (Confirm & Join)
     if (previewGroupToJoin != null) {
         val targetGroup = previewGroupToJoin!!
         Dialog(onDismissRequest = { previewGroupToJoin = null }) {
