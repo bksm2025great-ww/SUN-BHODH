@@ -122,6 +122,13 @@ fun GroupCacheManager.getCachedGroupsList(context: Context): List<StudyGroup> {
     }
 }
 
+fun GroupCacheManager.clearCachedGroupsList(context: Context) {
+    try {
+        context.getSharedPreferences("amon_group_cache", Context.MODE_PRIVATE)
+            .edit().remove("cache_home_groups").apply()
+    } catch (_: Exception) {}
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupsHomeScreen(
@@ -161,10 +168,13 @@ fun GroupsHomeScreen(
 
     var liveGroups by remember { mutableStateOf(if (groups.isNotEmpty()) groups else initialGroups) }
 
+    // 🔄 जब भी पैरेंट लिस्ट बदले (लीव या डिलीट होने पर), तुरंत सिंक करें
     LaunchedEffect(groups) {
+        liveGroups = groups
         if (groups.isNotEmpty()) {
-            liveGroups = groups
             GroupCacheManager.saveCachedGroupsList(context, groups)
+        } else {
+            GroupCacheManager.clearCachedGroupsList(context)
         }
     }
 
@@ -173,11 +183,11 @@ fun GroupsHomeScreen(
     LaunchedEffect(Unit) {
         coroutineScope.launch(Dispatchers.IO) {
             val freshGroups = CloudSyncManager.fetchGroups(context)
-            if (freshGroups.isNotEmpty()) {
-                withContext(Dispatchers.Main) {
+            withContext(Dispatchers.Main) {
+                if (freshGroups.isNotEmpty()) {
                     liveGroups = freshGroups
+                    GroupCacheManager.saveCachedGroupsList(context, freshGroups)
                 }
-                GroupCacheManager.saveCachedGroupsList(context, freshGroups)
             }
         }
     }
@@ -256,7 +266,6 @@ fun GroupsHomeScreen(
                     }
                 },
                 actions = {
-                    // 🔑 Join by Code Button (Custom Vector KeyIcon)
                     IconButton(
                         onClick = {
                             inviteCodeInput = ""
