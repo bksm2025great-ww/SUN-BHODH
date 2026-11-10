@@ -4,9 +4,12 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +54,10 @@ fun FocusLauncherBottomSheet(
     var pomoLongBreak by remember { mutableIntStateOf(15) }
     var pomoRounds by remember { mutableIntStateOf(4) }
     var pomoAutoStartNext by remember { mutableStateOf(true) }
+
+    // 🎯 Drum Scroll Time Picker Dialog State
+    var showDrumTimeDialog by remember { mutableStateOf(false) }
+    var isEditingPomodoroFocus by remember { mutableStateOf(false) }
 
     val glassBorder = if (isDark) Color(0x2AFFFFFF) else Color(0xFFCBD5E1)
 
@@ -143,44 +151,127 @@ fun FocusLauncherBottomSheet(
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = if (timerMinutes >= 60) "${timerMinutes / 60}h ${timerMinutes % 60}m" else "${timerMinutes}m",
-                            fontSize = 44.sp,
-                            fontWeight = FontWeight.Black,
-                            color = goldColor
-                        )
+                        // ⏱️ 25m Text पर क्लिक करते ही Drum Picker खुलेगा
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable {
+                                    FocusSoundManager.triggerHaptic(context, false)
+                                    isEditingPomodoroFocus = false
+                                    showDrumTimeDialog = true
+                                }
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = if (timerMinutes >= 60) {
+                                    val h = timerMinutes / 60
+                                    val m = timerMinutes % 60
+                                    if (m > 0) "${h}h ${m}m" else "${h}h"
+                                } else "${timerMinutes}m",
+                                fontSize = 46.sp,
+                                fontWeight = FontWeight.Black,
+                                color = goldColor
+                            )
+                            Text(
+                                text = "Tap to set custom time ⏱️",
+                                fontSize = 11.sp,
+                                color = textMuted,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
 
                         Text("QUICK PICK", fontSize = 11.sp, color = textMuted, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
 
-                        val quickPicks = listOf(15, 30, 45, 60, 90, 120)
+                        // 6 Quick Picks: 15m, 30m, 45m | 1h, 1.5h, Custom
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            quickPicks.chunked(3).forEach { row ->
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    row.forEach { mins ->
-                                        val isSel = timerMinutes == mins
-                                        Box(
-                                            contentAlignment = Alignment.Center,
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(40.dp)
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(if (isSel) goldColor else (if (isDark) Color(0xFF1E1E28) else Color(0xFFF1F5F9)))
-                                                .border(1.dp, if (isSel) goldColor else glassBorder, RoundedCornerShape(12.dp))
-                                                .clickable {
-                                                    FocusSoundManager.triggerHaptic(context, false)
-                                                    timerMinutes = mins
-                                                }
-                                        ) {
-                                            Text(
-                                                text = if (mins >= 60) "${mins / 60}h" else "${mins}m",
-                                                color = if (isSel) Color.Black else textMain,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp
-                                            )
-                                        }
+                            // Row 1
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(15, 30, 45).forEach { mins ->
+                                    val isSel = timerMinutes == mins
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(40.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(if (isSel) goldColor else (if (isDark) Color(0xFF1E1E28) else Color(0xFFF1F5F9)))
+                                            .border(1.dp, if (isSel) goldColor else glassBorder, RoundedCornerShape(12.dp))
+                                            .clickable {
+                                                FocusSoundManager.triggerHaptic(context, false)
+                                                timerMinutes = mins
+                                            }
+                                    ) {
+                                        Text(
+                                            text = "${mins}m",
+                                            color = if (isSel) Color.Black else textMain,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
                                     }
+                                }
+                            }
+
+                            // Row 2: 1h, 1.5h, Custom ⏱️
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                val is1h = timerMinutes == 60
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(40.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (is1h) goldColor else (if (isDark) Color(0xFF1E1E28) else Color(0xFFF1F5F9)))
+                                        .border(1.dp, if (is1h) goldColor else glassBorder, RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            timerMinutes = 60
+                                        }
+                                ) {
+                                    Text("1h", color = if (is1h) Color.Black else textMain, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+
+                                val is90m = timerMinutes == 90
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(40.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (is90m) goldColor else (if (isDark) Color(0xFF1E1E28) else Color(0xFFF1F5F9)))
+                                        .border(1.dp, if (is90m) goldColor else glassBorder, RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            timerMinutes = 90
+                                        }
+                                ) {
+                                    Text("1.5h", color = if (is90m) Color.Black else textMain, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+
+                                // 🎯 CUSTOM BUTTON
+                                val isCustom = timerMinutes !in listOf(15, 30, 45, 60, 90)
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(40.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isCustom) goldColor else (if (isDark) Color(0xFF1E1E28) else Color(0xFFF1F5F9)))
+                                        .border(1.dp, if (isCustom) goldColor else glassBorder, RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            isEditingPomodoroFocus = false
+                                            showDrumTimeDialog = true
+                                        }
+                                ) {
+                                    Text(
+                                        text = "Custom ⏱️",
+                                        color = if (isCustom) Color.Black else goldColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
                                 }
                             }
                         }
@@ -191,19 +282,12 @@ fun FocusLauncherBottomSheet(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 16.dp),
+                            .padding(vertical = 18.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(text = "00:00:00", fontSize = 42.sp, fontWeight = FontWeight.Black, color = textMain)
                         Text(text = "Count-up Mode (0 ➔ ∞)", fontSize = 13.sp, color = goldColor, fontWeight = FontWeight.Bold)
-                        Text(
-                            text = "Starts from zero and counts upward until you end your session.",
-                            fontSize = 11.5.sp,
-                            color = textMuted,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 20.dp)
-                        )
                     }
                 }
 
@@ -236,44 +320,55 @@ fun FocusLauncherBottomSheet(
                             }
                         }
 
+                        // Stepper: Focus Time (With direct Drum Picker tap)
                         PomodoroStepperRow(
                             label = "Focus",
                             valueText = "$pomoFocusMinutes min",
                             onMinus = { if (pomoFocusMinutes > 5) pomoFocusMinutes -= 5 },
-                            onPlus = { if (pomoFocusMinutes < 120) pomoFocusMinutes += 5 },
+                            onPlus = { if (pomoFocusMinutes < 180) pomoFocusMinutes += 5 },
+                            onTextClick = {
+                                isEditingPomodoroFocus = true
+                                showDrumTimeDialog = true
+                            },
                             goldColor = goldColor,
                             textMain = textMain,
                             cardBg = if (isDark) Color(0xFF181822) else Color(0xFFF1F5F9),
                             glassBorder = glassBorder
                         )
 
+                        // Stepper: Short Break
                         PomodoroStepperRow(
                             label = "Short break",
                             valueText = "$pomoShortBreak min",
                             onMinus = { if (pomoShortBreak > 1) pomoShortBreak -= 1 },
                             onPlus = { if (pomoShortBreak < 30) pomoShortBreak += 1 },
+                            onTextClick = {},
                             goldColor = goldColor,
                             textMain = textMain,
                             cardBg = if (isDark) Color(0xFF181822) else Color(0xFFF1F5F9),
                             glassBorder = glassBorder
                         )
 
+                        // Stepper: Long Break
                         PomodoroStepperRow(
                             label = "Long break",
                             valueText = "$pomoLongBreak min",
                             onMinus = { if (pomoLongBreak > 5) pomoLongBreak -= 5 },
                             onPlus = { if (pomoLongBreak < 60) pomoLongBreak += 5 },
+                            onTextClick = {},
                             goldColor = goldColor,
                             textMain = textMain,
                             cardBg = if (isDark) Color(0xFF181822) else Color(0xFFF1F5F9),
                             glassBorder = glassBorder
                         )
 
+                        // Stepper: Rounds
                         PomodoroStepperRow(
                             label = "Rounds",
                             valueText = "$pomoRounds",
                             onMinus = { if (pomoRounds > 2) pomoRounds -= 1 },
                             onPlus = { if (pomoRounds < 8) pomoRounds += 1 },
+                            onTextClick = {},
                             goldColor = goldColor,
                             textMain = textMain,
                             cardBg = if (isDark) Color(0xFF181822) else Color(0xFFF1F5F9),
@@ -287,10 +382,7 @@ fun FocusLauncherBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Start next focus by itself", color = textMain, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
-                                Text("After short break, next session starts automatically.", color = textMuted, fontSize = 10.5.sp)
-                            }
+                            Text("Start next focus by itself", color = textMain, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
                             Switch(
                                 checked = pomoAutoStartNext,
                                 onCheckedChange = { pomoAutoStartNext = it },
@@ -374,6 +466,27 @@ fun FocusLauncherBottomSheet(
             }
         }
     }
+
+    // 🥁 DRUM SCROLL TIME PICKER DIALOG (Hours & Minutes Wheel)
+    if (showDrumTimeDialog) {
+        val initialMins = if (isEditingPomodoroFocus) pomoFocusMinutes else timerMinutes
+        DrumScrollTimePickerDialog(
+            initialMinutes = initialMins,
+            isDark = isDark,
+            goldColor = goldColor,
+            textMain = textMain,
+            textMuted = textMuted,
+            onConfirm = { selectedMins ->
+                if (isEditingPomodoroFocus) {
+                    pomoFocusMinutes = selectedMins
+                } else {
+                    timerMinutes = selectedMins
+                }
+                showDrumTimeDialog = false
+            },
+            onDismiss = { showDrumTimeDialog = false }
+        )
+    }
 }
 
 @Composable
@@ -382,6 +495,7 @@ fun PomodoroStepperRow(
     valueText: String,
     onMinus: () -> Unit,
     onPlus: () -> Unit,
+    onTextClick: () -> Unit,
     goldColor: Color,
     textMain: Color,
     cardBg: Color,
@@ -423,7 +537,10 @@ fun PomodoroStepperRow(
                 fontWeight = FontWeight.Black,
                 color = goldColor,
                 fontSize = 13.sp,
-                modifier = Modifier.widthIn(min = 45.dp),
+                modifier = Modifier
+                    .widthIn(min = 50.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { onTextClick() },
                 textAlign = TextAlign.Center
             )
 
@@ -439,6 +556,183 @@ fun PomodoroStepperRow(
                     }
             ) {
                 Text("＋", color = textMain, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+// =============================================================================
+// 🥁 DRUM SCROLL WHEEL PICKER (HOURS + MINUTES)
+// =============================================================================
+@Composable
+fun DrumScrollTimePickerDialog(
+    initialMinutes: Int,
+    isDark: Boolean,
+    goldColor: Color,
+    textMain: Color,
+    textMuted: Color,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val initialH = (initialMinutes / 60).coerceIn(0, 8)
+    val initialM = (initialMinutes % 60)
+
+    var selectedHour by remember { mutableIntStateOf(initialH) }
+    var selectedMin by remember { mutableIntStateOf(initialM) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .clip(RoundedCornerShape(26.dp))
+                .background(if (isDark) Color(0xFF161622) else Color.White)
+                .border(1.2.dp, goldColor, RoundedCornerShape(26.dp))
+                .padding(20.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Set Custom Time",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    color = goldColor
+                )
+
+                // Selected Time Display
+                val totalM = selectedHour * 60 + selectedMin
+                Text(
+                    text = if (selectedHour > 0) "${selectedHour}h ${selectedMin}m" else "${selectedMin}m",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Black,
+                    color = textMain
+                )
+
+                // 2 Drum Wheels: Hours and Minutes
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Hours Wheel (0 - 8 hours)
+                    DrumWheelColumn(
+                        items = (0..8).map { "$it h" },
+                        initialIndex = initialH,
+                        onItemSelected = { selectedHour = it },
+                        goldColor = goldColor,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Text(
+                        text = ":",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black,
+                        color = goldColor,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+
+                    // Minutes Wheel (0 - 55 step 5 mins)
+                    val minuteOptions = (0..55 step 5).toList()
+                    val mIndex = minuteOptions.indexOfFirst { it >= initialM }.coerceAtLeast(0)
+                    DrumWheelColumn(
+                        items = minuteOptions.map { "$it m" },
+                        initialIndex = mIndex,
+                        onItemSelected = { selectedMin = minuteOptions[it] },
+                        goldColor = goldColor,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier.weight(1f).height(44.dp)
+                    ) {
+                        Text("Cancel", color = textMuted, fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = {
+                            val finalMinutes = (selectedHour * 60 + selectedMin).coerceIn(5, 480)
+                            onConfirm(finalMinutes)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier.weight(1f).height(44.dp)
+                    ) {
+                        Text("Set Time 🎯", color = Color.Black, fontWeight = FontWeight.Black)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun DrumWheelColumn(
+    items: List<String>,
+    initialIndex: Int,
+    onItemSelected: (Int) -> Unit,
+    goldColor: Color,
+    textMain: Color,
+    textMuted: Color,
+    modifier: Modifier = Modifier
+) {
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val snapBehavior = rememberSnapFlingBehavior(lazyListState = listState)
+
+    LaunchedEffect(listState.firstVisibleItemIndex) {
+        onItemSelected(listState.firstVisibleItemIndex.coerceIn(0, items.size - 1))
+    }
+
+    Box(
+        modifier = modifier.height(130.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Selection highlight bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .height(38.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(goldColor.copy(alpha = 0.15f))
+                .border(1.2.dp, goldColor, RoundedCornerShape(10.dp))
+        )
+
+        LazyColumn(
+            state = listState,
+            flingBehavior = snapBehavior,
+            contentPadding = PaddingValues(vertical = 46.dp),
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            items(items.size) { index ->
+                val isSelected = listState.firstVisibleItemIndex == index
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = items[index],
+                        fontSize = if (isSelected) 18.sp else 14.sp,
+                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium,
+                        color = if (isSelected) goldColor else textMuted.copy(alpha = 0.6f)
+                    )
+                }
             }
         }
     }
