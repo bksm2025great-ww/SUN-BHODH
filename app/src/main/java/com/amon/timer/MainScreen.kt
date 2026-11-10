@@ -116,6 +116,9 @@ fun MainScreen() {
 
     LaunchedEffect(Unit) {
         try {
+            // ऐप खुलते ही सख्ती से पोर्ट्रेट में लॉक रखें ताकि सिस्टम रोटेट कभी ट्रिगर न हो
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+
             ThemeManager.loadTheme(context)
             TimerService.syncRemainingTime(context)
 
@@ -212,6 +215,9 @@ fun MainScreen() {
             val bgHex = if (isDark) "#121216" else "#F8FAFC"
             window.setBackgroundDrawable(ColorDrawable(AndroidColor.parseColor(bgHex)))
 
+            // 🔒 ओरिएंटेशन हमेशा PORTRAIT रहेगा - SENSOR कभी कॉल नहीं होगा
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+
             if (isFullScreenFocus) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     val params = window.attributes
@@ -224,13 +230,11 @@ fun MainScreen() {
 
                 insetsController.hide(WindowInsetsCompat.Type.systemBars())
                 insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
             } else {
                 window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 window.statusBarColor = AndroidColor.TRANSPARENT
                 window.navigationBarColor = AndroidColor.TRANSPARENT
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
-                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             }
         }
         onDispose {
@@ -342,7 +346,7 @@ fun MainScreen() {
                     isRunning = isRunning,
                     isPaused = isPaused,
                     isFocusActive = isFullScreenFocus,
-                    isSessionActive = isFocusActive, // 🛡️ एक्टिव सेशन स्टेट (START FOCUS छुपाने के लिए)
+                    isSessionActive = isFocusActive,
                     activeMode = activeMode,
                     onActiveModeChange = { activeMode = it },
                     pomodoroConfig = pomodoroConfig,
@@ -593,7 +597,7 @@ fun HomeTimerTab(
     isRunning: Boolean,
     isPaused: Boolean,
     isFocusActive: Boolean,
-    isSessionActive: Boolean = false, // 🛡️ एक्टिव सेशन चेक
+    isSessionActive: Boolean = false,
     activeMode: FocusModeType,
     onActiveModeChange: (FocusModeType) -> Unit,
     pomodoroConfig: PomodoroConfig,
@@ -865,7 +869,6 @@ fun HomeTimerTab(
                     )
                 }
 
-                // 🛑 यदि सेशन एक्टिव (चल रहा या पॉज़) है तो "START FOCUS" बटन पूरी तरह छुप जाएगा
                 if (!isSessionActive) {
                     Spacer(modifier = Modifier.height(14.dp))
 
