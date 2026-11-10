@@ -76,8 +76,15 @@ fun MainScreen() {
     val isBreakActive = TimerService.isPomoBreakActive.value
     val currentSessionIndex = TimerService.currentPomoRound.intValue
 
-    // 🌟 मिनी बार के लिए स्टेट (बैक दबाने पर मिनीमाइज़ होगा)
+    // 🌟 मिनी बार के लिए स्टेट
     var isFocusMinimized by rememberSaveable { mutableStateOf(false) }
+
+    // जब भी कोई सेशन शुरू हो, मिनीमाइज़ रीसेट होकर फ़ुलस्क्रीन खुलेगा
+    LaunchedEffect(isRunning) {
+        if (isRunning) {
+            isFocusMinimized = false
+        }
+    }
 
     LaunchedEffect(Unit) {
         try {
@@ -616,6 +623,7 @@ fun HomeTimerTab(
     val swH = (stopwatchElapsedMillis / 3600000).toInt()
     val swM = ((stopwatchElapsedMillis % 3600000) / 60000).toInt()
     val swS = ((stopwatchElapsedMillis % 60000) / 1000).toInt()
+    val swMs = ((stopwatchElapsedMillis % 1000) / 10).toInt()
     val swMainTime = String.format("%02d:%02d:%02d", swH, swM, swS)
     val swMilliText = String.format(".%02d", swMs)
 
@@ -1046,7 +1054,6 @@ fun HomeTimerTab(
                         FocusModeType.TIMER -> {
                             onInitialTotalSecondsChange(durationSeconds)
                             TimerService.remainingSeconds.intValue = durationSeconds
-                            isFocusMinimized = false
                             context.startService(Intent(context, TimerService::class.java).apply {
                                 action = TimerService.ACTION_START
                                 putExtra(TimerService.EXTRA_SECONDS, durationSeconds)
@@ -1057,7 +1064,6 @@ fun HomeTimerTab(
                         FocusModeType.POMODORO -> {
                             onInitialTotalSecondsChange(durationSeconds)
                             TimerService.remainingSeconds.intValue = durationSeconds
-                            isFocusMinimized = false
                             context.startService(Intent(context, TimerService::class.java).apply {
                                 action = TimerService.ACTION_START
                                 putExtra(TimerService.EXTRA_SECONDS, durationSeconds)
