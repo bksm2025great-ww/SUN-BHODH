@@ -40,9 +40,15 @@ class TimerService : Service() {
         const val ACTION_STOP = "com.amon.timer.STOP"
         const val ACTION_PAUSE = "com.amon.timer.PAUSE"
         const val ACTION_RESUME = "com.amon.timer.RESUME"
+        const val ACTION_SKIP_BREAK = "com.amon.timer.SKIP_BREAK"
 
         const val EXTRA_SECONDS = "extra_seconds"
         const val EXTRA_SUBJECT = "extra_subject"
+        const val EXTRA_MODE = "extra_mode" // "TIMER", "STOPWATCH", "POMODORO"
+        const val EXTRA_POMO_SHORT_BREAK = "extra_pomo_short_break"
+        const val EXTRA_POMO_LONG_BREAK = "extra_pomo_long_break"
+        const val EXTRA_POMO_TOTAL_ROUNDS = "extra_pomo_total_rounds"
+        const val EXTRA_POMO_AUTO_START = "extra_pomo_auto_start"
 
         private const val PREFS_SESSION = "amon_session_lock_prefs"
         private const val KEY_IS_ACTIVE = "key_is_active"
@@ -55,10 +61,27 @@ class TimerService : Service() {
         private const val KEY_ACCUMULATED_MILLIS = "key_accumulated_millis"
         private const val KEY_RESUME_ELAPSED = "key_resume_elapsed"
 
+        // 🌟 लाइव स्टेट्स जो UI पर दिखेंगी
         val remainingSeconds = mutableIntStateOf(25 * 60)
         val isTimerRunning = mutableStateOf(false)
         val isTimerPaused = mutableStateOf(false)
         val currentSubjectName = mutableStateOf("All")
+
+        // 🍅 पोमोडोरो स्टेट्स
+        val activeModeType = mutableStateOf("TIMER")
+        val isPomoBreakActive = mutableStateOf(false)
+        val currentPomoRound = mutableIntStateOf(1)
+        val totalPomoRounds = mutableIntStateOf(4)
+        var pomoFocusSecs: Int = 25 * 60
+        var pomoShortBreakSecs: Int = 5 * 60
+        var pomoLongBreakSecs: Int = 15 * 60
+        var pomoAutoStartNext: Boolean = true
+
+        // 🎉 सेशन पूरा होने पर पॉप-अप दिखाने के लिए स्टेट
+        val lastCompletedMinutes = mutableIntStateOf(0)
+        val lastCompletedMode = mutableStateOf("")
+        val lastCompletedRounds = mutableIntStateOf(0)
+        val showCompletionDialogTrigger = mutableStateOf(false)
 
         var originalTimerSeconds: Int = 25 * 60
 
@@ -111,18 +134,6 @@ class TimerService : Service() {
                     }
                 }
             }
-
-            if (isTimerRunning.value && !isTimerPaused.value) {
-                val isStopwatch = (originalTimerSeconds == 0)
-                if (isStopwatch) {
-                    val activeNow = accumulatedActiveMillis + (SystemClock.elapsedRealtime() - sessionResumeElapsedRealtime)
-                    remainingSeconds.intValue = (activeNow / 1000L).toInt().coerceAtLeast(0)
-                } else if (sessionTargetElapsedRealtime > 0L) {
-                    val leftMillis = sessionTargetElapsedRealtime - SystemClock.elapsedRealtime()
-                    val left = (leftMillis / 1000L).toInt().coerceAtLeast(0)
-                    remainingSeconds.intValue = left
-                }
-            }
         }
 
         private fun persistSessionState(context: Context, isRunning: Boolean, isPaused: Boolean) {
@@ -162,13 +173,30 @@ class TimerService : Service() {
             ACTION_START -> {
                 val secs = intent.getIntExtra(EXTRA_SECONDS, 25 * 60)
                 val subject = intent.getStringExtra(EXTRA_SUBJECT) ?: currentSubjectName.value
-                startTimer(secs, subject, isResume = false)
+                val mode = intent.getStringExtra(EXTRA_MODE) ?: "TIMER"
+
+                activeModeType.value = mode
+                if (mode == "POMODORO") {
+                    pomoFocusSecs = secs
+                    pomoShortBreakSecs = intent.getIntExtra(EXTRA_POMO_SHORT_BREAK, 5) * 60
+                    pomoLongBreakSecs = intent.getIntExtra(EXTRA_POMO_LONG_BREAK, 15) * 60
+                    totalPomoRounds.intValue = intent.getIntExtra(EXTRA_POMO_TOTAL_ROUNDS, 4)
+                    pomoAutoStartNext = intent.getBooleanExtra(EXTRA_POMO_AUTO_START, true)
+                    currentPomoRound.intValue = 1
+                    isPomoBreakActive.value = false
+                }
+
+                triggerHapticBuzz(HapticType.LIGHT) // शुरू होने पर हल्का बज़
+                startSession(secs, subject, isResume = false)
             }
             ACTION_PAUSE -> {
                 pauseTimer()
             }
             ACTION_RESUME -> {
                 resumeTimer()
+            }
+            ACTION_SKIP_BREAK -> {
+                skipBreakAndStartNextRound()
             }
             ACTION_CANCEL, ACTION_STOP -> {
                 cancelSessionGiveUp()
@@ -177,13 +205,15 @@ class TimerService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun startTimer(seconds: Int, subject: String, isResume: Boolean = false) {
+    private fun startSession(seconds: Int, subject: String, isResume: Boolean = false) {
         val nowElapsed = SystemClock.elapsedRealtime()
         sessionResumeElapsedRealtime = nowElapsed
 
         if (!isResume) {
             originalTimerSeconds = seconds
-            accumulatedActiveMillis = 0L
+            if (!isPomoBreakActive.value) {
+                accumulatedActiveMillis = 0L
+            }
             sessionStartElapsedRealtime = nowElapsed
         }
 
@@ -192,7 +222,7 @@ class TimerService : Service() {
         isTimerRunning.value = true
         isTimerPaused.value = false
 
-        val isStopwatch = (originalTimerSeconds == 0)
+        val isStopwatch = (activeModeType.value == "STOPWATCH")
 
         if (isStopwatch) {
             val totalActive = accumulatedActiveMillis + (nowElapsed - sessionResumeElapsedRealtime)
@@ -202,7 +232,7 @@ class TimerService : Service() {
             val targetElapsed = if (isResume) {
                 nowElapsed + (seconds * 1000L)
             } else {
-                nowElapsed + (originalTimerSeconds * 1000L)
+                nowElapsed + (seconds * 1000L)
             }
             remainingSeconds.intValue = seconds
             sessionTargetElapsedRealtime = targetElapsed
@@ -210,27 +240,7 @@ class TimerService : Service() {
 
         persistSessionState(this, isRunning = true, isPaused = false)
 
-        val chronometerBase = if (isStopwatch) {
-            nowElapsed - accumulatedActiveMillis
-        } else {
-            sessionTargetElapsedRealtime
-        }
-
-        try {
-            val notification = buildNotification(chronometerBase, isStopwatch, isPaused = false)
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                startForeground(
-                    NOTIFICATION_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                )
-            } else {
-                startForeground(NOTIFICATION_ID, notification)
-            }
-        } catch (e: Exception) {
-            Log.e("AmonTimer", "Safe startForeground catch: ${e.localizedMessage}")
-        }
+        updateForegroundNotification()
 
         timerJob = serviceScope.launch {
             if (isStopwatch) {
@@ -240,7 +250,7 @@ class TimerService : Service() {
                     val elapsedSecs = (activeNow / 1000L).toInt()
                     remainingSeconds.intValue = elapsedSecs
 
-                    if (elapsedSecs >= 43200) {
+                    if (elapsedSecs >= 43200) { // 12 घंटे लिमिट
                         onTimerFinished()
                         break
                     }
@@ -252,7 +262,7 @@ class TimerService : Service() {
                     val left = (leftMillis / 1000L).toInt().coerceAtLeast(0)
                     remainingSeconds.intValue = left
                     if (left == 0) {
-                        onTimerFinished()
+                        handleCountdownFinished()
                         break
                     }
                 }
@@ -260,10 +270,83 @@ class TimerService : Service() {
         }
     }
 
+    // 🍅 पोमोडोरो और टाइमर की समय सीमा पूरी होने का लॉजिक
+    private fun handleCountdownFinished() {
+        val now = SystemClock.elapsedRealtime()
+
+        if (activeModeType.value == "POMODORO") {
+            if (!isPomoBreakActive.value) {
+                // 1. फोकस राउंड खत्म हुआ -> केवल फोकस टाइम को बाल्टी में जोड़ें
+                if (sessionResumeElapsedRealtime > 0L) {
+                    accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
+                }
+                sessionResumeElapsedRealtime = 0L
+
+                triggerHapticBuzz(HapticType.DOUBLE) // डबल बज़
+                FocusSoundManager.playCompletionSound(this)
+
+                // ब्रेक शुरू करें (अंतिम राउंड के बाद लॉन्ग ब्रेक, बाकी में शॉर्ट ब्रेक)
+                val breakSecs = if (currentPomoRound.intValue >= totalPomoRounds.intValue) pomoLongBreakSecs else pomoShortBreakSecs
+                isPomoBreakActive.value = true
+
+                startSession(breakSecs, currentSubjectName.value, isResume = false)
+            } else {
+                // 2. ब्रेक खत्म हुआ (ब्रेक का समय कभी नहीं जोड़ा जाएगा)
+                sessionResumeElapsedRealtime = 0L
+                triggerHapticBuzz(HapticType.LIGHT) // 1 बज़ ब्रेक खत्म होने पर
+
+                if (currentPomoRound.intValue >= totalPomoRounds.intValue) {
+                    // 🎉 सारे राउंड पूरे हो गए!
+                    triggerHapticBuzz(HapticType.LONG) // 1 लॉन्ग बज़
+                    onTimerFinished()
+                } else {
+                    currentPomoRound.intValue += 1
+                    isPomoBreakActive.value = false
+
+                    if (pomoAutoStartNext) {
+                        startSession(pomoFocusSecs, currentSubjectName.value, isResume = false)
+                    } else {
+                        // पॉज़ मोड में इंतज़ार करें
+                        remainingSeconds.intValue = pomoFocusSecs
+                        isTimerRunning.value = false
+                        isTimerPaused.value = true
+                        updateForegroundNotification()
+                    }
+                }
+            }
+        } else {
+            // नॉर्मल टाइमर पूरा हुआ
+            if (sessionResumeElapsedRealtime > 0L) {
+                accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
+            }
+            triggerHapticBuzz(HapticType.DOUBLE)
+            FocusSoundManager.playCompletionSound(this)
+            onTimerFinished()
+        }
+    }
+
+    private fun skipBreakAndStartNextRound() {
+        if (activeModeType.value == "POMODORO" && isPomoBreakActive.value) {
+            timerJob?.cancel()
+            triggerHapticBuzz(HapticType.LIGHT)
+
+            if (currentPomoRound.intValue >= totalPomoRounds.intValue) {
+                triggerHapticBuzz(HapticType.LONG)
+                onTimerFinished()
+            } else {
+                currentPomoRound.intValue += 1
+                isPomoBreakActive.value = false
+                startSession(pomoFocusSecs, currentSubjectName.value, isResume = false)
+            }
+        }
+    }
+
     private fun pauseTimer() {
         if (!isTimerRunning.value || isTimerPaused.value) return
         val now = SystemClock.elapsedRealtime()
-        if (sessionResumeElapsedRealtime > 0L) {
+
+        // सिर्फ तब जोड़ें जब पढ़ाई चल रही हो (ब्रेक में नहीं)
+        if (!isPomoBreakActive.value && sessionResumeElapsedRealtime > 0L) {
             accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
         }
         sessionResumeElapsedRealtime = 0L
@@ -272,69 +355,40 @@ class TimerService : Service() {
         isTimerRunning.value = false
         isTimerPaused.value = true
 
-        val isStopwatch = (originalTimerSeconds == 0)
+        val isStopwatch = (activeModeType.value == "STOPWATCH")
         if (isStopwatch) {
             remainingSeconds.intValue = (accumulatedActiveMillis / 1000L).toInt()
         }
 
         persistSessionState(this, isRunning = false, isPaused = true)
-
-        val chronometerBase = if (isStopwatch) {
-            now - accumulatedActiveMillis
-        } else {
-            sessionTargetElapsedRealtime
-        }
-
-        try {
-            val notification = buildNotification(chronometerBase, isStopwatch, isPaused = true)
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.notify(NOTIFICATION_ID, notification)
-        } catch (e: Exception) {
-            Log.e("AmonTimer", "Safe pause notification catch: ${e.localizedMessage}")
-        }
+        updateForegroundNotification()
     }
 
     private fun resumeTimer() {
         if (isTimerRunning.value) return
-        val isStopwatch = (originalTimerSeconds == 0)
+        val isStopwatch = (activeModeType.value == "STOPWATCH")
         val currentSecs = remainingSeconds.intValue
         val subject = currentSubjectName.value
-        startTimer(if (isStopwatch) 0 else currentSecs, subject, isResume = true)
+        startSession(if (isStopwatch) 0 else currentSecs, subject, isResume = true)
     }
 
     private fun cancelSessionGiveUp() {
         val now = SystemClock.elapsedRealtime()
-        if (isTimerRunning.value && sessionResumeElapsedRealtime > 0L) {
+        if (!isPomoBreakActive.value && isTimerRunning.value && sessionResumeElapsedRealtime > 0L) {
             accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
         }
 
-        val isStopwatch = (originalTimerSeconds == 0)
-
+        val isStopwatch = (activeModeType.value == "STOPWATCH")
         if (isTimerRunning.value || isTimerPaused.value) {
             saveSessionToDiary(isCancelled = if (isStopwatch) false else true)
         }
 
-        timerJob?.cancel()
-        isTimerRunning.value = false
-        isTimerPaused.value = false
-        sessionStartElapsedRealtime = 0L
-        sessionTargetElapsedRealtime = 0L
-        sessionResumeElapsedRealtime = 0L
-        accumulatedActiveMillis = 0L
-
-        clearPersistedState(this)
-
-        remainingSeconds.intValue = if (originalTimerSeconds > 0) originalTimerSeconds else 0
-
-        try {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-        } catch (_: Exception) {}
-        stopSelf()
+        endServiceCleanup()
     }
 
     private fun onTimerFinished() {
         val now = SystemClock.elapsedRealtime()
-        if (isTimerRunning.value && sessionResumeElapsedRealtime > 0L) {
+        if (!isPomoBreakActive.value && isTimerRunning.value && sessionResumeElapsedRealtime > 0L) {
             accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
         }
 
@@ -342,18 +396,22 @@ class TimerService : Service() {
             saveSessionToDiary(isCancelled = false)
         }
 
+        endServiceCleanup()
+    }
+
+    private fun endServiceCleanup() {
+        timerJob?.cancel()
         isTimerRunning.value = false
         isTimerPaused.value = false
+        isPomoBreakActive.value = false
         sessionStartElapsedRealtime = 0L
         sessionTargetElapsedRealtime = 0L
         sessionResumeElapsedRealtime = 0L
         accumulatedActiveMillis = 0L
 
         clearPersistedState(this)
-
         remainingSeconds.intValue = if (originalTimerSeconds > 0) originalTimerSeconds else 0
 
-        triggerGentleVibration()
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } catch (_: Exception) {}
@@ -363,13 +421,13 @@ class TimerService : Service() {
     private fun saveSessionToDiary(isCancelled: Boolean) {
         try {
             val rawSeconds = ((accumulatedActiveMillis + 500L) / 1000L).toInt().coerceAtLeast(0)
-            val completedSeconds = if (!isCancelled && originalTimerSeconds > 0) {
+            val completedSeconds = if (!isCancelled && originalTimerSeconds > 0 && activeModeType.value == "TIMER") {
                 originalTimerSeconds
             } else {
                 rawSeconds
             }
 
-            // 🛑 5 MINUTE GUARD (300 सेकंड से कम होने पर छोड़ दो)
+            // 🛑 5 MINUTE GUARD (300 सेकंड से कम होने पर डायरी में नहीं जाएगा)
             if (completedSeconds < 300) {
                 return
             }
@@ -400,10 +458,8 @@ class TimerService : Service() {
                 earnedTrees = trees
             )
             
-            // 🛡️ 1. लोकल रूम डेटाबेस में सुरक्षित सेव करें
             FocusSessionManager.saveSession(this, session)
 
-            // 🚀 2. Supabase क्लाउड डेटाबेस में भी लाइव सिंक करें
             CloudSyncManager.syncSession(
                 context = this,
                 subject = currentSubjectName.value.ifBlank { "All" },
@@ -412,33 +468,61 @@ class TimerService : Service() {
                 sessionId = currentSessionId
             )
 
+            // 🌟 पॉप-अप के लिए डेटा सेट करें
+            lastCompletedMinutes.intValue = minutes
+            lastCompletedMode.value = activeModeType.value
+            lastCompletedRounds.intValue = currentPomoRound.intValue
+            showCompletionDialogTrigger.value = true
+
         } catch (e: Exception) {
             Log.e("AmonTimer", "Safe session save catch: ${e.localizedMessage}")
         }
     }
 
-    private fun triggerGentleVibration() {
+    enum class HapticType { LIGHT, DOUBLE, LONG }
+
+    private fun triggerHapticBuzz(type: HapticType) {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-                vibratorManager?.defaultVibrator?.vibrate(
-                    VibrationEffect.createOneShot(350L, VibrationEffect.DEFAULT_AMPLITUDE)
-                )
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                vm?.defaultVibrator
             } else {
                 @Suppress("DEPRECATION")
-                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator?.vibrate(
-                        VibrationEffect.createOneShot(350L, VibrationEffect.DEFAULT_AMPLITUDE)
-                    )
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator?.vibrate(350L)
+                getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val effect = when (type) {
+                    HapticType.LIGHT -> VibrationEffect.createOneShot(120L, VibrationEffect.DEFAULT_AMPLITUDE)
+                    HapticType.DOUBLE -> VibrationEffect.createWaveform(longArrayOf(0, 150, 100, 200), -1)
+                    HapticType.LONG -> VibrationEffect.createOneShot(700L, VibrationEffect.DEFAULT_AMPLITUDE)
+                }
+                vibrator?.vibrate(effect)
+            } else {
+                @Suppress("DEPRECATION")
+                when (type) {
+                    HapticType.LIGHT -> vibrator?.vibrate(120L)
+                    HapticType.DOUBLE -> vibrator?.vibrate(longArrayOf(0, 150, 100, 200), -1)
+                    HapticType.LONG -> vibrator?.vibrate(700L)
                 }
             }
-        } catch (e: Exception) {
-            Log.e("AmonTimer", "Vibration error: ${e.localizedMessage}")
+        } catch (_: Exception) {}
+    }
+
+    private fun updateForegroundNotification() {
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val isStopwatch = (activeModeType.value == "STOPWATCH")
+        val chronometerBase = if (isStopwatch) {
+            nowElapsed - accumulatedActiveMillis
+        } else {
+            sessionTargetElapsedRealtime
         }
+
+        try {
+            val notification = buildNotification(chronometerBase, isStopwatch, isTimerPaused.value)
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.notify(NOTIFICATION_ID, notification)
+        } catch (_: Exception) {}
     }
 
     private fun buildNotification(chronometerBase: Long, isStopwatch: Boolean, isPaused: Boolean): Notification {
@@ -476,7 +560,7 @@ class TimerService : Service() {
 
         val modeText = when {
             isStopwatch -> "STOPWATCH"
-            originalTimerSeconds == 25 * 60 -> "POMODORO"
+            activeModeType.value == "POMODORO" -> if (isPomoBreakActive.value) "☕ BREAK" else "POMODORO (R${currentPomoRound.intValue}/${totalPomoRounds.intValue})"
             else -> "FOCUS TIMER"
         }
 
