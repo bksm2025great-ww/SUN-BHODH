@@ -2,6 +2,7 @@ package com.amon.timer.groups
 
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,18 +37,21 @@ fun GroupDetailScreen(
     userNickname: String = "",
     onBackClick: () -> Unit = {},
     onInviteClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onJoinClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     val isDark = ThemeManager.isDarkTheme.value
     val bgColor = ThemeManager.getBackgroundColor()
+    val cardBg = ThemeManager.getCardColor()
     val textMain = ThemeManager.getTextColor()
     val textMuted = ThemeManager.getTextMutedColor()
     val accentColor = ThemeManager.getAccentColor()
     val accentSubtle = accentColor.copy(alpha = 0.16f)
     val focusingGreen = Color(0xFF22C55E)
+    val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
 
     val userManager = remember { UserManager(context) }
     val currentUserName = remember { userManager.getUserName().ifBlank { "An Aspirant" } }
@@ -72,19 +76,22 @@ fun GroupDetailScreen(
         mutableStateOf(if (group.members.isNotEmpty()) group.members else cachedMembers)
     }
 
-    LaunchedEffect(selectedWeek.id, group.id) {
-        coroutineScope.launch(Dispatchers.IO) {
-            val freshMembers: List<GroupMember> = CloudSyncManager.fetchGroupLeaderboard(
-                context = context,
-                groupId = group.id,
-                isCurrentWeek = selectedWeek.isCurrent
-            )
-            if (freshMembers.isNotEmpty()) {
-                withContext(Dispatchers.Main) {
-                    leaderboardMembers = freshMembers
-                }
-                if (selectedWeek.isCurrent) {
-                    GroupCacheManager.saveLeaderboard(context, group.id, freshMembers)
+    // 🔒 केवल जॉइन किए हुए सदस्यों के लिए ही लीडरबोर्ड लोड होगा
+    LaunchedEffect(selectedWeek.id, group.id, group.isJoined) {
+        if (group.isJoined) {
+            coroutineScope.launch(Dispatchers.IO) {
+                val freshMembers: List<GroupMember> = CloudSyncManager.fetchGroupLeaderboard(
+                    context = context,
+                    groupId = group.id,
+                    isCurrentWeek = selectedWeek.isCurrent
+                )
+                if (freshMembers.isNotEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        leaderboardMembers = freshMembers
+                    }
+                    if (selectedWeek.isCurrent) {
+                        GroupCacheManager.saveLeaderboard(context, group.id, freshMembers)
+                    }
                 }
             }
         }
@@ -98,7 +105,6 @@ fun GroupDetailScreen(
         if (leaderboardMembers.isNotEmpty()) leaderboardMembers.size else maxOf(group.memberCount, 1)
     }
 
-    // 🎯 शुद्ध डायनामिक Amon इनवाइट मैसेज
     val triggerShareIntent = {
         val inviteCode = group.inviteCode.ifBlank { "AMON-GROUP" }
         val shareMessage = """
@@ -148,48 +154,51 @@ fun GroupDetailScreen(
                     }
                 },
                 actions = {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = accentSubtle,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .clickable {
-                                triggerShareIntent()
-                                onInviteClick()
+                    // 🛡️ केवल जॉइन किए हुए मेंबर्स को ही इनवाइट और सेटिंग्स का बटन दिखेगा
+                    if (group.isJoined) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = accentSubtle,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable {
+                                    triggerShareIntent()
+                                    onInviteClick()
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "Invite",
+                                    tint = accentColor,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Invite",
+                                    color = accentColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
+                        IconButton(
+                            onClick = onSettingsClick,
+                            modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Invite",
-                                tint = accentColor,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Invite",
-                                color = accentColor,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = textMain,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
-                    }
-
-                    Spacer(modifier = Modifier.width(4.dp))
-
-                    IconButton(
-                        onClick = onSettingsClick,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = textMain,
-                            modifier = Modifier.size(20.dp)
-                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = bgColor)
@@ -202,17 +211,18 @@ fun GroupDetailScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            // Header Info Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
                             .background(accentSubtle),
                         contentAlignment = Alignment.Center
@@ -221,7 +231,7 @@ fun GroupDetailScreen(
                             text = group.name.take(2).uppercase(),
                             color = accentColor,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            fontSize = 13.5.sp
                         )
                     }
 
@@ -232,7 +242,7 @@ fun GroupDetailScreen(
                             text = group.name,
                             color = textMain,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.5.sp
+                            fontSize = 15.sp
                         )
                         Text(
                             text = "$displayMemberCount members · ${if (group.isPublic) "Public" else "Private"}",
@@ -258,157 +268,227 @@ fun GroupDetailScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            TabRow(
-                selectedTabIndex = selectedTabIndex,
-                containerColor = bgColor,
-                contentColor = accentColor
-            ) {
-                Tab(
-                    selected = selectedTabIndex == 0,
-                    onClick = { selectedTabIndex = 0 },
-                    modifier = Modifier.height(38.dp),
-                    text = {
-                        Text(
-                            text = "Leaderboard",
-                            color = if (selectedTabIndex == 0) accentColor else textMuted,
-                            fontWeight = if (selectedTabIndex == 0) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = 13.sp
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTabIndex == 1,
-                    onClick = { selectedTabIndex = 1 },
-                    modifier = Modifier.height(38.dp),
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(focusingGreen)
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = "Active (${activeMembers.size})",
-                                color = if (selectedTabIndex == 1) accentColor else textMuted,
-                                fontWeight = if (selectedTabIndex == 1) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 13.sp
-                            )
-                        }
-                    }
-                )
-            }
-
-            if (selectedTabIndex == 0) {
-                Row(
+            // 🛑 अगर जॉइन नहीं किया है -> मेंबर्स न दिखाएँ, प्रोटेक्टेड कार्ड और जॉइन बटन दिखाएँ
+            if (!group.isJoined) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable { showWeekPickerSheet = true }
-                            .padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = selectedWeek.label,
-                            color = textMain,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = null,
-                            tint = textMuted,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-
-                    Text(
-                        text = "Reset: Mon 00:00",
-                        color = textMuted.copy(alpha = 0.6f),
-                        fontSize = 11.sp
-                    )
-                }
-
-                if (leaderboardMembers.isEmpty()) {
-                    Box(
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(cardBg)
+                            .border(1.dp, cardBorder, RoundedCornerShape(24.dp))
+                            .padding(24.dp)
                     ) {
-                        Text(
-                            text = "No study sessions yet for ${selectedWeek.label.lowercase()}.",
-                            color = textMuted,
-                            fontSize = 13.sp,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        itemsIndexed(
-                            items = leaderboardMembers,
-                            key = { _, m -> m.id }
-                        ) { index, member ->
-                            LeaderboardRow(
-                                rank = index + 1,
-                                member = member,
-                                isCurrentUser = userNickname.isNotBlank() && member.nickname.equals(userNickname, ignoreCase = true),
-                                textMain = textMain,
-                                textMuted = textMuted,
-                                accentColor = accentColor,
-                                accentSubtle = accentSubtle,
-                                focusingGreen = focusingGreen,
-                                isDark = isDark
+                        Box(
+                            modifier = Modifier
+                                .size(54.dp)
+                                .clip(CircleShape)
+                                .background(accentSubtle),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Locked",
+                                tint = accentColor,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Protected Study Circle",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Black,
+                                color = textMain
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Member list, active focus timers, and weekly rankings are private to group members only.",
+                                fontSize = 12.5.sp,
+                                color = textMuted,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 18.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = { onJoinClick(group.id) },
+                            colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                        ) {
+                            Text(
+                                text = "🚀 Join Group to Enter",
+                                color = if (isDark) Color.Black else Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp
                             )
                         }
                     }
                 }
             } else {
-                if (activeMembers.isEmpty()) {
-                    Box(
+                // ✅ अगर जॉइन कर रखा है -> पूरा लीडरबोर्ड और एक्टिव मेंबर्स
+                TabRow(
+                    selectedTabIndex = selectedTabIndex,
+                    containerColor = bgColor,
+                    contentColor = accentColor
+                ) {
+                    Tab(
+                        selected = selectedTabIndex == 0,
+                        onClick = { selectedTabIndex = 0 },
+                        modifier = Modifier.height(38.dp),
+                        text = {
+                            Text(
+                                text = "Leaderboard",
+                                color = if (selectedTabIndex == 0) accentColor else textMuted,
+                                fontWeight = if (selectedTabIndex == 0) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 13.sp
+                            )
+                        }
+                    )
+                    Tab(
+                        selected = selectedTabIndex == 1,
+                        onClick = { selectedTabIndex = 1 },
+                        modifier = Modifier.height(38.dp),
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(focusingGreen)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = "Active (${activeMembers.size})",
+                                    color = if (selectedTabIndex == 1) accentColor else textMuted,
+                                    fontWeight = if (selectedTabIndex == 1) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    )
+                }
+
+                if (selectedTabIndex == 0) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { showWeekPickerSheet = true }
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = selectedWeek.label,
+                                color = textMain,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = textMuted,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
                         Text(
-                            text = "No one is studying right now.\nBe the first to start!",
-                            color = textMuted,
-                            fontSize = 13.sp,
-                            textAlign = TextAlign.Center
+                            text = "Reset: Mon 00:00",
+                            color = textMuted.copy(alpha = 0.6f),
+                            fontSize = 11.sp
                         )
                     }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        itemsIndexed(
-                            items = activeMembers,
-                            key = { _, m -> m.id }
-                        ) { _, member ->
-                            ActiveMemberRow(
-                                member = member,
-                                textMain = textMain,
-                                textMuted = textMuted,
-                                focusingGreen = focusingGreen,
-                                isDark = isDark
+
+                    if (leaderboardMembers.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No study sessions yet for ${selectedWeek.label.lowercase()}.",
+                                color = textMuted,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center
                             )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            itemsIndexed(
+                                items = leaderboardMembers,
+                                key = { _, m -> m.id }
+                            ) { index, member ->
+                                LeaderboardRow(
+                                    rank = index + 1,
+                                    member = member,
+                                    isCurrentUser = userNickname.isNotBlank() && member.nickname.equals(userNickname, ignoreCase = true),
+                                    textMain = textMain,
+                                    textMuted = textMuted,
+                                    accentColor = accentColor,
+                                    accentSubtle = accentSubtle,
+                                    focusingGreen = focusingGreen,
+                                    isDark = isDark
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    if (activeMembers.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No one is studying right now.\nBe the first to start!",
+                                color = textMuted,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            itemsIndexed(
+                                items = activeMembers,
+                                key = { _, m -> m.id }
+                            ) { _, member ->
+                                ActiveMemberRow(
+                                    member = member,
+                                    textMain = textMain,
+                                    textMuted = textMuted,
+                                    focusingGreen = focusingGreen,
+                                    isDark = isDark
+                                )
+                            }
                         }
                     }
                 }
