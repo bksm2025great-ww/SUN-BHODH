@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -71,10 +72,11 @@ fun MainScreen() {
     var selectedSubjectName by rememberSaveable { mutableStateOf("All") }
     var initialTotalSeconds by rememberSaveable { mutableIntStateOf(25 * 60) }
 
-    var isBreakActive by rememberSaveable { mutableStateOf(false) }
-    var currentSessionIndex by rememberSaveable { mutableIntStateOf(1) }
+    // 🍅 पोमोडोरो लाइव स्टेट्स (TimerService से सिंक)
+    val isBreakActive = TimerService.isPomoBreakActive.value
+    val currentSessionIndex = TimerService.currentPomoRound.intValue
 
-    // 🌟 मिनी बार के लिए नया स्टेट (बैक दबाने पर मिनीमाइज़ होगा)
+    // 🌟 मिनी बार के लिए स्टेट (बैक दबाने पर मिनीमाइज़ होगा)
     var isFocusMinimized by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -131,16 +133,7 @@ fun MainScreen() {
 
     val isTimerFocusActive = isRunning || isPaused
     val isFocusActive = isTimerFocusActive || isStopwatchFocusActive
-    // फ़ुलस्क्रीन तभी दिखेगी जब फ़ोकस एक्टिव हो और यूज़र ने उसे मिनीमाइज़ न किया हो
     val isFullScreenFocus = isFocusActive && !isFocusMinimized
-
-    // 🔔 टाइमर पूरा होने पर साउंड और हेप्टिक अलर्ट
-    LaunchedEffect(TimerService.remainingSeconds.intValue, isRunning) {
-        if (isRunning && TimerService.remainingSeconds.intValue == 0 && initialTotalSeconds > 0) {
-            FocusSoundManager.playCompletionSound(context)
-            FocusSoundManager.triggerHaptic(context, isCompletion = true)
-        }
-    }
 
     val updateManager = remember { UpdateManager(context) }
     var hasNewUpdate by remember { mutableStateOf(false) }
@@ -158,82 +151,25 @@ fun MainScreen() {
         FocusSoundManager.triggerHaptic(context, isCompletion = true)
 
         if (isStopwatchFocusActive) {
-            val elapsedMins = (stopwatchElapsedMillis / 60000).toInt()
             val intent = Intent(context, TimerService::class.java).apply {
                 action = TimerService.ACTION_STOP
             }
             context.startService(intent)
 
-            if (elapsedMins >= 1) {
-                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-                val session = FocusSession(
-                    id = System.currentTimeMillis(),
-                    date = sdf.format(Date()),
-                    subject = selectedSubjectName.ifBlank { "General" },
-                    durationMinutes = elapsedMins,
-                    earnedTrees = when {
-                        elapsedMins >= 105 -> 4
-                        elapsedMins >= 75 -> 3
-                        elapsedMins >= 45 -> 2
-                        elapsedMins >= 15 -> 1
-                        else -> 0
-                    }
-                )
-                FocusSessionManager.saveSession(context, session)
-                CloudSyncManager.syncSession(
-                    context = context,
-                    subject = selectedSubjectName.ifBlank { "General" },
-                    durationMinutes = elapsedMins.toLong(),
-                    earnedTrees = session.earnedTrees,
-                    sessionId = session.id
-                )
-            }
             isStopwatchRunning = false
             isStopwatchFocusActive = false
             stopwatchAccumulatedMillis = 0L
             stopwatchElapsedMillis = 0L
         } else {
-            val totalSecsPlanned = initialTotalSeconds
-            val remainingSecs = TimerService.remainingSeconds.intValue
-            val elapsedSecs = (totalSecsPlanned - remainingSecs).coerceAtLeast(0)
-            val elapsedMins = elapsedSecs / 60
-
             val intent = Intent(context, TimerService::class.java).apply {
                 action = TimerService.ACTION_STOP
             }
             context.startService(intent)
-
-            if (elapsedMins >= 1 && !isBreakActive) {
-                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-                val session = FocusSession(
-                    id = System.currentTimeMillis(),
-                    date = sdf.format(Date()),
-                    subject = selectedSubjectName.ifBlank { "General" },
-                    durationMinutes = elapsedMins,
-                    earnedTrees = when {
-                        elapsedMins >= 105 -> 4
-                        elapsedMins >= 75 -> 3
-                        elapsedMins >= 45 -> 2
-                        elapsedMins >= 15 -> 1
-                        else -> 0
-                    }
-                )
-                FocusSessionManager.saveSession(context, session)
-                CloudSyncManager.syncSession(
-                    context = context,
-                    subject = selectedSubjectName.ifBlank { "General" },
-                    durationMinutes = elapsedMins.toLong(),
-                    earnedTrees = session.earnedTrees,
-                    sessionId = session.id
-                )
-            }
-            isBreakActive = false
         }
         isFocusMinimized = false
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
-    // फुलस्क्रीन मोड केवल तभी इनेबल होगा जब मिनीमाइज़ न हो
     DisposableEffect(isFullScreenFocus) {
         val window = activity?.window
         if (window != null) {
@@ -279,18 +215,15 @@ fun MainScreen() {
     val glassBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
     val glowBorder = goldColor.copy(alpha = 0.6f)
 
-    // 🔙 BACK BUTTON LOGIC:
-    // 1. अगर फुलस्क्रीन फोकस में बैक दबाया -> सेशन बंद नहीं होगा, केवल मिनी बार बन जाएगा
+    // 🔙 BACK BUTTON:
     BackHandler(enabled = isFullScreenFocus) {
         isFocusMinimized = true
     }
 
-    // 2. अगर किसी अन्य टैब में हैं तो वापस होम टैब (0) पर आएँ
     BackHandler(enabled = currentNavIndex != 0 && !isFullScreenFocus) {
         currentNavIndex = 0
     }
 
-    // टाइम फॉर्मेटिंग
     val totalSeconds = TimerService.remainingSeconds.intValue
     val hours = totalSeconds / 3600
     val displayMinutes = (totalSeconds % 3600) / 60
@@ -413,10 +346,86 @@ fun MainScreen() {
             }
         }
     }
+
+    // 🎉 CELEBRATION POPUP DIALOG (5-SECOND AUTO-DISMISS)
+    if (TimerService.showCompletionDialogTrigger.value) {
+        LaunchedEffect(Unit) {
+            delay(5000L)
+            TimerService.showCompletionDialogTrigger.value = false
+        }
+
+        Dialog(onDismissRequest = { TimerService.showCompletionDialogTrigger.value = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(if (isDark) Color(0xFF161622) else Color.White)
+                    .border(1.5.dp, goldColor, RoundedCornerShape(26.dp))
+                    .padding(22.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🏆 Congratulations!",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Black,
+                            color = goldColor
+                        )
+
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
+                                .clickable { TimerService.showCompletionDialogTrigger.value = false }
+                        ) {
+                            Text("✕", color = textMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    val mins = TimerService.lastCompletedMinutes.intValue
+                    val mode = TimerService.lastCompletedMode.value
+                    val rounds = TimerService.lastCompletedRounds.intValue
+
+                    val detailMsg = if (mode == "POMODORO") {
+                        "You completed $rounds rounds of Pomodoro!\nTotal: $mins minutes focused."
+                    } else {
+                        "You completed a $mins minute focus session!"
+                    }
+
+                    Text(
+                        text = detailMsg,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = textMain,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+
+                    Button(
+                        onClick = { TimerService.showCompletionDialogTrigger.value = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier.fillMaxWidth().height(42.dp)
+                    ) {
+                        Text("Awesome! 🎯", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 13.5.sp)
+                    }
+                }
+            }
+        }
+    }
 }
 
 // =============================================================================
-// 🌟 MINIMAL MINI FOCUS FLOATING BAR (बिना गोल आइकन के, एकदम क्लीन)
+// 🌟 MINIMAL MINI FOCUS FLOATING BAR (बिना किसी गोल आइकन के, एकदम क्लीन)
 // =============================================================================
 @Composable
 fun MiniFocusBar(
@@ -607,7 +616,6 @@ fun HomeTimerTab(
     val swH = (stopwatchElapsedMillis / 3600000).toInt()
     val swM = ((stopwatchElapsedMillis % 3600000) / 60000).toInt()
     val swS = ((stopwatchElapsedMillis % 60000) / 1000).toInt()
-    val swMs = ((stopwatchElapsedMillis % 1000) / 10).toInt()
     val swMainTime = String.format("%02d:%02d:%02d", swH, swM, swS)
     val swMilliText = String.format(".%02d", swMs)
 
@@ -937,27 +945,70 @@ fun HomeTimerTab(
                         )
                     }
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Button(
-                            onClick = {
-                                FocusSoundManager.triggerHaptic(context, false)
-                                val act = if (isPaused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE
-                                context.startService(Intent(context, TimerService::class.java).apply { action = act })
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = goldColor),
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier.weight(1f).height(48.dp)
-                        ) {
-                            Text(text = if (isPaused) "Resume 🎯" else "⏸ Pause", color = Color.Black, fontWeight = FontWeight.Black)
-                        }
+                    // 🎯 बटन कंट्रोल्स (ब्रेक होने पर Skip Break बटन दिखेगा)
+                    if (isBreakActive) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            // ⏭ SKIP BREAK BUTTON
+                            Button(
+                                onClick = {
+                                    FocusSoundManager.triggerHaptic(context, false)
+                                    context.startService(Intent(context, TimerService::class.java).apply {
+                                        action = TimerService.ACTION_SKIP_BREAK
+                                    })
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.weight(1.2f).height(48.dp)
+                            ) {
+                                Text("⏭ Skip Break", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                            }
 
-                        OutlinedButton(
-                            onClick = onDirectEndSession,
-                            shape = RoundedCornerShape(50),
-                            border = BorderStroke(1.2.dp, cancelColor),
-                            modifier = Modifier.weight(1f).height(48.dp)
-                        ) {
-                            Text("End Session", color = cancelColor, fontWeight = FontWeight.Bold)
+                            Button(
+                                onClick = {
+                                    FocusSoundManager.triggerHaptic(context, false)
+                                    val act = if (isPaused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE
+                                    context.startService(Intent(context, TimerService::class.java).apply { action = act })
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.weight(1f).height(48.dp)
+                            ) {
+                                Text(if (isPaused) "▶ Resume" else "⏸ Pause", color = Color.Black, fontWeight = FontWeight.Black)
+                            }
+
+                            OutlinedButton(
+                                onClick = onDirectEndSession,
+                                shape = RoundedCornerShape(50),
+                                border = BorderStroke(1.2.dp, cancelColor),
+                                modifier = Modifier.weight(0.9f).height(48.dp)
+                            ) {
+                                Text("End", color = cancelColor, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } else {
+                        // नॉर्मल फोकस समय के बटन
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Button(
+                                onClick = {
+                                    FocusSoundManager.triggerHaptic(context, false)
+                                    val act = if (isPaused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE
+                                    context.startService(Intent(context, TimerService::class.java).apply { action = act })
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.weight(1f).height(48.dp)
+                            ) {
+                                Text(text = if (isPaused) "Resume 🎯" else "⏸ Pause", color = Color.Black, fontWeight = FontWeight.Black)
+                            }
+
+                            OutlinedButton(
+                                onClick = onDirectEndSession,
+                                shape = RoundedCornerShape(50),
+                                border = BorderStroke(1.2.dp, cancelColor),
+                                modifier = Modifier.weight(1f).height(48.dp)
+                            ) {
+                                Text("End Session", color = cancelColor, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -989,9 +1040,10 @@ fun HomeTimerTab(
                                 action = TimerService.ACTION_START
                                 putExtra(TimerService.EXTRA_SECONDS, 0)
                                 putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                putExtra(TimerService.EXTRA_MODE, "STOPWATCH")
                             })
                         }
-                        FocusModeType.TIMER, FocusModeType.POMODORO -> {
+                        FocusModeType.TIMER -> {
                             onInitialTotalSecondsChange(durationSeconds)
                             TimerService.remainingSeconds.intValue = durationSeconds
                             isFocusMinimized = false
@@ -999,6 +1051,24 @@ fun HomeTimerTab(
                                 action = TimerService.ACTION_START
                                 putExtra(TimerService.EXTRA_SECONDS, durationSeconds)
                                 putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                putExtra(TimerService.EXTRA_MODE, "TIMER")
+                            })
+                        }
+                        FocusModeType.POMODORO -> {
+                            onInitialTotalSecondsChange(durationSeconds)
+                            TimerService.remainingSeconds.intValue = durationSeconds
+                            isFocusMinimized = false
+                            context.startService(Intent(context, TimerService::class.java).apply {
+                                action = TimerService.ACTION_START
+                                putExtra(TimerService.EXTRA_SECONDS, durationSeconds)
+                                putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                putExtra(TimerService.EXTRA_MODE, "POMODORO")
+                                if (pConfig != null) {
+                                    putExtra(TimerService.EXTRA_POMO_SHORT_BREAK, pConfig.shortBreakMinutes)
+                                    putExtra(TimerService.EXTRA_POMO_LONG_BREAK, pConfig.longBreakMinutes)
+                                    putExtra(TimerService.EXTRA_POMO_TOTAL_ROUNDS, pConfig.totalRounds)
+                                    putExtra(TimerService.EXTRA_POMO_AUTO_START, pConfig.autoStartNextFocus)
+                                }
                             })
                         }
                     }
