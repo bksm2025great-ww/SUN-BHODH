@@ -153,7 +153,6 @@ fun FocusLauncherBottomSheet(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // ⏱️ 25m Text पर क्लिक करते ही Drum Picker खुलेगा
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier
@@ -185,9 +184,7 @@ fun FocusLauncherBottomSheet(
 
                         Text("QUICK PICK", fontSize = 11.sp, color = textMuted, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
 
-                        // 6 Quick Picks: 15m, 30m, 45m | 1h, 1.5h, Custom
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // Row 1
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOf(15, 30, 45).forEach { mins ->
                                     val isSel = timerMinutes == mins
@@ -214,7 +211,6 @@ fun FocusLauncherBottomSheet(
                                 }
                             }
 
-                            // Row 2: 1h, 1.5h, Custom ⏱️
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 val is1h = timerMinutes == 60
                                 Box(
@@ -250,7 +246,6 @@ fun FocusLauncherBottomSheet(
                                     Text("1.5h", color = if (is90m) Color.Black else textMain, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
 
-                                // 🎯 CUSTOM BUTTON
                                 val isCustom = timerMinutes !in listOf(15, 30, 45, 60, 90)
                                 Box(
                                     contentAlignment = Alignment.Center,
@@ -293,6 +288,7 @@ fun FocusLauncherBottomSheet(
 
                 FocusModeType.POMODORO -> {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        // 🍅 Clean Classic Pomodoro Title Card (Subtitle removed)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -306,21 +302,23 @@ fun FocusLauncherBottomSheet(
                                     pomoRounds = 4
                                     FocusSoundManager.triggerHaptic(context, false)
                                 }
-                                .padding(12.dp)
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Text(text = "🍅", fontSize = 24.sp)
-                                Column {
-                                    Text("Classic Pomodoro", fontWeight = FontWeight.Black, color = textMain, fontSize = 13.5.sp)
-                                    Text("25 min focus • 5 min break • 4 rounds (15m long break)", color = textMuted, fontSize = 11.sp)
-                                }
+                                Text(text = "🍅", fontSize = 20.sp)
+                                Text(
+                                    text = "Classic Pomodoro",
+                                    fontWeight = FontWeight.Black,
+                                    color = textMain,
+                                    fontSize = 14.sp
+                                )
                             }
                         }
 
-                        // Stepper: Focus Time (With direct Drum Picker tap)
+                        // Stepper: Focus Time
                         PomodoroStepperRow(
                             label = "Focus",
                             valueText = "$pomoFocusMinutes min",
@@ -561,9 +559,6 @@ fun PomodoroStepperRow(
     }
 }
 
-// =============================================================================
-// 🥁 DRUM SCROLL WHEEL PICKER (HOURS + MINUTES)
-// =============================================================================
 @Composable
 fun DrumScrollTimePickerDialog(
     initialMinutes: Int,
@@ -600,7 +595,6 @@ fun DrumScrollTimePickerDialog(
                     color = goldColor
                 )
 
-                // Selected Time Display
                 val totalM = selectedHour * 60 + selectedMin
                 Text(
                     text = if (selectedHour > 0) "${selectedHour}h ${selectedMin}m" else "${selectedMin}m",
@@ -609,7 +603,6 @@ fun DrumScrollTimePickerDialog(
                     color = textMain
                 )
 
-                // 2 Drum Wheels: Hours and Minutes
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -617,7 +610,6 @@ fun DrumScrollTimePickerDialog(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Hours Wheel (0 - 8 hours)
                     DrumWheelColumn(
                         items = (0..8).map { "$it h" },
                         initialIndex = initialH,
@@ -636,7 +628,6 @@ fun DrumScrollTimePickerDialog(
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
 
-                    // Minutes Wheel (0 - 55 step 5 mins)
                     val minuteOptions = (0..55 step 5).toList()
                     val mIndex = minuteOptions.indexOfFirst { it >= initialM }.coerceAtLeast(0)
                     DrumWheelColumn(
@@ -701,7 +692,6 @@ fun DrumWheelColumn(
         modifier = modifier.height(130.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Selection highlight bar
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.85f)
