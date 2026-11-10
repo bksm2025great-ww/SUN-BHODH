@@ -37,4 +37,18 @@ object GroupCacheManager {
             emptyList()
         }
     }
+
+    // 🧹 1. किसी एक ग्रुप का कैशे हमेशा के लिए डिलीट करना
+    fun clearGroupCache(context: Context, groupId: String) {
+        try {
+            getPrefs(context).edit().remove("cache_group_$groupId").apply()
+        } catch (_: Exception) {}
+    }
+
+    // 🧼 2. पूरा पुराना कैशे साफ़ करना (अटके हुए डेटा को रीसेट करने के लिए)
+    fun clearAllGroupCache(context: Context) {
+        try {
+            getPrefs(context).edit().clear().apply()
+        } catch (_: Exception) {}
+    }
 }
