@@ -202,7 +202,6 @@ fun MainScreen() {
             context.startService(intent)
         }
         isFocusMinimized = false
-        // 🔒 स्क्रीन को पोर्ट्रेट पर ही रखें ताकि कोई रोटेट बटन न आए
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
 
@@ -231,7 +230,6 @@ fun MainScreen() {
                 window.statusBarColor = AndroidColor.TRANSPARENT
                 window.navigationBarColor = AndroidColor.TRANSPARENT
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
-                // 🔒 बाहर आते ही सख्ती से पोर्ट्रेट में लॉक करें
                 activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             }
         }
@@ -252,7 +250,6 @@ fun MainScreen() {
     val glassBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
     val glowBorder = goldColor.copy(alpha = 0.6f)
 
-    // 🔙 BACK BUTTON
     BackHandler(enabled = isFullScreenFocus) {
         isFocusMinimized = true
     }
@@ -345,6 +342,7 @@ fun MainScreen() {
                     isRunning = isRunning,
                     isPaused = isPaused,
                     isFocusActive = isFullScreenFocus,
+                    isSessionActive = isFocusActive, // 🛡️ एक्टिव सेशन स्टेट (START FOCUS छुपाने के लिए)
                     activeMode = activeMode,
                     onActiveModeChange = { activeMode = it },
                     pomodoroConfig = pomodoroConfig,
@@ -383,7 +381,6 @@ fun MainScreen() {
         }
     }
 
-    // 🎉 CELEBRATION POPUP DIALOG
     if (TimerService.showCompletionDialogTrigger.value) {
         LaunchedEffect(Unit) {
             delay(5000L)
@@ -460,9 +457,6 @@ fun MainScreen() {
     }
 }
 
-// =============================================================================
-// 🌟 MINIMAL MINI FOCUS FLOATING BAR (सुधरे हुए वेक्टर्स के साथ)
-// =============================================================================
 @Composable
 fun MiniFocusBar(
     subjectName: String,
@@ -495,7 +489,6 @@ fun MiniFocusBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // 1. 🎵 मॉडर्न प्ले / पॉज़ बटन (कैनवास वेक्टर)
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -505,7 +498,6 @@ fun MiniFocusBar(
                     .clickable { onTogglePlayPause() }
             ) {
                 if (isPaused) {
-                    // प्ले त्रिकोण
                     Canvas(modifier = Modifier.size(13.dp)) {
                         val path = Path().apply {
                             moveTo(size.width * 0.22f, size.height * 0.15f)
@@ -516,7 +508,6 @@ fun MiniFocusBar(
                         drawPath(path, color = Color.Black)
                     }
                 } else {
-                    // पॉज़ की दो वर्टिकल पिल्स
                     Canvas(modifier = Modifier.size(13.dp)) {
                         val barW = size.width * 0.28f
                         val barH = size.height * 0.85f
@@ -537,7 +528,6 @@ fun MiniFocusBar(
                 }
             }
 
-            // 2. Subject Name • Time
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -561,7 +551,6 @@ fun MiniFocusBar(
                 )
             }
 
-            // 3. ⛶ मॉडर्न एक्सपैंड / फ़ुलस्क्रीन आइकन
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -604,6 +593,7 @@ fun HomeTimerTab(
     isRunning: Boolean,
     isPaused: Boolean,
     isFocusActive: Boolean,
+    isSessionActive: Boolean = false, // 🛡️ एक्टिव सेशन चेक
     activeMode: FocusModeType,
     onActiveModeChange: (FocusModeType) -> Unit,
     pomodoroConfig: PomodoroConfig,
@@ -850,16 +840,18 @@ fun HomeTimerTab(
                     TimerWatchesContainer(
                         dialMinutes = dialMinutes,
                         onDialMinutesChange = { nextMins ->
-                            dialMinutes = nextMins
-                            val secs = nextMins.toInt() * 60
-                            TimerService.remainingSeconds.intValue = secs
-                            onInitialTotalSecondsChange(secs)
+                            if (!isSessionActive) {
+                                dialMinutes = nextMins
+                                val secs = nextMins.toInt() * 60
+                                TimerService.remainingSeconds.intValue = secs
+                                onInitialTotalSecondsChange(secs)
+                            }
                         },
                         totalSeconds = totalSeconds,
                         initialTotalSeconds = initialTotalSeconds,
-                        isRunning = false,
+                        isRunning = isRunning || isStopwatchRunning,
                         isCustomMode = false,
-                        onCustomModeToggle = { showFocusLauncherSheet = true },
+                        onCustomModeToggle = { if (!isSessionActive) showFocusLauncherSheet = true },
                         goldColor = goldColor,
                         glowYellow = glowYellow,
                         cardBg = cardBg,
@@ -873,31 +865,34 @@ fun HomeTimerTab(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                // 🛑 यदि सेशन एक्टिव (चल रहा या पॉज़) है तो "START FOCUS" बटन पूरी तरह छुप जाएगा
+                if (!isSessionActive) {
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .fillMaxWidth(0.92f)
-                        .height(48.dp)
-                        .shadow(12.dp, RoundedCornerShape(50), spotColor = goldColor, ambientColor = goldColor)
-                        .clip(RoundedCornerShape(50))
-                        .background(goldColor)
-                        .border(1.dp, glowYellow, RoundedCornerShape(50))
-                        .clickable { showFocusLauncherSheet = true }
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .height(48.dp)
+                            .shadow(12.dp, RoundedCornerShape(50), spotColor = goldColor, ambientColor = goldColor)
+                            .clip(RoundedCornerShape(50))
+                            .background(goldColor)
+                            .border(1.dp, glowYellow, RoundedCornerShape(50))
+                            .clickable { showFocusLauncherSheet = true }
                     ) {
-                        Text(text = "▶", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Black)
-                        Text(
-                            text = "START FOCUS",
-                            color = Color.Black,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(text = "▶", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                            Text(
+                                text = "START FOCUS",
+                                color = Color.Black,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
                     }
                 }
             }
@@ -1077,7 +1072,6 @@ fun HomeTimerTab(
             }
         }
 
-        // FOCUS LAUNCHER BOTTOM SHEET
         if (showFocusLauncherSheet) {
             FocusLauncherBottomSheet(
                 isDark = isDark,
@@ -1137,7 +1131,6 @@ fun HomeTimerTab(
             )
         }
 
-        // SOUND DIALOG
         if (showSoundDialog) {
             Dialog(onDismissRequest = {
                 FocusSoundManager.stopSound()
@@ -1219,7 +1212,6 @@ fun HomeTimerTab(
             }
         }
 
-        // Subject Add Dialog
         if (showAddDialog) {
             Dialog(onDismissRequest = { showAddDialog = false }) {
                 Box(
@@ -1260,7 +1252,7 @@ fun HomeTimerTab(
 }
 
 // =============================================================================
-// 🌟 STREAK CALCULATION HELPER
+// 🔥 STREAK CALCULATION HELPER
 // =============================================================================
 fun calculateStreakDays(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
