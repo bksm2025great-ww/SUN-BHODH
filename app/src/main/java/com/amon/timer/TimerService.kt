@@ -44,7 +44,7 @@ class TimerService : Service() {
 
         const val EXTRA_SECONDS = "extra_seconds"
         const val EXTRA_SUBJECT = "extra_subject"
-        const val EXTRA_MODE = "extra_mode" // "TIMER", "STOPWATCH", "POMODORO"
+        const val EXTRA_MODE = "extra_mode"
         const val EXTRA_POMO_SHORT_BREAK = "extra_pomo_short_break"
         const val EXTRA_POMO_LONG_BREAK = "extra_pomo_long_break"
         const val EXTRA_POMO_TOTAL_ROUNDS = "extra_pomo_total_rounds"
@@ -61,13 +61,11 @@ class TimerService : Service() {
         private const val KEY_ACCUMULATED_MILLIS = "key_accumulated_millis"
         private const val KEY_RESUME_ELAPSED = "key_resume_elapsed"
 
-        // 🌟 लाइव स्टेट्स जो UI पर दिखेंगी
         val remainingSeconds = mutableIntStateOf(25 * 60)
         val isTimerRunning = mutableStateOf(false)
         val isTimerPaused = mutableStateOf(false)
         val currentSubjectName = mutableStateOf("All")
 
-        // 🍅 पोमोडोरो स्टेट्स
         val activeModeType = mutableStateOf("TIMER")
         val isPomoBreakActive = mutableStateOf(false)
         val currentPomoRound = mutableIntStateOf(1)
@@ -77,7 +75,6 @@ class TimerService : Service() {
         var pomoLongBreakSecs: Int = 15 * 60
         var pomoAutoStartNext: Boolean = true
 
-        // 🎉 सेशन पूरा होने पर पॉप-अप दिखाने के लिए स्टेट
         val lastCompletedMinutes = mutableIntStateOf(0)
         val lastCompletedMode = mutableStateOf("")
         val lastCompletedRounds = mutableIntStateOf(0)
@@ -186,7 +183,7 @@ class TimerService : Service() {
                     isPomoBreakActive.value = false
                 }
 
-                triggerHapticBuzz(HapticType.LIGHT) // शुरू होने पर हल्का बज़
+                triggerHapticBuzz(HapticType.LIGHT)
                 startSession(secs, subject, isResume = false)
             }
             ACTION_PAUSE -> {
@@ -229,17 +226,11 @@ class TimerService : Service() {
             remainingSeconds.intValue = (totalActive / 1000L).toInt()
             sessionTargetElapsedRealtime = 0L
         } else {
-            val targetElapsed = if (isResume) {
-                nowElapsed + (seconds * 1000L)
-            } else {
-                nowElapsed + (seconds * 1000L)
-            }
             remainingSeconds.intValue = seconds
-            sessionTargetElapsedRealtime = targetElapsed
+            sessionTargetElapsedRealtime = nowElapsed + (seconds * 1000L)
         }
 
         persistSessionState(this, isRunning = true, isPaused = false)
-
         updateForegroundNotification()
 
         timerJob = serviceScope.launch {
@@ -250,7 +241,7 @@ class TimerService : Service() {
                     val elapsedSecs = (activeNow / 1000L).toInt()
                     remainingSeconds.intValue = elapsedSecs
 
-                    if (elapsedSecs >= 43200) { // 12 घंटे लिमिट
+                    if (elapsedSecs >= 43200) {
                         onTimerFinished()
                         break
                     }
@@ -270,34 +261,29 @@ class TimerService : Service() {
         }
     }
 
-    // 🍅 पोमोडोरो और टाइमर की समय सीमा पूरी होने का लॉजिक
     private fun handleCountdownFinished() {
         val now = SystemClock.elapsedRealtime()
 
         if (activeModeType.value == "POMODORO") {
             if (!isPomoBreakActive.value) {
-                // 1. फोकस राउंड खत्म हुआ -> केवल फोकस टाइम को बाल्टी में जोड़ें
                 if (sessionResumeElapsedRealtime > 0L) {
                     accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
                 }
                 sessionResumeElapsedRealtime = 0L
 
-                triggerHapticBuzz(HapticType.DOUBLE) // डबल बज़
+                triggerHapticBuzz(HapticType.DOUBLE)
                 FocusSoundManager.playCompletionSound(this)
 
-                // ब्रेक शुरू करें (अंतिम राउंड के बाद लॉन्ग ब्रेक, बाकी में शॉर्ट ब्रेक)
                 val breakSecs = if (currentPomoRound.intValue >= totalPomoRounds.intValue) pomoLongBreakSecs else pomoShortBreakSecs
                 isPomoBreakActive.value = true
 
                 startSession(breakSecs, currentSubjectName.value, isResume = false)
             } else {
-                // 2. ब्रेक खत्म हुआ (ब्रेक का समय कभी नहीं जोड़ा जाएगा)
                 sessionResumeElapsedRealtime = 0L
-                triggerHapticBuzz(HapticType.LIGHT) // 1 बज़ ब्रेक खत्म होने पर
+                triggerHapticBuzz(HapticType.LIGHT)
 
                 if (currentPomoRound.intValue >= totalPomoRounds.intValue) {
-                    // 🎉 सारे राउंड पूरे हो गए!
-                    triggerHapticBuzz(HapticType.LONG) // 1 लॉन्ग बज़
+                    triggerHapticBuzz(HapticType.LONG)
                     onTimerFinished()
                 } else {
                     currentPomoRound.intValue += 1
@@ -306,7 +292,6 @@ class TimerService : Service() {
                     if (pomoAutoStartNext) {
                         startSession(pomoFocusSecs, currentSubjectName.value, isResume = false)
                     } else {
-                        // पॉज़ मोड में इंतज़ार करें
                         remainingSeconds.intValue = pomoFocusSecs
                         isTimerRunning.value = false
                         isTimerPaused.value = true
@@ -315,7 +300,6 @@ class TimerService : Service() {
                 }
             }
         } else {
-            // नॉर्मल टाइमर पूरा हुआ
             if (sessionResumeElapsedRealtime > 0L) {
                 accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
             }
@@ -345,7 +329,6 @@ class TimerService : Service() {
         if (!isTimerRunning.value || isTimerPaused.value) return
         val now = SystemClock.elapsedRealtime()
 
-        // सिर्फ तब जोड़ें जब पढ़ाई चल रही हो (ब्रेक में नहीं)
         if (!isPomoBreakActive.value && sessionResumeElapsedRealtime > 0L) {
             accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
         }
@@ -399,6 +382,7 @@ class TimerService : Service() {
         endServiceCleanup()
     }
 
+    // 🛑 नोटिफिकेशन को पूरी तरह नष्ट (Kill) करने का पुख्ता कोड
     private fun endServiceCleanup() {
         timerJob?.cancel()
         isTimerRunning.value = false
@@ -415,6 +399,13 @@ class TimerService : Service() {
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } catch (_: Exception) {}
+
+        // नोटिफिकेशन को सीधे कैंसिल करना
+        try {
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.cancel(NOTIFICATION_ID)
+        } catch (_: Exception) {}
+
         stopSelf()
     }
 
@@ -427,7 +418,6 @@ class TimerService : Service() {
                 rawSeconds
             }
 
-            // 🛑 5 MINUTE GUARD (300 सेकंड से कम होने पर डायरी में नहीं जाएगा)
             if (completedSeconds < 300) {
                 return
             }
@@ -468,7 +458,6 @@ class TimerService : Service() {
                 sessionId = currentSessionId
             )
 
-            // 🌟 पॉप-अप के लिए डेटा सेट करें
             lastCompletedMinutes.intValue = minutes
             lastCompletedMode.value = activeModeType.value
             lastCompletedRounds.intValue = currentPomoRound.intValue
@@ -520,8 +509,15 @@ class TimerService : Service() {
 
         try {
             val notification = buildNotification(chronometerBase, isStopwatch, isTimerPaused.value)
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.notify(NOTIFICATION_ID, notification)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
         } catch (_: Exception) {}
     }
 
@@ -570,7 +566,14 @@ class TimerService : Service() {
             setTextViewText(R.id.notif_mode_tag, "⚡ $modeText")
             setTextViewText(R.id.notif_subject_tag, "Subject • $currentSub")
 
-            setChronometer(R.id.notif_timer, chronometerBase, null, !isPaused)
+            // 🛑 अगर पॉज है, तो क्रोनोमीटर को टिक करने से रोकें
+            if (isPaused) {
+                val pausedBase = SystemClock.elapsedRealtime() + (remainingSeconds.intValue * 1000L)
+                setChronometer(R.id.notif_timer, pausedBase, null, false)
+            } else {
+                setChronometer(R.id.notif_timer, chronometerBase, null, true)
+            }
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 setChronometerCountDown(R.id.notif_timer, !isStopwatch)
             }
@@ -590,7 +593,7 @@ class TimerService : Service() {
             .setSmallIcon(R.drawable.ic_notif_logo)
             .setContentTitle("Amon • $modeText")
             .setContentText(if (isPaused) "Paused • $currentSub" else "$currentSub • Session active")
-            .setOngoing(true)
+            .setOngoing(!isPaused)
             .setContentIntent(openAppPendingIntent)
             .setCustomContentView(customLayout)
             .setCustomBigContentView(customLayout)
@@ -625,5 +628,9 @@ class TimerService : Service() {
         super.onDestroy()
         timerJob?.cancel()
         serviceScope.cancel()
+        try {
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.cancel(NOTIFICATION_ID)
+        } catch (_: Exception) {}
     }
 }
