@@ -1,19 +1,15 @@
 package com.amon.timer
 
+import com.amon.timer.groups.GroupsRootScreen
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Color as AndroidColor
 import android.graphics.drawable.ColorDrawable
-import android.media.RingtoneManager
-import android.net.Uri
 import android.os.Build
-import android.os.SystemClock
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -24,8 +20,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -41,11 +41,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,7 +56,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.amon.timer.groups.GroupsRootScreen
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
@@ -74,12 +74,6 @@ fun MainScreen() {
     var activeMode by rememberSaveable { mutableStateOf(FocusModeType.TIMER) }
     var pomodoroConfig by remember { mutableStateOf(PomodoroConfig()) }
 
-    var isStopwatchRunning by rememberSaveable { mutableStateOf(false) }
-    var isStopwatchFocusActive by rememberSaveable { mutableStateOf(false) }
-    var stopwatchBaseTime by rememberSaveable { mutableStateOf(0L) }
-    var stopwatchAccumulatedMillis by rememberSaveable { mutableStateOf(0L) }
-    var stopwatchElapsedMillis by rememberSaveable { mutableStateOf(0L) }
-
     var selectedSubjectName by rememberSaveable { mutableStateOf("All") }
     var initialTotalSeconds by rememberSaveable { mutableIntStateOf(25 * 60) }
 
@@ -94,18 +88,11 @@ fun MainScreen() {
         }
     }
 
-    // ⚡ SCREEN WAKE-UP SYNC
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 TimerService.syncRemainingTime(context)
-                if (isStopwatchFocusActive && isStopwatchRunning) {
-                    val now = SystemClock.elapsedRealtime()
-                    if (stopwatchBaseTime > 0L) {
-                        stopwatchElapsedMillis = stopwatchAccumulatedMillis + (now - stopwatchBaseTime)
-                    }
-                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -116,62 +103,17 @@ fun MainScreen() {
 
     LaunchedEffect(Unit) {
         try {
-            // ऐप खुलते ही सख्ती से पोर्ट्रेट में लॉक रखें ताकि सिस्टम रोटेट कभी ट्रिगर न हो
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-
             ThemeManager.loadTheme(context)
             TimerService.syncRemainingTime(context)
-
-            if (TimerService.originalTimerSeconds == 0 && (TimerService.isTimerRunning.value || TimerService.isTimerPaused.value)) {
-                activeMode = FocusModeType.STOPWATCH
-                isStopwatchFocusActive = true
-                isStopwatchRunning = TimerService.isTimerRunning.value
-                stopwatchAccumulatedMillis = TimerService.accumulatedActiveMillis
-                stopwatchBaseTime = TimerService.sessionResumeElapsedRealtime
-                if (isStopwatchRunning && stopwatchBaseTime > 0L) {
-                    stopwatchElapsedMillis = stopwatchAccumulatedMillis + (SystemClock.elapsedRealtime() - stopwatchBaseTime)
-                } else {
-                    stopwatchElapsedMillis = stopwatchAccumulatedMillis
-                }
-            }
         } catch (_: Exception) {}
     }
 
-    LaunchedEffect(isRunning, isPaused) {
-        val isStopwatchService = (TimerService.originalTimerSeconds == 0)
-        if (isStopwatchFocusActive && isStopwatchService) {
-            if (!isRunning && !isPaused) {
-                isStopwatchRunning = false
-                isStopwatchFocusActive = false
-                stopwatchAccumulatedMillis = 0L
-                stopwatchElapsedMillis = 0L
-                isFocusMinimized = false
-            } else if (isPaused && isStopwatchRunning) {
-                isStopwatchRunning = false
-                stopwatchAccumulatedMillis = stopwatchElapsedMillis
-            } else if (isRunning && !isStopwatchRunning) {
-                stopwatchBaseTime = SystemClock.elapsedRealtime()
-                isStopwatchRunning = true
-            }
-        } else if (!isRunning && !isPaused) {
-            isFocusMinimized = false
-        }
-    }
-
-    LaunchedEffect(isStopwatchRunning) {
-        if (isStopwatchRunning) {
-            stopwatchBaseTime = SystemClock.elapsedRealtime()
-            while (isStopwatchRunning) {
-                val now = SystemClock.elapsedRealtime()
-                stopwatchElapsedMillis = stopwatchAccumulatedMillis + (now - stopwatchBaseTime)
-                delay(30)
-            }
-        }
-    }
-
-    val isTimerFocusActive = isRunning || isPaused
-    val isFocusActive = isTimerFocusActive || isStopwatchFocusActive
+    val isFocusActive = isRunning || isPaused
     val isFullScreenFocus = isFocusActive && !isFocusMinimized
+    val activeModeTypeStr = TimerService.activeModeType.value
+    val isStopwatchMode = (activeModeTypeStr == "STOPWATCH")
+    val stopwatchElapsedMillis = TimerService.stopwatchElapsedMillis.value
 
     val updateManager = remember { UpdateManager(context) }
     var hasNewUpdate by remember { mutableStateOf(false) }
@@ -187,23 +129,10 @@ fun MainScreen() {
 
     val onDirectEndSession: () -> Unit = {
         FocusSoundManager.triggerHaptic(context, isCompletion = true)
-
-        if (isStopwatchFocusActive) {
-            val intent = Intent(context, TimerService::class.java).apply {
-                action = TimerService.ACTION_STOP
-            }
-            context.startService(intent)
-
-            isStopwatchRunning = false
-            isStopwatchFocusActive = false
-            stopwatchAccumulatedMillis = 0L
-            stopwatchElapsedMillis = 0L
-        } else {
-            val intent = Intent(context, TimerService::class.java).apply {
-                action = TimerService.ACTION_STOP
-            }
-            context.startService(intent)
+        val intent = Intent(context, TimerService::class.java).apply {
+            action = TimerService.ACTION_STOP
         }
+        context.startService(intent)
         isFocusMinimized = false
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
@@ -215,7 +144,6 @@ fun MainScreen() {
             val bgHex = if (isDark) "#121216" else "#F8FAFC"
             window.setBackgroundDrawable(ColorDrawable(AndroidColor.parseColor(bgHex)))
 
-            // 🔒 ओरिएंटेशन हमेशा PORTRAIT रहेगा - SENSOR कभी कॉल नहीं होगा
             activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
             if (isFullScreenFocus) {
@@ -275,9 +203,11 @@ fun MainScreen() {
     val swH = (stopwatchElapsedMillis / 3600000).toInt()
     val swM = ((stopwatchElapsedMillis % 3600000) / 60000).toInt()
     val swS = ((stopwatchElapsedMillis % 60000) / 1000).toInt()
+    val swMs = ((stopwatchElapsedMillis % 1000) / 10).toInt()
     val swMainTime = String.format("%02d:%02d:%02d", swH, swM, swS)
+    val swMilliText = String.format(".%02d", swMs)
 
-    val liveBarTime = if (activeMode == FocusModeType.STOPWATCH) swMainTime else "$timeFormatted left"
+    val liveBarTime = if (isStopwatchMode) swMainTime else "$timeFormatted left"
 
     Scaffold(
         containerColor = bgColor,
@@ -289,24 +219,14 @@ fun MainScreen() {
                         MiniFocusBar(
                             subjectName = if (isBreakActive) "Break Time" else selectedSubjectName,
                             timeText = liveBarTime,
-                            isRunning = if (activeMode == FocusModeType.STOPWATCH) isStopwatchRunning else isRunning,
-                            isPaused = if (activeMode == FocusModeType.STOPWATCH) !isStopwatchRunning else isPaused,
+                            isRunning = isRunning,
+                            isPaused = isPaused,
                             goldColor = if (isBreakActive) Color(0xFF10B981) else goldColor,
                             isDark = isDark,
                             onTogglePlayPause = {
                                 FocusSoundManager.triggerHaptic(context, false)
-                                if (activeMode == FocusModeType.STOPWATCH) {
-                                    if (isStopwatchRunning) {
-                                        isStopwatchRunning = false
-                                        stopwatchAccumulatedMillis = stopwatchElapsedMillis
-                                    } else {
-                                        stopwatchBaseTime = SystemClock.elapsedRealtime()
-                                        isStopwatchRunning = true
-                                    }
-                                } else {
-                                    val act = if (isPaused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE
-                                    context.startService(Intent(context, TimerService::class.java).apply { action = act })
-                                }
+                                val act = if (isPaused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE
+                                context.startService(Intent(context, TimerService::class.java).apply { action = act })
                             },
                             onExpand = {
                                 isFocusMinimized = false
@@ -353,28 +273,31 @@ fun MainScreen() {
                     onPomodoroConfigChange = { pomodoroConfig = it },
                     isBreakActive = isBreakActive,
                     currentSessionIndex = currentSessionIndex,
-                    isStopwatchRunning = isStopwatchRunning,
-                    isStopwatchFocusActive = isStopwatchFocusActive,
+                    isStopwatchRunning = isRunning && isStopwatchMode,
+                    isStopwatchFocusActive = isFocusActive && isStopwatchMode,
                     stopwatchElapsedMillis = stopwatchElapsedMillis,
                     selectedSubjectName = selectedSubjectName,
                     onSelectedSubjectChange = { selectedSubjectName = it },
                     initialTotalSeconds = initialTotalSeconds,
                     onInitialTotalSecondsChange = { initialTotalSeconds = it },
                     onStartStopwatch = {
-                        isStopwatchRunning = true
-                        isStopwatchFocusActive = true
-                        stopwatchAccumulatedMillis = 0L
-                        stopwatchElapsedMillis = 0L
-                        stopwatchBaseTime = SystemClock.elapsedRealtime()
+                        context.startService(Intent(context, TimerService::class.java).apply {
+                            action = TimerService.ACTION_START
+                            putExtra(TimerService.EXTRA_SECONDS, 0)
+                            putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                            putExtra(TimerService.EXTRA_MODE, "STOPWATCH")
+                        })
                         isFocusMinimized = false
                     },
                     onPauseStopwatch = {
-                        isStopwatchRunning = false
-                        stopwatchAccumulatedMillis = stopwatchElapsedMillis
+                        context.startService(Intent(context, TimerService::class.java).apply {
+                            action = TimerService.ACTION_PAUSE
+                        })
                     },
                     onResumeStopwatch = {
-                        stopwatchBaseTime = SystemClock.elapsedRealtime()
-                        isStopwatchRunning = true
+                        context.startService(Intent(context, TimerService::class.java).apply {
+                            action = TimerService.ACTION_RESUME
+                        })
                     },
                     onDirectEndSession = onDirectEndSession
                 )
@@ -432,10 +355,10 @@ fun MainScreen() {
                     val mode = TimerService.lastCompletedMode.value
                     val rounds = TimerService.lastCompletedRounds.intValue
 
-                    val detailMsg = if (mode == "POMODORO") {
-                        "You completed $rounds rounds of Pomodoro!\nTotal: $mins minutes focused."
-                    } else {
-                        "You completed a $mins minute focus session!"
+                    val detailMsg = when (mode) {
+                        "POMODORO" -> "You completed $rounds rounds of Pomodoro!\nTotal: $mins minutes focused."
+                        "STOPWATCH" -> "You focused for $mins minutes with Stopwatch!"
+                        else -> "You completed a $mins minute focus session!"
                     }
 
                     Text(
@@ -623,26 +546,6 @@ fun HomeTimerTab(
     var showFocusLauncherSheet by remember { mutableStateOf(false) }
     var dialMinutes by rememberSaveable { mutableFloatStateOf(25f) }
 
-    var isSoundOn by remember { mutableStateOf(FocusSoundManager.isSoundEnabled(context)) }
-    var showSoundDialog by remember { mutableStateOf(false) }
-
-    val ringtonePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val uri: Uri? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI, Uri::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-            }
-            if (uri != null) {
-                FocusSoundManager.saveSoundUri(context, uri)
-                FocusSoundManager.playCompletionSound(context)
-            }
-        }
-    }
-
     val subjectPrefs = remember { context.getSharedPreferences("amon_subject_prefs", Context.MODE_PRIVATE) }
     var hiddenSubjects by remember {
         val saved = try { subjectPrefs.getStringSet("hidden_subjects", null) } catch (_: Exception) { null }
@@ -694,6 +597,11 @@ fun HomeTimerTab(
             val clean = newSubjectInput.trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
             if (SubjectManager.addSubject(context, clean)) {
                 userSubjects = SubjectManager.getUserSubjects(context)
+                if (clean in hiddenSubjects) {
+                    val newHidden = hiddenSubjects - clean
+                    hiddenSubjects = newHidden
+                    subjectPrefs.edit().putStringSet("hidden_subjects", newHidden).apply()
+                }
                 onSelectedSubjectChange(clean)
                 newSubjectInput = ""
             }
@@ -711,6 +619,7 @@ fun HomeTimerTab(
                     .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // हेडर: सिर्फ AMON लोगो और दाईं तरफ Streak
                 Row(
                     modifier = Modifier.fillMaxWidth().height(38.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -724,49 +633,23 @@ fun HomeTimerTab(
                         letterSpacing = 2.5.sp
                     )
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9))
+                            .border(1.dp, glassBorder, RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp)
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .height(32.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(if (isSoundOn) goldColor.copy(alpha = 0.18f) else (if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9)))
-                                .border(1.dp, if (isSoundOn) goldColor else glassBorder, RoundedCornerShape(50))
-                                .clickable {
-                                    FocusSoundManager.triggerHaptic(context, false)
-                                    showSoundDialog = true
-                                }
-                                .padding(horizontal = 10.dp)
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            StreakFlame(streakDays = streakDays, isLarge = false, modifier = Modifier.size(20.dp))
                             Text(
-                                text = if (isSoundOn) "🔔 Sound" else "🔕 Mute",
-                                color = if (isSoundOn) goldColor else textMuted,
+                                text = "$streakDays D",
+                                color = if (streakDays > 0) Color(0xFFFB923C) else textMuted,
                                 fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.ExtraBold
                             )
-                        }
-
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .height(32.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9))
-                                .border(1.dp, glassBorder, RoundedCornerShape(50))
-                                .padding(horizontal = 10.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                StreakFlame(streakDays = streakDays, isLarge = false, modifier = Modifier.size(20.dp))
-                                Text(
-                                    text = "$streakDays D",
-                                    color = if (streakDays > 0) Color(0xFFFB923C) else textMuted,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
                         }
                     }
                 }
@@ -1095,12 +978,6 @@ fun HomeTimerTab(
                     when (chosenMode) {
                         FocusModeType.STOPWATCH -> {
                             onStartStopwatch()
-                            context.startService(Intent(context, TimerService::class.java).apply {
-                                action = TimerService.ACTION_START
-                                putExtra(TimerService.EXTRA_SECONDS, 0)
-                                putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
-                                putExtra(TimerService.EXTRA_MODE, "STOPWATCH")
-                            })
                         }
                         FocusModeType.TIMER -> {
                             onInitialTotalSecondsChange(durationSeconds)
@@ -1134,118 +1011,215 @@ fun HomeTimerTab(
             )
         }
 
-        if (showSoundDialog) {
+        // 🌟 वही पुराना पसंदीदा "Manage Subjects" फ्रॉस्टेड डायलॉग
+        if (showAddDialog) {
             Dialog(onDismissRequest = {
-                FocusSoundManager.stopSound()
-                showSoundDialog = false
+                showAddDialog = false
+                newSubjectInput = ""
             }) {
+                val frostedDialogBg = if (isDark) Color(0xEB161620) else Color(0xF2FFFFFF)
+                val suggestedSubjects = listOf("Physics", "Chemistry", "Biology", "Maths", "History", "Polity")
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(if (isDark) Color(0xFF1C1C28) else Color.White)
-                        .border(1.5.dp, goldColor, RoundedCornerShape(22.dp))
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(frostedDialogBg)
+                        .border(1.5.dp, if (isDark) Color(0x44FFFFFF) else Color(0x33000000), RoundedCornerShape(26.dp))
                         .padding(20.dp)
                 ) {
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Session Alert Sound 🔔", fontWeight = FontWeight.Black, fontSize = 17.sp, color = textMain)
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Play Sound on Completion", color = textMain, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Switch(
-                                checked = isSoundOn,
-                                onCheckedChange = {
-                                    isSoundOn = it
-                                    FocusSoundManager.setSoundEnabled(context, it)
-                                },
-                                colors = SwitchDefaults.colors(checkedThumbColor = goldColor)
+                            Text(
+                                text = "Manage Subjects",
+                                color = goldColor,
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.Bold
                             )
+
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
+                                    .clickable {
+                                        showAddDialog = false
+                                        newSubjectInput = ""
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "✕",
+                                    color = textMuted,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
 
-                        Button(
-                            onClick = {
-                                val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION or RingtoneManager.TYPE_ALARM)
-                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                                    putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, FocusSoundManager.getSelectedSoundUri(context))
-                                }
-                                ringtonePickerLauncher.launch(intent)
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = if (isDark) Color(0xFF2A2A3C) else Color(0xFFE2E8F0)),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("🎵 Choose from Device Ringtones", color = textMain, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        Button(
-                            onClick = {
-                                FocusSoundManager.playCompletionSound(context)
-                                FocusSoundManager.triggerHaptic(context, isCompletion = true)
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = goldColor.copy(alpha = 0.2f)),
-                            border = BorderStroke(1.dp, goldColor),
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("▶ Test Sound & Haptic Buzz", color = goldColor, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        Button(
-                            onClick = {
-                                FocusSoundManager.stopSound()
-                                showSoundDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = goldColor),
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier.fillMaxWidth().height(42.dp)
-                        ) {
-                            Text("Done", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 13.5.sp)
-                        }
-                    }
-                }
-            }
-        }
-
-        if (showAddDialog) {
-            Dialog(onDismissRequest = { showAddDialog = false }) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(if (isDark) Color(0xFF181824) else Color.White)
-                        .border(1.5.dp, goldColor, RoundedCornerShape(24.dp))
-                        .padding(20.dp)
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Add Subject", color = goldColor, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(14.dp))
-                        OutlinedTextField(
-                            value = newSubjectInput,
-                            onValueChange = { newSubjectInput = it },
-                            placeholder = { Text("Subject name...", color = textMuted) },
-                            singleLine = true,
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Tap to Show (Color) or Hide (Plain)",
+                            color = textMuted,
+                            fontSize = 12.5.sp,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = {
-                                onAddSubjectAction()
-                                showAddDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = goldColor),
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier.fillMaxWidth().height(44.dp)
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text("Save Subject", color = Color.Black, fontWeight = FontWeight.Bold)
+                            items(suggestedSubjects) { suggestion ->
+                                Surface(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .clickable {
+                                            newSubjectInput = suggestion
+                                            onAddSubjectAction()
+                                        },
+                                    color = goldColor.copy(alpha = 0.12f),
+                                    border = BorderStroke(1.dp, goldColor.copy(alpha = 0.4f)),
+                                    shape = RoundedCornerShape(50)
+                                ) {
+                                    Text(
+                                        text = "+ $suggestion",
+                                        color = goldColor,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 160.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            userSubjects.chunked(3).forEach { rowItems ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowItems.forEach { subj ->
+                                        val isHidden = subj in hiddenSubjects
+                                        val chipBg = if (!isHidden) {
+                                            goldColor.copy(alpha = 0.22f)
+                                        } else {
+                                            if (isDark) Color(0x22FFFFFF) else Color(0xFFF1F5F9)
+                                        }
+
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(chipBg)
+                                                .border(
+                                                    1.2.dp,
+                                                    if (!isHidden) goldColor else glassBorder,
+                                                    RoundedCornerShape(12.dp)
+                                                )
+                                                .clickable {
+                                                    val newHidden = if (isHidden) {
+                                                        hiddenSubjects - subj
+                                                    } else {
+                                                        hiddenSubjects + subj
+                                                    }
+                                                    hiddenSubjects = newHidden
+                                                    subjectPrefs.edit()
+                                                        .putStringSet("hidden_subjects", newHidden)
+                                                        .apply()
+
+                                                    if (!isHidden && selectedSubjectName.equals(subj, ignoreCase = true)) {
+                                                        onSelectedSubjectChange("All")
+                                                    }
+                                                }
+                                                .padding(vertical = 10.dp, horizontal = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (!isHidden) "● $subj" else "○ $subj",
+                                                color = if (!isHidden) goldColor else (if (isDark) textMuted else Color(0xFF475569)),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                    repeat(3 - rowItems.size) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isDark) Color(0x33FFFFFF) else Color(0xFFF8FAFC))
+                                .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = newSubjectInput,
+                                onValueChange = { input ->
+                                    newSubjectInput = input.replaceFirstChar {
+                                        if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                                    }
+                                },
+                                placeholder = {
+                                    Text("Type custom subject...", color = textMuted, fontSize = 13.sp)
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    capitalization = KeyboardCapitalization.Words,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = { onAddSubjectAction() }
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    focusedTextColor = textMain,
+                                    unfocusedTextColor = textMain,
+                                    cursorColor = goldColor
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(goldColor)
+                                    .clickable { onAddSubjectAction() }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "Add",
+                                    color = Color.Black,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
                         }
                     }
                 }
