@@ -74,6 +74,9 @@ fun MainScreen() {
     var isBreakActive by rememberSaveable { mutableStateOf(false) }
     var currentSessionIndex by rememberSaveable { mutableIntStateOf(1) }
 
+    // 🌟 मिनी बार के लिए नया स्टेट (बैक दबाने पर मिनीमाइज़ होगा)
+    var isFocusMinimized by rememberSaveable { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         try {
             ThemeManager.loadTheme(context)
@@ -102,6 +105,7 @@ fun MainScreen() {
                 isStopwatchFocusActive = false
                 stopwatchAccumulatedMillis = 0L
                 stopwatchElapsedMillis = 0L
+                isFocusMinimized = false
             } else if (isPaused && isStopwatchRunning) {
                 isStopwatchRunning = false
                 stopwatchAccumulatedMillis = stopwatchElapsedMillis
@@ -109,6 +113,8 @@ fun MainScreen() {
                 stopwatchBaseTime = SystemClock.elapsedRealtime()
                 isStopwatchRunning = true
             }
+        } else if (!isRunning && !isPaused) {
+            isFocusMinimized = false
         }
     }
 
@@ -125,8 +131,10 @@ fun MainScreen() {
 
     val isTimerFocusActive = isRunning || isPaused
     val isFocusActive = isTimerFocusActive || isStopwatchFocusActive
+    // फ़ुलस्क्रीन तभी दिखेगी जब फ़ोकस एक्टिव हो और यूज़र ने उसे मिनीमाइज़ न किया हो
+    val isFullScreenFocus = isFocusActive && !isFocusMinimized
 
-    // 🔔 टाइमर 00:00 पूरा होने पर साउंड और हेप्टिक अलर्ट
+    // 🔔 टाइमर पूरा होने पर साउंड और हेप्टिक अलर्ट
     LaunchedEffect(TimerService.remainingSeconds.intValue, isRunning) {
         if (isRunning && TimerService.remainingSeconds.intValue == 0 && initialTotalSeconds > 0) {
             FocusSoundManager.playCompletionSound(context)
@@ -221,17 +229,19 @@ fun MainScreen() {
             }
             isBreakActive = false
         }
+        isFocusMinimized = false
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
-    DisposableEffect(isFocusActive) {
+    // फुलस्क्रीन मोड केवल तभी इनेबल होगा जब मिनीमाइज़ न हो
+    DisposableEffect(isFullScreenFocus) {
         val window = activity?.window
         if (window != null) {
             val insetsController = WindowCompat.getInsetsController(window, view)
             val bgHex = if (isDark) "#121216" else "#F8FAFC"
             window.setBackgroundDrawable(ColorDrawable(AndroidColor.parseColor(bgHex)))
 
-            if (isFocusActive) {
+            if (isFullScreenFocus) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     val params = window.attributes
                     params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -269,28 +279,81 @@ fun MainScreen() {
     val glassBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
     val glowBorder = goldColor.copy(alpha = 0.6f)
 
-    BackHandler(enabled = currentNavIndex != 0 && !isFocusActive) {
+    // 🔙 BACK BUTTON LOGIC:
+    // 1. अगर फुलस्क्रीन फोकस में बैक दबाया -> सेशन बंद नहीं होगा, केवल मिनी बार बन जाएगा
+    BackHandler(enabled = isFullScreenFocus) {
+        isFocusMinimized = true
+    }
+
+    // 2. अगर किसी अन्य टैब में हैं तो वापस होम टैब (0) पर आएँ
+    BackHandler(enabled = currentNavIndex != 0 && !isFullScreenFocus) {
         currentNavIndex = 0
     }
 
-    BackHandler(enabled = isFocusActive) {
-        onDirectEndSession()
+    // टाइम फॉर्मेटिंग
+    val totalSeconds = TimerService.remainingSeconds.intValue
+    val hours = totalSeconds / 3600
+    val displayMinutes = (totalSeconds % 3600) / 60
+    val displaySeconds = totalSeconds % 60
+    val timeFormatted = if (hours > 0) {
+        String.format("%02d:%02d:%02d", hours, displayMinutes, displaySeconds)
+    } else {
+        String.format("%02d:%02d", displayMinutes, displaySeconds)
     }
+
+    val swH = (stopwatchElapsedMillis / 3600000).toInt()
+    val swM = ((stopwatchElapsedMillis % 3600000) / 60000).toInt()
+    val swS = ((stopwatchElapsedMillis % 60000) / 1000).toInt()
+    val swMainTime = String.format("%02d:%02d:%02d", swH, swM, swS)
+
+    val liveBarTime = if (activeMode == FocusModeType.STOPWATCH) swMainTime else "$timeFormatted left"
 
     Scaffold(
         containerColor = bgColor,
-        contentWindowInsets = if (isFocusActive) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
+        contentWindowInsets = if (isFullScreenFocus) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
         bottomBar = {
-            if (!isFocusActive) {
-                AmonCurvedBottomBar(
-                    selectedIndex = currentNavIndex,
-                    onTabSelected = { newIndex -> currentNavIndex = newIndex },
-                    isDark = isDark,
-                    goldColor = goldColor,
-                    cardBg = bgColor,
-                    borderCol = Color.Transparent,
-                    hasNewUpdate = hasNewUpdate
-                )
+            if (!isFullScreenFocus) {
+                Column(modifier = Modifier.fillMaxWidth().background(Color.Transparent)) {
+                    // 🌟 जब सेशन चल रहा हो और मिनीमाइज़ हो तो बॉटम बार के ऊपर मिनी बार दिखेगी
+                    if (isFocusActive && isFocusMinimized) {
+                        MiniFocusBar(
+                            subjectName = if (isBreakActive) "Break Time" else selectedSubjectName,
+                            timeText = liveBarTime,
+                            isRunning = if (activeMode == FocusModeType.STOPWATCH) isStopwatchRunning else isRunning,
+                            isPaused = if (activeMode == FocusModeType.STOPWATCH) !isStopwatchRunning else isPaused,
+                            goldColor = if (isBreakActive) Color(0xFF10B981) else goldColor,
+                            isDark = isDark,
+                            onTogglePlayPause = {
+                                FocusSoundManager.triggerHaptic(context, false)
+                                if (activeMode == FocusModeType.STOPWATCH) {
+                                    if (isStopwatchRunning) {
+                                        isStopwatchRunning = false
+                                        stopwatchAccumulatedMillis = stopwatchElapsedMillis
+                                    } else {
+                                        stopwatchBaseTime = SystemClock.elapsedRealtime()
+                                        isStopwatchRunning = true
+                                    }
+                                } else {
+                                    val act = if (isPaused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE
+                                    context.startService(Intent(context, TimerService::class.java).apply { action = act })
+                                }
+                            },
+                            onExpand = {
+                                isFocusMinimized = false
+                            }
+                        )
+                    }
+
+                    AmonCurvedBottomBar(
+                        selectedIndex = currentNavIndex,
+                        onTabSelected = { newIndex -> currentNavIndex = newIndex },
+                        isDark = isDark,
+                        goldColor = goldColor,
+                        cardBg = bgColor,
+                        borderCol = Color.Transparent,
+                        hasNewUpdate = hasNewUpdate
+                    )
+                }
             }
         }
     ) { paddingValues ->
@@ -298,7 +361,7 @@ fun MainScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .background(bgColor)
-                .then(if (!isFocusActive) Modifier.padding(paddingValues) else Modifier)
+                .then(if (!isFullScreenFocus) Modifier.padding(paddingValues) else Modifier)
         ) {
             when (currentNavIndex) {
                 0 -> HomeTimerTab(
@@ -312,7 +375,7 @@ fun MainScreen() {
                     isDark = isDark,
                     isRunning = isRunning,
                     isPaused = isPaused,
-                    isFocusActive = isFocusActive,
+                    isFocusActive = isFullScreenFocus,
                     activeMode = activeMode,
                     onActiveModeChange = { activeMode = it },
                     pomodoroConfig = pomodoroConfig,
@@ -332,6 +395,7 @@ fun MainScreen() {
                         stopwatchAccumulatedMillis = 0L
                         stopwatchElapsedMillis = 0L
                         stopwatchBaseTime = SystemClock.elapsedRealtime()
+                        isFocusMinimized = false
                     },
                     onPauseStopwatch = {
                         isStopwatchRunning = false
@@ -346,6 +410,102 @@ fun MainScreen() {
                 1 -> GroupsRootScreen(onStartFocus = { currentNavIndex = 0 })
                 2 -> StatsScreen()
                 3 -> ProfileScreen()
+            }
+        }
+    }
+}
+
+// =============================================================================
+// 🌟 MINIMAL MINI FOCUS FLOATING BAR (बिना गोल आइकन के, एकदम क्लीन)
+// =============================================================================
+@Composable
+fun MiniFocusBar(
+    subjectName: String,
+    timeText: String,
+    isRunning: Boolean,
+    isPaused: Boolean,
+    goldColor: Color,
+    isDark: Boolean,
+    onTogglePlayPause: () -> Unit,
+    onExpand: () -> Unit
+) {
+    val barBg = if (isDark) Color(0xFF16161F) else Color(0xFFFFFFFF)
+    val textMain = if (isDark) Color.White else Color(0xFF1E293B)
+    val textMuted = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(50))
+                .background(barBg)
+                .border(1.2.dp, goldColor.copy(alpha = 0.5f), RoundedCornerShape(50))
+                .clickable { onExpand() }
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // 1. Play / Pause Button
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(goldColor.copy(alpha = 0.2f))
+                    .clickable { onTogglePlayPause() }
+            ) {
+                Text(
+                    text = if (isPaused) "▶" else "⏸",
+                    color = goldColor,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+
+            // 2. Subject Name • Time
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = subjectName,
+                    color = textMain,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "•",
+                    color = textMuted,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = timeText,
+                    color = goldColor,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+
+            // 3. Expand Button (˄)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
+                    .clickable { onExpand() }
+            ) {
+                Text(
+                    text = "˄",
+                    color = textMain,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Black
+                )
             }
         }
     }
@@ -477,7 +637,7 @@ fun HomeTimerTab(
                     .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 🌟 TOP HEADER: AMON + SOUND BUTTON + STREAK
+                // TOP HEADER
                 Row(
                     modifier = Modifier.fillMaxWidth().height(38.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -495,7 +655,7 @@ fun HomeTimerTab(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 🔔 SOUND BUTTON
+                        // SOUND BUTTON
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -640,7 +800,7 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 🚀 START FOCUS BUTTON
+                // START FOCUS BUTTON
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -804,7 +964,7 @@ fun HomeTimerTab(
             }
         }
 
-        // 🚀 FOCUS LAUNCHER BOTTOM SHEET
+        // FOCUS LAUNCHER BOTTOM SHEET
         if (showFocusLauncherSheet) {
             FocusLauncherBottomSheet(
                 isDark = isDark,
@@ -834,6 +994,7 @@ fun HomeTimerTab(
                         FocusModeType.TIMER, FocusModeType.POMODORO -> {
                             onInitialTotalSecondsChange(durationSeconds)
                             TimerService.remainingSeconds.intValue = durationSeconds
+                            isFocusMinimized = false
                             context.startService(Intent(context, TimerService::class.java).apply {
                                 action = TimerService.ACTION_START
                                 putExtra(TimerService.EXTRA_SECONDS, durationSeconds)
@@ -846,7 +1007,7 @@ fun HomeTimerTab(
             )
         }
 
-        // 🎵 MAIN SCREEN SOUND DIALOG
+        // SOUND DIALOG
         if (showSoundDialog) {
             Dialog(onDismissRequest = {
                 FocusSoundManager.stopSound()
