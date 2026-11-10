@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -125,7 +126,7 @@ fun MainScreen() {
     val isTimerFocusActive = isRunning || isPaused
     val isFocusActive = isTimerFocusActive || isStopwatchFocusActive
 
-    // 🔔 टाइमर पूरा होने पर साउंड और हेप्टिक
+    // 🔔 टाइमर 00:00 पूरा होने पर साउंड और हेप्टिक अलर्ट
     LaunchedEffect(TimerService.remainingSeconds.intValue, isRunning) {
         if (isRunning && TimerService.remainingSeconds.intValue == 0 && initialTotalSeconds > 0) {
             FocusSoundManager.playCompletionSound(context)
@@ -388,7 +389,6 @@ fun HomeTimerTab(
     var showFocusLauncherSheet by remember { mutableStateOf(false) }
     var dialMinutes by rememberSaveable { mutableFloatStateOf(25f) }
 
-    // 🔔 साउंड टॉगल और डायलॉग स्टेट्स (मेन स्क्रीन पर)
     var isSoundOn by remember { mutableStateOf(FocusSoundManager.isSoundEnabled(context)) }
     var showSoundDialog by remember { mutableStateOf(false) }
 
@@ -966,4 +966,53 @@ fun HomeTimerTab(
             }
         }
     }
+}
+
+// =============================================================================
+// 🔥 STREAK CALCULATION HELPER
+// =============================================================================
+fun calculateStreakDays(sessions: List<FocusSession>): Int {
+    if (sessions.isEmpty()) return 0
+    val dayMinutesMap = mutableMapOf<String, Int>()
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val formats = listOf(
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    )
+
+    sessions.forEach { s ->
+        var date: Date? = null
+        for (fmt in formats) {
+            try {
+                val d = fmt.parse(s.date)
+                if (d != null) { date = d; break }
+            } catch (_: Exception) {}
+        }
+        if (date != null) {
+            val key = sdf.format(date)
+            dayMinutesMap[key] = (dayMinutesMap[key] ?: 0) + s.durationMinutes
+        }
+    }
+
+    val cal = Calendar.getInstance()
+    var streak = 0
+    val todayKey = sdf.format(cal.time)
+    val todayMins = dayMinutesMap[todayKey] ?: 0
+    if (todayMins >= 30) {
+        streak++
+    }
+
+    while (true) {
+        cal.add(Calendar.DAY_OF_YEAR, -1)
+        val dateKey = sdf.format(cal.time)
+        val mins = dayMinutesMap[dateKey] ?: 0
+        if (mins >= 30) {
+            streak++
+        } else {
+            break
+        }
+    }
+    return streak
 }
