@@ -2,6 +2,7 @@ package com.amon.timer
 
 import android.content.Context
 import android.util.Log
+import com.amon.timer.groups.GroupCacheManager
 import com.amon.timer.groups.GroupMember
 import com.amon.timer.groups.MemberRole
 import com.amon.timer.groups.StudyGroup
@@ -131,10 +132,44 @@ object CloudSyncManager {
     }
 
     /**
-     * 👥 2. ग्रुप्स को Supabase से लोड करना
+     * 🔄 पेंडिंग ऑफ़लाइन ऐक्शन को नेट आने पर बैकग्राउंड में सुपबेस को भेजना
+     */
+    suspend fun syncPendingGroupActions(context: Context) = withContext(Dispatchers.IO) {
+        val pending = GroupCacheManager.getPendingActions(context)
+        if (pending.isEmpty()) return@withContext
+
+        for (item in pending.toList()) {
+            val parts = item.split(":")
+            if (parts.size == 2) {
+                val action = parts[0]
+                val gId = parts[1]
+                val success = if (action == "JOIN") {
+                    joinGroupOnCloudDirect(context, gId)
+                } else {
+                    leaveGroupOnCloudDirect(context, gId)
+                }
+                if (success) {
+                    GroupCacheManager.removePendingAction(context, item)
+                    Log.d(TAG, "Successfully synced pending action: $item")
+                }
+            }
+        }
+    }
+
+    /**
+     * 👥 2. ग्रुप्स को सुपबेस से लोड करना (ऑफ़लाइन फ़र्स्ट: नेट न होने पर तुरंत लोकल कैशे)
      */
     suspend fun fetchGroups(context: Context): List<StudyGroup> = withContext(Dispatchers.IO) {
-        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
+        val localBackup = GroupCacheManager.getCachedGroupsList(context)
+
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) {
+            return@withContext localBackup
+        }
+
+        // पहले पेंडिंग ऑफ़लाइन ऐक्शन को सिंक करें
+        try {
+            syncPendingGroupActions(context)
+        } catch (_: Exception) {}
 
         val userManager = UserManager(context)
         val currentUserId = userManager.getUserId()
@@ -167,7 +202,8 @@ object CloudSyncManager {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Members count fetch error: ${e.message}")
+            Log.e(TAG, "Members count fetch error (offline?): ${e.message}")
+            return@withContext localBackup
         }
 
         val groupsUrl = "$SUPABASE_URL/rest/v1/study_groups?select=*"
@@ -235,13 +271,14 @@ object CloudSyncManager {
                     createGroupOnCloud(context, defaultLib)
                 }
 
+                GroupCacheManager.saveCachedGroupsList(context, list)
                 return@withContext list
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Groups fetch error: ${e.message}")
+            Log.e(TAG, "Groups fetch error (fallback to local): ${e.message}")
         }
 
-        return@withContext emptyList()
+        return@withContext localBackup
     }
 
     /**
@@ -288,62 +325,77 @@ object CloudSyncManager {
     }
 
     /**
-     * 🚪 4. ग्रुप जॉइन करना
+     * 🚪 4. ग्रुप जॉइन करना (नेट न होने पर ऑटो-डायरी में दर्ज)
      */
     suspend fun joinGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
-        val userManager = UserManager(context)
-        val userId = userManager.getUserId()
-        val userName = userManager.getUserName().ifBlank { "Aspirant" }
-
-        val payload = JSONObject().apply {
-            put("group_id", groupId)
-            put("user_id", userId)
-            put("nickname", userName)
+        val success = joinGroupOnCloudDirect(context, groupId)
+        if (!success) {
+            GroupCacheManager.addPendingAction(context, "JOIN", groupId)
         }
+        return@withContext success
+    }
 
-        val request = Request.Builder()
-            .url("$SUPABASE_URL/rest/v1/group_members")
-            .addHeader("apikey", SUPABASE_KEY)
-            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
-            .addHeader("Content-Type", "application/json")
-            .addHeader("Prefer", "resolution=merge-duplicates")
-            .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
-            .build()
-
+    private fun joinGroupOnCloudDirect(context: Context, groupId: String): Boolean {
         try {
+            val userManager = UserManager(context)
+            val userId = userManager.getUserId()
+            val userName = userManager.getUserName().ifBlank { "Aspirant" }
+
+            val payload = JSONObject().apply {
+                put("group_id", groupId)
+                put("user_id", userId)
+                put("nickname", userName)
+            }
+
+            val request = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/group_members")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "resolution=merge-duplicates")
+                .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                .build()
+
             val response = client.newCall(request).execute()
             if (response.isSuccessful || response.code == 409) {
                 updateUserWeeklyMinutes(userId)
-                return@withContext true
+                return true
             }
-            return@withContext false
         } catch (e: Exception) {
-            Log.e(TAG, "Join group error: ${e.message}")
-            return@withContext false
+            Log.e(TAG, "Join direct error: ${e.message}")
         }
+        return false
     }
 
     /**
-     * ❌ 5. ग्रुप छोड़ना (Leave Group)
+     * ❌ 5. ग्रुप छोड़ना (नेट न होने पर ऑटो-डायरी में दर्ज)
      */
     suspend fun leaveGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
-        val userManager = UserManager(context)
-        val userId = userManager.getUserId()
-
-        val request = Request.Builder()
-            .url("$SUPABASE_URL/rest/v1/group_members?group_id=eq.$groupId&user_id=eq.$userId")
-            .addHeader("apikey", SUPABASE_KEY)
-            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
-            .delete()
-            .build()
-
-        try {
-            val response = client.newCall(request).execute()
-            return@withContext response.isSuccessful
-        } catch (e: Exception) {
-            Log.e(TAG, "Leave group error: ${e.message}")
-            return@withContext false
+        val success = leaveGroupOnCloudDirect(context, groupId)
+        if (!success) {
+            GroupCacheManager.addPendingAction(context, "LEAVE", groupId)
         }
+        return@withContext success
+    }
+
+    private fun leaveGroupOnCloudDirect(context: Context, groupId: String): Boolean {
+        try {
+            val userManager = UserManager(context)
+            val userId = userManager.getUserId()
+
+            val request = Request.Builder()
+                .url("$SUPABASE_URL/rest/v1/group_members?group_id=eq.$groupId&user_id=eq.$userId")
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+                .delete()
+                .build()
+
+            val response = client.newCall(request).execute()
+            return response.isSuccessful
+        } catch (e: Exception) {
+            Log.e(TAG, "Leave direct error: ${e.message}")
+        }
+        return false
     }
 
     /**
@@ -642,7 +694,9 @@ object CloudSyncManager {
         groupId: String,
         isCurrentWeek: Boolean
     ): List<GroupMember> = withContext(Dispatchers.IO) {
-        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
+        val cached = GroupCacheManager.getCachedLeaderboard(context, groupId)
+
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext cached
 
         try {
             val membersUrl = "$SUPABASE_URL/rest/v1/group_members?group_id=eq.$groupId&select=user_id,nickname"
@@ -655,7 +709,7 @@ object CloudSyncManager {
 
             val memRes = client.newCall(memReq).execute()
             val memText = memRes.body?.string().orEmpty()
-            if (!memRes.isSuccessful || memText.isBlank()) return@withContext emptyList()
+            if (!memRes.isSuccessful || memText.isBlank()) return@withContext cached
 
             val memArray = JSONArray(memText)
             val membersMap = mutableMapOf<String, String>()
@@ -668,7 +722,7 @@ object CloudSyncManager {
                 }
             }
 
-            if (membersMap.isEmpty()) return@withContext emptyList()
+            if (membersMap.isEmpty()) return@withContext cached
 
             val (startDate, endDate) = getWeekDateRange(isCurrentWeek)
 
@@ -708,11 +762,15 @@ object CloudSyncManager {
                 )
             }.sortedByDescending { it.studyTimeMinutes }
 
+            if (isCurrentWeek && result.isNotEmpty()) {
+                GroupCacheManager.saveLeaderboard(context, groupId, result)
+            }
+
             return@withContext result
         } catch (e: Exception) {
-            Log.e(TAG, "Group leaderboard fetch error: ${e.message}")
+            Log.e(TAG, "Group leaderboard fetch error (returning cache): ${e.message}")
         }
 
-        return@withContext emptyList()
+        return@withContext cached
     }
 }
