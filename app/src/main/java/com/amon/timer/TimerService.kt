@@ -17,6 +17,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
+import android.view.View
 import android.widget.RemoteViews
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -244,7 +245,6 @@ class TimerService : Service() {
 
         timerJob = serviceScope.launch {
             if (isStopwatch) {
-                // ⚡ स्मूथ मिलीसेकंड अपडेट्स (40ms टिक)
                 while (isActive) {
                     delay(40L)
                     val now = SystemClock.elapsedRealtime()
@@ -252,7 +252,7 @@ class TimerService : Service() {
                     stopwatchElapsedMillis.value = totalActive
                     remainingSeconds.intValue = (totalActive / 1000L).toInt()
 
-                    if (totalActive >= 43200000L) { // 12 घंटे बाद ऑटो स्टॉप
+                    if (totalActive >= 43200000L) {
                         onTimerFinished()
                         break
                     }
@@ -375,7 +375,6 @@ class TimerService : Service() {
 
         val isStopwatch = (activeModeType.value == "STOPWATCH")
         if (isTimerRunning.value || isTimerPaused.value) {
-            // स्टॉपवॉच हमेशा सेव होगी, टाइमर कैंसिल होने पर भी 1 मिनट से ऊपर की पढ़ाई सेव होगी
             saveSessionToDiary(isCancelled = if (isStopwatch) false else true)
         }
 
@@ -430,7 +429,6 @@ class TimerService : Service() {
                 rawSeconds
             }
 
-            // ⏱️ कम से कम 1 मिनट (60 सेकंड) होने पर ही डेटाबेस में जुड़ेगा
             if (completedSeconds < 60) {
                 return
             }
@@ -576,7 +574,8 @@ class TimerService : Service() {
         val currentSub = if (currentSubjectName.value.isNotBlank()) currentSubjectName.value else "All"
 
         val customLayout = RemoteViews(packageName, R.layout.notification_box).apply {
-            setTextViewText(R.id.notif_mode_tag, "⚡ $modeText")
+            // 🛑 POMODORO/MODE टेक्स्ट को छुपा दिया ताकि टाइमर पूरा दिखे और कटे नहीं
+            setViewVisibility(R.id.notif_mode_tag, View.GONE)
             setTextViewText(R.id.notif_subject_tag, "Subject • $currentSub")
 
             if (isPaused) {
@@ -603,7 +602,7 @@ class TimerService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notif_logo)
-            .setContentTitle("Amon • $modeText")
+            .setContentTitle("Amon • Focus")
             .setContentText(if (isPaused) "Paused • $currentSub" else "$currentSub • Session active")
             .setOngoing(!isPaused)
             .setContentIntent(openAppPendingIntent)
