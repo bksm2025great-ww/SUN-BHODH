@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -112,6 +113,7 @@ fun GroupSettingsSheet(
                 TextButton(
                     onClick = {
                         showLeaveConfirmDialog = false
+                        GroupCacheManager.clearGroupCache(context, group.id)
                         onLeaveGroup()
                     }
                 ) {
@@ -132,7 +134,7 @@ fun GroupSettingsSheet(
             containerColor = cardBg,
             title = {
                 Text(
-                    text = "Delete Group?",
+                    text = "Delete Group Permanently?",
                     color = dangerColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp
@@ -149,9 +151,9 @@ fun GroupSettingsSheet(
                 Button(
                     onClick = {
                         showDeleteConfirmDialog = false
+                        GroupCacheManager.clearGroupCache(context, group.id)
                         onDeleteGroup()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = dangerColor)
+                    }
                 ) {
                     Text("Delete Permanently", color = Color.White, fontWeight = FontWeight.Bold)
                 }
@@ -299,59 +301,63 @@ fun GroupSettingsSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            // 🛑 Universal Library (Default group) को कोई लीव या डिलीट नहीं कर सकता
+            if (!group.isDefault) {
+                Spacer(modifier = Modifier.height(20.dp))
 
-            // Leave Group Action
-            OutlinedButton(
-                onClick = { showLeaveConfirmDialog = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(46.dp),
-                shape = RoundedCornerShape(23.dp),
-                border = BorderStroke(1.2.dp, dangerColor.copy(alpha = 0.8f)),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = dangerColor,
-                    containerColor = dangerColor.copy(alpha = 0.06f)
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = null,
-                    modifier = Modifier.size(17.dp),
-                    tint = dangerColor
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Leave Group",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            if (isAdmin) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = { showDeleteConfirmDialog = true },
+                // Leave Group Action (सभी मेंबर्स के लिए)
+                OutlinedButton(
+                    onClick = { showLeaveConfirmDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(46.dp),
                     shape = RoundedCornerShape(23.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = dangerColor,
-                        contentColor = Color.White
+                    border = BorderStroke(1.2.dp, dangerColor.copy(alpha = 0.8f)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = dangerColor,
+                        containerColor = dangerColor.copy(alpha = 0.06f)
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Delete,
+                        imageVector = Icons.Default.ExitToApp,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
+                        tint = dangerColor
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Delete Group",
+                        text = "Leave Group",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
+                }
+
+                // Delete Group Action (केवल ग्रुप एडमिन के लिए)
+                if (isAdmin) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { showDeleteConfirmDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp),
+                        shape = RoundedCornerShape(23.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = dangerColor,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Delete Group",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
