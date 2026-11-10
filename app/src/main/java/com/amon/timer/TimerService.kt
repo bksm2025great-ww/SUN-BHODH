@@ -60,8 +60,10 @@ class TimerService : Service() {
         private const val KEY_START_ELAPSED = "key_start_elapsed"
         private const val KEY_ACCUMULATED_MILLIS = "key_accumulated_millis"
         private const val KEY_RESUME_ELAPSED = "key_resume_elapsed"
+        private const val KEY_MODE = "key_mode"
 
         val remainingSeconds = mutableIntStateOf(25 * 60)
+        val stopwatchElapsedMillis = mutableStateOf(0L)
         val isTimerRunning = mutableStateOf(false)
         val isTimerPaused = mutableStateOf(false)
         val currentSubjectName = mutableStateOf("All")
@@ -102,11 +104,13 @@ class TimerService : Service() {
                     originalTimerSeconds = prefs.getInt(KEY_ORIGINAL, 25 * 60)
                     currentSubjectName.value = prefs.getString(KEY_SUBJECT, "All") ?: "All"
                     accumulatedActiveMillis = prefs.getLong(KEY_ACCUMULATED_MILLIS, 0L)
-                    val isStopwatch = (originalTimerSeconds == 0)
+                    activeModeType.value = prefs.getString(KEY_MODE, "TIMER") ?: "TIMER"
+                    val isStopwatch = (activeModeType.value == "STOPWATCH")
 
                     if (wasPaused) {
                         isTimerPaused.value = true
                         remainingSeconds.intValue = prefs.getInt(KEY_REMAINING, originalTimerSeconds)
+                        stopwatchElapsedMillis.value = accumulatedActiveMillis
                         sessionResumeElapsedRealtime = 0L
                     } else {
                         sessionStartElapsedRealtime = prefs.getLong(KEY_START_ELAPSED, 0L)
@@ -114,6 +118,7 @@ class TimerService : Service() {
 
                         if (isStopwatch) {
                             val activeNow = accumulatedActiveMillis + (SystemClock.elapsedRealtime() - sessionResumeElapsedRealtime)
+                            stopwatchElapsedMillis.value = activeNow
                             remainingSeconds.intValue = (activeNow / 1000L).toInt().coerceAtLeast(0)
                             isTimerRunning.value = true
                         } else {
@@ -141,6 +146,7 @@ class TimerService : Service() {
                 .putInt(KEY_REMAINING, remainingSeconds.intValue)
                 .putInt(KEY_ORIGINAL, originalTimerSeconds)
                 .putString(KEY_SUBJECT, currentSubjectName.value)
+                .putString(KEY_MODE, activeModeType.value)
                 .putLong(KEY_TARGET_ELAPSED, sessionTargetElapsedRealtime)
                 .putLong(KEY_START_ELAPSED, sessionStartElapsedRealtime)
                 .putLong(KEY_ACCUMULATED_MILLIS, accumulatedActiveMillis)
@@ -155,6 +161,7 @@ class TimerService : Service() {
             sessionResumeElapsedRealtime = 0L
             sessionStartElapsedRealtime = 0L
             sessionTargetElapsedRealtime = 0L
+            stopwatchElapsedMillis.value = 0L
         }
     }
 
@@ -210,6 +217,7 @@ class TimerService : Service() {
             originalTimerSeconds = seconds
             if (!isPomoBreakActive.value) {
                 accumulatedActiveMillis = 0L
+                stopwatchElapsedMillis.value = 0L
             }
             sessionStartElapsedRealtime = nowElapsed
         }
@@ -223,6 +231,7 @@ class TimerService : Service() {
 
         if (isStopwatch) {
             val totalActive = accumulatedActiveMillis + (nowElapsed - sessionResumeElapsedRealtime)
+            stopwatchElapsedMillis.value = totalActive
             remainingSeconds.intValue = (totalActive / 1000L).toInt()
             sessionTargetElapsedRealtime = 0L
         } else {
@@ -235,13 +244,15 @@ class TimerService : Service() {
 
         timerJob = serviceScope.launch {
             if (isStopwatch) {
+                // ⚡ स्मूथ मिलीसेकंड अपडेट्स (40ms टिक)
                 while (isActive) {
-                    delay(1000L)
-                    val activeNow = accumulatedActiveMillis + (SystemClock.elapsedRealtime() - sessionResumeElapsedRealtime)
-                    val elapsedSecs = (activeNow / 1000L).toInt()
-                    remainingSeconds.intValue = elapsedSecs
+                    delay(40L)
+                    val now = SystemClock.elapsedRealtime()
+                    val totalActive = accumulatedActiveMillis + (now - sessionResumeElapsedRealtime)
+                    stopwatchElapsedMillis.value = totalActive
+                    remainingSeconds.intValue = (totalActive / 1000L).toInt()
 
-                    if (elapsedSecs >= 43200) {
+                    if (totalActive >= 43200000L) { // 12 घंटे बाद ऑटो स्टॉप
                         onTimerFinished()
                         break
                     }
@@ -340,6 +351,7 @@ class TimerService : Service() {
 
         val isStopwatch = (activeModeType.value == "STOPWATCH")
         if (isStopwatch) {
+            stopwatchElapsedMillis.value = accumulatedActiveMillis
             remainingSeconds.intValue = (accumulatedActiveMillis / 1000L).toInt()
         }
 
@@ -363,6 +375,7 @@ class TimerService : Service() {
 
         val isStopwatch = (activeModeType.value == "STOPWATCH")
         if (isTimerRunning.value || isTimerPaused.value) {
+            // स्टॉपवॉच हमेशा सेव होगी, टाइमर कैंसिल होने पर भी 1 मिनट से ऊपर की पढ़ाई सेव होगी
             saveSessionToDiary(isCancelled = if (isStopwatch) false else true)
         }
 
@@ -382,7 +395,6 @@ class TimerService : Service() {
         endServiceCleanup()
     }
 
-    // 🛑 नोटिफिकेशन को पूरी तरह नष्ट (Kill) करने का पुख्ता कोड
     private fun endServiceCleanup() {
         timerJob?.cancel()
         isTimerRunning.value = false
@@ -392,6 +404,7 @@ class TimerService : Service() {
         sessionTargetElapsedRealtime = 0L
         sessionResumeElapsedRealtime = 0L
         accumulatedActiveMillis = 0L
+        stopwatchElapsedMillis.value = 0L
 
         clearPersistedState(this)
         remainingSeconds.intValue = if (originalTimerSeconds > 0) originalTimerSeconds else 0
@@ -400,7 +413,6 @@ class TimerService : Service() {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } catch (_: Exception) {}
 
-        // नोटिफिकेशन को सीधे कैंसिल करना
         try {
             val manager = getSystemService(NotificationManager::class.java)
             manager?.cancel(NOTIFICATION_ID)
@@ -418,11 +430,12 @@ class TimerService : Service() {
                 rawSeconds
             }
 
-            if (completedSeconds < 300) {
+            // ⏱️ कम से कम 1 मिनट (60 सेकंड) होने पर ही डेटाबेस में जुड़ेगा
+            if (completedSeconds < 60) {
                 return
             }
 
-            val minutes = completedSeconds / 60
+            val minutes = (completedSeconds / 60).coerceAtLeast(1)
 
             val trees = if (isCancelled) {
                 0
@@ -566,7 +579,6 @@ class TimerService : Service() {
             setTextViewText(R.id.notif_mode_tag, "⚡ $modeText")
             setTextViewText(R.id.notif_subject_tag, "Subject • $currentSub")
 
-            // 🛑 अगर पॉज है, तो क्रोनोमीटर को टिक करने से रोकें
             if (isPaused) {
                 val pausedBase = SystemClock.elapsedRealtime() + (remainingSeconds.intValue * 1000L)
                 setChronometer(R.id.notif_timer, pausedBase, null, false)
