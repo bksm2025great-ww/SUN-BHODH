@@ -67,7 +67,7 @@ fun GroupsRootScreen(
     var showSettingsSheet by remember { mutableStateOf(false) }
     var showNicknameDialog by remember { mutableStateOf(false) }
 
-    // 🔄 क्लाउड से ग्रुप फेच करना और डिफ़ॉल्ट लाइब्रेरी को सुरक्षित रखना
+    // 🔄 क्लाउड से ग्रुप्स फेच करना और डिफ़ॉल्ट लाइब्रेरी को सुरक्षित रखना
     LaunchedEffect(Unit) {
         coroutineScope.launch(Dispatchers.IO) {
             val cloudGroups = CloudSyncManager.fetchGroups(context)
@@ -76,7 +76,6 @@ fun GroupsRootScreen(
                     groupsList = cloudGroups
                     selectedGroup = cloudGroups.find { it.id == selectedGroup.id } ?: cloudGroups[0]
                 } else {
-                    // अगर डेटाबेस में Universal Library भी नहीं है, तो क्लाउड पर फिर से बना दो
                     groupsList = listOf(defaultGlobalGroup)
                     selectedGroup = defaultGlobalGroup
                     coroutineScope.launch(Dispatchers.IO) {
@@ -163,6 +162,7 @@ fun GroupsRootScreen(
                                 CloudSyncManager.joinGroupOnCloud(context, groupId)
                             } else {
                                 CloudSyncManager.leaveGroupOnCloud(context, groupId)
+                                GroupCacheManager.clearGroupCache(context, groupId)
                             }
                         }
                     }
@@ -175,7 +175,30 @@ fun GroupsRootScreen(
                     userNickname = currentNickname,
                     onBackClick = { currentScreen = GroupsScreenState.HOME },
                     onInviteClick = { },
-                    onSettingsClick = { showSettingsSheet = true }
+                    onSettingsClick = { showSettingsSheet = true },
+                    onJoinClick = { groupId ->
+                        val target = groupsList.find { it.id == groupId }
+                        if (target != null) {
+                            val updated = target.copy(isJoined = true, memberCount = target.memberCount + 1)
+                            groupsList = groupsList.map { if (it.id == groupId) updated else it }
+                            selectedGroup = updated
+                            Toast.makeText(context, "Joined ${updated.name}!", Toast.LENGTH_SHORT).show()
+                        }
+
+                        coroutineScope.launch(Dispatchers.IO) {
+                            CloudSyncManager.joinGroupOnCloud(context, groupId)
+                            val fresh = CloudSyncManager.fetchGroups(context)
+                            withContext(Dispatchers.Main) {
+                                if (fresh.isNotEmpty()) {
+                                    groupsList = fresh
+                                    val joinedTarget = fresh.find { it.id == groupId }
+                                    if (joinedTarget != null) {
+                                        selectedGroup = joinedTarget
+                                    }
+                                }
+                            }
+                        }
+                    }
                 )
             }
         }
@@ -216,14 +239,14 @@ fun GroupsRootScreen(
         }
 
         if (showSettingsSheet) {
-            // 🛡️ केवल असली एडमिन को ही Delete Group दिखेगा (और Universal Library कभी डिलीट नहीं होगी)
+            // 🛡️ केवल असली एडमिन को ही Delete Group दिखेगा (डिफ़ॉल्ट यूनिवर्सल लाइब्रेरी को कभी डिलीट नहीं किया जा सकता)
             val isUserAdmin = !selectedGroup.isDefault && selectedGroup.members.any { member ->
                 member.id == currentUserId && member.role == MemberRole.ADMIN
             }
 
             GroupSettingsSheet(
                 group = selectedGroup,
-                isAdmin = isUserAdmin, // ✅ अब सचमुच केवल एडमिन को ही डिलीट बटन मिलेगा
+                isAdmin = isUserAdmin,
                 onDismiss = { showSettingsSheet = false },
                 onInvite = { showSettingsSheet = false },
                 onToggleNotifications = { enabled ->
@@ -239,6 +262,7 @@ fun GroupsRootScreen(
                 },
                 onLeaveGroup = {
                     val groupId = selectedGroup.id
+                    GroupCacheManager.clearGroupCache(context, groupId)
                     groupsList = groupsList.map { g ->
                         if (g.id == groupId) g.copy(isJoined = false, isPinned = false) else g
                     }
@@ -252,11 +276,13 @@ fun GroupsRootScreen(
                 },
                 onDeleteGroup = {
                     val groupId = selectedGroup.id
+                    val deletedGroupName = selectedGroup.name
+                    GroupCacheManager.clearGroupCache(context, groupId)
                     groupsList = groupsList.filter { it.id != groupId }
                     selectedGroup = groupsList.firstOrNull() ?: defaultGlobalGroup
                     showSettingsSheet = false
                     currentScreen = GroupsScreenState.HOME
-                    Toast.makeText(context, "Group \"${selectedGroup.name}\" deleted permanently", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Group \"$deletedGroupName\" deleted permanently", Toast.LENGTH_SHORT).show()
 
                     coroutineScope.launch(Dispatchers.IO) {
                         CloudSyncManager.deleteGroupOnCloud(groupId)
