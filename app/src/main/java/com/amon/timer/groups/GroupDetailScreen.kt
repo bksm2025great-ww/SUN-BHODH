@@ -76,7 +76,6 @@ fun GroupDetailScreen(
         mutableStateOf(if (group.members.isNotEmpty()) group.members else cachedMembers)
     }
 
-    // 🔒 केवल जॉइन किए हुए सदस्यों के लिए ही लीडरबोर्ड लोड होगा
     LaunchedEffect(selectedWeek.id, group.id, group.isJoined) {
         if (group.isJoined) {
             coroutineScope.launch(Dispatchers.IO) {
@@ -154,7 +153,6 @@ fun GroupDetailScreen(
                     }
                 },
                 actions = {
-                    // 🛡️ केवल जॉइन किए हुए मेंबर्स को ही इनवाइट और सेटिंग्स का बटन दिखेगा
                     if (group.isJoined) {
                         Surface(
                             shape = RoundedCornerShape(16.dp),
@@ -211,7 +209,6 @@ fun GroupDetailScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Header Info Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -270,7 +267,6 @@ fun GroupDetailScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // 🛑 अगर जॉइन नहीं किया है -> मेंबर्स न दिखाएँ, प्रोटेक्टेड कार्ड और जॉइन बटन दिखाएँ
             if (!group.isJoined) {
                 Box(
                     modifier = Modifier
@@ -338,7 +334,6 @@ fun GroupDetailScreen(
                     }
                 }
             } else {
-                // ✅ अगर जॉइन कर रखा है -> पूरा लीडरबोर्ड और एक्टिव मेंबर्स
                 TabRow(
                     selectedTabIndex = selectedTabIndex,
                     containerColor = bgColor,
