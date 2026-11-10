@@ -17,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,9 +33,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -44,6 +53,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.amon.timer.groups.GroupsRootScreen
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -72,17 +83,34 @@ fun MainScreen() {
     var selectedSubjectName by rememberSaveable { mutableStateOf("All") }
     var initialTotalSeconds by rememberSaveable { mutableIntStateOf(25 * 60) }
 
-    // 🍅 पोमोडोरो लाइव स्टेट्स (TimerService से सिंक)
     val isBreakActive = TimerService.isPomoBreakActive.value
     val currentSessionIndex = TimerService.currentPomoRound.intValue
 
-    // 🌟 मिनी बार के लिए स्टेट
     var isFocusMinimized by rememberSaveable { mutableStateOf(false) }
 
-    // जब भी कोई सेशन शुरू हो, मिनीमाइज़ रीसेट होकर फ़ुलस्क्रीन खुलेगा
     LaunchedEffect(isRunning) {
         if (isRunning) {
             isFocusMinimized = false
+        }
+    }
+
+    // ⚡ SCREEN WAKE-UP SYNC
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                TimerService.syncRemainingTime(context)
+                if (isStopwatchFocusActive && isStopwatchRunning) {
+                    val now = SystemClock.elapsedRealtime()
+                    if (stopwatchBaseTime > 0L) {
+                        stopwatchElapsedMillis = stopwatchAccumulatedMillis + (now - stopwatchBaseTime)
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -174,7 +202,8 @@ fun MainScreen() {
             context.startService(intent)
         }
         isFocusMinimized = false
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        // 🔒 स्क्रीन को पोर्ट्रेट पर ही रखें ताकि कोई रोटेट बटन न आए
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
 
     DisposableEffect(isFullScreenFocus) {
@@ -202,7 +231,8 @@ fun MainScreen() {
                 window.statusBarColor = AndroidColor.TRANSPARENT
                 window.navigationBarColor = AndroidColor.TRANSPARENT
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
-                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                // 🔒 बाहर आते ही सख्ती से पोर्ट्रेट में लॉक करें
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             }
         }
         onDispose {
@@ -210,7 +240,7 @@ fun MainScreen() {
                 win.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
                 WindowCompat.getInsetsController(win, view).show(WindowInsetsCompat.Type.systemBars())
             }
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
     }
 
@@ -222,7 +252,7 @@ fun MainScreen() {
     val glassBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
     val glowBorder = goldColor.copy(alpha = 0.6f)
 
-    // 🔙 BACK BUTTON:
+    // 🔙 BACK BUTTON
     BackHandler(enabled = isFullScreenFocus) {
         isFocusMinimized = true
     }
@@ -254,7 +284,6 @@ fun MainScreen() {
         bottomBar = {
             if (!isFullScreenFocus) {
                 Column(modifier = Modifier.fillMaxWidth().background(Color.Transparent)) {
-                    // 🌟 जब सेशन चल रहा हो और मिनीमाइज़ हो तो बॉटम बार के ऊपर मिनी बार दिखेगी
                     if (isFocusActive && isFocusMinimized) {
                         MiniFocusBar(
                             subjectName = if (isBreakActive) "Break Time" else selectedSubjectName,
@@ -354,7 +383,7 @@ fun MainScreen() {
         }
     }
 
-    // 🎉 CELEBRATION POPUP DIALOG (5-SECOND AUTO-DISMISS)
+    // 🎉 CELEBRATION POPUP DIALOG
     if (TimerService.showCompletionDialogTrigger.value) {
         LaunchedEffect(Unit) {
             delay(5000L)
@@ -432,7 +461,7 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🌟 MINIMAL MINI FOCUS FLOATING BAR (बिना किसी गोल आइकन के, एकदम क्लीन)
+// 🌟 MINIMAL MINI FOCUS FLOATING BAR (सुधरे हुए वेक्टर्स के साथ)
 // =============================================================================
 @Composable
 fun MiniFocusBar(
@@ -466,21 +495,46 @@ fun MiniFocusBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // 1. Play / Pause Button
+            // 1. 🎵 मॉडर्न प्ले / पॉज़ बटन (कैनवास वेक्टर)
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(34.dp)
                     .clip(CircleShape)
-                    .background(goldColor.copy(alpha = 0.2f))
+                    .background(goldColor)
                     .clickable { onTogglePlayPause() }
             ) {
-                Text(
-                    text = if (isPaused) "▶" else "⏸",
-                    color = goldColor,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Black
-                )
+                if (isPaused) {
+                    // प्ले त्रिकोण
+                    Canvas(modifier = Modifier.size(13.dp)) {
+                        val path = Path().apply {
+                            moveTo(size.width * 0.22f, size.height * 0.15f)
+                            lineTo(size.width * 0.88f, size.height * 0.5f)
+                            lineTo(size.width * 0.22f, size.height * 0.85f)
+                            close()
+                        }
+                        drawPath(path, color = Color.Black)
+                    }
+                } else {
+                    // पॉज़ की दो वर्टिकल पिल्स
+                    Canvas(modifier = Modifier.size(13.dp)) {
+                        val barW = size.width * 0.28f
+                        val barH = size.height * 0.85f
+                        val cr = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                        drawRoundRect(
+                            color = Color.Black,
+                            topLeft = Offset(size.width * 0.14f, size.height * 0.075f),
+                            size = Size(barW, barH),
+                            cornerRadius = cr
+                        )
+                        drawRoundRect(
+                            color = Color.Black,
+                            topLeft = Offset(size.width * 0.58f, size.height * 0.075f),
+                            size = Size(barW, barH),
+                            cornerRadius = cr
+                        )
+                    }
+                }
             }
 
             // 2. Subject Name • Time
@@ -507,7 +561,7 @@ fun MiniFocusBar(
                 )
             }
 
-            // 3. Expand Button (˄)
+            // 3. ⛶ मॉडर्न एक्सपैंड / फ़ुलस्क्रीन आइकन
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -516,12 +570,22 @@ fun MiniFocusBar(
                     .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
                     .clickable { onExpand() }
             ) {
-                Text(
-                    text = "˄",
-                    color = textMain,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Black
-                )
+                Canvas(modifier = Modifier.size(14.dp)) {
+                    val p = Path().apply {
+                        moveTo(size.width * 0.18f, size.height * 0.65f)
+                        lineTo(size.width * 0.5f, size.height * 0.32f)
+                        lineTo(size.width * 0.82f, size.height * 0.65f)
+                    }
+                    drawPath(
+                        path = p,
+                        color = textMain,
+                        style = Stroke(
+                            width = 2.2.dp.toPx(),
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round
+                        )
+                    )
+                }
             }
         }
     }
@@ -653,7 +717,6 @@ fun HomeTimerTab(
                     .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // TOP HEADER
                 Row(
                     modifier = Modifier.fillMaxWidth().height(38.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -671,7 +734,6 @@ fun HomeTimerTab(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // SOUND BUTTON
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -693,7 +755,6 @@ fun HomeTimerTab(
                             )
                         }
 
-                        // STREAK
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -718,7 +779,6 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Subject Bar
                 Box(modifier = Modifier.fillMaxWidth().height(38.dp)) {
                     LazyRow(
                         modifier = Modifier.fillMaxSize(),
@@ -783,7 +843,6 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Center Watches Container
                 Box(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentAlignment = Alignment.Center
@@ -816,7 +875,6 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // START FOCUS BUTTON
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -844,7 +902,6 @@ fun HomeTimerTab(
                 }
             }
         } else {
-            // Fullscreen Active Focus View
             if (activeMode == FocusModeType.STOPWATCH) {
                 Column(
                     modifier = Modifier
@@ -953,10 +1010,8 @@ fun HomeTimerTab(
                         )
                     }
 
-                    // 🎯 बटन कंट्रोल्स (ब्रेक होने पर Skip Break बटन दिखेगा)
                     if (isBreakActive) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            // ⏭ SKIP BREAK BUTTON
                             Button(
                                 onClick = {
                                     FocusSoundManager.triggerHaptic(context, false)
@@ -994,7 +1049,6 @@ fun HomeTimerTab(
                             }
                         }
                     } else {
-                        // नॉर्मल फोकस समय के बटन
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                             Button(
                                 onClick = {
@@ -1206,7 +1260,7 @@ fun HomeTimerTab(
 }
 
 // =============================================================================
-// 🔥 STREAK CALCULATION HELPER
+// 🌟 STREAK CALCULATION HELPER
 // =============================================================================
 fun calculateStreakDays(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
