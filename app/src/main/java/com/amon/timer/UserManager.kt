@@ -2,6 +2,7 @@ package com.amon.timer
 
 import android.content.Context
 import android.content.SharedPreferences
+import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 class UserManager(private val context: Context) {
@@ -18,10 +19,23 @@ class UserManager(private val context: Context) {
         private const val KEY_FRESH_AUTH_V1 = "fresh_auth_completed_v1"
     }
 
-    // ----------------- 0. UNIQUE USER ID (UUID) -----------------
+    // ----------------- 0. UNIQUE USER ID (PERMANENT GMAIL UUID) -----------------
 
-    // 🆔 हर यूज़र की स्थायी यूनिक ID (Supabase के लिए)
+    /**
+     * 🆔 1 Gmail = 1 Permanent UUID
+     * अगर ईमेल मौजूद है, तो यह हमेशा वही एक स्थायी UUID जनरेट करेगा, 
+     * चाहे ऐप कितनी बार भी अपडेट या री-इंस्टॉल हो।
+     */
     fun getUserId(): String {
+        val email = getUserEmail().trim().lowercase()
+        if (email.isNotBlank()) {
+            val permanentId = UUID.nameUUIDFromBytes("amon_user:$email".toByteArray(StandardCharsets.UTF_8)).toString()
+            if (prefs.getString(KEY_USER_ID, "") != permanentId) {
+                prefs.edit().putString(KEY_USER_ID, permanentId).apply()
+            }
+            return permanentId
+        }
+
         var id = prefs.getString(KEY_USER_ID, "") ?: ""
         if (id.isBlank()) {
             id = UUID.randomUUID().toString()
@@ -56,7 +70,13 @@ class UserManager(private val context: Context) {
     }
 
     fun setUserEmail(email: String) {
-        prefs.edit().putString(KEY_EMAIL, email.trim()).apply()
+        val cleanEmail = email.trim().lowercase()
+        prefs.edit().putString(KEY_EMAIL, cleanEmail).apply()
+        if (cleanEmail.isNotBlank()) {
+            // ईमेल सेव होते ही परमानेंट UUID लॉक करें
+            val permanentId = UUID.nameUUIDFromBytes("amon_user:$cleanEmail".toByteArray(StandardCharsets.UTF_8)).toString()
+            prefs.edit().putString(KEY_USER_ID, permanentId).apply()
+        }
     }
 
     fun getUserEmail(): String {
