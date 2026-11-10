@@ -43,6 +43,22 @@ object CloudSyncManager {
     private var lastSyncTimestamp: Long = 0L
     private var lastSyncedMinutes: Long = 0L
 
+    // 👑 एडमिन राइट्स को सुरक्षित रूप से लोकल प्रेफ्स में ट्रैक करना
+    fun markGroupAsAdmin(context: Context, groupId: String) {
+        context.getSharedPreferences("amon_admin_prefs", Context.MODE_PRIVATE)
+            .edit().putBoolean("admin_$groupId", true).apply()
+    }
+
+    fun isGroupAdmin(context: Context, groupId: String): Boolean {
+        return context.getSharedPreferences("amon_admin_prefs", Context.MODE_PRIVATE)
+            .getBoolean("admin_$groupId", false)
+    }
+
+    fun removeGroupAdmin(context: Context, groupId: String) {
+        context.getSharedPreferences("amon_admin_prefs", Context.MODE_PRIVATE)
+            .edit().remove("admin_$groupId").apply()
+    }
+
     /**
      * 📅 हफ़्ते (Current Week vs Last Week) की Monday से Sunday की तारीखें निकालना
      */
@@ -64,7 +80,7 @@ object CloudSyncManager {
     }
 
     /**
-     * ✨ 1. छात्र की स्थायी Gmail UUID के साथ profiles रजिस्टर करना
+     * ✨ 1. छात्र की स्थायी ID के साथ profiles रजिस्टर करना
      */
     fun registerUserOnCloud(
         context: Context,
@@ -122,6 +138,7 @@ object CloudSyncManager {
 
         val userManager = UserManager(context)
         val currentUserId = userManager.getUserId()
+        val currentUserName = userManager.getUserName().ifBlank { "Aspirant" }
 
         val joinedGroupIds = mutableSetOf<String>()
         val groupCountsMap = mutableMapOf<String, Int>()
@@ -174,6 +191,15 @@ object CloudSyncManager {
                     val isJoined = joinedGroupIds.contains(gId)
                     val realMemberCount = groupCountsMap[gId] ?: obj.optInt("member_count", 1)
 
+                    val isDefaultGroup = (gId == "universal_lib") || obj.optBoolean("is_default", false)
+                    val isUserAdmin = (!isDefaultGroup) && isGroupAdmin(context, gId)
+
+                    val membersList = if (isUserAdmin) {
+                        listOf(GroupMember(id = currentUserId, nickname = currentUserName, role = MemberRole.ADMIN))
+                    } else {
+                        emptyList()
+                    }
+
                     list.add(
                         StudyGroup(
                             id = gId,
@@ -184,10 +210,29 @@ object CloudSyncManager {
                             focusingCount = 0,
                             isPinned = false,
                             isJoined = isJoined,
-                            isDefault = false,
-                            inviteCode = obj.optString("invite_code", "")
+                            isDefault = isDefaultGroup,
+                            inviteCode = obj.optString("invite_code", ""),
+                            members = membersList
                         )
                     )
+                }
+
+                val hasUniversal = list.any { it.id == "universal_lib" }
+                if (!hasUniversal) {
+                    val defaultLib = StudyGroup(
+                        id = "universal_lib",
+                        name = "Universal Library",
+                        category = "Global",
+                        isPublic = true,
+                        memberCount = 1,
+                        focusingCount = 0,
+                        isPinned = true,
+                        isJoined = joinedGroupIds.contains("universal_lib"),
+                        isDefault = true,
+                        inviteCode = "GLOBAL"
+                    )
+                    list.add(0, defaultLib)
+                    createGroupOnCloud(context, defaultLib)
                 }
 
                 return@withContext list
@@ -214,7 +259,7 @@ object CloudSyncManager {
             put("category", group.category)
             put("is_public", group.isPublic)
             put("member_count", 1)
-            put("is_default", false)
+            put("is_default", group.isDefault)
             put("invite_code", group.inviteCode)
         }
 
@@ -230,6 +275,9 @@ object CloudSyncManager {
         try {
             val response = client.newCall(request).execute()
             if (response.isSuccessful) {
+                if (!group.isDefault) {
+                    markGroupAsAdmin(context, group.id)
+                }
                 joinGroupOnCloud(context, group.id)
                 return@withContext true
             }
@@ -240,7 +288,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 🚪 4. ग्रुप जॉइन करना (स्थायी ID के साथ)
+     * 🚪 4. ग्रुप जॉइन करना
      */
     suspend fun joinGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
         val userManager = UserManager(context)
@@ -264,7 +312,7 @@ object CloudSyncManager {
 
         try {
             val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
+            if (response.isSuccessful || response.code == 409) {
                 updateUserWeeklyMinutes(userId)
                 return@withContext true
             }
@@ -299,10 +347,15 @@ object CloudSyncManager {
     }
 
     /**
-     * 🗑️ 6. ग्रुप हमेशा के लिए डिलीट करना
+     * 🗑️ 6. ग्रुप हमेशा के लिए डिलीट करना (Universal Library सुरक्षित)
      */
     suspend fun deleteGroupOnCloud(groupId: String): Boolean = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext false
+
+        if (groupId == "universal_lib") {
+            Log.w(TAG, "Default Universal Library cannot be deleted from cloud!")
+            return@withContext false
+        }
 
         try {
             val delMembersReq = Request.Builder()
@@ -373,7 +426,7 @@ object CloudSyncManager {
     }
 
     /**
-     * ⏱️ 8. पढ़ाई पूरी होने पर सेशन सिंक करना (पक्की Gmail UUID + RLS Bypass Header)
+     * ⏱️ 8. पढ़ाई पूरी होने पर सेशन सिंक करना
      */
     fun syncSession(
         context: Context,
@@ -434,7 +487,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 🔄 8.1 group_members टेबल में weekly_study_minutes को ताज़ा गणना करके अपडेट करना
+     * 🔄 8.1 group_members टेबल में weekly_study_minutes अपडेट करना
      */
     fun updateUserWeeklyMinutes(userId: String) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank() || userId.isBlank()) return
