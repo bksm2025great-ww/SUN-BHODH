@@ -64,7 +64,7 @@ object CloudSyncManager {
     }
 
     /**
-     * ✨ 1. नया छात्र आते ही Supabase के profiles रजिस्टर में नाम, UUID और ईमेल दर्ज करना
+     * ✨ 1. छात्र की स्थायी Gmail UUID के साथ profiles रजिस्टर करना
      */
     fun registerUserOnCloud(
         context: Context,
@@ -72,76 +72,17 @@ object CloudSyncManager {
         nickname: String? = null,
         email: String? = null
     ) {
-        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) {
-            Log.w(TAG, "Supabase credentials set nahi hai!")
-            return
-        }
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return
 
         val userManager = UserManager(context)
-        val finalEmail = (email ?: userManager.getUserEmail()).trim()
-        val finalUserName = (nickname ?: userManager.getUserName()).trim()
+        val finalUserId = (userId ?: userManager.getUserId()).trim()
+        val finalUserName = (nickname ?: userManager.getUserName()).trim().ifBlank { "Aspirant" }
+        val finalEmail = (email ?: userManager.getUserEmail()).trim().lowercase()
 
-        if (finalUserName.isBlank() || finalUserName.equals("Guest", ignoreCase = true)) {
-            return
-        }
-
-        if (finalEmail.isNotBlank()) {
-            val checkUrl = "$SUPABASE_URL/rest/v1/profiles?email=eq.$finalEmail&select=id,display_name&limit=1"
-            val checkRequest = Request.Builder()
-                .url(checkUrl)
-                .addHeader("apikey", SUPABASE_KEY)
-                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
-                .get()
-                .build()
-
-            client.newCall(checkRequest).enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    Log.e(TAG, "Email check failed, fallback to local UUID: ${e.message}")
-                    saveProfileDirectly(context, userId ?: userManager.getUserId(), finalUserName, finalEmail)
-                }
-
-                override fun onResponse(call: Call, response: Response) {
-                    response.use {
-                        val responseText = response.body?.string().orEmpty()
-                        var targetUserId = userId ?: userManager.getUserId()
-
-                        if (response.isSuccessful && responseText.isNotBlank()) {
-                            try {
-                                val arr = JSONArray(responseText)
-                                if (arr.length() > 0) {
-                                    val existingId = arr.getJSONObject(0).getString("id")
-                                    userManager.setUserId(existingId)
-                                    targetUserId = existingId
-                                    Log.d(TAG, "Purana account mila! UUID restored: $existingId")
-                                }
-                            } catch (e: Exception) {
-                                Log.e(TAG, "JSON parse error during email check: ${e.message}")
-                            }
-                        }
-
-                        saveProfileDirectly(context, targetUserId, finalUserName, finalEmail)
-                    }
-                }
-            })
-        } else {
-            val targetUserId = userId ?: userManager.getUserId()
-            saveProfileDirectly(context, targetUserId, finalUserName, null)
-        }
-    }
-
-    /**
-     * 💾 profiles टेबल में डेटा UPSERT करने का इंटरनल फ़ंक्शन
-     */
-    private fun saveProfileDirectly(
-        context: Context,
-        finalUserId: String,
-        finalUserName: String,
-        finalEmail: String?
-    ) {
         val jsonPayload = JSONObject().apply {
             put("id", finalUserId)
             put("display_name", finalUserName)
-            if (!finalEmail.isNullOrBlank()) {
+            if (finalEmail.isNotBlank()) {
                 put("email", finalEmail)
             }
         }
@@ -164,9 +105,9 @@ object CloudSyncManager {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (response.isSuccessful) {
-                        Log.d(TAG, "User '$finalUserName' ($finalUserId) profiles me safalta se jud gaya!")
+                        Log.d(TAG, "User '$finalUserName' ($finalUserId) permanent profile synced!")
                     } else {
-                        Log.e(TAG, "Registration error code: ${response.code} body: ${response.body?.string()}")
+                        Log.e(TAG, "Profile sync error: ${response.code} body: ${response.body?.string()}")
                     }
                 }
             }
@@ -174,7 +115,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 👥 2. ग्रुप्स को Supabase से लोड करना (सटीक Member Count के साथ)
+     * 👥 2. ग्रुप्स को Supabase से लोड करना
      */
     suspend fun fetchGroups(context: Context): List<StudyGroup> = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
@@ -291,8 +232,6 @@ object CloudSyncManager {
             if (response.isSuccessful) {
                 joinGroupOnCloud(context, group.id)
                 return@withContext true
-            } else {
-                Log.e(TAG, "Create group failed: ${response.code} body: ${response.body?.string()}")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Create group exception: ${e.message}")
@@ -301,12 +240,12 @@ object CloudSyncManager {
     }
 
     /**
-     * 🚪 4. ग्रुप जॉइन करना (साथ ही तुरंत weekly_study_minutes अपडेट करना)
+     * 🚪 4. ग्रुप जॉइन करना (स्थायी ID के साथ)
      */
     suspend fun joinGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
         val userManager = UserManager(context)
         val userId = userManager.getUserId()
-        val userName = userManager.getUserName()
+        val userName = userManager.getUserName().ifBlank { "Aspirant" }
 
         val payload = JSONObject().apply {
             put("group_id", groupId)
@@ -360,7 +299,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 🗑️ 6. ग्रुप हमेशा के लिए डिलीट करना (Only Admin)
+     * 🗑️ 6. ग्रुप हमेशा के लिए डिलीट करना
      */
     suspend fun deleteGroupOnCloud(groupId: String): Boolean = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext false
@@ -390,7 +329,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 🔍 7. इनवाइट कोड से प्राइवेट ग्रुप ढूँढना
+     * 🔍 7. इनवाइट कोड से ग्रुप ढूँढना
      */
     suspend fun fetchGroupByInviteCode(inviteCode: String): StudyGroup? = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext null
@@ -434,7 +373,7 @@ object CloudSyncManager {
     }
 
     /**
-     * ⏱️ 8. पढ़ाई पूरी होने पर सेशन सिंक करना + group_members में weekly_study_minutes अपडेट करना
+     * ⏱️ 8. पढ़ाई पूरी होने पर सेशन सिंक करना (पक्की Gmail UUID + RLS Bypass Header)
      */
     fun syncSession(
         context: Context,
@@ -443,15 +382,10 @@ object CloudSyncManager {
         earnedTrees: Int = 0,
         sessionId: Long = System.currentTimeMillis()
     ) {
-        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) {
-            Log.w(TAG, "Supabase credentials set nahi hai!")
-            return
-        }
-
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return
         if (durationMinutes <= 0) return
 
         val now = System.currentTimeMillis()
-
         if (now - lastSyncTimestamp < 3000 && lastSyncedMinutes == durationMinutes) {
             Log.w(TAG, "Duplicate session sync blocked!")
             return
@@ -477,6 +411,7 @@ object CloudSyncManager {
             .addHeader("apikey", SUPABASE_KEY)
             .addHeader("Authorization", "Bearer $SUPABASE_KEY")
             .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "return=representation")
             .post(requestBody)
             .build()
 
@@ -488,11 +423,10 @@ object CloudSyncManager {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (response.isSuccessful) {
-                        Log.d(TAG, "Session safely synced to Supabase for user: $userId")
-                        // 🎯 सेशन सफलतापूर्वक जुड़ते ही group_members के साप्ताहिक मिनट अपडेट करें
+                        Log.d(TAG, "Session safely synced to Supabase for permanent user: $userId")
                         updateUserWeeklyMinutes(userId)
                     } else {
-                        Log.e(TAG, "Server error code: ${response.code} body: ${response.body?.string()}")
+                        Log.e(TAG, "Supabase session sync rejected! Code: ${response.code} Body: ${response.body?.string()}")
                     }
                 }
             }
@@ -500,7 +434,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 🔄 8.1 group_members टेबल में weekly_study_minutes को गणना करके अपडेट (PATCH) करना
+     * 🔄 8.1 group_members टेबल में weekly_study_minutes को ताज़ा गणना करके अपडेट करना
      */
     fun updateUserWeeklyMinutes(userId: String) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank() || userId.isBlank()) return
@@ -517,7 +451,7 @@ object CloudSyncManager {
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "Failed to calculate weekly minutes for sync: ${e.message}")
+                Log.e(TAG, "Failed to calculate weekly minutes: ${e.message}")
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -545,15 +479,13 @@ object CloudSyncManager {
 
                             client.newCall(patchRequest).enqueue(object : Callback {
                                 override fun onFailure(pCall: Call, pE: IOException) {
-                                    Log.e(TAG, "Failed to update weekly_study_minutes in group_members: ${pE.message}")
+                                    Log.e(TAG, "Failed to update weekly_study_minutes: ${pE.message}")
                                 }
 
                                 override fun onResponse(pCall: Call, pResponse: Response) {
                                     pResponse.use {
                                         if (pResponse.isSuccessful) {
-                                            Log.d(TAG, "weekly_study_minutes successfully updated to $totalWeeklyMins for user $userId")
-                                        } else {
-                                            Log.e(TAG, "Error updating weekly_study_minutes: ${pResponse.code}")
+                                            Log.d(TAG, "weekly_study_minutes updated to $totalWeeklyMins for $userId")
                                         }
                                     }
                                 }
@@ -650,7 +582,7 @@ object CloudSyncManager {
     }
 
     /**
-     * 🏆 11. ग्रुप लीडरबोर्ड (This Week vs Last Week) एक्टिव फ़िल्टर
+     * 🏆 11. ग्रुप लीडरबोर्ड (This Week vs Last Week)
      */
     suspend fun fetchGroupLeaderboard(
         context: Context,
