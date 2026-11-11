@@ -11,12 +11,13 @@ import android.os.Build
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -60,9 +61,6 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
-// =============================================================================
-// 🏆 2D गोल्डन ट्रॉफी वेक्टर आइकन (OPTION 1)
-// =============================================================================
 @Composable
 fun VectorGoldTrophy(
     tint: Color,
@@ -111,9 +109,6 @@ fun VectorGoldTrophy(
     }
 }
 
-// =============================================================================
-// ⏱️ 2D ब्रोकन आर्क अलर्ट टाइमर आइकन (OPTION 6)
-// =============================================================================
 @Composable
 fun VectorBrokenArcAlert(
     tint: Color,
@@ -188,6 +183,66 @@ fun VectorBrokenArcAlert(
 }
 
 @Composable
+fun AndroidAutoRotateLineIcon(
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val center = Offset(w / 2f, h / 2f)
+        val strokeWidth = 1.4.dp.toPx()
+
+        val phoneW = w * 0.32f
+        val phoneH = h * 0.50f
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(center.x - phoneW / 2f, center.y - phoneH / 2f),
+            size = Size(phoneW, phoneH),
+            cornerRadius = CornerRadius(2.2.dp.toPx(), 2.2.dp.toPx()),
+            style = Stroke(width = strokeWidth)
+        )
+
+        val arcRadius = w * 0.38f
+        drawArc(
+            color = tint,
+            startAngle = 205f,
+            sweepAngle = 95f,
+            useCenter = false,
+            topLeft = Offset(center.x - arcRadius, center.y - arcRadius),
+            size = Size(arcRadius * 2f, arcRadius * 2f),
+            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        )
+
+        val arrowPath1 = Path().apply {
+            moveTo(center.x + arcRadius * 0.10f, center.y - arcRadius * 1.02f)
+            lineTo(center.x + arcRadius * 0.40f, center.y - arcRadius * 0.90f)
+            lineTo(center.x + arcRadius * 0.25f, center.y - arcRadius * 0.62f)
+            close()
+        }
+        drawPath(path = arrowPath1, color = tint)
+
+        drawArc(
+            color = tint,
+            startAngle = 25f,
+            sweepAngle = 95f,
+            useCenter = false,
+            topLeft = Offset(center.x - arcRadius, center.y - arcRadius),
+            size = Size(arcRadius * 2f, arcRadius * 2f),
+            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        )
+
+        val arrowPath2 = Path().apply {
+            moveTo(center.x - arcRadius * 0.10f, center.y + arcRadius * 1.02f)
+            lineTo(center.x - arcRadius * 0.40f, center.y + arcRadius * 0.90f)
+            lineTo(center.x - arcRadius * 0.25f, center.y - arcRadius * 0.62f)
+            close()
+        }
+        drawPath(path = arrowPath2, color = tint)
+    }
+}
+
+@Composable
 fun MainScreen() {
     val context = LocalContext.current
     val view = LocalView.current
@@ -208,10 +263,29 @@ fun MainScreen() {
     val currentSessionIndex = TimerService.currentPomoRound.intValue
 
     var isFocusMinimized by rememberSaveable { mutableStateOf(false) }
+    var isLandscape by remember { mutableStateOf(false) }
+
+    // 🌟 Zen Mode: स्क्रीन टैप करने पर कंट्रोल्स दिखना/छिपना
+    var areControlsVisible by remember { mutableStateOf(true) }
+
+    LaunchedEffect(isRunning, areControlsVisible) {
+        if (isRunning && areControlsVisible) {
+            delay(4000L) // 4 सेकंड बाद अपने-आप स्मूथली छिप जाएँगे
+            areControlsVisible = false
+        }
+    }
+
+    // जब भी पॉज़ होगा, बटन्स तुरंत वापस दिखेंगे
+    LaunchedEffect(isPaused) {
+        if (isPaused) {
+            areControlsVisible = true
+        }
+    }
 
     LaunchedEffect(isRunning) {
         if (isRunning) {
             isFocusMinimized = false
+            areControlsVisible = true
         }
     }
 
@@ -261,6 +335,7 @@ fun MainScreen() {
         }
         context.startService(intent)
         isFocusMinimized = false
+        isLandscape = false
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
 
@@ -270,8 +345,6 @@ fun MainScreen() {
             val insetsController = WindowCompat.getInsetsController(window, view)
             val bgHex = if (isDark) "#121216" else "#F8FAFC"
             window.setBackgroundDrawable(ColorDrawable(AndroidColor.parseColor(bgHex)))
-
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
             if (isFullScreenFocus) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -290,10 +363,14 @@ fun MainScreen() {
                 window.statusBarColor = AndroidColor.TRANSPARENT
                 window.navigationBarColor = AndroidColor.TRANSPARENT
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
+                // फुल स्क्रीन से बाहर आते ही सख्त पोर्ट्रेट
+                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                isLandscape = false
             }
         }
         onDispose {
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            isLandscape = false
         }
     }
 
@@ -308,6 +385,8 @@ fun MainScreen() {
 
     BackHandler(enabled = isFullScreenFocus) {
         isFocusMinimized = true
+        isLandscape = false
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
 
     BackHandler(enabled = currentNavIndex != 0 && !isFullScreenFocus) {
@@ -359,6 +438,7 @@ fun MainScreen() {
             onSelectedSubjectChange = { selectedSubjectName = it },
             initialTotalSeconds = initialTotalSeconds,
             onInitialTotalSecondsChange = { initialTotalSeconds = it },
+            areControlsVisible = areControlsVisible || isPaused,
             onStartStopwatch = {
                 context.startService(Intent(context, TimerService::class.java).apply {
                     action = TimerService.ACTION_START
@@ -387,8 +467,60 @@ fun MainScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .background(bgColor)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    // 👆 खाली स्क्रीन पर टैप करने से कंट्रोल्स दिखेंगे/छिपेंगे
+                    areControlsVisible = !areControlsVisible
+                }
         ) {
             focusScreenContent()
+
+            // 🔄 केवल तब दिखेगा जब टाइमर रनिंग हो और कंट्रोल्स ऑन हों (पॉज़ पर छिप जाएगा)
+            val showRotate = isRunning && (areControlsVisible || isPaused)
+            AnimatedVisibility(
+                visible = showRotate,
+                enter = fadeIn(tween(200)),
+                exit = fadeOut(tween(200)),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 10.dp, end = 16.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .shadow(4.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0xFF1E1E26) else Color.White)
+                        .border(
+                            1.dp,
+                            if (isLandscape) goldColor else glassBorder,
+                            CircleShape
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            if (activity != null) {
+                                if (isLandscape) {
+                                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                    isLandscape = false
+                                } else {
+                                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                                    isLandscape = true
+                                }
+                            }
+                        }
+                ) {
+                    AndroidAutoRotateLineIcon(
+                        tint = if (isLandscape) goldColor else textMain,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         }
     } else {
         Scaffold(
@@ -459,6 +591,7 @@ fun MainScreen() {
                         onSelectedSubjectChange = { selectedSubjectName = it },
                         initialTotalSeconds = initialTotalSeconds,
                         onInitialTotalSecondsChange = { initialTotalSeconds = it },
+                        areControlsVisible = true,
                         onStartStopwatch = {
                             context.startService(Intent(context, TimerService::class.java).apply {
                                 action = TimerService.ACTION_START
@@ -492,7 +625,7 @@ fun MainScreen() {
     }
 
     // =========================================================================
-    // 🏆 CONGRATULATIONS DIALOG (15s Auto-Close + Clean 2D Vector Trophy)
+    // 🏆 CONGRATULATIONS DIALOG (15s Auto-Close + 2D Trophy)
     // =========================================================================
     if (TimerService.showCompletionDialogTrigger.value) {
         LaunchedEffect(Unit) {
@@ -771,7 +904,7 @@ fun MiniFocusBar(
 }
 
 // =============================================================================
-// ⏱️ HOME TIMER TAB
+// ⏱️ HOME TIMER TAB (Zen Mode Controls Included)
 // =============================================================================
 @Composable
 fun HomeTimerTab(
@@ -800,6 +933,7 @@ fun HomeTimerTab(
     onSelectedSubjectChange: (String) -> Unit,
     initialTotalSeconds: Int,
     onInitialTotalSecondsChange: (Int) -> Unit,
+    areControlsVisible: Boolean = true,
     onStartStopwatch: () -> Unit,
     onPauseStopwatch: () -> Unit,
     onResumeStopwatch: () -> Unit,
@@ -1058,43 +1192,55 @@ fun HomeTimerTab(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "$selectedSubjectName • Stopwatch",
-                        color = textMain,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
-                            .border(1.dp, glassBorder, RoundedCornerShape(50))
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                    )
+                    AnimatedVisibility(
+                        visible = areControlsVisible,
+                        enter = fadeIn(tween(200)),
+                        exit = fadeOut(tween(200))
+                    ) {
+                        Text(
+                            text = "$selectedSubjectName • Stopwatch",
+                            color = textMain,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
 
                     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.Center) {
                         Text(text = swMainTime, color = textMain, fontSize = 52.sp, fontWeight = FontWeight.Black)
                         Text(text = swMilliText, color = goldColor, fontSize = 28.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(bottom = 6.dp))
                     }
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Button(
-                            onClick = {
-                                FocusSoundManager.triggerHaptic(context, false)
-                                if (isStopwatchRunning) onPauseStopwatch() else onResumeStopwatch()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = goldColor),
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier.weight(1f).height(48.dp)
-                        ) {
-                            Text(text = if (isStopwatchRunning) "⏸ Pause" else "▶ Resume", color = Color.Black, fontWeight = FontWeight.ExtraBold)
-                        }
+                    AnimatedVisibility(
+                        visible = areControlsVisible,
+                        enter = fadeIn(tween(200)),
+                        exit = fadeOut(tween(200))
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Button(
+                                onClick = {
+                                    FocusSoundManager.triggerHaptic(context, false)
+                                    if (isStopwatchRunning) onPauseStopwatch() else onResumeStopwatch()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.weight(1f).height(48.dp)
+                            ) {
+                                Text(text = if (isStopwatchRunning) "⏸ Pause" else "▶ Resume", color = Color.Black, fontWeight = FontWeight.ExtraBold)
+                            }
 
-                        OutlinedButton(
-                            onClick = onDirectEndSession,
-                            shape = RoundedCornerShape(50),
-                            border = BorderStroke(1.2.dp, cancelColor),
-                            modifier = Modifier.weight(1f).height(48.dp)
-                        ) {
-                            Text("End Session", color = cancelColor, fontWeight = FontWeight.Bold)
+                            OutlinedButton(
+                                onClick = onDirectEndSession,
+                                shape = RoundedCornerShape(50),
+                                border = BorderStroke(1.2.dp, cancelColor),
+                                modifier = Modifier.weight(1f).height(48.dp)
+                            ) {
+                                Text("End Session", color = cancelColor, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -1108,30 +1254,42 @@ fun HomeTimerTab(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = if (isBreakActive) "☕ Break Time" else selectedSubjectName,
-                            color = if (isBreakActive) Color(0xFF10B981) else textMain,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
-                                .border(1.dp, glassBorder, RoundedCornerShape(50))
-                                .padding(horizontal = 16.dp, vertical = 6.dp)
-                        )
+                    AnimatedVisibility(
+                        visible = areControlsVisible,
+                        enter = fadeIn(tween(200)),
+                        exit = fadeOut(tween(200))
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = if (isBreakActive) "☕ Break Time" else selectedSubjectName,
+                                color = if (isBreakActive) Color(0xFF10B981) else textMain,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                    .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                            )
+                        }
                     }
 
                     if (activeMode == FocusModeType.POMODORO) {
-                        PomodoroSessionTracker(
-                            totalSessions = pomodoroConfig.totalRounds,
-                            currentSessionIndex = currentSessionIndex,
-                            isBreakActive = isBreakActive,
-                            isRunning = isRunning,
-                            goldColor = goldColor,
-                            glowYellow = glowYellow,
-                            isDark = isDark
-                        )
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200))
+                        ) {
+                            PomodoroSessionTracker(
+                                totalSessions = pomodoroConfig.totalRounds,
+                                currentSessionIndex = currentSessionIndex,
+                                isBreakActive = isBreakActive,
+                                isRunning = isRunning,
+                                goldColor = goldColor,
+                                glowYellow = glowYellow,
+                                isDark = isDark
+                            )
+                        }
                     }
 
                     Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -1156,66 +1314,72 @@ fun HomeTimerTab(
                         )
                     }
 
-                    if (isBreakActive) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Button(
-                                onClick = {
-                                    FocusSoundManager.triggerHaptic(context, false)
-                                    context.startService(Intent(context, TimerService::class.java).apply {
-                                        action = TimerService.ACTION_SKIP_BREAK
-                                    })
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                                shape = RoundedCornerShape(50),
-                                modifier = Modifier.weight(1.2f).height(48.dp)
-                            ) {
-                                Text("⏭ Skip Break", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
-                            }
+                    AnimatedVisibility(
+                        visible = areControlsVisible,
+                        enter = fadeIn(tween(200)),
+                        exit = fadeOut(tween(200))
+                    ) {
+                        if (isBreakActive) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(
+                                    onClick = {
+                                        FocusSoundManager.triggerHaptic(context, false)
+                                        context.startService(Intent(context, TimerService::class.java).apply {
+                                            action = TimerService.ACTION_SKIP_BREAK
+                                        })
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                    shape = RoundedCornerShape(50),
+                                    modifier = Modifier.weight(1.2f).height(48.dp)
+                                ) {
+                                    Text("⏭ Skip Break", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                                }
 
-                            Button(
-                                onClick = {
-                                    FocusSoundManager.triggerHaptic(context, false)
-                                    val act = if (isPaused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE
-                                    context.startService(Intent(context, TimerService::class.java).apply { action = act })
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = goldColor),
-                                shape = RoundedCornerShape(50),
-                                modifier = Modifier.weight(1f).height(48.dp)
-                            ) {
-                                Text(if (isPaused) "▶ Resume" else "⏸ Pause", color = Color.Black, fontWeight = FontWeight.Black)
-                            }
+                                Button(
+                                    onClick = {
+                                        FocusSoundManager.triggerHaptic(context, false)
+                                        val act = if (isPaused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE
+                                        context.startService(Intent(context, TimerService::class.java).apply { action = act })
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                    shape = RoundedCornerShape(50),
+                                    modifier = Modifier.weight(1f).height(48.dp)
+                                ) {
+                                    Text(if (isPaused) "▶ Resume" else "⏸ Pause", color = Color.Black, fontWeight = FontWeight.Black)
+                                }
 
-                            OutlinedButton(
-                                onClick = onDirectEndSession,
-                                shape = RoundedCornerShape(50),
-                                border = BorderStroke(1.2.dp, cancelColor),
-                                modifier = Modifier.weight(0.9f).height(48.dp)
-                            ) {
-                                Text("End", color = cancelColor, fontWeight = FontWeight.Bold)
+                                OutlinedButton(
+                                    onClick = onDirectEndSession,
+                                    shape = RoundedCornerShape(50),
+                                    border = BorderStroke(1.2.dp, cancelColor),
+                                    modifier = Modifier.weight(0.9f).height(48.dp)
+                                ) {
+                                    Text("End", color = cancelColor, fontWeight = FontWeight.Bold)
+                                }
                             }
-                        }
-                    } else {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            Button(
-                                onClick = {
-                                    FocusSoundManager.triggerHaptic(context, false)
-                                    val act = if (isPaused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE
-                                    context.startService(Intent(context, TimerService::class.java).apply { action = act })
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = goldColor),
-                                shape = RoundedCornerShape(50),
-                                modifier = Modifier.weight(1f).height(48.dp)
-                            ) {
-                                Text(text = if (isPaused) "Resume 🎯" else "⏸ Pause", color = Color.Black, fontWeight = FontWeight.Black)
-                            }
+                        } else {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                Button(
+                                    onClick = {
+                                        FocusSoundManager.triggerHaptic(context, false)
+                                        val act = if (isPaused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE
+                                        context.startService(Intent(context, TimerService::class.java).apply { action = act })
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                    shape = RoundedCornerShape(50),
+                                    modifier = Modifier.weight(1f).height(48.dp)
+                                ) {
+                                    Text(text = if (isPaused) "Resume 🎯" else "⏸ Pause", color = Color.Black, fontWeight = FontWeight.Black)
+                                }
 
-                            OutlinedButton(
-                                onClick = onDirectEndSession,
-                                shape = RoundedCornerShape(50),
-                                border = BorderStroke(1.2.dp, cancelColor),
-                                modifier = Modifier.weight(1f).height(48.dp)
-                            ) {
-                                Text("End Session", color = cancelColor, fontWeight = FontWeight.Bold)
+                                OutlinedButton(
+                                    onClick = onDirectEndSession,
+                                    shape = RoundedCornerShape(50),
+                                    border = BorderStroke(1.2.dp, cancelColor),
+                                    modifier = Modifier.weight(1f).height(48.dp)
+                                ) {
+                                    Text("End Session", color = cancelColor, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
@@ -1492,9 +1656,6 @@ fun HomeTimerTab(
     }
 }
 
-// =============================================================================
-// 🔥 STREAK CALCULATION HELPER
-// =============================================================================
 fun calculateStreakDays(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
     val dayMinutesMap = mutableMapOf<String, Int>()
