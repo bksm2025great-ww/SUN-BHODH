@@ -38,9 +38,9 @@ fun GroupsRootScreen(
     val coroutineScope = rememberCoroutineScope()
     val userManager = remember { UserManager(context) }
     val currentUserId = remember { userManager.getUserId() }
-    
+
     var currentScreen by remember { mutableStateOf(GroupsScreenState.HOME) }
-    
+
     val defaultGlobalGroup = remember {
         StudyGroup(
             id = "universal_lib",
@@ -50,37 +50,39 @@ fun GroupsRootScreen(
             memberCount = 1,
             focusingCount = 0,
             isPinned = true,
-            isJoined = false,
+            isJoined = true,
             isDefault = true,
             inviteCode = "GLOBAL"
         )
     }
 
-    var groupsList by remember { mutableStateOf<List<StudyGroup>>(listOf(defaultGlobalGroup)) }
-    var selectedGroup by remember { mutableStateOf(defaultGlobalGroup) }
+    // ⚡ 0 सेकंड में लोकल कैशे से लिस्ट आएगी - कोई 0 Groups या Join बटन का फ़्लिकर नहीं
+    val initialGroups = remember {
+        val cached = GroupCacheManager.getCachedGroupsList(context)
+        if (cached.isNotEmpty()) cached else listOf(defaultGlobalGroup)
+    }
 
-    var currentNickname: String by remember { 
-        mutableStateOf(userManager.getUserName().ifBlank { "Aspirant" }) 
+    var groupsList by remember { mutableStateOf(initialGroups) }
+    var selectedGroup by remember { mutableStateOf(groupsList.firstOrNull() ?: defaultGlobalGroup) }
+
+    var currentNickname: String by remember {
+        mutableStateOf(userManager.getUserName().ifBlank { "Aspirant" })
     }
 
     var showCreateSheet by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
     var showNicknameDialog by remember { mutableStateOf(false) }
 
-    // 🔄 क्लाउड से ग्रुप्स फेच करना और डिफ़ॉल्ट लाइब्रेरी को सुरक्षित रखना
+    // 🔄 स्मार्ट बैकग्राउंड सिंक: इंटरनेट का डेटा बॉस के लोकल फ़ैसलों को कभी ओवरराइट नहीं करेगा
     LaunchedEffect(Unit) {
         coroutineScope.launch(Dispatchers.IO) {
             val cloudGroups = CloudSyncManager.fetchGroups(context)
             withContext(Dispatchers.Main) {
                 if (cloudGroups.isNotEmpty()) {
-                    groupsList = cloudGroups
-                    selectedGroup = cloudGroups.find { it.id == selectedGroup.id } ?: cloudGroups[0]
-                } else {
-                    groupsList = listOf(defaultGlobalGroup)
-                    selectedGroup = defaultGlobalGroup
-                    coroutineScope.launch(Dispatchers.IO) {
-                        CloudSyncManager.createGroupOnCloud(context, defaultGlobalGroup)
-                    }
+                    val mergedGroups = GroupCacheManager.mergeWithCloud(context, cloudGroups)
+                    groupsList = mergedGroups
+                    selectedGroup = mergedGroups.find { it.id == selectedGroup.id } ?: mergedGroups[0]
+                    GroupCacheManager.saveCachedGroupsList(context, mergedGroups)
                 }
             }
         }
@@ -108,13 +110,17 @@ fun GroupsRootScreen(
                         groupsList = groupsList.map { g ->
                             if (g.id == groupId) g.copy(isPinned = !g.isPinned) else g
                         }
+                        GroupCacheManager.saveCachedGroupsList(context, groupsList)
                     },
                     onJoinGroup = { groupId ->
+                        GroupCacheManager.recordLocalJoin(context, groupId)
+
                         val existing = groupsList.find { it.id == groupId }
                         if (existing != null) {
                             val updated = existing.copy(isJoined = true, memberCount = existing.memberCount + 1)
                             groupsList = groupsList.map { if (it.id == groupId) updated else it }
                             selectedGroup = updated
+                            GroupCacheManager.saveCachedGroupsList(context, groupsList)
                             currentScreen = GroupsScreenState.DETAIL
                             Toast.makeText(context, "Joined ${updated.name}!", Toast.LENGTH_SHORT).show()
                         }
@@ -124,8 +130,10 @@ fun GroupsRootScreen(
                             val fresh = CloudSyncManager.fetchGroups(context)
                             withContext(Dispatchers.Main) {
                                 if (fresh.isNotEmpty()) {
-                                    groupsList = fresh
-                                    val joinedTarget = fresh.find { it.id == groupId }
+                                    val merged = GroupCacheManager.mergeWithCloud(context, fresh)
+                                    groupsList = merged
+                                    GroupCacheManager.saveCachedGroupsList(context, merged)
+                                    val joinedTarget = merged.find { it.id == groupId }
                                     if (joinedTarget != null) {
                                         selectedGroup = joinedTarget
                                     }
@@ -148,6 +156,12 @@ fun GroupsRootScreen(
                         val target = groupsList.find { it.id == groupId }
                         val willJoin = target?.isJoined != true
 
+                        if (willJoin) {
+                            GroupCacheManager.recordLocalJoin(context, groupId)
+                        } else {
+                            GroupCacheManager.recordLocalLeave(context, groupId)
+                        }
+
                         groupsList = groupsList.map { g ->
                             if (g.id == groupId) {
                                 g.copy(
@@ -156,13 +170,13 @@ fun GroupsRootScreen(
                                 )
                             } else g
                         }
+                        GroupCacheManager.saveCachedGroupsList(context, groupsList)
 
                         coroutineScope.launch(Dispatchers.IO) {
                             if (willJoin) {
                                 CloudSyncManager.joinGroupOnCloud(context, groupId)
                             } else {
                                 CloudSyncManager.leaveGroupOnCloud(context, groupId)
-                                GroupCacheManager.clearGroupCache(context, groupId)
                             }
                         }
                     }
@@ -177,11 +191,14 @@ fun GroupsRootScreen(
                     onInviteClick = { },
                     onSettingsClick = { showSettingsSheet = true },
                     onJoinClick = { groupId ->
+                        GroupCacheManager.recordLocalJoin(context, groupId)
+
                         val target = groupsList.find { it.id == groupId }
                         if (target != null) {
                             val updated = target.copy(isJoined = true, memberCount = target.memberCount + 1)
                             groupsList = groupsList.map { if (it.id == groupId) updated else it }
                             selectedGroup = updated
+                            GroupCacheManager.saveCachedGroupsList(context, groupsList)
                             Toast.makeText(context, "Joined ${updated.name}!", Toast.LENGTH_SHORT).show()
                         }
 
@@ -190,8 +207,10 @@ fun GroupsRootScreen(
                             val fresh = CloudSyncManager.fetchGroups(context)
                             withContext(Dispatchers.Main) {
                                 if (fresh.isNotEmpty()) {
-                                    groupsList = fresh
-                                    val joinedTarget = fresh.find { it.id == groupId }
+                                    val merged = GroupCacheManager.mergeWithCloud(context, fresh)
+                                    groupsList = merged
+                                    GroupCacheManager.saveCachedGroupsList(context, merged)
+                                    val joinedTarget = merged.find { it.id == groupId }
                                     if (joinedTarget != null) {
                                         selectedGroup = joinedTarget
                                     }
@@ -225,8 +244,10 @@ fun GroupsRootScreen(
                         )
                     )
 
+                    GroupCacheManager.recordLocalJoin(context, newGroup.id)
                     groupsList = listOf(newGroup) + groupsList
                     selectedGroup = newGroup
+                    GroupCacheManager.saveCachedGroupsList(context, groupsList)
                     showCreateSheet = false
                     currentScreen = GroupsScreenState.DETAIL
                     Toast.makeText(context, "Group created successfully!", Toast.LENGTH_SHORT).show()
@@ -239,7 +260,6 @@ fun GroupsRootScreen(
         }
 
         if (showSettingsSheet) {
-            // 🛡️ केवल असली एडमिन को ही Delete Group दिखेगा (डिफ़ॉल्ट यूनिवर्सल लाइब्रेरी को कभी डिलीट नहीं किया जा सकता)
             val isUserAdmin = !selectedGroup.isDefault && selectedGroup.members.any { member ->
                 member.id == currentUserId && member.role == MemberRole.ADMIN
             }
@@ -253,6 +273,7 @@ fun GroupsRootScreen(
                     groupsList = groupsList.map { g ->
                         if (g.id == selectedGroup.id) g.copy(notificationsEnabled = enabled) else g
                     }
+                    GroupCacheManager.saveCachedGroupsList(context, groupsList)
                     val msg = if (enabled) "Notifications turned ON" else "Notifications turned OFF"
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 },
@@ -262,10 +283,12 @@ fun GroupsRootScreen(
                 },
                 onLeaveGroup = {
                     val groupId = selectedGroup.id
-                    GroupCacheManager.clearGroupCache(context, groupId)
+                    GroupCacheManager.recordLocalLeave(context, groupId)
+
                     groupsList = groupsList.map { g ->
                         if (g.id == groupId) g.copy(isJoined = false, isPinned = false) else g
                     }
+                    GroupCacheManager.saveCachedGroupsList(context, groupsList)
                     showSettingsSheet = false
                     currentScreen = GroupsScreenState.HOME
                     Toast.makeText(context, "You left ${selectedGroup.name}", Toast.LENGTH_SHORT).show()
@@ -277,9 +300,11 @@ fun GroupsRootScreen(
                 onDeleteGroup = {
                     val groupId = selectedGroup.id
                     val deletedGroupName = selectedGroup.name
-                    GroupCacheManager.clearGroupCache(context, groupId)
+                    GroupCacheManager.recordLocalLeave(context, groupId)
+
                     groupsList = groupsList.filter { it.id != groupId }
                     selectedGroup = groupsList.firstOrNull() ?: defaultGlobalGroup
+                    GroupCacheManager.saveCachedGroupsList(context, groupsList)
                     showSettingsSheet = false
                     currentScreen = GroupsScreenState.HOME
                     Toast.makeText(context, "Group \"$deletedGroupName\" deleted permanently", Toast.LENGTH_SHORT).show()
