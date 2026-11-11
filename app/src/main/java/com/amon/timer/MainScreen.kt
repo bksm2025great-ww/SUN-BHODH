@@ -39,7 +39,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -101,6 +100,7 @@ fun MainScreen() {
         }
     }
 
+    // 🔒 ऐप हमेशा पोर्ट्रेट में लॉक रहेगी - रोटेट आइकन कभी नहीं दिखेगा
     LaunchedEffect(Unit) {
         try {
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -137,6 +137,7 @@ fun MainScreen() {
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
 
+    // 🎯 स्टेटस बार और पोर्ट्रेट लॉक का साफ लॉजिक
     DisposableEffect(isFullScreenFocus) {
         val window = activity?.window
         if (window != null) {
@@ -144,7 +145,8 @@ fun MainScreen() {
             val bgHex = if (isDark) "#121216" else "#F8FAFC"
             window.setBackgroundDrawable(ColorDrawable(AndroidColor.parseColor(bgHex)))
 
-            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            // सख्त पोर्ट्रेट लॉक (कोई सेंसर नहीं, कोई रोटेट बटन नहीं)
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
             if (isFullScreenFocus) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -166,10 +168,6 @@ fun MainScreen() {
             }
         }
         onDispose {
-            activity?.window?.let { win ->
-                win.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
-                WindowCompat.getInsetsController(win, view).show(WindowInsetsCompat.Type.systemBars())
-            }
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
     }
@@ -182,6 +180,7 @@ fun MainScreen() {
     val glassBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
     val glowBorder = goldColor.copy(alpha = 0.6f)
 
+    // फुल स्क्रीन फोकस में बैक दबाने पर सिर्फ मिनी बार में मिनिमाइज होगा
     BackHandler(enabled = isFullScreenFocus) {
         isFocusMinimized = true
     }
@@ -205,15 +204,74 @@ fun MainScreen() {
     val swS = ((stopwatchElapsedMillis % 60000) / 1000).toInt()
     val swMs = ((stopwatchElapsedMillis % 1000) / 10).toInt()
     val swMainTime = String.format("%02d:%02d:%02d", swH, swM, swS)
-    val swMilliText = String.format(".%02d", swMs)
 
     val liveBarTime = if (isStopwatchMode) swMainTime else "$timeFormatted left"
 
-    Scaffold(
-        containerColor = bgColor,
-        contentWindowInsets = if (isFullScreenFocus) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
-        bottomBar = {
-            if (!isFullScreenFocus) {
+    // 🌟 फुल स्क्रीन फोकस सामग्री जो हर स्क्रीन के ऊपर काम करेगी
+    val focusScreenContent = @Composable {
+        HomeTimerTab(
+            context = context,
+            goldColor = goldColor,
+            glowYellow = glowBorder,
+            cardBg = cardBg,
+            glassBorder = glassBorder,
+            textMuted = textMuted,
+            textMain = textMain,
+            isDark = isDark,
+            isRunning = isRunning,
+            isPaused = isPaused,
+            isFocusActive = true,
+            isSessionActive = true,
+            activeMode = activeMode,
+            onActiveModeChange = { activeMode = it },
+            pomodoroConfig = pomodoroConfig,
+            onPomodoroConfigChange = { pomodoroConfig = it },
+            isBreakActive = isBreakActive,
+            currentSessionIndex = currentSessionIndex,
+            isStopwatchRunning = isRunning && isStopwatchMode,
+            isStopwatchFocusActive = isFocusActive && isStopwatchMode,
+            stopwatchElapsedMillis = stopwatchElapsedMillis,
+            selectedSubjectName = selectedSubjectName,
+            onSelectedSubjectChange = { selectedSubjectName = it },
+            initialTotalSeconds = initialTotalSeconds,
+            onInitialTotalSecondsChange = { initialTotalSeconds = it },
+            onStartStopwatch = {
+                context.startService(Intent(context, TimerService::class.java).apply {
+                    action = TimerService.ACTION_START
+                    putExtra(TimerService.EXTRA_SECONDS, 0)
+                    putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                    putExtra(TimerService.EXTRA_MODE, "STOPWATCH")
+                })
+                isFocusMinimized = false
+            },
+            onPauseStopwatch = {
+                context.startService(Intent(context, TimerService::class.java).apply {
+                    action = TimerService.ACTION_PAUSE
+                })
+            },
+            onResumeStopwatch = {
+                context.startService(Intent(context, TimerService::class.java).apply {
+                    action = TimerService.ACTION_RESUME
+                })
+            },
+            onDirectEndSession = onDirectEndSession
+        )
+    }
+
+    if (isFullScreenFocus) {
+        // 🚀 फुल स्क्रीन फोकस मोड: किसी भी टैब से ऊपर बिना किसी नेविगेशन बग के
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(bgColor)
+        ) {
+            focusScreenContent()
+        }
+    } else {
+        // 🏠 सामान्य ऐप व्यू (होम, ग्रुप्स, स्टैट्स, प्रोफाइल + मिनी बार)
+        Scaffold(
+            containerColor = bgColor,
+            bottomBar = {
                 Column(modifier = Modifier.fillMaxWidth().background(Color.Transparent)) {
                     if (isFocusActive && isFocusMinimized) {
                         MiniFocusBar(
@@ -229,6 +287,7 @@ fun MainScreen() {
                                 context.startService(Intent(context, TimerService::class.java).apply { action = act })
                             },
                             onExpand = {
+                                // किसी भी टैब से क्लिक करने पर फुल स्क्रीन सीधे खुल जाएगी
                                 isFocusMinimized = false
                             }
                         )
@@ -245,65 +304,68 @@ fun MainScreen() {
                     )
                 }
             }
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(bgColor)
-                .then(if (!isFullScreenFocus) Modifier.padding(paddingValues) else Modifier)
-        ) {
-            when (currentNavIndex) {
-                0 -> HomeTimerTab(
-                    context = context,
-                    goldColor = goldColor,
-                    glowYellow = glowBorder,
-                    cardBg = cardBg,
-                    glassBorder = glassBorder,
-                    textMuted = textMuted,
-                    textMain = textMain,
-                    isDark = isDark,
-                    isRunning = isRunning,
-                    isPaused = isPaused,
-                    isFocusActive = isFullScreenFocus,
-                    isSessionActive = isFocusActive,
-                    activeMode = activeMode,
-                    onActiveModeChange = { activeMode = it },
-                    pomodoroConfig = pomodoroConfig,
-                    onPomodoroConfigChange = { pomodoroConfig = it },
-                    isBreakActive = isBreakActive,
-                    currentSessionIndex = currentSessionIndex,
-                    isStopwatchRunning = isRunning && isStopwatchMode,
-                    isStopwatchFocusActive = isFocusActive && isStopwatchMode,
-                    stopwatchElapsedMillis = stopwatchElapsedMillis,
-                    selectedSubjectName = selectedSubjectName,
-                    onSelectedSubjectChange = { selectedSubjectName = it },
-                    initialTotalSeconds = initialTotalSeconds,
-                    onInitialTotalSecondsChange = { initialTotalSeconds = it },
-                    onStartStopwatch = {
-                        context.startService(Intent(context, TimerService::class.java).apply {
-                            action = TimerService.ACTION_START
-                            putExtra(TimerService.EXTRA_SECONDS, 0)
-                            putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
-                            putExtra(TimerService.EXTRA_MODE, "STOPWATCH")
-                        })
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(bgColor)
+                    .padding(paddingValues)
+            ) {
+                when (currentNavIndex) {
+                    0 -> HomeTimerTab(
+                        context = context,
+                        goldColor = goldColor,
+                        glowYellow = glowBorder,
+                        cardBg = cardBg,
+                        glassBorder = glassBorder,
+                        textMuted = textMuted,
+                        textMain = textMain,
+                        isDark = isDark,
+                        isRunning = isRunning,
+                        isPaused = isPaused,
+                        isFocusActive = false,
+                        isSessionActive = isFocusActive,
+                        activeMode = activeMode,
+                        onActiveModeChange = { activeMode = it },
+                        pomodoroConfig = pomodoroConfig,
+                        onPomodoroConfigChange = { pomodoroConfig = it },
+                        isBreakActive = isBreakActive,
+                        currentSessionIndex = currentSessionIndex,
+                        isStopwatchRunning = isRunning && isStopwatchMode,
+                        isStopwatchFocusActive = isFocusActive && isStopwatchMode,
+                        stopwatchElapsedMillis = stopwatchElapsedMillis,
+                        selectedSubjectName = selectedSubjectName,
+                        onSelectedSubjectChange = { selectedSubjectName = it },
+                        initialTotalSeconds = initialTotalSeconds,
+                        onInitialTotalSecondsChange = { initialTotalSeconds = it },
+                        onStartStopwatch = {
+                            context.startService(Intent(context, TimerService::class.java).apply {
+                                action = TimerService.ACTION_START
+                                putExtra(TimerService.EXTRA_SECONDS, 0)
+                                putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                putExtra(TimerService.EXTRA_MODE, "STOPWATCH")
+                            })
+                            isFocusMinimized = false
+                        },
+                        onPauseStopwatch = {
+                            context.startService(Intent(context, TimerService::class.java).apply {
+                                action = TimerService.ACTION_PAUSE
+                            })
+                        },
+                        onResumeStopwatch = {
+                            context.startService(Intent(context, TimerService::class.java).apply {
+                                action = TimerService.ACTION_RESUME
+                            })
+                        },
+                        onDirectEndSession = onDirectEndSession
+                    )
+                    1 -> GroupsRootScreen(onStartFocus = { 
+                        currentNavIndex = 0 
                         isFocusMinimized = false
-                    },
-                    onPauseStopwatch = {
-                        context.startService(Intent(context, TimerService::class.java).apply {
-                            action = TimerService.ACTION_PAUSE
-                        })
-                    },
-                    onResumeStopwatch = {
-                        context.startService(Intent(context, TimerService::class.java).apply {
-                            action = TimerService.ACTION_RESUME
-                        })
-                    },
-                    onDirectEndSession = onDirectEndSession
-                )
-                1 -> GroupsRootScreen(onStartFocus = { currentNavIndex = 0 })
-                2 -> StatsScreen()
-                3 -> ProfileScreen()
+                    })
+                    2 -> StatsScreen()
+                    3 -> ProfileScreen()
+                }
             }
         }
     }
@@ -619,7 +681,6 @@ fun HomeTimerTab(
                     .padding(top = 8.dp, bottom = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // हेडर: सिर्फ AMON लोगो और दाईं तरफ Streak
                 Row(
                     modifier = Modifier.fillMaxWidth().height(38.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1011,7 +1072,6 @@ fun HomeTimerTab(
             )
         }
 
-        // 🌟 वही पुराना पसंदीदा "Manage Subjects" फ्रॉस्टेड डायलॉग
         if (showAddDialog) {
             Dialog(onDismissRequest = {
                 showAddDialog = false
