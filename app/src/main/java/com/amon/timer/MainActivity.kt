@@ -12,11 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,15 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
@@ -55,6 +43,8 @@ private enum class AppScreenState {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -81,7 +71,6 @@ class MainActivity : ComponentActivity() {
             Log.e("AmonLaunch", "Safe Reminder catch: ${e.localizedMessage}")
         }
 
-        // ⚡ 1. ऐप लॉन्च होते ही Supabase पर प्रोफ़ाइल सिंक का बैकअप चेक
         val userManager = UserManager(this)
         if (userManager.getUserName().isNotBlank() && !userManager.getUserName().equals("Guest", ignoreCase = true)) {
             CloudSyncManager.registerUserOnCloud(this)
@@ -97,15 +86,14 @@ class MainActivity : ComponentActivity() {
 
                 var currentScreen by remember { mutableStateOf(AppScreenState.SPLASH) }
 
-                // 🎨 2. स्टेटस बार का सटीक डार्क मैच
                 val currentStatusBarColor = when (currentScreen) {
                     AppScreenState.SPLASH -> Color(0xFF0F0F12)
-                    AppScreenState.AUTH -> Color(0xFF0A0A0E) // डार्क ऑब्सीडियन से मैच
+                    AppScreenState.AUTH -> Color(0xFF0A0A0E)
                     AppScreenState.MAIN -> appBgColor
                 }
                 val isLightStatusBarIcons = when (currentScreen) {
                     AppScreenState.SPLASH -> false
-                    AppScreenState.AUTH -> false // डार्क बैकग्राउंड पर वाइट आइकॉन्स
+                    AppScreenState.AUTH -> false
                     AppScreenState.MAIN -> !isDark
                 }
 
@@ -123,7 +111,6 @@ class MainActivity : ComponentActivity() {
                         if (!localUserManager.isFreshAuthDone()) {
                             currentScreen = AppScreenState.AUTH
                         } else {
-                            // 🚀 मेन स्क्रीन पर पहुँचते ही भी एक बार ताज़ा प्रोफ़ाइल सिंक सुनिश्चित करें
                             CloudSyncManager.registerUserOnCloud(context)
                             currentScreen = AppScreenState.MAIN
                         }
@@ -135,9 +122,7 @@ class MainActivity : ComponentActivity() {
                         label = "ScreenTransition"
                     ) { screen ->
                         when (screen) {
-                            AppScreenState.SPLASH -> {
-                                SplashScreenContent()
-                            }
+                            AppScreenState.SPLASH -> SplashScreenContent()
                             AppScreenState.AUTH -> {
                                 AuthScreen(
                                     onAuthComplete = {
@@ -149,8 +134,6 @@ class MainActivity : ComponentActivity() {
                             AppScreenState.MAIN -> {
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     MainScreen()
-
-                                    FocusRotateButtonOverlay(activity = this@MainActivity)
 
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                         val localCtx = LocalContext.current
@@ -190,7 +173,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// 🔔 ओरिजिनल पर्पल-वाइट नोटिफिकेशन परमिशन कार्ड
 @Composable
 private fun NotificationPermissionDialog(
     onAllowClick: () -> Unit,
@@ -306,132 +288,6 @@ private fun NotificationBulletItem(text: String) {
             fontSize = 14.sp,
             lineHeight = 20.sp
         )
-    }
-}
-
-@Composable
-private fun FocusRotateButtonOverlay(activity: ComponentActivity) {
-    val isRunning = TimerService.isTimerRunning.value
-    val isPaused = TimerService.isTimerPaused.value
-    val isFocusActive = isRunning || isPaused
-
-    var isLandscape by remember { mutableStateOf(false) }
-
-    LaunchedEffect(isFocusActive) {
-        if (!isFocusActive) {
-            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            isLandscape = false
-        }
-    }
-
-    AnimatedVisibility(
-        visible = isFocusActive,
-        enter = fadeIn(tween(250)) + scaleIn(initialScale = 0.85f),
-        exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.85f),
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 16.dp, end = 16.dp)
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.TopEnd
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(40.dp)
-                    .shadow(
-                        elevation = 6.dp,
-                        shape = CircleShape,
-                        spotColor = Color.Black.copy(alpha = 0.4f),
-                        ambientColor = Color.Black.copy(alpha = 0.2f)
-                    )
-                    .clip(CircleShape)
-                    .background(Color(0xFF1E1E26))
-                    .border(
-                        width = 1.1.dp,
-                        color = if (isLandscape) Color(0xFFF5A524) else Color(0x33FFFFFF),
-                        shape = CircleShape
-                    )
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        if (isLandscape) {
-                            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                            isLandscape = false
-                        } else {
-                            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                            isLandscape = true
-                        }
-                    }
-            ) {
-                AndroidAutoRotateLineIcon(
-                    tint = if (isLandscape) Color(0xFFF5A524) else Color(0xFFE2E8F0),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AndroidAutoRotateLineIcon(
-    tint: Color,
-    modifier: Modifier = Modifier
-) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val center = Offset(w / 2f, h / 2f)
-        val strokeWidth = 1.4.dp.toPx()
-
-        val phoneW = w * 0.32f
-        val phoneH = h * 0.50f
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(center.x - phoneW / 2f, center.y - phoneH / 2f),
-            size = Size(phoneW, phoneH),
-            cornerRadius = CornerRadius(2.2.dp.toPx(), 2.2.dp.toPx()),
-            style = Stroke(width = strokeWidth)
-        )
-
-        val arcRadius = w * 0.38f
-        drawArc(
-            color = tint,
-            startAngle = 205f,
-            sweepAngle = 95f,
-            useCenter = false,
-            topLeft = Offset(center.x - arcRadius, center.y - arcRadius),
-            size = Size(arcRadius * 2f, arcRadius * 2f),
-            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-        )
-
-        val arrowPath1 = Path().apply {
-            moveTo(center.x + arcRadius * 0.10f, center.y - arcRadius * 1.02f)
-            lineTo(center.x + arcRadius * 0.40f, center.y - arcRadius * 0.90f)
-            lineTo(center.x + arcRadius * 0.25f, center.y - arcRadius * 0.62f)
-            close()
-        }
-        drawPath(path = arrowPath1, color = tint)
-
-        drawArc(
-            color = tint,
-            startAngle = 25f,
-            sweepAngle = 95f,
-            useCenter = false,
-            topLeft = Offset(center.x - arcRadius, center.y - arcRadius),
-            size = Size(arcRadius * 2f, arcRadius * 2f),
-            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-        )
-
-        val arrowPath2 = Path().apply {
-            moveTo(center.x - arcRadius * 0.10f, center.y + arcRadius * 1.02f)
-            lineTo(center.x - arcRadius * 0.40f, center.y + arcRadius * 0.90f)
-            lineTo(center.x - arcRadius * 0.25f, center.y - arcRadius * 0.62f)
-            close()
-        }
-        drawPath(path = arrowPath2, color = tint)
     }
 }
 
