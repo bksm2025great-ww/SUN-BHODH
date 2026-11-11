@@ -81,7 +81,10 @@ class TimerService : Service() {
         val lastCompletedMinutes = mutableIntStateOf(0)
         val lastCompletedMode = mutableStateOf("")
         val lastCompletedRounds = mutableIntStateOf(0)
+        
+        // 🎯 डायलॉग ट्रिगर्स
         val showCompletionDialogTrigger = mutableStateOf(false)
+        val showSessionTooShortDialogTrigger = mutableStateOf(false)
 
         var originalTimerSeconds: Int = 25 * 60
 
@@ -429,7 +432,11 @@ class TimerService : Service() {
                 rawSeconds
             }
 
-            if (completedSeconds < 60) {
+            // 🛑 5 मिनट (300 सेकंड) का चेक: कम होने पर सेव नहीं होगा और अलर्ट ट्रिगर होगा
+            if (completedSeconds < 300) {
+                if (completedSeconds >= 5) {
+                    showSessionTooShortDialogTrigger.value = true
+                }
                 return
             }
 
@@ -565,16 +572,9 @@ class TimerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val modeText = when {
-            isStopwatch -> "STOPWATCH"
-            activeModeType.value == "POMODORO" -> if (isPomoBreakActive.value) "☕ BREAK" else "POMODORO (R${currentPomoRound.intValue}/${totalPomoRounds.intValue})"
-            else -> "FOCUS TIMER"
-        }
-
         val currentSub = if (currentSubjectName.value.isNotBlank()) currentSubjectName.value else "All"
 
         val customLayout = RemoteViews(packageName, R.layout.notification_box).apply {
-            // 🛑 POMODORO/MODE टेक्स्ट को छुपा दिया ताकि टाइमर पूरा दिखे और कटे नहीं
             setViewVisibility(R.id.notif_mode_tag, View.GONE)
             setTextViewText(R.id.notif_subject_tag, "Subject • $currentSub")
 
