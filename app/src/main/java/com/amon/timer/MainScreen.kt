@@ -39,6 +39,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -60,7 +61,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 // =============================================================================
-// 🏆 शुद्ध 2D गोल्डन ट्रॉफी वेक्टर आइकन (OPTION 1)[cite: 9]
+// 2D गोल्डन ट्रॉफी वेक्टर आइकन (OPTION 1)
 // =============================================================================
 @Composable
 fun VectorGoldTrophy(
@@ -71,7 +72,6 @@ fun VectorGoldTrophy(
         val w = size.width
         val h = size.height
 
-        // कप बॉडी
         val cupPath = Path().apply {
             moveTo(w * 0.28f, h * 0.20f)
             lineTo(w * 0.72f, h * 0.20f)
@@ -82,21 +82,18 @@ fun VectorGoldTrophy(
         drawPath(cupPath, color = tint.copy(alpha = 0.22f))
         drawPath(cupPath, color = tint, style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round))
 
-        // बाएं हैंडल
         val leftHandle = Path().apply {
             moveTo(w * 0.29f, h * 0.26f)
             cubicTo(w * 0.12f, h * 0.26f, w * 0.12f, h * 0.46f, w * 0.31f, h * 0.46f)
         }
         drawPath(leftHandle, color = tint, style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round))
 
-        // दाएं हैंडल
         val rightHandle = Path().apply {
             moveTo(w * 0.71f, h * 0.26f)
             cubicTo(w * 0.88f, h * 0.26f, w * 0.88f, h * 0.46f, w * 0.69f, h * 0.46f)
         }
         drawPath(rightHandle, color = tint, style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round))
 
-        // तना / स्टेम
         drawLine(
             color = tint,
             start = Offset(w * 0.50f, h * 0.64f),
@@ -105,7 +102,6 @@ fun VectorGoldTrophy(
             cap = StrokeCap.Round
         )
 
-        // बेस स्टैंड
         drawRoundRect(
             color = tint,
             topLeft = Offset(w * 0.30f, h * 0.76f),
@@ -116,7 +112,7 @@ fun VectorGoldTrophy(
 }
 
 // =============================================================================
-// ⏱️ शुद्ध 2D ब्रोकन आर्क अलर्ट टाइमर आइकन (OPTION 6)[cite: 9]
+// 2D ब्रोकन आर्क अलर्ट टाइमर आइकन (OPTION 6)
 // =============================================================================
 @Composable
 fun VectorBrokenArcAlert(
@@ -127,7 +123,6 @@ fun VectorBrokenArcAlert(
         val w = size.width
         val h = size.height
 
-        // ऊपर का टॉप बटन
         drawLine(
             color = tint,
             start = Offset(w * 0.44f, h * 0.10f),
@@ -143,7 +138,6 @@ fun VectorBrokenArcAlert(
             cap = StrokeCap.Round
         )
 
-        // साइड पुशर बटन
         drawLine(
             color = tint,
             start = Offset(w * 0.74f, h * 0.20f),
@@ -152,7 +146,6 @@ fun VectorBrokenArcAlert(
             cap = StrokeCap.Round
         )
 
-        // मुख्य इनर क्लॉक बॉडी
         drawCircle(
             color = tint.copy(alpha = 0.15f),
             radius = w * 0.34f,
@@ -165,7 +158,6 @@ fun VectorBrokenArcAlert(
             style = Stroke(width = 2.2.dp.toPx())
         )
 
-        // आउटर ब्रोकन आर्क (स्पीड/अधूरा चक्र)
         val arcRect = androidx.compose.ui.geometry.Rect(
             Offset(w * 0.08f, h * 0.14f),
             Size(w * 0.84f, h * 0.84f)
@@ -180,7 +172,6 @@ fun VectorBrokenArcAlert(
             style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round)
         )
 
-        // सेंटर में अलर्ट मार्क '!'
         drawLine(
             color = tint,
             start = Offset(w * 0.50f, h * 0.44f),
@@ -501,11 +492,11 @@ fun MainScreen() {
     }
 
     // =========================================================================
-    // 🏆 CONGRATULATIONS DIALOG (15 सेकंड ऑटो-क्लोज़ + नो इमोजी + 2D गोल्ड ट्रॉफी)
+    // CONGRATULATIONS DIALOG (15 सेकंड ऑटो-क्लोज़ + नो इमोजी + 2D गोल्ड ट्रॉफी)[cite: 7]
     // =========================================================================
     if (TimerService.showCompletionDialogTrigger.value) {
         LaunchedEffect(Unit) {
-            delay(15000L) // 15 सेकंड बाद ऑटो-क्लोज़
+            delay(15000L)
             TimerService.showCompletionDialogTrigger.value = false
         }
 
@@ -534,7 +525,6 @@ fun MainScreen() {
                             Text("✕", color = textMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
 
-                        // 2D गोल्डन ट्रॉफी वेक्टर आइकन[cite: 9]
                         Box(
                             modifier = Modifier.fillMaxWidth(),
                             contentAlignment = Alignment.Center
@@ -583,11 +573,11 @@ fun MainScreen() {
     }
 
     // =========================================================================
-    // ⏱️ SESSION TOO SHORT DIALOG (< 5 min) (15 सेकंड ऑटो-क्लोज़ + ब्रोकन आर्क आइकन)
+    // SESSION TOO SHORT DIALOG (< 5 min) (15 सेकंड ऑटो-क्लोज़ + ब्रोकन आर्क आइकन)
     // =========================================================================
     if (TimerService.showSessionTooShortDialogTrigger.value) {
         LaunchedEffect(Unit) {
-            delay(15000L) // 15 सेकंड बाद ऑटो-क्लोज़
+            delay(15000L)
             TimerService.showSessionTooShortDialogTrigger.value = false
         }
 
@@ -616,7 +606,6 @@ fun MainScreen() {
                             Text("✕", color = textMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
 
-                        // 2D ब्रोकन आर्क अलर्ट टाइमर वेक्टर आइकन[cite: 9]
                         Box(
                             modifier = Modifier.fillMaxWidth(),
                             contentAlignment = Alignment.Center
@@ -656,7 +645,7 @@ fun MainScreen() {
 }
 
 // =============================================================================
-// 🔥 STREAK CALCULATION HELPER
+// STREAK CALCULATION HELPER
 // =============================================================================
 fun calculateStreakDays(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
