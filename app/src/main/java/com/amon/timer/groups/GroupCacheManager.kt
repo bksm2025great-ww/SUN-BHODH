@@ -81,7 +81,6 @@ object GroupCacheManager {
     // 📝 3. ऑफ़लाइन डायरी: अगर नेट बंद हो तो पेंडिंग काम नोट करना (e.g. "JOIN:grp_123" या "LEAVE:grp_123")
     fun addPendingAction(context: Context, action: String, groupId: String) {
         val currentSet = getPrefs(context).getStringSet(KEY_PENDING_ACTIONS, emptySet())?.toMutableSet() ?: mutableSetOf()
-        // अगर पहले से उल्टा ऐक्शन था तो उसे साफ़ करें
         val oppositeAction = if (action == "JOIN") "LEAVE:$groupId" else "JOIN:$groupId"
         currentSet.remove(oppositeAction)
         currentSet.add("$action:$groupId")
@@ -98,8 +97,36 @@ object GroupCacheManager {
         getPrefs(context).edit().putStringSet(KEY_PENDING_ACTIONS, currentSet).apply()
     }
 
+    // 🎯 4. जॉइन रिकॉर्ड करना
+    fun recordLocalJoin(context: Context, groupId: String) {
+        addPendingAction(context, "JOIN", groupId)
+    }
+
+    // 🎯 5. लीव/डिलीट रिकॉर्ड करना
+    fun recordLocalLeave(context: Context, groupId: String) {
+        addPendingAction(context, "LEAVE", groupId)
+    }
+
+    // 🧠 6. स्मार्ट सिंक: क्लाउड डेटा आने पर लोकल फ़ैसलों को प्राथमिकता देना
+    fun mergeWithCloud(context: Context, cloudGroups: List<StudyGroup>): List<StudyGroup> {
+        val pending = getPendingActions(context)
+        val joinedIds = pending.filter { it.startsWith("JOIN:") }.map { it.removePrefix("JOIN:") }.toSet()
+        val leftIds = pending.filter { it.startsWith("LEAVE:") }.map { it.removePrefix("LEAVE:") }.toSet()
+
+        return cloudGroups.map { group ->
+            when {
+                // अगर आपने लोकली लीव या डिलीट किया है, तो क्लाउड पुराना डेटा भेजे तब भी अन-जॉइन्ड रहेगा
+                group.id in leftIds -> group.copy(isJoined = false, isPinned = false)
+                // अगर आपने ऑफ़लाइन जॉइन किया है, तो क्लाउड आपको बाहर नहीं निकाल सकता
+                group.id in joinedIds -> group.copy(isJoined = true)
+                else -> group
+            }
+        }
+    }
+
     fun clearGroupCache(context: Context, groupId: String) {
         try {
+            recordLocalLeave(context, groupId)
             getPrefs(context).edit().remove("cache_group_$groupId").apply()
         } catch (_: Exception) {}
     }
