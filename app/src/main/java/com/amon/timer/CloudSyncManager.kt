@@ -44,6 +44,52 @@ object CloudSyncManager {
     private var lastSyncTimestamp: Long = 0L
     private var lastSyncedMinutes: Long = 0L
 
+    /**
+     * 🔐 Google ID Token के ज़रिए Supabase Auth (auth.users) में Sign-In करना
+     * और असली auth.uid को return + save करना
+     */
+    suspend fun signInWithGoogleIdToken(
+        context: Context,
+        idToken: String
+    ): String? = withContext(Dispatchers.IO) {
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank() || idToken.isBlank()) {
+            return@withContext null
+        }
+
+        val jsonPayload = JSONObject().apply {
+            put("provider", "google")
+            put("id_token", idToken)
+        }
+
+        val request = Request.Builder()
+            .url("$SUPABASE_URL/auth/v1/token?grant_type=id_token")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .addHeader("Content-Type", "application/json")
+            .post(jsonPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+            val responseText = response.body?.string().orEmpty()
+            if (response.isSuccessful && responseText.isNotBlank()) {
+                val obj = JSONObject(responseText)
+                val userObj = obj.optJSONObject("user")
+                val authUid = userObj?.optString("id", "")?.trim().orEmpty()
+                if (authUid.isNotBlank()) {
+                    UserManager(context).setUserId(authUid)
+                    Log.d(TAG, "Supabase Auth sign-in success! auth.uid = $authUid")
+                    return@withContext authUid
+                }
+            } else {
+                Log.e(TAG, "Supabase Auth signInWithIdToken failed: ${response.code} body: $responseText")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Supabase Auth signInWithIdToken exception: ${e.message}")
+        }
+        return@withContext null
+    }
+
     // 👑 एडमिन राइट्स को सुरक्षित रूप से लोकल प्रेफ्स में ट्रैक करना
     fun markGroupAsAdmin(context: Context, groupId: String) {
         context.getSharedPreferences("amon_admin_prefs", Context.MODE_PRIVATE)
@@ -81,7 +127,7 @@ object CloudSyncManager {
     }
 
     /**
-     * ✨ 1. छात्र की स्थायी ID के साथ profiles रजिस्टर करना
+     * ✨ 1. छात्र की Supabase auth.uid के साथ profiles रजिस्टर करना
      */
     fun registerUserOnCloud(
         context: Context,
@@ -93,6 +139,8 @@ object CloudSyncManager {
 
         val userManager = UserManager(context)
         val finalUserId = (userId ?: userManager.getUserId()).trim()
+        if (finalUserId.isBlank()) return
+
         val finalUserName = (nickname ?: userManager.getUserName()).trim().ifBlank { "Aspirant" }
         val finalEmail = (email ?: userManager.getUserEmail()).trim().lowercase()
 
@@ -122,7 +170,7 @@ object CloudSyncManager {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (response.isSuccessful) {
-                        Log.d(TAG, "User '$finalUserName' ($finalUserId) permanent profile synced!")
+                        Log.d(TAG, "User '$finalUserName' ($finalUserId) auth.uid profile synced!")
                     } else {
                         Log.e(TAG, "Profile sync error: ${response.code} body: ${response.body?.string()}")
                     }
@@ -195,7 +243,7 @@ object CloudSyncManager {
                     val gId = obj.optString("group_id")
                     val uId = obj.optString("user_id")
 
-                    if (uId == currentUserId) {
+                    if (currentUserId.isNotBlank() && uId == currentUserId) {
                         joinedGroupIds.add(gId)
                     }
                     groupCountsMap[gId] = (groupCountsMap[gId] ?: 0) + 1
@@ -230,7 +278,7 @@ object CloudSyncManager {
                     val isDefaultGroup = (gId == "universal_lib") || obj.optBoolean("is_default", false)
                     val isUserAdmin = (!isDefaultGroup) && isGroupAdmin(context, gId)
 
-                    val membersList = if (isUserAdmin) {
+                    val membersList = if (isUserAdmin && currentUserId.isNotBlank()) {
                         listOf(GroupMember(id = currentUserId, nickname = currentUserName, role = MemberRole.ADMIN))
                     } else {
                         emptyList()
@@ -339,6 +387,8 @@ object CloudSyncManager {
         try {
             val userManager = UserManager(context)
             val userId = userManager.getUserId()
+            if (userId.isBlank()) return false
+
             val userName = userManager.getUserName().ifBlank { "Aspirant" }
 
             val payload = JSONObject().apply {
@@ -382,6 +432,7 @@ object CloudSyncManager {
         try {
             val userManager = UserManager(context)
             val userId = userManager.getUserId()
+            if (userId.isBlank()) return false
 
             val request = Request.Builder()
                 .url("$SUPABASE_URL/rest/v1/group_members?group_id=eq.$groupId&user_id=eq.$userId")
@@ -501,6 +552,8 @@ object CloudSyncManager {
 
         val userManager = UserManager(context)
         val userId = userManager.getUserId()
+        if (userId.isBlank()) return
+
         val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
         val jsonPayload = JSONObject().apply {
@@ -528,7 +581,7 @@ object CloudSyncManager {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (response.isSuccessful) {
-                        Log.d(TAG, "Session safely synced to Supabase for permanent user: $userId")
+                        Log.d(TAG, "Session safely synced to Supabase for auth.uid: $userId")
                         updateUserWeeklyMinutes(userId)
                     } else {
                         Log.e(TAG, "Supabase session sync rejected! Code: ${response.code} Body: ${response.body?.string()}")
@@ -612,6 +665,7 @@ object CloudSyncManager {
 
         val userManager = UserManager(context)
         val userId = userManager.getUserId()
+        if (userId.isBlank()) return@withContext emptyList()
 
         val fetchUrl = "$SUPABASE_URL/rest/v1/study_sessions?user_id=eq.$userId&select=*&order=created_at.desc"
         val request = Request.Builder()
