@@ -72,7 +72,10 @@ class MainActivity : ComponentActivity() {
         }
 
         val userManager = UserManager(this)
-        if (userManager.getUserName().isNotBlank() && !userManager.getUserName().equals("Guest", ignoreCase = true)) {
+        if (userManager.getUserId().isNotBlank() &&
+            userManager.getUserName().isNotBlank() &&
+            !userManager.getUserName().equals("Guest", ignoreCase = true)
+        ) {
             CloudSyncManager.registerUserOnCloud(this)
         }
 
@@ -108,7 +111,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     LaunchedEffect(Unit) {
                         delay(1200)
-                        if (!localUserManager.isFreshAuthDone()) {
+                        if (!localUserManager.isFreshAuthDone() || localUserManager.getUserId().isBlank()) {
                             currentScreen = AppScreenState.AUTH
                         } else {
                             CloudSyncManager.registerUserOnCloud(context)
