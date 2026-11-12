@@ -68,7 +68,7 @@ fun AuthScreen(
         }
     }
 
-    // 🌐 Google Sign-In Action
+    // 🌐 Google Sign-In + Supabase Auth (signInWithIdToken)
     val handleGoogleSignIn = {
         coroutineScope.launch {
             try {
@@ -95,21 +95,35 @@ fun AuthScreen(
                     credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
                 ) {
                     val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                    val idToken = googleIdTokenCredential.idToken
                     val displayName = googleIdTokenCredential.displayName 
                         ?: googleIdTokenCredential.id.substringBefore("@")
                     val userEmail = googleIdTokenCredential.id
 
-                    // 1. फ़ोन मेमोरी में तुरंत सेव
+                    // 1. Google ID Token से Supabase Auth (auth.users) में sign-in करके असली auth.uid लाना
+                    val supabaseAuthUid = CloudSyncManager.signInWithGoogleIdToken(
+                        context = context,
+                        idToken = idToken
+                    )
+
+                    if (supabaseAuthUid.isNullOrBlank()) {
+                        isLoading = false
+                        errorMessage = "Supabase Auth Sign-In failed. Check Google Provider settings."
+                        return@launch
+                    }
+
+                    // 2. फ़ोन मेमोरी में असली auth.uid और प्रोफ़ाइल डिटेल्स सेव करना
+                    userManager.setUserId(supabaseAuthUid)
                     userManager.setUserName(displayName)
                     userManager.setUserEmail(userEmail)
                     userManager.setGuestUser(false)
 
-                    // 2. बैकग्राउंड सिंक (यूज़र को बिना रोके)
+                    // 3. बैकग्राउंड में इसी auth.uid के साथ profiles टेबल सिंक करना
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
                             CloudSyncManager.registerUserOnCloud(
                                 context = context,
-                                userId = userManager.getUserId(),
+                                userId = supabaseAuthUid,
                                 nickname = displayName,
                                 email = userEmail
                             )
@@ -118,7 +132,7 @@ fun AuthScreen(
                         }
                     }
 
-                    // 3. तुरंत ऐप के अंदर प्रवेश
+                    // 4. ऐप के अंदर प्रवेश
                     isLoading = false
                     Toast.makeText(context, "Welcome $displayName!", Toast.LENGTH_SHORT).show()
                     proceedToApp()
