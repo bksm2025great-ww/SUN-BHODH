@@ -6,7 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object FocusSessionManager {
-    // फ़ोन के अंदर डेटा सुरक्षित रखने की तिजोरी
+    // फ़ोन के अंदर डेटा सुरक्षित रखने की मुख्य तिजोरी
     private const val PREFS_NAME = "amon_focus_prefs"
     private const val KEY_SESSIONS = "saved_sessions"
 
@@ -14,7 +14,7 @@ object FocusSessionManager {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    // 1. डायरी में लिखना (5 मिनट से कम वाला सेव नहीं होगा + सीधे Supabase पर भेजना)
+    // 1. डायरी में नया सेशन लिखना (केवल 5 मिनट या उससे ज़्यादा का मान्य)
     fun saveSession(context: Context, session: FocusSession) {
         // 🛑 5 मिनट से कम की पढ़ाई कभी मेमोरी में नहीं जाएगी
         if (session.durationMinutes < 5) return
@@ -55,7 +55,7 @@ object FocusSessionManager {
             // फ़ोन की मेमोरी में सुरक्षित लॉक
             prefs.edit().putString(KEY_SESSIONS, updatedJsonArray.toString()).apply()
 
-            // 🚀 डाकिया (CloudSyncManager) को Supabase में डेटा भेजने का सीधा आदेश
+            // 🚀 सीधे Supabase क्लाउड पर डेटा भेजना
             CloudSyncManager.syncSession(
                 context = context,
                 subject = session.subject,
@@ -67,7 +67,7 @@ object FocusSessionManager {
         }
     }
 
-    // 2. डायरी से पढ़ना + 🧹 5 मिनट से छोटे पुराने सेशन्स पर झाड़ू
+    // 2. डायरी से सभी सेशन्स पढ़ना + 5 मिनट से छोटे पुराने कचरे को हटाना
     fun getAllSessions(context: Context): List<FocusSession> {
         val prefs = getPrefs(context)
         val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
@@ -98,7 +98,7 @@ object FocusSessionManager {
                 sessionList.add(session)
             }
 
-            // अगर सफ़ाई हुई हो तो मेमोरी अपडेट
+            // अगर सफ़ाई हुई हो तो लोकल मेमोरी अपडेट
             if (needToCleanStorage) {
                 prefs.edit().putString(KEY_SESSIONS, cleanedJsonArray.toString()).apply()
             }
@@ -106,16 +106,16 @@ object FocusSessionManager {
             e.printStackTrace()
         }
 
-        // नई पढ़ाई सबसे ऊपर
+        // नई पढ़ाई सबसे ऊपर दिखाने के लिए रिवर्स करें
         return sessionList.reversed()
     }
 
-    // 🟢 Shortcut alias: पुरानी स्क्रीन के साथ तालमेल के लिए
+    // 🟢 Shortcut alias: पुरानी स्क्रीनों के साथ तालमेल के लिए
     fun getSessions(context: Context): List<FocusSession> {
         return getAllSessions(context)
     }
 
-    // 3. डेटा रीस्टोर करना (शुद्ध मिनटों के साथ)
+    // 3. बैकअप या क्लाउड से डेटा रीस्टोर करना
     fun restoreSessions(context: Context, incomingSessions: List<FocusSession>): Pair<Int, Int> {
         val prefs = getPrefs(context)
         val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
@@ -126,7 +126,7 @@ object FocusSessionManager {
             val cleanExistingArray = JSONArray()
             val existingList = mutableListOf<JSONObject>()
 
-            // केवल 5 मिनट या उससे बड़े सेशन्स
+            // केवल 5 मिनट या उससे बड़े सेशन्स रखना
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
                 if (obj.optInt("durationMinutes", 0) >= 5) {
