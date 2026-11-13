@@ -328,7 +328,7 @@ fun StatsScreen() {
             }
         }
 
-        // 4. INTERACTIVE BAR CHART (WITH SPOTLIGHT HIGHLIGHT - NO WHITE BORDER)
+        // 4. INTERACTIVE BAR CHART
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -524,7 +524,7 @@ fun StatsScreen() {
             }
         }
 
-        // 🎯 4.1 DYNAMIC GOAL CARD (BAR CHART KE THEEK NEECHE)
+        // 4.1 DYNAMIC GOAL CARD
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -661,7 +661,7 @@ fun StatsScreen() {
             }
         }
 
-        // 5. 4 SUMMARY CARDS (BALANCED HEIGHTS & COMPACT FIT)
+        // 5. 4 SUMMARY CARDS
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -736,7 +736,7 @@ fun StatsScreen() {
             }
         }
 
-        // 🌟 5.1 DYNAMIC BENTO COMPARISON STRIP CARD
+        // 5.1 DYNAMIC BENTO COMPARISON STRIP CARD
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -792,7 +792,7 @@ fun StatsScreen() {
             }
         }
 
-        // 6. SUBJECT BREAKDOWN (ON-SCROLL ANIMATED DONUT)
+        // 6. SUBJECT BREAKDOWN DONUT
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -939,7 +939,7 @@ fun StatsScreen() {
         Spacer(modifier = Modifier.height(16.dp))
     }
 
-    // 🌟 CONTEXTUAL GOAL SETTING DIALOG
+    // 🌟 GOAL SETTING DIALOG
     if (showGoalDialog) {
         val initialInput = when (selectedTab) {
             "Today" -> if (dailyGoalHours > 0f) dailyGoalHours.toString() else ""
@@ -1071,9 +1071,6 @@ fun StatsScreen() {
     }
 }
 
-// =============================================================================
-// 📊 SPRING ANIMATED BAR (SPOTLIGHT BRIGHT & DIM EFFECT - NO BORDER)
-// =============================================================================
 @Composable
 fun AnimatedBarItem(
     modifier: Modifier = Modifier,
@@ -1108,20 +1105,17 @@ fun AnimatedBarItem(
                 if (isZero) {
                     if (isDark) Color(0xFF27272A) else Color(0xFFCBD5E1)
                 } else if (isSelected) {
-                    goldColor // 🌟 चुना हुआ बार: 100% सॉलिड ब्राइट
+                    goldColor
                 } else if (hasSelection) {
-                    goldColor.copy(alpha = 0.22f) // 🌟 बाकी बार्स: हल्के डिम
+                    goldColor.copy(alpha = 0.22f)
                 } else {
-                    goldColor.copy(alpha = 0.82f) // सामान्य स्थिति
+                    goldColor.copy(alpha = 0.82f)
                 }
             )
             .clickable { onClick() }
     )
 }
 
-// =============================================================================
-// 🔥 STREAK JOURNAL BOTTOM SHEET
-// =============================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StreakJournalBottomSheet(
@@ -1539,9 +1533,6 @@ fun StreakJournalBottomSheet(
     }
 }
 
-// =============================================================================
-// SUMMARY CARD COMPOSABLE
-// =============================================================================
 @Composable
 fun SummaryCard(
     modifier: Modifier = Modifier,
@@ -1766,7 +1757,6 @@ internal fun parseDateSafelyUniversal(dateStr: String): Date? {
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
-        SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()),
         SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()),
         SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
         SimpleDateFormat("d/M/yyyy", Locale.getDefault()),
