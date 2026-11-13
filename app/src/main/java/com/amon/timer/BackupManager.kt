@@ -68,7 +68,6 @@ object BackupManager {
                             put("date", s.date)
                             put("subject", s.subject)
                             put("durationMinutes", s.durationMinutes)
-                            put("earnedTrees", s.earnedTrees)
                         }
                         sessionsArray.put(sObj)
                     }
@@ -149,15 +148,14 @@ object BackupManager {
                         id = item.optLong("id", System.currentTimeMillis()),
                         date = item.optString("date", ""),
                         subject = item.optString("subject", "General Study"),
-                        durationMinutes = duration,
-                        earnedTrees = item.optInt("earnedTrees", 0)
+                        durationMinutes = duration
                     )
                 )
             }
 
-            val (restoredTrees, restoredMinutes) = FocusSessionManager.restoreSessions(context, restoredSessions)
+            val (_, restoredMinutes) = FocusSessionManager.restoreSessions(context, restoredSessions)
 
-            Pair(true, "Successfully restored! $restoredMinutes mins & $restoredTrees trees recovered.")
+            Pair(true, "Successfully restored! $restoredMinutes mins recovered.")
         } catch (e: Exception) {
             e.printStackTrace()
             Pair(false, "Error restoring file: ${e.localizedMessage}")
@@ -175,15 +173,15 @@ object BackupManager {
             val fileName = "Amon_Study_Report_${safeName}_$timeStamp.csv"
 
             val sb = StringBuilder()
-            // 📝 साफ़ 4 हेडर - कोई टेक्निकल आईडी नहीं
-            sb.append("Date & Time,Subject,Duration (Mins),Trees Earned\n")
+            // 📝 साफ़ 3 हेडर - कोई टेक्निकल आईडी या पेड़ नहीं
+            sb.append("Date & Time,Subject,Duration (Mins)\n")
 
             sessions.forEach { s ->
                 if (s.durationMinutes >= 5) {
                     val cleanDate = s.date.replace("\"", "")
                     val cleanSubject = s.subject.replace("\"", "").replace(",", " ")
                     // ✨ कोट्स ("") लगाने से कॉमा होने पर भी कॉलम नहीं खिसकेगा
-                    sb.append("\"$cleanDate\",\"$cleanSubject\",${s.durationMinutes},${s.earnedTrees}\n")
+                    sb.append("\"$cleanDate\",\"$cleanSubject\",${s.durationMinutes}\n")
                 }
             }
 
