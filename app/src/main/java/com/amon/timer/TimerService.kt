@@ -7,9 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
-import android.graphics.Color as AndroidColor
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
@@ -81,7 +79,7 @@ class TimerService : Service() {
         val lastCompletedMinutes = mutableIntStateOf(0)
         val lastCompletedMode = mutableStateOf("")
         val lastCompletedRounds = mutableIntStateOf(0)
-        
+
         // 🎯 डायलॉग ट्रिगर्स
         val showCompletionDialogTrigger = mutableStateOf(false)
         val showSessionTooShortDialogTrigger = mutableStateOf(false)
@@ -442,18 +440,6 @@ class TimerService : Service() {
 
             val minutes = (completedSeconds / 60).coerceAtLeast(1)
 
-            val trees = if (isCancelled) {
-                0
-            } else {
-                when {
-                    minutes >= 105 -> 4
-                    minutes >= 75  -> 3
-                    minutes >= 45  -> 2
-                    minutes >= 15  -> 1
-                    else -> 0
-                }
-            }
-
             val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
             val currentDate = sdf.format(Date())
             val currentSessionId = System.currentTimeMillis()
@@ -462,19 +448,10 @@ class TimerService : Service() {
                 id = currentSessionId,
                 date = currentDate,
                 subject = currentSubjectName.value,
-                durationMinutes = minutes,
-                earnedTrees = trees
+                durationMinutes = minutes
             )
             
             FocusSessionManager.saveSession(this, session)
-
-            CloudSyncManager.syncSession(
-                context = this,
-                subject = currentSubjectName.value.ifBlank { "All" },
-                durationMinutes = minutes.toLong(),
-                earnedTrees = trees,
-                sessionId = currentSessionId
-            )
 
             lastCompletedMinutes.intValue = minutes
             lastCompletedMode.value = activeModeType.value
