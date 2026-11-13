@@ -41,7 +41,7 @@ object FocusSessionManager {
                 updatedJsonArray.put(obj)
             }
 
-            // नया सेशन जोड़ने का ब्लॉक (पेड़ों का झंझट बाहर)
+            // नया सेशन जोड़ने का ब्लॉक
             if (!isAlreadyExists) {
                 val newSessionObj = JSONObject().apply {
                     put("id", if (session.id != 0L) session.id else System.currentTimeMillis())
@@ -93,8 +93,7 @@ object FocusSessionManager {
                     id = obj.optLong("id", System.currentTimeMillis()),
                     date = obj.optString("date", ""),
                     subject = obj.optString("subject", "All"),
-                    durationMinutes = duration,
-                    earnedTrees = 0 // स्क्रीन क्रैश न हो इसलिए डिफ़ॉल्ट 0
+                    durationMinutes = duration
                 )
                 sessionList.add(session)
             }
