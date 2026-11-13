@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.devtools.ksp") version "1.5.14-1.0.20" // 👈 Room compiler ke liye KSP plugin joda gaya hai
+    id("com.google.devtools.ksp") version "1.9.22-1.0.20" // 👈 Kotlin 1.9.22 ke hisab se updated KSP version
 }
 
 android {
