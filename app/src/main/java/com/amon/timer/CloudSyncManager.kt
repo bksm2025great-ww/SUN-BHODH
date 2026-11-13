@@ -23,7 +23,6 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-// 🏆 लीडरबोर्ड के लिए शुद्ध डेटा मॉडल
 data class LeaderboardItem(
     val id: String,
     val name: String,
@@ -36,18 +35,12 @@ object CloudSyncManager {
     private val client = OkHttpClient()
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
-    // 🔐 Supabase कनेक्शन की चाबियाँ
     private const val SUPABASE_URL = "https://mgenghztpcqaqaepvevw.supabase.co"
     private const val SUPABASE_KEY = "sb_publishable_flD-UULZ2YGzMrVLw2QHoA_7cXEg7FX"
 
-    // 🛡️ डुप्लीकेट सेशन सिंक रोकने के लिए गार्ड
     private var lastSyncTimestamp: Long = 0L
     private var lastSyncedMinutes: Long = 0L
 
-    /**
-     * 🔐 Google ID Token के ज़रिए Supabase Auth (auth.users) में Sign-In करना
-     * और असली auth.uid को return + save करना
-     */
     suspend fun signInWithGoogleIdToken(
         context: Context,
         idToken: String
@@ -81,8 +74,6 @@ object CloudSyncManager {
                     Log.d(TAG, "Supabase Auth sign-in success! auth.uid = $authUid")
                     return@withContext authUid
                 }
-            } else {
-                Log.e(TAG, "Supabase Auth signInWithIdToken failed: ${response.code} body: $responseText")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Supabase Auth signInWithIdToken exception: ${e.message}")
@@ -90,7 +81,6 @@ object CloudSyncManager {
         return@withContext null
     }
 
-    // 👑 एडमिन राइट्स को सुरक्षित रूप से लोकल प्रेफ्स में ट्रैक करना
     fun markGroupAsAdmin(context: Context, groupId: String) {
         context.getSharedPreferences("amon_admin_prefs", Context.MODE_PRIVATE)
             .edit().putBoolean("admin_$groupId", true).apply()
@@ -106,9 +96,6 @@ object CloudSyncManager {
             .edit().remove("admin_$groupId").apply()
     }
 
-    /**
-     * 📅 हफ़्ते (Current Week vs Last Week) की Monday से Sunday की तारीखें निकालना
-     */
     fun getWeekDateRange(isCurrentWeek: Boolean): Pair<String, String> {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         val cal = Calendar.getInstance()
@@ -126,9 +113,6 @@ object CloudSyncManager {
         return Pair(startDate, endDate)
     }
 
-    /**
-     * ✨ 1. छात्र की Supabase auth.uid के साथ profiles रजिस्टर करना
-     */
     fun registerUserOnCloud(
         context: Context,
         userId: String? = null,
@@ -170,9 +154,7 @@ object CloudSyncManager {
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (response.isSuccessful) {
-                        Log.d(TAG, "User '$finalUserName' ($finalUserId) auth.uid profile synced!")
-                    } else {
-                        Log.e(TAG, "Profile sync error: ${response.code} body: ${response.body?.string()}")
+                        Log.d(TAG, "User profile synced!")
                     }
                 }
             }
@@ -180,8 +162,47 @@ object CloudSyncManager {
     }
 
     /**
-     * 🔄 पेंडिंग ऑफ़लाइन ऐक्शन को नेट आने पर बैकग्राउंड में सुपबेस को भेजना
+     * 🟢 यूजर का लाइव एक्टिव/ऑफलाइन स्टेटस Supabase में अपडेट करना
      */
+    fun updateUserActiveStatus(context: Context, isActive: Boolean) {
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return
+
+        val userManager = UserManager(context)
+        val userId = userManager.getUserId()
+        if (userId.isBlank()) return
+
+        val currentTime = System.currentTimeMillis()
+
+        val jsonPayload = JSONObject().apply {
+            put("is_active", isActive)
+            put("last_active_at", currentTime)
+        }
+
+        val requestBody = jsonPayload.toString().toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url("$SUPABASE_URL/rest/v1/profiles?id=eq.$userId")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "return=minimal")
+            .patch(requestBody)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "Failed to update active status: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (response.isSuccessful) {
+                        Log.d(TAG, "User active status updated to: $isActive")
+                    }
+                }
+            }
+        })
+    }
+
     suspend fun syncPendingGroupActions(context: Context) = withContext(Dispatchers.IO) {
         val pending = GroupCacheManager.getPendingActions(context)
         if (pending.isEmpty()) return@withContext
@@ -198,26 +219,16 @@ object CloudSyncManager {
                 }
                 if (success) {
                     GroupCacheManager.removePendingAction(context, item)
-                    Log.d(TAG, "Successfully synced pending action: $item")
                 }
             }
         }
     }
 
-    /**
-     * 👥 2. ग्रुप्स को सुपबेस से लोड करना (ऑफ़लाइन फ़र्स्ट: नेट न होने पर तुरंत लोकल कैशे)
-     */
     suspend fun fetchGroups(context: Context): List<StudyGroup> = withContext(Dispatchers.IO) {
         val localBackup = GroupCacheManager.getCachedGroupsList(context)
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext localBackup
 
-        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) {
-            return@withContext localBackup
-        }
-
-        // पहले पेंडिंग ऑफ़लाइन ऐक्शन को सिंक करें
-        try {
-            syncPendingGroupActions(context)
-        } catch (_: Exception) {}
+        try { syncPendingGroupActions(context) } catch (_: Exception) {}
 
         val userManager = UserManager(context)
         val currentUserId = userManager.getUserId()
@@ -242,7 +253,6 @@ object CloudSyncManager {
                     val obj = arr.getJSONObject(i)
                     val gId = obj.optString("group_id")
                     val uId = obj.optString("user_id")
-
                     if (currentUserId.isNotBlank() && uId == currentUserId) {
                         joinedGroupIds.add(gId)
                     }
@@ -250,13 +260,11 @@ object CloudSyncManager {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Members count fetch error (offline?): ${e.message}")
             return@withContext localBackup
         }
 
-        val groupsUrl = "$SUPABASE_URL/rest/v1/study_groups?select=*"
         val request = Request.Builder()
-            .url(groupsUrl)
+            .url("$SUPABASE_URL/rest/v1/study_groups?select=*")
             .addHeader("apikey", SUPABASE_KEY)
             .addHeader("Authorization", "Bearer $SUPABASE_KEY")
             .get()
@@ -274,7 +282,6 @@ object CloudSyncManager {
                     val gId = obj.optString("id")
                     val isJoined = joinedGroupIds.contains(gId)
                     val realMemberCount = groupCountsMap[gId] ?: obj.optInt("member_count", 1)
-
                     val isDefaultGroup = (gId == "universal_lib") || obj.optBoolean("is_default", false)
                     val isUserAdmin = (!isDefaultGroup) && isGroupAdmin(context, gId)
 
@@ -322,20 +329,12 @@ object CloudSyncManager {
                 GroupCacheManager.saveCachedGroupsList(context, list)
                 return@withContext list
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Groups fetch error (fallback to local): ${e.message}")
-        }
+        } catch (e: Exception) {}
 
         return@withContext localBackup
     }
 
-    /**
-     * ➕ 3. नया ग्रुप बनाना
-     */
-    suspend fun createGroupOnCloud(
-        context: Context,
-        group: StudyGroup
-    ): Boolean = withContext(Dispatchers.IO) {
+    suspend fun createGroupOnCloud(context: Context, group: StudyGroup): Boolean = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext false
 
         val jsonPayload = JSONObject().apply {
@@ -366,15 +365,10 @@ object CloudSyncManager {
                 joinGroupOnCloud(context, group.id)
                 return@withContext true
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Create group exception: ${e.message}")
-        }
+        } catch (e: Exception) {}
         return@withContext false
     }
 
-    /**
-     * 🚪 4. ग्रुप जॉइन करना (नेट न होने पर ऑटो-डायरी में दर्ज)
-     */
     suspend fun joinGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
         val success = joinGroupOnCloudDirect(context, groupId)
         if (!success) {
@@ -388,7 +382,6 @@ object CloudSyncManager {
             val userManager = UserManager(context)
             val userId = userManager.getUserId()
             if (userId.isBlank()) return false
-
             val userName = userManager.getUserName().ifBlank { "Aspirant" }
 
             val payload = JSONObject().apply {
@@ -411,15 +404,10 @@ object CloudSyncManager {
                 updateUserWeeklyMinutes(userId)
                 return true
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Join direct error: ${e.message}")
-        }
+        } catch (e: Exception) {}
         return false
     }
 
-    /**
-     * ❌ 5. ग्रुप छोड़ना (नेट न होने पर ऑटो-डायरी में दर्ज)
-     */
     suspend fun leaveGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
         val success = leaveGroupOnCloudDirect(context, groupId)
         if (!success) {
@@ -443,22 +431,12 @@ object CloudSyncManager {
 
             val response = client.newCall(request).execute()
             return response.isSuccessful
-        } catch (e: Exception) {
-            Log.e(TAG, "Leave direct error: ${e.message}")
-        }
+        } catch (e: Exception) {}
         return false
     }
 
-    /**
-     * 🗑️ 6. ग्रुप हमेशा के लिए डिलीट करना (Universal Library सुरक्षित)
-     */
     suspend fun deleteGroupOnCloud(groupId: String): Boolean = withContext(Dispatchers.IO) {
-        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext false
-
-        if (groupId == "universal_lib") {
-            Log.w(TAG, "Default Universal Library cannot be deleted from cloud!")
-            return@withContext false
-        }
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank() || groupId == "universal_lib") return@withContext false
 
         try {
             val delMembersReq = Request.Builder()
@@ -479,17 +457,12 @@ object CloudSyncManager {
             val res = client.newCall(delGroupReq).execute()
             return@withContext res.isSuccessful
         } catch (e: Exception) {
-            Log.e(TAG, "Delete group error: ${e.message}")
             return@withContext false
         }
     }
 
-    /**
-     * 🔍 7. इनवाइट कोड से ग्रुप ढूँढना
-     */
     suspend fun fetchGroupByInviteCode(inviteCode: String): StudyGroup? = withContext(Dispatchers.IO) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext null
-
         val cleanCode = inviteCode.trim()
         if (cleanCode.isBlank()) return@withContext null
 
@@ -522,15 +495,10 @@ object CloudSyncManager {
                     )
                 }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Search by invite code error: ${e.message}")
-        }
+        } catch (e: Exception) {}
         return@withContext null
     }
 
-    /**
-     * ⏱️ 8. पढ़ाई पूरी होने पर सेशन सिंक करना
-     */
     fun syncSession(
         context: Context,
         subject: String,
@@ -538,15 +506,10 @@ object CloudSyncManager {
         earnedTrees: Int = 0,
         sessionId: Long = System.currentTimeMillis()
     ) {
-        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return
-        if (durationMinutes <= 0) return
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank() || durationMinutes <= 0) return
 
         val now = System.currentTimeMillis()
-        if (now - lastSyncTimestamp < 3000 && lastSyncedMinutes == durationMinutes) {
-            Log.w(TAG, "Duplicate session sync blocked!")
-            return
-        }
-
+        if (now - lastSyncTimestamp < 3000 && lastSyncedMinutes == durationMinutes) return
         lastSyncTimestamp = now
         lastSyncedMinutes = durationMinutes
 
@@ -574,26 +537,17 @@ object CloudSyncManager {
             .build()
 
         client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "Session sync fail: ${e.message}")
-            }
-
+            override fun onFailure(call: Call, e: IOException) {}
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (response.isSuccessful) {
-                        Log.d(TAG, "Session safely synced to Supabase for auth.uid: $userId")
                         updateUserWeeklyMinutes(userId)
-                    } else {
-                        Log.e(TAG, "Supabase session sync rejected! Code: ${response.code} Body: ${response.body?.string()}")
                     }
                 }
             }
         })
     }
 
-    /**
-     * 🔄 8.1 group_members टेबल में weekly_study_minutes अपडेट करना
-     */
     fun updateUserWeeklyMinutes(userId: String) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank() || userId.isBlank()) return
 
@@ -608,10 +562,7 @@ object CloudSyncManager {
             .build()
 
         client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "Failed to calculate weekly minutes: ${e.message}")
-            }
-
+            override fun onFailure(call: Call, e: IOException) {}
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     val text = response.body?.string().orEmpty()
@@ -632,199 +583,20 @@ object CloudSyncManager {
                                 .addHeader("apikey", SUPABASE_KEY)
                                 .addHeader("Authorization", "Bearer $SUPABASE_KEY")
                                 .addHeader("Content-Type", "application/json")
+                                .addHeader("Prefer", "return=minimal")
                                 .patch(patchPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
                                 .build()
 
                             client.newCall(patchRequest).enqueue(object : Callback {
-                                override fun onFailure(pCall: Call, pE: IOException) {
-                                    Log.e(TAG, "Failed to update weekly_study_minutes: ${pE.message}")
-                                }
-
+                                override fun onFailure(pCall: Call, pE: IOException) {}
                                 override fun onResponse(pCall: Call, pResponse: Response) {
-                                    pResponse.use {
-                                        if (pResponse.isSuccessful) {
-                                            Log.d(TAG, "weekly_study_minutes updated to $totalWeeklyMins for $userId")
-                                        }
-                                    }
+                                    pResponse.close()
                                 }
                             })
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error parsing weekly minutes: ${e.message}")
-                        }
+                        } catch (e: Exception) {}
                     }
                 }
             }
         })
-    }
-
-    /**
-     * 📥 9. पढ़ाई का पिछला डेटा मंगाना
-     */
-    suspend fun fetchSessions(context: Context): List<FocusSession> = withContext(Dispatchers.IO) {
-        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
-
-        val userManager = UserManager(context)
-        val userId = userManager.getUserId()
-        if (userId.isBlank()) return@withContext emptyList()
-
-        val fetchUrl = "$SUPABASE_URL/rest/v1/study_sessions?user_id=eq.$userId&select=*&order=created_at.desc"
-        val request = Request.Builder()
-            .url(fetchUrl)
-            .addHeader("apikey", SUPABASE_KEY)
-            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
-            .get()
-            .build()
-
-        try {
-            val response = client.newCall(request).execute()
-            val responseText = response.body?.string().orEmpty()
-
-            if (responseText.isNotBlank()) {
-                val sessionsArray = JSONArray(responseText)
-                val resultList = mutableListOf<FocusSession>()
-
-                for (i in 0 until sessionsArray.length()) {
-                    val item = sessionsArray.getJSONObject(i)
-                    resultList.add(
-                        FocusSession(
-                            id = item.optLong("id", System.currentTimeMillis() + i),
-                            date = item.optString("session_date", ""),
-                            subject = item.optString("subject", "All"),
-                            durationMinutes = item.optInt("duration_minutes", 0),
-                            earnedTrees = 0
-                        )
-                    )
-                }
-                return@withContext resultList
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Supabase se data lane me error: ${e.message}")
-        }
-
-        return@withContext emptyList()
-    }
-
-    /**
-     * 👑 10. ग्लोबल लीडरबोर्ड डेटा खींचना
-     */
-    suspend fun fetchLeaderboard(): List<LeaderboardItem> = withContext(Dispatchers.IO) {
-        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext emptyList()
-
-        val fetchUrl = "$SUPABASE_URL/rest/v1/study_sessions?select=id,subject,duration_minutes&order=duration_minutes.desc&limit=50"
-        val request = Request.Builder()
-            .url(fetchUrl)
-            .addHeader("apikey", SUPABASE_KEY)
-            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
-            .get()
-            .build()
-
-        try {
-            val response = client.newCall(request).execute()
-            val responseText = response.body?.string().orEmpty()
-
-            if (response.isSuccessful && responseText.isNotBlank()) {
-                val array = JSONArray(responseText)
-                val list = mutableListOf<LeaderboardItem>()
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    val id = obj.optString("id", "session_$i")
-                    val subject = obj.optString("subject", "Student ${i + 1}")
-                    val minutes = obj.optLong("duration_minutes", 0L)
-                    list.add(LeaderboardItem(id = id, name = subject, totalMinutes = minutes))
-                }
-                return@withContext list
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Leaderboard fetch error: ${e.message}")
-        }
-        return@withContext emptyList()
-    }
-
-    /**
-     * 🏆 11. ग्रुप लीडरबोर्ड (This Week vs Last Week)
-     */
-    suspend fun fetchGroupLeaderboard(
-        context: Context,
-        groupId: String,
-        isCurrentWeek: Boolean
-    ): List<GroupMember> = withContext(Dispatchers.IO) {
-        val cached = GroupCacheManager.getCachedLeaderboard(context, groupId)
-
-        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext cached
-
-        try {
-            val membersUrl = "$SUPABASE_URL/rest/v1/group_members?group_id=eq.$groupId&select=user_id,nickname"
-            val memReq = Request.Builder()
-                .url(membersUrl)
-                .addHeader("apikey", SUPABASE_KEY)
-                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
-                .get()
-                .build()
-
-            val memRes = client.newCall(memReq).execute()
-            val memText = memRes.body?.string().orEmpty()
-            if (!memRes.isSuccessful || memText.isBlank()) return@withContext cached
-
-            val memArray = JSONArray(memText)
-            val membersMap = mutableMapOf<String, String>()
-            for (i in 0 until memArray.length()) {
-                val obj = memArray.getJSONObject(i)
-                val uId = obj.optString("user_id")
-                val nick = obj.optString("nickname", "Aspirant")
-                if (uId.isNotBlank()) {
-                    membersMap[uId] = nick
-                }
-            }
-
-            if (membersMap.isEmpty()) return@withContext cached
-
-            val (startDate, endDate) = getWeekDateRange(isCurrentWeek)
-
-            val sessionsUrl = "$SUPABASE_URL/rest/v1/study_sessions?session_date=gte.$startDate&session_date=lte.$endDate&select=user_id,duration_minutes"
-            val sessReq = Request.Builder()
-                .url(sessionsUrl)
-                .addHeader("apikey", SUPABASE_KEY)
-                .addHeader("Authorization", "Bearer $SUPABASE_KEY")
-                .get()
-                .build()
-
-            val sessRes = client.newCall(sessReq).execute()
-            val sessText = sessRes.body?.string().orEmpty()
-
-            val minutesMap = mutableMapOf<String, Int>()
-            if (sessRes.isSuccessful && sessText.isNotBlank()) {
-                val sessArray = JSONArray(sessText)
-                for (i in 0 until sessArray.length()) {
-                    val sObj = sessArray.getJSONObject(i)
-                    val uId = sObj.optString("user_id")
-                    val duration = sObj.optInt("duration_minutes", 0)
-                    if (uId.isNotBlank()) {
-                        minutesMap[uId] = (minutesMap[uId] ?: 0) + duration
-                    }
-                }
-            }
-
-            val result = membersMap.map { (uId, nick) ->
-                val totalMins = minutesMap[uId] ?: 0
-                GroupMember(
-                    id = uId,
-                    nickname = nick,
-                    role = MemberRole.MEMBER,
-                    studyTimeMinutes = totalMins,
-                    isCurrentlyFocusing = false,
-                    lastActive = if (totalMins > 0) "This week" else "No sessions"
-                )
-            }.sortedByDescending { it.studyTimeMinutes }
-
-            if (isCurrentWeek && result.isNotEmpty()) {
-                GroupCacheManager.saveLeaderboard(context, groupId, result)
-            }
-
-            return@withContext result
-        } catch (e: Exception) {
-            Log.e(TAG, "Group leaderboard fetch error (returning cache): ${e.message}")
-        }
-
-        return@withContext cached
     }
 }
