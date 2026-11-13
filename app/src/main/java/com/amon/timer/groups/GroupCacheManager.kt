@@ -78,23 +78,36 @@ object GroupCacheManager {
         }
     }
 
-    // 📝 3. ऑफ़लाइन डायरी: अगर नेट बंद हो तो पेंडिंग काम नोट करना (e.g. "JOIN:grp_123" या "LEAVE:grp_123")
+    // 📝 3. ऑफ़लाइन डायरी: हर groupId के लिए सिर्फ़ सबसे नया ऐक्शन रखना (नया JOIN पुराने LEAVE को हटाएगा और उल्टा भी)
     fun addPendingAction(context: Context, action: String, groupId: String) {
+        val cleanGroupId = groupId.trim()
+        if (cleanGroupId.isBlank()) return
         val currentSet = getPrefs(context).getStringSet(KEY_PENDING_ACTIONS, emptySet())?.toMutableSet() ?: mutableSetOf()
-        val oppositeAction = if (action == "JOIN") "LEAVE:$groupId" else "JOIN:$groupId"
-        currentSet.remove(oppositeAction)
-        currentSet.add("$action:$groupId")
+        // इस groupId से जुड़ी कोई भी पुरानी JOIN या LEAVE एंट्री हटा दें
+        currentSet.removeAll { it.endsWith(":$cleanGroupId") }
+        currentSet.add("$action:$cleanGroupId")
         getPrefs(context).edit().putStringSet(KEY_PENDING_ACTIONS, currentSet).apply()
     }
 
     fun getPendingActions(context: Context): Set<String> {
-        return getPrefs(context).getStringSet(KEY_PENDING_ACTIONS, emptySet()) ?: emptySet()
+        return getPrefs(context).getStringSet(KEY_PENDING_ACTIONS, emptySet())?.toSet() ?: emptySet()
     }
 
     fun removePendingAction(context: Context, actionEntry: String) {
         val currentSet = getPrefs(context).getStringSet(KEY_PENDING_ACTIONS, emptySet())?.toMutableSet() ?: return
         currentSet.remove(actionEntry)
         getPrefs(context).edit().putStringSet(KEY_PENDING_ACTIONS, currentSet).apply()
+    }
+
+    // ✅ क्लाउड से कन्फ़र्म होते ही उस ग्रुप की पेंडिंग एंट्री तुरंत डिलीट करना
+    fun clearPendingActionForGroup(context: Context, groupId: String) {
+        val cleanGroupId = groupId.trim()
+        if (cleanGroupId.isBlank()) return
+        val currentSet = getPrefs(context).getStringSet(KEY_PENDING_ACTIONS, emptySet())?.toMutableSet() ?: return
+        val changed = currentSet.removeAll { it.endsWith(":$cleanGroupId") }
+        if (changed) {
+            getPrefs(context).edit().putStringSet(KEY_PENDING_ACTIONS, currentSet).apply()
+        }
     }
 
     // 🎯 4. जॉइन रिकॉर्ड करना
