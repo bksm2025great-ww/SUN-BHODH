@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.devtools.ksp") version "1.5.14-1.0.20" // 👈 Room compiler ke liye KSP plugin joda gaya hai
 }
 
 android {
@@ -81,4 +82,10 @@ dependencies {
 
     // 🌐 Internet postman: Data ko Google Sheet tak pahunchane ke liye
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // 🗄️ Room Database (Step 4 ke liye local storage)
+    val roomVersion = "2.6.1"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
 }
