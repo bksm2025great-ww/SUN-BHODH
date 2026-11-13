@@ -197,7 +197,7 @@ object CloudSyncManager {
                     leaveGroupOnCloudDirect(context, gId)
                 }
                 if (success) {
-                    GroupCacheManager.removePendingAction(context, item)
+                    GroupCacheManager.clearPendingActionForGroup(context, gId)
                     Log.d(TAG, "Successfully synced pending action: $item")
                 }
             }
@@ -232,7 +232,7 @@ object CloudSyncManager {
                 .addHeader("apikey", SUPABASE_KEY)
                 .addHeader("Authorization", "Bearer $SUPABASE_KEY")
                 .get()
-                .build()
+            .build()
 
             val allMembersRes = client.newCall(allMembersReq).execute()
             val allMembersText = allMembersRes.body?.string().orEmpty()
@@ -319,8 +319,9 @@ object CloudSyncManager {
                     createGroupOnCloud(context, defaultLib)
                 }
 
-                GroupCacheManager.saveCachedGroupsList(context, list)
-                return@withContext list
+                val mergedList = GroupCacheManager.mergeWithCloud(context, list)
+                GroupCacheManager.saveCachedGroupsList(context, mergedList)
+                return@withContext mergedList
             }
         } catch (e: Exception) {
             Log.e(TAG, "Groups fetch error (fallback to local): ${e.message}")
@@ -373,11 +374,13 @@ object CloudSyncManager {
     }
 
     /**
-     * 🚪 4. ग्रुप जॉइन करना (नेट न होने पर ऑटो-डायरी में दर्ज)
+     * 🚪 4. ग्रुप जॉइन करना (नेट न होने पर ऑटो-डायरी में दर्ज, सफल होने पर पेंडिंग एंट्री साफ़)
      */
     suspend fun joinGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
         val success = joinGroupOnCloudDirect(context, groupId)
-        if (!success) {
+        if (success) {
+            GroupCacheManager.clearPendingActionForGroup(context, groupId)
+        } else {
             GroupCacheManager.addPendingAction(context, "JOIN", groupId)
         }
         return@withContext success
@@ -408,6 +411,7 @@ object CloudSyncManager {
 
             val response = client.newCall(request).execute()
             if (response.isSuccessful || response.code == 409) {
+                GroupCacheManager.clearPendingActionForGroup(context, groupId)
                 updateUserWeeklyMinutes(userId)
                 return true
             }
@@ -418,11 +422,13 @@ object CloudSyncManager {
     }
 
     /**
-     * ❌ 5. ग्रुप छोड़ना (नेट न होने पर ऑटो-डायरी में दर्ज)
+     * ❌ 5. ग्रुप छोड़ना (नेट न होने पर ऑटो-डायरी में दर्ज, सफल होने पर पेंडिंग एंट्री साफ़)
      */
     suspend fun leaveGroupOnCloud(context: Context, groupId: String): Boolean = withContext(Dispatchers.IO) {
         val success = leaveGroupOnCloudDirect(context, groupId)
-        if (!success) {
+        if (success) {
+            GroupCacheManager.clearPendingActionForGroup(context, groupId)
+        } else {
             GroupCacheManager.addPendingAction(context, "LEAVE", groupId)
         }
         return@withContext success
@@ -442,7 +448,10 @@ object CloudSyncManager {
                 .build()
 
             val response = client.newCall(request).execute()
-            return response.isSuccessful
+            if (response.isSuccessful) {
+                GroupCacheManager.clearPendingActionForGroup(context, groupId)
+                return true
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Leave direct error: ${e.message}")
         }
@@ -529,13 +538,12 @@ object CloudSyncManager {
     }
 
     /**
-     * ⏱️ 8. पढ़ाई पूरी होने पर सेशन सिंक करना
+     * ⏱️ 8. पढ़ाई पूरी होने पर सेशन सिंक करना (earnedTrees के बिना)
      */
     fun syncSession(
         context: Context,
         subject: String,
         durationMinutes: Long,
-        earnedTrees: Int = 0,
         sessionId: Long = System.currentTimeMillis()
     ) {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return
@@ -690,8 +698,7 @@ object CloudSyncManager {
                             id = item.optLong("id", System.currentTimeMillis() + i),
                             date = item.optString("session_date", ""),
                             subject = item.optString("subject", "All"),
-                            durationMinutes = item.optInt("duration_minutes", 0),
-                            earnedTrees = 0
+                            durationMinutes = item.optInt("duration_minutes", 0)
                         )
                     )
                 }
