@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.devtools.ksp") version "1.9.22-1.0.20" // 👈 Kotlin 1.9.22 compatible KSP version
+    id("com.google.devtools.ksp") version "1.9.24-1.0.20" // 👈 Kotlin 1.9.24 compatible KSP version
 }
 
 android {
