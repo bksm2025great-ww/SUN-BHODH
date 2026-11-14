@@ -6,7 +6,6 @@ import androidx.room.*
 @Database(entities = [SessionEntity::class, SubjectEntity::class], version = 1, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     
-    // 👈 यहाँ सिर्फ एब्सट्रैक्ट डिक्लेरेशन होगी (कोई डुप्लीकेट कोड नहीं)
     abstract fun sessionDao(): SessionDao
     abstract fun subjectDao(): SubjectDao
 
