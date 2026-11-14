@@ -10,7 +10,7 @@ interface SessionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: SessionEntity)
 
-    // 🔄 FocusSessionManager के लिए सिंक्रोनस मेथड्स
+    // 🔄 FocusSessionManager के लिए सिंक्रोनस मेथड्स (SessionEntity का सही इस्तेमाल)
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertSessionSync(session: SessionEntity)
 
