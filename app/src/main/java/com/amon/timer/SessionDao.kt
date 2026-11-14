@@ -1,18 +1,28 @@
 package com.amon.timer
 
-import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
+import androidx.room.*
 
 @Dao
 interface SessionDao {
+    @Query("SELECT * FROM sessions WHERE deleted = 0")
+    suspend fun getAllSessions(): List<SessionEntity>
 
-    // 📥 सेशन को सिंक्रोनस तरीके से लोकल डेटाबेस में सेव करने के लिए
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertSessionSync(session: FocusSessionEntity)
+    suspend fun insertSession(session: SessionEntity)
 
-    // 📤 सभी सेशन्स को सिंक्रोनस तरीके से फेच करने के लिए
-    @Query("SELECT * FROM focus_sessions")
-    fun getAllSessionsSync(): List<FocusSessionEntity>
+    // 🔄 FocusSessionManager के लिए सिंक्रोनस मेथड्स
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertSessionSync(session: SessionEntity)
+
+    @Query("SELECT * FROM sessions WHERE deleted = 0")
+    fun getAllSessionsSync(): List<SessionEntity>
+}
+
+@Dao
+interface SubjectDao {
+    @Query("SELECT * FROM subjects")
+    fun getAllSubjectsSync(): List<SubjectEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertSubjectSync(subject: SubjectEntity)
 }
