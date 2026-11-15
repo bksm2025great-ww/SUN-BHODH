@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.devtools.ksp") version "1.9.24-1.0.20" // 👈 Kotlin 1.9.24 compatible KSP version
 }
 
 android {
@@ -19,6 +18,7 @@ android {
             useSupportLibrary = true
         }
 
+        // 🔐 GitHub Secrets ki tijori se Google Sheet URL nikaal kar app ko dena
         val sheetUrl: String = System.getenv("GOOGLE_SHEET_URL") ?: ""
         buildConfigField("String", "GOOGLE_SHEET_URL", "\"$sheetUrl\"")
     }
@@ -45,7 +45,7 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true
+        buildConfig = true // 🔑 Secret keys padhne ki permission chalu ki
     }
 
     composeOptions {
@@ -68,7 +68,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
 
-    // UI & Design (Jetpack Compose BOM)
+    // UI & Design (Jetpack Compose)
     val composeBom = platform("androidx.compose:compose-bom:2024.04.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
@@ -76,15 +76,9 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
 
-    // Navigation
+    // Navigation (Back Stack & Traffic Controller)
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
-    // OkHttp (Cloud communication)
+    // 🌐 Internet postman: Data ko Google Sheet tak pahunchane ke liye
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-
-    // Room Database (Local Storage)
-    val roomVersion = "2.6.1"
-    implementation("androidx.room:room-runtime:$roomVersion")
-    implementation("androidx.room:room-ktx:$roomVersion")
-    ksp("androidx.room:room-compiler:$roomVersion")
 }
