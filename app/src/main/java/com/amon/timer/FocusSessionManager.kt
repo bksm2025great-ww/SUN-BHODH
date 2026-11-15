@@ -1,43 +1,61 @@
 package com.amon.timer
 
 import android.content.Context
-import java.text.SimpleDateFormat
-import java.util.*
+import android.content.SharedPreferences
+import org.json.JSONArray
+import org.json.JSONObject
 
 object FocusSessionManager {
+    // फ़ोन के अंदर डेटा सुरक्षित रखने की तिजोरी
+    private const val PREFS_NAME = "amon_focus_prefs"
+    private const val KEY_SESSIONS = "saved_sessions"
 
-    private const val MIN_SAVING_MINUTES = 5 // 🛑 5-मिनट का नियम
+    private fun getPrefs(context: Context): SharedPreferences {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
 
-    // 1. नया सेशन रूम डेटाबेस में सेव करना (और क्लाउड पर भेजना)
+    // 1. डायरी में लिखना (5 मिनट से कम वाला सेव नहीं होगा + सीधे Supabase पर भेजना)
     fun saveSession(context: Context, session: FocusSession) {
-        // 5 मिनट से कम की पढ़ाई कभी सेव नहीं होगी
-        if (session.durationMinutes < MIN_SAVING_MINUTES) return
+        // 🛑 5 मिनट से कम की पढ़ाई कभी मेमोरी में नहीं जाएगी
+        if (session.durationMinutes < 5) return
+
+        val prefs = getPrefs(context)
+        val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
 
         try {
-            val db = AppDatabase.getDatabase(context)
-            val currentTime = System.currentTimeMillis()
-            
-            // local_date format: yyyy-MM-dd (या session.date अगर फॉर्मेट सही है)
-            val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            val localDateStr = if (session.date.isNotBlank()) session.date else dateFormatter.format(Date(currentTime))
+            val jsonArray = JSONArray(existingData)
+            val updatedJsonArray = JSONArray()
+            var isAlreadyExists = false
 
-            // Room Entity बनाना
-            val sessionEntity = SessionEntity(
-                id = if (session.id != 0L) session.id.toString() else UUID.randomUUID().toString(),
-                user_id = null,
-                started_at = currentTime,
-                local_date = localDateStr,
-                minutes = session.durationMinutes,
-                subject_id = session.subject,
-                synced = false,
-                updated_at = currentTime,
-                deleted = false,
-                start_estimated = false
-            )
+            // डुप्लीकेट रोकथाम लॉजिक
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val existingId = obj.optLong("id", -1L)
 
-            db.sessionDao().insertSessionSync(sessionEntity)
+                if (existingId == session.id && session.id != 0L) {
+                    isAlreadyExists = true
+                    obj.put("date", session.date)
+                    obj.put("subject", session.subject)
+                    obj.put("durationMinutes", session.durationMinutes)
+                }
+                updatedJsonArray.put(obj)
+            }
 
-            // 🚀 सीधे Supabase क्लाउड पर डेटा भेजना
+            // नया सेशन जोड़ने का ब्लॉक (पेड़ों का झंझट बाहर)
+            if (!isAlreadyExists) {
+                val newSessionObj = JSONObject().apply {
+                    put("id", if (session.id != 0L) session.id else System.currentTimeMillis())
+                    put("date", session.date)
+                    put("subject", session.subject)
+                    put("durationMinutes", session.durationMinutes)
+                }
+                updatedJsonArray.put(newSessionObj)
+            }
+
+            // फ़ोन की मेमोरी में सुरक्षित लॉक
+            prefs.edit().putString(KEY_SESSIONS, updatedJsonArray.toString()).apply()
+
+            // 🚀 डाकिया (CloudSyncManager) को Supabase में डेटा भेजने का सीधा आदेश
             CloudSyncManager.syncSession(
                 context = context,
                 subject = session.subject,
@@ -49,76 +67,105 @@ object FocusSessionManager {
         }
     }
 
-    // 2. रूम डेटाबेस से सभी सेशन्स पढ़ना (5 मिनट से छोटे सेशन्स को इग्नोर करना)
+    // 2. डायरी से पढ़ना + 🧹 5 मिनट से छोटे पुराने सेशन्स पर झाड़ू
     fun getAllSessions(context: Context): List<FocusSession> {
-        return try {
-            val db = AppDatabase.getDatabase(context)
-            val entities = db.sessionDao().getAllSessionsSync()
-            
-            val sessionList = mutableListOf<FocusSession>()
-            for (entity in entities) {
-                if (entity.minutes >= MIN_SAVING_MINUTES && !entity.deleted) {
-                    // ID को Long में बदलने का सेफ तरीका (अगर UUID है तो hashCode या 0L)
-                    val numericId = entity.id.toLongOrNull() ?: entity.id.hashCode().toLong()
-                    
-                    val session = FocusSession(
-                        id = numericId,
-                        date = entity.local_date,
-                        subject = entity.subject_id,
-                        durationMinutes = entity.minutes
-                    )
-                    sessionList.add(session)
+        val prefs = getPrefs(context)
+        val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
+        val sessionList = mutableListOf<FocusSession>()
+        val cleanedJsonArray = JSONArray()
+        var needToCleanStorage = false
+
+        try {
+            val jsonArray = JSONArray(existingData)
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val duration = obj.optInt("durationMinutes", 0)
+
+                // 🛑 झाड़ू: 5 मिनट से छोटा कचरा बाहर
+                if (duration < 5) {
+                    needToCleanStorage = true
+                    continue
                 }
+
+                cleanedJsonArray.put(obj)
+
+                val session = FocusSession(
+                    id = obj.optLong("id", System.currentTimeMillis()),
+                    date = obj.optString("date", ""),
+                    subject = obj.optString("subject", "All"),
+                    durationMinutes = duration,
+                    earnedTrees = 0 // स्क्रीन क्रैश न हो इसलिए डिफ़ॉल्ट 0
+                )
+                sessionList.add(session)
             }
-            // नई पढ़ाई सबसे ऊपर दिखाने के लिए
-            sessionList
+
+            // अगर सफ़ाई हुई हो तो मेमोरी अपडेट
+            if (needToCleanStorage) {
+                prefs.edit().putString(KEY_SESSIONS, cleanedJsonArray.toString()).apply()
+            }
         } catch (e: Exception) {
             e.printStackTrace()
-            emptyList()
         }
+
+        // नई पढ़ाई सबसे ऊपर
+        return sessionList.reversed()
     }
 
-    // 🟢 Shortcut alias: पुरानी स्क्रीनों के साथ तालमेल के लिए
+    // 🟢 Shortcut alias: पुरानी स्क्रीन के साथ तालमेल के लिए
     fun getSessions(context: Context): List<FocusSession> {
         return getAllSessions(context)
     }
 
-    // 3. बैकअप या क्लाउड से डेटा रीस्टोर करना (Room में सेव करना)
+    // 3. डेटा रीस्टोर करना (शुद्ध मिनटों के साथ)
     fun restoreSessions(context: Context, incomingSessions: List<FocusSession>): Pair<Int, Int> {
+        val prefs = getPrefs(context)
+        val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
         var restoredMinutes = 0
+
         try {
-            val db = AppDatabase.getDatabase(context)
-            val existingEntities = db.sessionDao().getAllSessionsSync()
-            
-            val currentTime = System.currentTimeMillis()
-            val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val jsonArray = JSONArray(existingData)
+            val cleanExistingArray = JSONArray()
+            val existingList = mutableListOf<JSONObject>()
+
+            // केवल 5 मिनट या उससे बड़े सेशन्स
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                if (obj.optInt("durationMinutes", 0) >= 5) {
+                    existingList.add(obj)
+                    cleanExistingArray.put(obj)
+                }
+            }
+
+            var anyNewAdded = false
 
             for (incoming in incomingSessions) {
-                if (incoming.durationMinutes < MIN_SAVING_MINUTES) continue
+                if (incoming.durationMinutes < 5) continue
 
-                // चेक करो कि क्या यह सेशन पहले से डेटाबेस में मौजूद है
-                val alreadyExists = existingEntities.any { 
-                    it.local_date == incoming.date && 
-                    it.subject_id.equals(incoming.subject, ignoreCase = true) && 
-                    it.minutes == incoming.durationMinutes 
+                val alreadyExists = existingList.any { obj ->
+                    val sameId = obj.optLong("id", -1L) == incoming.id
+                    val sameDate = obj.optString("date") == incoming.date
+                    val sameSubject = obj.optString("subject").equals(incoming.subject, ignoreCase = true)
+                    val sameDuration = obj.optInt("durationMinutes") == incoming.durationMinutes
+
+                    sameId || (sameDate && sameSubject && sameDuration)
                 }
 
                 if (!alreadyExists) {
-                    val entity = SessionEntity(
-                        id = if (incoming.id > 0) incoming.id.toString() else UUID.randomUUID().toString(),
-                        user_id = null,
-                        started_at = currentTime,
-                        local_date = if (incoming.date.isNotBlank()) incoming.date else dateFormatter.format(Date()),
-                        minutes = incoming.durationMinutes,
-                        subject_id = incoming.subject,
-                        synced = true, // क्लाउड से आया है तो synced true मान सकते हैं
-                        updated_at = currentTime,
-                        deleted = false,
-                        start_estimated = false
-                    )
-                    db.sessionDao().insertSessionSync(entity)
+                    val newObj = JSONObject().apply {
+                        put("id", if (incoming.id > 0) incoming.id else System.currentTimeMillis())
+                        put("date", incoming.date)
+                        put("subject", incoming.subject)
+                        put("durationMinutes", incoming.durationMinutes)
+                    }
+                    cleanExistingArray.put(newObj)
+                    existingList.add(newObj)
                     restoredMinutes += incoming.durationMinutes
+                    anyNewAdded = true
                 }
+            }
+
+            if (anyNewAdded || cleanExistingArray.length() != jsonArray.length()) {
+                prefs.edit().putString(KEY_SESSIONS, cleanExistingArray.toString()).apply()
             }
         } catch (e: Exception) {
             e.printStackTrace()
