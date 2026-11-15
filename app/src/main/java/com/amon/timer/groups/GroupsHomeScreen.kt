@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -134,10 +133,8 @@ fun GroupCacheManager.clearCachedGroupsList(context: Context) {
 fun GroupsHomeScreen(
     groups: List<StudyGroup> = emptyList(),
     userNickname: String = "",
-    onSearchClick: () -> Unit = {},
     onCreateGroupClick: () -> Unit = {},
     onGroupClick: (StudyGroup) -> Unit = {},
-    onViewAllSuggested: () -> Unit = {},
     onTogglePin: (String) -> Unit = {},
     onJoinGroup: (String) -> Unit = {},
     onNicknameClick: () -> Unit = {}
@@ -168,7 +165,6 @@ fun GroupsHomeScreen(
 
     var liveGroups by remember { mutableStateOf(if (groups.isNotEmpty()) groups else initialGroups) }
 
-    // 🔄 जब भी पैरेंट लिस्ट बदले (लीव या डिलीट होने पर), तुरंत सिंक करें
     LaunchedEffect(groups) {
         liveGroups = groups
         if (groups.isNotEmpty()) {
@@ -202,8 +198,8 @@ fun GroupsHomeScreen(
         }
     }
 
+    // 🔒 केवल वही ग्रुप्स दिखेंगे जो यूजर ने ज्वाइन किए हैं (पब्लिक/डिस्कवर लिस्ट हटा दी गई है)
     val yourGroups = liveGroups.filter { it.isJoined }
-    val discoverGroups = liveGroups.filter { !it.isJoined && it.isPublic }
 
     val onSearchByCodeAction = {
         val clean = inviteCodeInput.trim()
@@ -266,6 +262,7 @@ fun GroupsHomeScreen(
                     }
                 },
                 actions = {
+                    // 🔑 इनवाइट कोड से ज्वाइन करने के लिए की-आइकॉन
                     IconButton(
                         onClick = {
                             inviteCodeInput = ""
@@ -280,18 +277,7 @@ fun GroupsHomeScreen(
                         )
                     }
 
-                    IconButton(
-                        onClick = onSearchClick,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search & Explore",
-                            tint = textMain,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
+                    // ➕ नया प्राइवेट ग्रुप बनाने का बटन
                     IconButton(
                         onClick = onCreateGroupClick,
                         modifier = Modifier.size(40.dp)
@@ -323,7 +309,7 @@ fun GroupsHomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Your Groups (${yourGroups.size})",
+                        text = "Your Study Groups (${yourGroups.size})",
                         color = textMain,
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.Bold
@@ -345,47 +331,30 @@ fun GroupsHomeScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(cardBg)
-                            .padding(20.dp),
+                            .padding(24.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "You haven't joined any groups yet.\nExplore below or join with an invite code!",
-                            color = textMuted,
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp,
-                            textAlign = TextAlign.Center
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "आपने अभी तक कोई स्टडी ग्रुप ज्वाइन नहीं किया है।",
+                                color = textMain,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "ऊपर दिए गए की (Key 🔑) आइकॉन पर क्लिक करके इनवाइट कोड दर्ज करें या नया ग्रुप बनाएँ!",
+                                color = textMuted,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             } else {
                 items(yourGroups.sortedByDescending { it.isPinned }, key = { it.id }) { group ->
-                    GroupCard(
-                        group = group,
-                        cardBg = cardBg,
-                        textMain = textMain,
-                        textMuted = textMuted,
-                        accentColor = accentColor,
-                        accentSubtle = accentSubtle,
-                        focusingGreen = focusingGreen,
-                        onCardClick = { onGroupClick(group) },
-                        onPinToggle = { onTogglePin(group.id) },
-                        onJoinClick = { onJoinGroup(group.id) }
-                    )
-                }
-            }
-
-            if (discoverGroups.isNotEmpty()) {
-                item {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "Explore & Join Groups",
-                        color = textMain,
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                items(discoverGroups, key = { it.id }) { group ->
                     GroupCard(
                         group = group,
                         cardBg = cardBg,
@@ -407,6 +376,7 @@ fun GroupsHomeScreen(
         }
     }
 
+    // 🔑 Join with Invite Code Dialog
     if (showJoinCodeDialog) {
         Dialog(onDismissRequest = { showJoinCodeDialog = false }) {
             Box(
@@ -421,14 +391,14 @@ fun GroupsHomeScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Join with Code 🔑",
+                        text = "Join with Invite Code 🔑",
                         color = textMain,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Enter the unique 8-character code sent by your friend",
+                        text = "अपने दोस्त द्वारा भेजा गया इनवाइट कोड यहाँ दर्ज करें",
                         color = textMuted,
                         fontSize = 12.sp,
                         textAlign = TextAlign.Center
@@ -500,6 +470,7 @@ fun GroupsHomeScreen(
         }
     }
 
+    // 🚀 Preview Group Before Joining Dialog
     if (previewGroupToJoin != null) {
         val targetGroup = previewGroupToJoin!!
         Dialog(onDismissRequest = { previewGroupToJoin = null }) {
@@ -572,7 +543,7 @@ fun GroupsHomeScreen(
                             ) {
                                 Text("Access", color = textMuted, fontSize = 12.sp)
                                 Text(
-                                    if (targetGroup.isPublic) "Public Circle" else "Private Circle",
+                                    "Private Study Circle",
                                     color = accentColor,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
@@ -669,7 +640,7 @@ fun GroupCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "${group.memberCount} members · ${if (group.isPublic) "Public" else "Private"}",
+                        text = "${group.memberCount} members · Private Circle",
                         color = textMuted,
                         fontSize = 11.5.sp
                     )
