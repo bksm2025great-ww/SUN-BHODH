@@ -6,14 +6,15 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,30 +47,16 @@ fun ExploreGroupsScreen(
     val accentSubtle = accentColor.copy(alpha = 0.15f)
     val focusingGreen = Color(0xFF22C55E)
 
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("All") }
+    // 🛑 पब्लिक सर्च हटाने के बाद अब यह सिर्फ "Invite Code" इनपुट के लिए है
+    var inviteCodeQuery by remember { mutableStateOf("") }
     var privateGroupResult by remember { mutableStateOf<StudyGroup?>(null) }
     var isSearchingCode by remember { mutableStateOf(false) }
+    var isGhostModeActive by remember { mutableStateOf(false) } // 👻 Ghost Mode
 
-    // 🏷️ डायनामिक कैटेगरीज़ (बिना MockRepository के)
-    val availableCategories = remember(groups) {
-        val distinct = groups.map { it.category }.filter { it.isNotBlank() && it != "All" }.distinct()
-        if (distinct.isEmpty()) {
-            listOf("All", "Self Study", "UPSC", "NEET/JEE", "Coding", "College")
-        } else {
-            listOf("All") + distinct
-        }
-    }
-
-    // 🔒 1. सामान्य Explore में केवल PUBLIC ग्रुप्स दिखेंगे
-    val publicGroups = remember(groups) {
-        groups.filter { it.isPublic }
-    }
-
-    // 🔍 2. इनवाइट कोड सर्च ट्रिगर (जैसे AMON-AD1523 या कोई कोड)
-    LaunchedEffect(searchQuery) {
-        val query = searchQuery.trim()
-        if (query.length >= 4 && (query.contains("-") || query.startsWith("AMON", ignoreCase = true))) {
+    // 🔍 सिर्फ इनवाइट कोड के जरिए प्राइवेट ग्रुप ढूंढना
+    LaunchedEffect(inviteCodeQuery) {
+        val query = inviteCodeQuery.trim()
+        if (query.length >= 4) {
             isSearchingCode = true
             coroutineScope.launch {
                 val found = CloudSyncManager.fetchGroupByInviteCode(query)
@@ -82,27 +69,12 @@ fun ExploreGroupsScreen(
         }
     }
 
-    // 📋 3. स्क्रीन पर दिखने वाली लिस्ट
-    val displayedGroups = remember(searchQuery, selectedCategory, publicGroups, privateGroupResult) {
-        if (privateGroupResult != null) {
-            listOf(privateGroupResult!!)
-        } else {
-            publicGroups.filter { group ->
-                val matchesCategory = selectedCategory == "All" || group.category.equals(selectedCategory, ignoreCase = true)
-                val matchesQuery = searchQuery.isBlank() ||
-                        group.name.contains(searchQuery, ignoreCase = true) ||
-                        group.category.contains(searchQuery, ignoreCase = true)
-                matchesCategory && matchesQuery
-            }
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Explore Groups",
+                        text = "Join Study Group",
                         color = textMain,
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp
@@ -120,6 +92,18 @@ fun ExploreGroupsScreen(
                         )
                     }
                 },
+                actions = {
+                    // 👻 Ghost Mode Toggle Button in TopBar
+                    IconButton(
+                        onClick = { isGhostModeActive = !isGhostModeActive }
+                    ) {
+                        Icon(
+                            imageVector = if (isGhostModeActive) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = "Ghost Mode",
+                            tint = if (isGhostModeActive) accentColor else textMuted
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = bgColor)
             )
         },
@@ -129,26 +113,50 @@ fun ExploreGroupsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .padding(16.dp)
         ) {
-            // 🔎 सर्च बार: पब्लिक ग्रुप सर्च या प्राइवेट कोड
+            // 🏷️ निर्देश कार्ड: सिर्फ इनवाइट कोड से जुड़ें
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, cardBorder)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "🔒 Private Study Circle",
+                        color = accentColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "यह ऐप पूरी तरह से प्राइवेट है। कोई भी पब्लिक ग्रुप यहाँ नहीं दिखेगा। अपने दोस्त से इनवाइट कोड लेकर नीचे दर्ज करें।",
+                        color = textMuted,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 🔑 इनवाइट कोड दर्ज करने का बॉक्स (सिर्फ यही रहेगा)
             OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                value = inviteCodeQuery,
+                onValueChange = { inviteCodeQuery = it },
+                modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
-                        text = "Search public groups or enter Invite Code...",
+                        text = "Enter Invite Code (e.g. AMON-XXXX)",
                         color = textMuted,
-                        fontSize = 12.5.sp
+                        fontSize = 13.sp
                     )
                 },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = textMuted,
+                        imageVector = Icons.Default.Key,
+                        contentDescription = "Invite Code",
+                        tint = accentColor,
                         modifier = Modifier.size(18.dp)
                     )
                 },
@@ -174,72 +182,43 @@ fun ExploreGroupsScreen(
                 )
             )
 
-            // 🏷️ कैटेगरी चिप्स
-            if (privateGroupResult == null) {
-                LazyRow(
+            Spacer(modifier = Modifier.height(20.dp))
+
+            if (isGhostModeActive) {
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    color = Color(0x22FFC107),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    items(availableCategories) { category ->
-                        val isSelected = category == selectedCategory
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { selectedCategory = category },
-                            label = {
-                                Text(
-                                    text = category,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = accentColor,
-                                selectedLabelColor = if (isDark) Color.Black else Color.White,
-                                containerColor = cardBg,
-                                labelColor = textMuted
-                            ),
-                            border = BorderStroke(
-                                width = 1.dp,
-                                color = if (isSelected) accentColor else cardBorder
-                            )
-                        )
-                    }
+                    Text(
+                        text = "👻 Ghost Mode एक्टिव है: आपके दोस्त आपकी एक्टिविटी नहीं देख पाएंगे।",
+                        color = Color(0xFFFFC107),
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(10.dp)
+                    )
                 }
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             Text(
-                text = if (privateGroupResult != null) "Private circle found via invite code" else "${displayedGroups.size} circles found",
-                color = if (privateGroupResult != null) Color(0xFFF59E0B) else textMuted,
-                fontSize = 11.sp,
-                fontWeight = if (privateGroupResult != null) FontWeight.SemiBold else FontWeight.Normal,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                text = if (privateGroupResult != null) "Group Found via Invite Code:" else "Enter code above to find your friends' circle",
+                color = textMuted,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
             )
 
-            if (displayedGroups.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (searchQuery.isNotBlank()) "No circles found.\nIf this is a private circle, please enter the exact invite code." else "No public groups available.",
-                        color = textMuted,
-                        fontSize = 13.sp,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                }
-            } else {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 📋 यदि इनवाइट कोड से ग्रुप मिल जाता है तो उसे दिखाएँ
+            if (privateGroupResult != null) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(displayedGroups, key = { it.id }) { group ->
+                    item {
                         ExploreGroupRow(
-                            group = group,
+                            group = privateGroupResult!!,
                             cardBg = cardBg,
                             cardBorder = cardBorder,
                             textMain = textMain,
@@ -248,10 +227,24 @@ fun ExploreGroupsScreen(
                             accentSubtle = accentSubtle,
                             focusingGreen = focusingGreen,
                             isDark = isDark,
-                            onRowClick = { onGroupClick(group) },
-                            onJoinToggle = { onToggleJoinGroup(group.id) }
+                            onRowClick = { onGroupClick(privateGroupResult!!) },
+                            onJoinToggle = { onToggleJoinGroup(privateGroupResult!!.id) }
                         )
                     }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    alignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (inviteCodeQuery.isBlank()) "कोई ग्रुप प्रदर्शित नहीं है।\nकृपया इनवाइट कोड दर्ज करें।" else "इनवाइट कोड से कोई ग्रुप नहीं मिला। सही कोड दर्ज करें।",
+                        color = textMuted,
+                        fontSize = 13.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
                 }
             }
         }
@@ -293,7 +286,7 @@ fun ExploreGroupRow(
                     .clip(CircleShape)
                     .background(accentSubtle)
                     .border(1.dp, accentColor.copy(alpha = 0.5f), CircleShape),
-                contentAlignment = Alignment.Center
+                alignment = Alignment.Center
             ) {
                 Text(
                     text = group.name.take(2).uppercase(),
@@ -314,20 +307,18 @@ fun ExploreGroupRow(
                         fontSize = 13.5.sp,
                         maxLines = 1
                     )
-                    if (!group.isPublic) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Surface(
-                            color = Color(0x22F59E0B),
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text(
-                                text = "Private",
-                                color = Color(0xFFF59E0B),
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                            )
-                        }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        color = Color(0x22F59E0B),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "Private",
+                            color = Color(0xFFF59E0B),
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(2.dp))
@@ -340,18 +331,9 @@ fun ExploreGroupRow(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${group.focusingCount} now · ${group.memberCount} members",
+                        text = "${group.focusingCount} active now · ${group.memberCount} members",
                         color = textMuted,
                         fontSize = 11.sp
-                    )
-                }
-
-                if (group.category.isNotBlank() && group.category != "All") {
-                    Text(
-                        text = group.category,
-                        color = accentColor,
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
