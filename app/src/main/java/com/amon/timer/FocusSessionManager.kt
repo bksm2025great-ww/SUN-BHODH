@@ -6,7 +6,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object FocusSessionManager {
-    // फ़ोन के अंदर डेटा सुरक्षित रखने की तिजोरी
     private const val PREFS_NAME = "amon_focus_prefs"
     private const val KEY_SESSIONS = "saved_sessions"
 
@@ -14,9 +13,8 @@ object FocusSessionManager {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    // 1. डायरी में लिखना (5 मिनट से कम वाला सेव नहीं होगा + सीधे Supabase पर भेजना)
+    // 1. नया सेशन सेव करना (5 मिनट से कम का सेव नहीं होगा)
     fun saveSession(context: Context, session: FocusSession) {
-        // 🛑 5 मिनट से कम की पढ़ाई कभी मेमोरी में नहीं जाएगी
         if (session.durationMinutes < 5) return
 
         val prefs = getPrefs(context)
@@ -27,7 +25,6 @@ object FocusSessionManager {
             val updatedJsonArray = JSONArray()
             var isAlreadyExists = false
 
-            // डुप्लीकेट रोकथाम लॉजिक
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
                 val existingId = obj.optLong("id", -1L)
@@ -41,7 +38,6 @@ object FocusSessionManager {
                 updatedJsonArray.put(obj)
             }
 
-            // नया सेशन जोड़ने का ब्लॉक (पेड़ों का झंझट बाहर)
             if (!isAlreadyExists) {
                 val newSessionObj = JSONObject().apply {
                     put("id", if (session.id != 0L) session.id else System.currentTimeMillis())
@@ -52,22 +48,14 @@ object FocusSessionManager {
                 updatedJsonArray.put(newSessionObj)
             }
 
-            // फ़ोन की मेमोरी में सुरक्षित लॉक
             prefs.edit().putString(KEY_SESSIONS, updatedJsonArray.toString()).apply()
-
-            // 🚀 डाकिया (CloudSyncManager) को Supabase में डेटा भेजने का सीधा आदेश
-            CloudSyncManager.syncSession(
-                context = context,
-                subject = session.subject,
-                durationMinutes = session.durationMinutes.toLong()
-            )
 
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    // 2. डायरी से पढ़ना + 🧹 5 मिनट से छोटे पुराने सेशन्स पर झाड़ू
+    // 2. सभी सेशंस पढ़ना (5 मिनट से छोटे सेशन्स हटाना)
     fun getAllSessions(context: Context): List<FocusSession> {
         val prefs = getPrefs(context)
         val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
@@ -81,7 +69,6 @@ object FocusSessionManager {
                 val obj = jsonArray.getJSONObject(i)
                 val duration = obj.optInt("durationMinutes", 0)
 
-                // 🛑 झाड़ू: 5 मिनट से छोटा कचरा बाहर
                 if (duration < 5) {
                     needToCleanStorage = true
                     continue
@@ -93,13 +80,11 @@ object FocusSessionManager {
                     id = obj.optLong("id", System.currentTimeMillis()),
                     date = obj.optString("date", ""),
                     subject = obj.optString("subject", "All"),
-                    durationMinutes = duration,
-                    earnedTrees = 0 // स्क्रीन क्रैश न हो इसलिए डिफ़ॉल्ट 0
+                    durationMinutes = duration
                 )
                 sessionList.add(session)
             }
 
-            // अगर सफ़ाई हुई हो तो मेमोरी अपडेट
             if (needToCleanStorage) {
                 prefs.edit().putString(KEY_SESSIONS, cleanedJsonArray.toString()).apply()
             }
@@ -107,16 +92,14 @@ object FocusSessionManager {
             e.printStackTrace()
         }
 
-        // नई पढ़ाई सबसे ऊपर
         return sessionList.reversed()
     }
 
-    // 🟢 Shortcut alias: पुरानी स्क्रीन के साथ तालमेल के लिए
     fun getSessions(context: Context): List<FocusSession> {
         return getAllSessions(context)
     }
 
-    // 3. डेटा रीस्टोर करना (शुद्ध मिनटों के साथ)
+    // 3. डेटा रीस्टोर करना
     fun restoreSessions(context: Context, incomingSessions: List<FocusSession>): Pair<Int, Int> {
         val prefs = getPrefs(context)
         val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
@@ -127,7 +110,6 @@ object FocusSessionManager {
             val cleanExistingArray = JSONArray()
             val existingList = mutableListOf<JSONObject>()
 
-            // केवल 5 मिनट या उससे बड़े सेशन्स
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
                 if (obj.optInt("durationMinutes", 0) >= 5) {
