@@ -6,15 +6,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,13 +44,10 @@ fun ExploreGroupsScreen(
     val accentSubtle = accentColor.copy(alpha = 0.15f)
     val focusingGreen = Color(0xFF22C55E)
 
-    // 🛑 पब्लिक सर्च हटाने के बाद अब यह सिर्फ "Invite Code" इनपुट के लिए है
     var inviteCodeQuery by remember { mutableStateOf("") }
     var privateGroupResult by remember { mutableStateOf<StudyGroup?>(null) }
     var isSearchingCode by remember { mutableStateOf(false) }
-    var isGhostModeActive by remember { mutableStateOf(false) } // 👻 Ghost Mode
 
-    // 🔍 सिर्फ इनवाइट कोड के जरिए प्राइवेट ग्रुप ढूंढना
     LaunchedEffect(inviteCodeQuery) {
         val query = inviteCodeQuery.trim()
         if (query.length >= 4) {
@@ -92,18 +86,6 @@ fun ExploreGroupsScreen(
                         )
                     }
                 },
-                actions = {
-                    // 👻 Ghost Mode Toggle Button in TopBar
-                    IconButton(
-                        onClick = { isGhostModeActive = !isGhostModeActive }
-                    ) {
-                        Icon(
-                            imageVector = if (isGhostModeActive) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = "Ghost Mode",
-                            tint = if (isGhostModeActive) accentColor else textMuted
-                        )
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = bgColor)
             )
         },
@@ -115,7 +97,6 @@ fun ExploreGroupsScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-            // 🏷️ निर्देश कार्ड: सिर्फ इनवाइट कोड से जुड़ें
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = cardBg),
@@ -131,7 +112,7 @@ fun ExploreGroupsScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "यह ऐप पूरी तरह से प्राइवेट है। कोई भी पब्लिक ग्रुप यहाँ नहीं दिखेगा। अपने दोस्त से इनवाइट कोड लेकर नीचे दर्ज करें।",
+                        text = "यह ऐप पूरी तरह से प्राइवेट है। अपने दोस्त से इनवाइट कोड लेकर नीचे दर्ज करें।",
                         color = textMuted,
                         fontSize = 12.sp
                     )
@@ -140,7 +121,6 @@ fun ExploreGroupsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 🔑 इनवाइट कोड दर्ज करने का बॉक्स (सिर्फ यही रहेगा)
             OutlinedTextField(
                 value = inviteCodeQuery,
                 onValueChange = { inviteCodeQuery = it },
@@ -154,7 +134,7 @@ fun ExploreGroupsScreen(
                 },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Default.Key,
+                        imageVector = Icons.Default.Lock,
                         contentDescription = "Invite Code",
                         tint = accentColor,
                         modifier = Modifier.size(18.dp)
@@ -184,23 +164,6 @@ fun ExploreGroupsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            if (isGhostModeActive) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color(0x22FFC107),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = "👻 Ghost Mode एक्टिव है: आपके दोस्त आपकी एक्टिविटी नहीं देख पाएंगे।",
-                        color = Color(0xFFFFC107),
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(10.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
             Text(
                 text = if (privateGroupResult != null) "Group Found via Invite Code:" else "Enter code above to find your friends' circle",
                 color = textMuted,
@@ -210,7 +173,6 @@ fun ExploreGroupsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 📋 यदि इनवाइट कोड से ग्रुप मिल जाता है तो उसे दिखाएँ
             if (privateGroupResult != null) {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
@@ -237,10 +199,10 @@ fun ExploreGroupsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    alignment = Alignment.Center
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (inviteCodeQuery.isBlank()) "कोई ग्रुप प्रदर्शित नहीं है।\nकृपया इनवाइट कोड दर्ज करें।" else "इनवाइट कोड से कोई ग्रुप नहीं मिला। सही कोड दर्ज करें।",
+                        text = if (inviteCodeQuery.isBlank()) "कोई ग्रुप प्रदर्शित नहीं है।\nकृपया इनवाइट कोड दर्ज करें।" else "इनवाइट कोड से कोई ग्रुप नहीं मिला।",
                         color = textMuted,
                         fontSize = 13.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -286,7 +248,7 @@ fun ExploreGroupRow(
                     .clip(CircleShape)
                     .background(accentSubtle)
                     .border(1.dp, accentColor.copy(alpha = 0.5f), CircleShape),
-                alignment = Alignment.Center
+                contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = group.name.take(2).uppercase(),
