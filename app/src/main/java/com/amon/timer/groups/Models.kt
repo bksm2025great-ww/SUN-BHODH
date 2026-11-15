@@ -5,6 +5,7 @@ data class GroupMember(
     val nickname: String,
     val role: MemberRole = MemberRole.MEMBER,
     val studyTimeMinutes: Int = 0,
+    val streak: Int = 0, // 🔥 स्ट्रीक काउंट
     val isCurrentlyFocusing: Boolean = false,
     val currentSubject: String? = null,
     val lastActive: String = "Just now"
@@ -19,7 +20,7 @@ data class StudyGroup(
     val id: String,
     val name: String,
     val category: String = "All",
-    val isPublic: Boolean = true,
+    val isPublic: Boolean = false, // हमेशा प्राइवेट रहेगा
     val memberCount: Int = 1,
     val focusingCount: Int = 0,
     val isPinned: Boolean = false,
@@ -38,16 +39,12 @@ data class WeekPeriod(
 )
 
 object MockRepository {
-    // 🏷️ आपकी मनपसंद असली कैटेगरीज़
+    // 🏷️ बिल्कुल साफ़ और मिनिमल कैटेगरीज़ (सारे फालतू एग्जाम टैग्स हटा दिए गए हैं)
     val categories = listOf(
         "All",
         "Self Study",
-        "UPSC",
-        "NEET",
-        "RPSC",
-        "RSMSSB",
-        "RBSE 10th",
-        "RBSE 12th"
+        "General",
+        "Focus"
     )
 
     val weeks = listOf(
@@ -55,58 +52,8 @@ object MockRepository {
         WeekPeriod("w_prev", "Last Week", "Previous", false)
     )
 
-    // 🏛️ शुरूआती ग्रुप्स (सार्वजनिक सुझाव ताकि नया यूजर आने पर एक्सप्लोर खाली न दिखे)
-    val sampleGroups = listOf(
-        StudyGroup(
-            id = "universal_lib",
-            name = "Universal Library",
-            category = "Self Study",
-            isPublic = true,
-            memberCount = 0,
-            focusingCount = 0,
-            isPinned = false,
-            isJoined = true,
-            isDefault = true,
-            inviteCode = "AMON-GLOBAL",
-            members = emptyList() // कोई फ़र्ज़ी यूज़र नहीं, सीधा सुप्राबेस से लोड होगा
-        ),
-        StudyGroup(
-            id = "rpsc_sprint",
-            name = "Rajasthan RAS / RPSC Warriors",
-            category = "RPSC",
-            isPublic = true,
-            memberCount = 12,
-            focusingCount = 3,
-            isPinned = false,
-            isJoined = false,
-            isDefault = false,
-            inviteCode = "AMON-RAS26"
-        ),
-        StudyGroup(
-            id = "upsc_prelims",
-            name = "UPSC Target 2026",
-            category = "UPSC",
-            isPublic = true,
-            memberCount = 28,
-            focusingCount = 5,
-            isPinned = false,
-            isJoined = false,
-            isDefault = false,
-            inviteCode = "AMON-UPSC2"
-        ),
-        StudyGroup(
-            id = "neet_crack",
-            name = "NEET Biology & Chem Sprint",
-            category = "NEET",
-            isPublic = true,
-            memberCount = 19,
-            focusingCount = 2,
-            isPinned = false,
-            isJoined = false,
-            isDefault = false,
-            inviteCode = "AMON-NEET9"
-        )
-    )
+    // कोई पब्लिक या डिफ़ॉल्ट ग्रुप नहीं, पूरी तरह से प्राइवेट सर्कल
+    val sampleGroups = emptyList<StudyGroup>()
 
     fun getSampleMembers(): List<GroupMember> {
         return emptyList()
