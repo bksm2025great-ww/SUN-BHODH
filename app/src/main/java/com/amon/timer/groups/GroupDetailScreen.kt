@@ -257,7 +257,7 @@ fun GroupDetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(24.dp),
-                    alignment = Alignment.Center
+                    contentAlignment = Alignment.Center
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -274,7 +274,7 @@ fun GroupDetailScreen(
                                 .size(54.dp)
                                 .clip(CircleShape)
                                 .background(accentSubtle),
-                            alignment = Alignment.Center
+                            contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Lock,
@@ -403,7 +403,7 @@ fun GroupDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
-                            alignment = Alignment.Center
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = "No study sessions yet for ${selectedWeek.label.lowercase()}.",
@@ -442,7 +442,7 @@ fun GroupDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
-                            alignment = Alignment.Center
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = "No one is studying right now.\nBe the first to start!",
@@ -515,7 +515,7 @@ fun GroupDetailScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            alignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = week.label,
@@ -578,11 +578,11 @@ fun LeaderboardRow(
             .clip(RoundedCornerShape(10.dp))
             .background(rowBackground)
             .padding(horizontal = 12.dp, vertical = 10.dp),
-        alignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier.width(36.dp),
-            alignment = Alignment.CenterStart
+            contentAlignment = Alignment.CenterStart
         ) {
             Text(
                 text = "#$rank",
@@ -595,7 +595,7 @@ fun LeaderboardRow(
         Spacer(modifier = Modifier.width(8.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Row(alignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = member.nickname,
                     color = itemContentColor,
@@ -615,8 +615,7 @@ fun LeaderboardRow(
                 }
             }
             Spacer(modifier = Modifier.height(2.dp))
-            // 🔥 स्ट्रीक (Streak count) यहाँ साफ़-साफ़ दिखेगी
-            Row(alignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "🔥 ${member.streak} Days Streak",
                     color = Color(0xFFFF9800),
@@ -639,7 +638,7 @@ fun LeaderboardRow(
             )
             if (member.isCurrentlyFocusing) {
                 Spacer(modifier = Modifier.height(2.dp))
-                Row(alignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
                             .size(6.dp)
@@ -673,7 +672,7 @@ fun ActiveMemberRow(
             .clip(RoundedCornerShape(10.dp))
             .background(if (isDark) Color(0x0FFFFFFF) else Color(0x08000000))
             .padding(horizontal = 14.dp, vertical = 10.dp),
-        alignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
@@ -705,7 +704,7 @@ fun ActiveMemberRow(
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                alignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
