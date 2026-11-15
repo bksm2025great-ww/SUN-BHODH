@@ -109,7 +109,7 @@ fun GroupDetailScreen(
         val shareMessage = """
             🎯 AMON STUDY CIRCLE
             ━━━━━━━━━━━━━━━━━━━━━━
-            Hey! $currentUserName has invited you to join their study group "${group.name}".
+            Hey! $currentUserName has invited you to join their private study group "${group.name}".
 
             Join using the link below:
             👉 https://amon.app/join?code=$inviteCode
@@ -242,24 +242,9 @@ fun GroupDetailScreen(
                             fontSize = 15.sp
                         )
                         Text(
-                            text = "$displayMemberCount members · ${if (group.isPublic) "Public" else "Private"}",
+                            text = "$displayMemberCount members · Private Study Group",
                             color = textMuted,
                             fontSize = 11.5.sp
-                        )
-                    }
-                }
-
-                if (group.category.isNotBlank() && group.category != "All") {
-                    Surface(
-                        color = if (isDark) Color(0x22FFFFFF) else Color(0x12000000),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = group.category,
-                            color = accentColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                         )
                     }
                 }
@@ -272,7 +257,7 @@ fun GroupDetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(24.dp),
-                    contentAlignment = Alignment.Center
+                    alignment = Alignment.Center
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -289,7 +274,7 @@ fun GroupDetailScreen(
                                 .size(54.dp)
                                 .clip(CircleShape)
                                 .background(accentSubtle),
-                            contentAlignment = Alignment.Center
+                            alignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Lock,
@@ -301,14 +286,14 @@ fun GroupDetailScreen(
 
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "Protected Study Circle",
+                                text = "Private Study Circle",
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Black,
                                 color = textMain
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Member list, active focus timers, and weekly rankings are private to group members only.",
+                                text = "यह एक प्राइवेट ग्रुप है। मेंबर्स की लिस्ट, डेली स्टडी टाइम और स्ट्रीक्स देखने के लिए कृपया ग्रुप ज्वाइन करें।",
                                 fontSize = 12.5.sp,
                                 color = textMuted,
                                 textAlign = TextAlign.Center,
@@ -345,7 +330,7 @@ fun GroupDetailScreen(
                         modifier = Modifier.height(38.dp),
                         text = {
                             Text(
-                                text = "Leaderboard",
+                                text = "Leaderboard & Streaks",
                                 color = if (selectedTabIndex == 0) accentColor else textMuted,
                                 fontWeight = if (selectedTabIndex == 0) FontWeight.Bold else FontWeight.Medium,
                                 fontSize = 13.sp
@@ -366,7 +351,7 @@ fun GroupDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
                                 Text(
-                                    text = "Active (${activeMembers.size})",
+                                    text = "Active Now (${activeMembers.size})",
                                     color = if (selectedTabIndex == 1) accentColor else textMuted,
                                     fontWeight = if (selectedTabIndex == 1) FontWeight.Bold else FontWeight.Medium,
                                     fontSize = 13.sp
@@ -418,7 +403,7 @@ fun GroupDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
-                            contentAlignment = Alignment.Center
+                            alignment = Alignment.Center
                         ) {
                             Text(
                                 text = "No study sessions yet for ${selectedWeek.label.lowercase()}.",
@@ -431,7 +416,7 @@ fun GroupDetailScreen(
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             itemsIndexed(
                                 items = leaderboardMembers,
@@ -457,7 +442,7 @@ fun GroupDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
-                            contentAlignment = Alignment.Center
+                            alignment = Alignment.Center
                         ) {
                             Text(
                                 text = "No one is studying right now.\nBe the first to start!",
@@ -470,7 +455,7 @@ fun GroupDetailScreen(
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             itemsIndexed(
                                 items = activeMembers,
@@ -530,7 +515,7 @@ fun GroupDetailScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            alignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = week.label,
@@ -585,12 +570,6 @@ fun LeaderboardRow(
         else -> textMuted
     }
 
-    val rankFontSize = when (rank) {
-        1 -> 16.sp
-        2, 3 -> 15.sp
-        else -> 13.sp
-    }
-
     val rowBackground = if (isCurrentUser) accentSubtle else Color.Transparent
 
     Row(
@@ -599,24 +578,24 @@ fun LeaderboardRow(
             .clip(RoundedCornerShape(10.dp))
             .background(rowBackground)
             .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+        alignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier.width(36.dp),
-            contentAlignment = Alignment.CenterStart
+            alignment = Alignment.CenterStart
         ) {
             Text(
                 text = "#$rank",
                 color = rankTextColor,
                 fontWeight = if (rank <= 3) FontWeight.Black else FontWeight.SemiBold,
-                fontSize = rankFontSize
+                fontSize = 14.sp
             )
         }
 
         Spacer(modifier = Modifier.width(8.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(alignment = Alignment.CenterVertically) {
                 Text(
                     text = member.nickname,
                     color = itemContentColor,
@@ -636,11 +615,15 @@ fun LeaderboardRow(
                 }
             }
             Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = if (member.studyTimeMinutes == 0) member.lastActive else "Last active: ${member.lastActive}",
-                color = textMuted,
-                fontSize = 11.sp
-            )
+            // 🔥 स्ट्रीक (Streak count) यहाँ साफ़-साफ़ दिखेगी
+            Row(alignment = Alignment.CenterVertically) {
+                Text(
+                    text = "🔥 ${member.streak} Days Streak",
+                    color = Color(0xFFFF9800),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
 
         val hours = member.studyTimeMinutes / 60
@@ -655,7 +638,8 @@ fun LeaderboardRow(
                 fontSize = 13.5.sp
             )
             if (member.isCurrentlyFocusing) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(alignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
                             .size(6.dp)
@@ -689,7 +673,7 @@ fun ActiveMemberRow(
             .clip(RoundedCornerShape(10.dp))
             .background(if (isDark) Color(0x0FFFFFFF) else Color(0x08000000))
             .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+        alignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
@@ -709,7 +693,7 @@ fun ActiveMemberRow(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = member.currentSubject ?: "Deep Focus Sprint",
+                text = "🔥 ${member.streak} Days Streak • ${member.currentSubject ?: "Deep Focus"}",
                 color = textMuted,
                 fontSize = 11.5.sp
             )
@@ -721,7 +705,7 @@ fun ActiveMemberRow(
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                verticalAlignment = Alignment.CenterVertically
+                alignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
