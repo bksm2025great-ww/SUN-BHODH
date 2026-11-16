@@ -17,12 +17,10 @@ class UserManager(private val context: Context) {
         private const val KEY_FRESH_AUTH_V1 = "fresh_auth_completed_v1"
     }
 
-    // ----------------- 0. UNIQUE USER ID (SUPABASE AUTH UID ONLY) -----------------
-
-    /**
-     * 🆔 सिर्फ़ Supabase Auth से मिली असली auth.uid ही return करेगा
-     */
     fun getUserId(): String {
+        if (isGuestUser()) {
+            return "guest_local_user"
+        }
         return prefs.getString(KEY_USER_ID, "") ?: ""
     }
 
@@ -32,8 +30,6 @@ class UserManager(private val context: Context) {
         }
     }
 
-    // ----------------- 1. USER DETAILS (नाम, ईमेल, पासवर्ड, बर्थडे) -----------------
-
     fun setUserName(name: String) {
         prefs.edit().putString(KEY_NAME, name.trim()).apply()
     }
@@ -42,13 +38,12 @@ class UserManager(private val context: Context) {
         return prefs.getString(KEY_NAME, "") ?: ""
     }
 
-    // ग्रुप्स और प्रोफ़ाइल के बीच सिंगल नेम सिंक
     fun setNickName(nickname: String) {
         setUserName(nickname)
     }
 
     fun getNickName(): String {
-        return getUserName().ifBlank { "Student" }
+        return getUserName().ifBlank { if (isGuestUser()) "Guest Aspirant" else "Student" }
     }
 
     fun setUserEmail(email: String) {
@@ -76,17 +71,17 @@ class UserManager(private val context: Context) {
         return prefs.getString(KEY_BIRTHDAY, "") ?: ""
     }
 
-    // ----------------- 2. GUEST MODE -----------------
-
     fun setGuestUser(isGuest: Boolean) {
         prefs.edit().putBoolean(KEY_IS_GUEST, isGuest).apply()
+        if (isGuest) {
+            if (getUserName().isBlank()) setUserName("Guest Aspirant")
+            setUserId("guest_local_user")
+        }
     }
 
     fun isGuestUser(): Boolean {
         return prefs.getBoolean(KEY_IS_GUEST, false)
     }
-
-    // ----------------- 3. REFRESH ONETIME AUTH TRACKER -----------------
 
     fun isFreshAuthDone(): Boolean {
         return prefs.getBoolean(KEY_FRESH_AUTH_V1, false)
@@ -95,8 +90,6 @@ class UserManager(private val context: Context) {
     fun setFreshAuthDone(done: Boolean) {
         prefs.edit().putBoolean(KEY_FRESH_AUTH_V1, done).apply()
     }
-
-    // ----------------- 4. APP ENTRY STATUS -----------------
 
     fun isAccountSetupDone(): Boolean {
         val hasAccount = getUserName().isNotEmpty()
@@ -112,20 +105,11 @@ class UserManager(private val context: Context) {
         return pass.ifEmpty { "123456" }
     }
 
-    // ----------------- 5. GOOGLE SHEET TAB NAME -----------------
-
     fun getSheetTabId(): String {
         if (isGuestUser()) {
             return "Guest_User"
         }
-
         val cleanName = getUserName().replace(Regex("[^a-zA-Z0-9_]"), "").ifEmpty { "Vision" }
-        val cleanPass = getPassword().replace(Regex("[^a-zA-Z0-9_]"), "")
-
-        return if (cleanPass.isNotEmpty()) {
-            "User_${cleanName}_${cleanPass}"
-        } else {
-            "User_${cleanName}"
-        }
+        return "User_$cleanName"
     }
 }
