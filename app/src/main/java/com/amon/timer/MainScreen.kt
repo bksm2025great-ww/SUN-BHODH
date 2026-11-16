@@ -242,6 +242,88 @@ fun AndroidAutoRotateLineIcon(
     }
 }
 
+// 🎯 Today's Goal Progress Bar (Border-free, completely sleek & minimalist)
+@Composable
+fun TodaysGoalProgressBar(
+    context: Context,
+    isDark: Boolean,
+    cardBg: Color
+) {
+    val prefs = remember { context.getSharedPreferences("amon_stats_goals", Context.MODE_PRIVATE) }
+    var dailyGoalHours by remember { mutableFloatStateOf(prefs.getFloat("daily_goal_hours", 0f)) }
+
+    var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
+    LaunchedEffect(Unit) {
+        allSessions = FocusSessionManager.getAllSessions(context)
+    }
+
+    val todayFilteredSessions = remember(allSessions) {
+        filterSessionsByPeriod(allSessions, "Today", 0)
+    }
+    val totalTodayMinutes = remember(todayFilteredSessions) {
+        todayFilteredSessions.sumOf { s -> s.durationMinutes }
+    }
+
+    val targetMinutes = if (dailyGoalHours <= 0f) 0 else (dailyGoalHours * 60).toInt()
+    val percentage = if (targetMinutes <= 0) 0 else Math.round((totalTodayMinutes.toFloat() / targetMinutes.toFloat()) * 100)
+    val progressRatio = (totalTodayMinutes.toFloat() / if (targetMinutes <= 0) 1f else targetMinutes.toFloat()).coerceIn(0f, 1f)
+
+    val focusingGreen = Color(0xFF22C55E)
+    val slateGray = Color(0xFF94A3B8)
+    val trackColor = if (isDark) Color(0x1FFFFFFF) else Color(0xFFCBD5E1)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(cardBg)
+            // 🛑 कोई बॉर्डर नहीं (No border added to keep it sleek and minimalist)
+            .padding(14.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Today's goal",
+                    color = slateGray,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                val goalStr = if (targetMinutes > 0) formatMinutes(targetMinutes) else "Not set"
+                Text(
+                    text = "${formatMinutes(totalTodayMinutes)} / $goalStr · $percentage%",
+                    color = slateGray,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(trackColor)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progressRatio)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(50))
+                        .background(focusingGreen)
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun MainScreen() {
     val context = LocalContext.current
@@ -1017,7 +1099,6 @@ fun HomeTimerTab(
                         letterSpacing = 2.5.sp
                     )
 
-                    // 🔥 Streak Flame Button with Lottie Animation -> Navigates to Stats Screen
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -1138,8 +1219,15 @@ fun HomeTimerTab(
                     )
                 }
 
+                // 🎯 Border-free Today's Goal Progress Bar
+                TodaysGoalProgressBar(
+                    context = context,
+                    isDark = isDark,
+                    cardBg = cardBg
+                )
+
                 if (!isSessionActive) {
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Box(
                         contentAlignment = Alignment.Center,
@@ -1641,50 +1729,4 @@ fun HomeTimerTab(
             }
         }
     }
-}
-
-fun calculateStreakDays(sessions: List<FocusSession>): Int {
-    if (sessions.isEmpty()) return 0
-    val dayMinutesMap = mutableMapOf<String, Int>()
-    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-    val formats = listOf(
-        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
-        SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-    )
-
-    sessions.forEach { s ->
-        var date: Date? = null
-        for (fmt in formats) {
-            try {
-                val d = fmt.parse(s.date)
-                if (d != null) { date = d; break }
-            } catch (_: Exception) {}
-        }
-        if (date != null) {
-            val key = sdf.format(date)
-            dayMinutesMap[key] = (dayMinutesMap[key] ?: 0) + s.durationMinutes
-        }
-    }
-
-    val cal = Calendar.getInstance()
-    var streak = 0
-    val todayKey = sdf.format(cal.time)
-    val todayMins = dayMinutesMap[todayKey] ?: 0
-    if (todayMins >= 30) {
-        streak++
-    }
-
-    while (true) {
-        cal.add(Calendar.DAY_OF_YEAR, -1)
-        val dateKey = sdf.format(cal.time)
-        val mins = dayMinutesMap[dateKey] ?: 0
-        if (mins >= 30) {
-            streak++
-        } else {
-            break
-        }
-    }
-    return streak
 }
