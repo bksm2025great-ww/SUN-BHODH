@@ -265,17 +265,15 @@ fun MainScreen() {
     var isFocusMinimized by rememberSaveable { mutableStateOf(false) }
     var isLandscape by remember { mutableStateOf(false) }
 
-    // 🌟 Zen Mode: स्क्रीन टैप करने पर कंट्रोल्स दिखना/छिपना
     var areControlsVisible by remember { mutableStateOf(true) }
 
     LaunchedEffect(isRunning, areControlsVisible) {
         if (isRunning && areControlsVisible) {
-            delay(4000L) // 4 सेकंड बाद अपने-आप स्मूथली छिप जाएँगे
+            delay(4000L)
             areControlsVisible = false
         }
     }
 
-    // जब भी पॉज़ होगा, बटन्स तुरंत वापस दिखेंगे
     LaunchedEffect(isPaused) {
         if (isPaused) {
             areControlsVisible = true
@@ -363,7 +361,6 @@ fun MainScreen() {
                 window.statusBarColor = AndroidColor.TRANSPARENT
                 window.navigationBarColor = AndroidColor.TRANSPARENT
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
-                // फुल स्क्रीन से बाहर आते ही सख्त पोर्ट्रेट
                 activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                 isLandscape = false
             }
@@ -406,7 +403,6 @@ fun MainScreen() {
     val swH = (stopwatchElapsedMillis / 3600000).toInt()
     val swM = ((stopwatchElapsedMillis % 3600000) / 60000).toInt()
     val swS = ((stopwatchElapsedMillis % 60000) / 1000).toInt()
-    val swMs = ((stopwatchElapsedMillis % 1000) / 10).toInt()
     val swMainTime = String.format("%02d:%02d:%02d", swH, swM, swS)
 
     val liveBarTime = if (isStopwatchMode) swMainTime else "$timeFormatted left"
@@ -439,6 +435,7 @@ fun MainScreen() {
             initialTotalSeconds = initialTotalSeconds,
             onInitialTotalSecondsChange = { initialTotalSeconds = it },
             areControlsVisible = areControlsVisible || isPaused,
+            onNavigateToStats = { currentNavIndex = 2 },
             onStartStopwatch = {
                 context.startService(Intent(context, TimerService::class.java).apply {
                     action = TimerService.ACTION_START
@@ -471,13 +468,11 @@ fun MainScreen() {
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {
-                    // 👆 खाली स्क्रीन पर टैप करने से कंट्रोल्स दिखेंगे/छिपेंगे
                     areControlsVisible = !areControlsVisible
                 }
         ) {
             focusScreenContent()
 
-            // 🔄 केवल तब दिखेगा जब टाइमर रनिंग हो और कंट्रोल्स ऑन हों (पॉज़ पर छिप जाएगा)
             val showRotate = isRunning && (areControlsVisible || isPaused)
             AnimatedVisibility(
                 visible = showRotate,
@@ -592,6 +587,7 @@ fun MainScreen() {
                         initialTotalSeconds = initialTotalSeconds,
                         onInitialTotalSecondsChange = { initialTotalSeconds = it },
                         areControlsVisible = true,
+                        onNavigateToStats = { currentNavIndex = 2 },
                         onStartStopwatch = {
                             context.startService(Intent(context, TimerService::class.java).apply {
                                 action = TimerService.ACTION_START
@@ -624,9 +620,6 @@ fun MainScreen() {
         }
     }
 
-    // =========================================================================
-    // 🏆 CONGRATULATIONS DIALOG (15s Auto-Close + 2D Trophy)
-    // =========================================================================
     if (TimerService.showCompletionDialogTrigger.value) {
         LaunchedEffect(Unit) {
             delay(15000L)
@@ -705,9 +698,6 @@ fun MainScreen() {
         }
     }
 
-    // =========================================================================
-    // ⏱️ SESSION TOO SHORT DIALOG (< 5 min) (15s Auto-Close + Broken Arc)
-    // =========================================================================
     if (TimerService.showSessionTooShortDialogTrigger.value) {
         LaunchedEffect(Unit) {
             delay(15000L)
@@ -777,9 +767,6 @@ fun MainScreen() {
     }
 }
 
-// =============================================================================
-// 📱 MINI FOCUS BAR
-// =============================================================================
 @Composable
 fun MiniFocusBar(
     subjectName: String,
@@ -903,9 +890,6 @@ fun MiniFocusBar(
     }
 }
 
-// =============================================================================
-// ⏱️ HOME TIMER TAB (Zen Mode Controls Included)
-// =============================================================================
 @Composable
 fun HomeTimerTab(
     context: Context,
@@ -934,6 +918,7 @@ fun HomeTimerTab(
     initialTotalSeconds: Int,
     onInitialTotalSecondsChange: (Int) -> Unit,
     areControlsVisible: Boolean = true,
+    onNavigateToStats: () -> Unit = {},
     onStartStopwatch: () -> Unit,
     onPauseStopwatch: () -> Unit,
     onResumeStopwatch: () -> Unit,
@@ -1032,6 +1017,7 @@ fun HomeTimerTab(
                         letterSpacing = 2.5.sp
                     )
 
+                    // 🔥 Streak Flame Button with Lottie Animation -> Navigates to Stats Screen
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -1039,6 +1025,7 @@ fun HomeTimerTab(
                             .clip(RoundedCornerShape(50))
                             .background(if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9))
                             .border(1.dp, glassBorder, RoundedCornerShape(50))
+                            .clickable { onNavigateToStats() }
                             .padding(horizontal = 10.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
