@@ -13,7 +13,6 @@ object FocusSessionManager {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    // 1. नया सेशन सेव करना (5 मिनट से कम का सेव नहीं होगा)
     fun saveSession(context: Context, session: FocusSession) {
         if (session.durationMinutes < 5) return
 
@@ -55,7 +54,6 @@ object FocusSessionManager {
         }
     }
 
-    // 2. सभी सेशंस पढ़ना (5 मिनट से छोटे सेशन्स हटाना)
     fun getAllSessions(context: Context): List<FocusSession> {
         val prefs = getPrefs(context)
         val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
@@ -99,7 +97,6 @@ object FocusSessionManager {
         return getAllSessions(context)
     }
 
-    // 3. डेटा रीस्टोर करना
     fun restoreSessions(context: Context, incomingSessions: List<FocusSession>): Pair<Int, Int> {
         val prefs = getPrefs(context)
         val existingData = prefs.getString(KEY_SESSIONS, "[]") ?: "[]"
