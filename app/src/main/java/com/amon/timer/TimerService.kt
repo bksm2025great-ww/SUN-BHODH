@@ -217,7 +217,7 @@ class TimerService : Service() {
 
         if (!isResume) {
             originalTimerSeconds = seconds
-            if (!isPomoBreakActive.value) {
+            if (!isPomoBreakActive.value && activeModeType.value != "POMODORO") {
                 accumulatedActiveMillis = 0L
                 stopwatchElapsedMillis.value = 0L
             }
@@ -278,6 +278,7 @@ class TimerService : Service() {
 
         if (activeModeType.value == "POMODORO") {
             if (!isPomoBreakActive.value) {
+                // ✅ फोकस सेशन पूरा हुआ: इसका समय एक्युम्युलेटर (accumulatedActiveMillis) में जुड़ गया
                 if (sessionResumeElapsedRealtime > 0L) {
                     accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
                 }
@@ -289,12 +290,15 @@ class TimerService : Service() {
                 val breakSecs = if (currentPomoRound.intValue >= totalPomoRounds.intValue) pomoLongBreakSecs else pomoShortBreakSecs
                 isPomoBreakActive.value = true
 
+                // 🛑 यहाँ ब्रेक शुरू हो रहा है, ब्रेक का समय एक्युम्युलेटर में नहीं जुड़ेगा
                 startSession(breakSecs, currentSubjectName.value, isResume = false)
             } else {
+                // ✅ ब्रेक खत्म हुआ, अब अगले राउंड पर जाना है
                 sessionResumeElapsedRealtime = 0L
                 triggerHapticBuzz(HapticType.LIGHT)
 
                 if (currentPomoRound.intValue >= totalPomoRounds.intValue) {
+                    // 🚀 सारे पोमोडोरो राउंड्स कम्प्लीट हो गए! अब सारा डेटा एक साथ सेव होगा।
                     triggerHapticBuzz(HapticType.LONG)
                     onTimerFinished()
                 } else {
@@ -312,6 +316,7 @@ class TimerService : Service() {
                 }
             }
         } else {
+            // नॉर्मल टाइमर के लिए
             if (sessionResumeElapsedRealtime > 0L) {
                 accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
             }
@@ -370,6 +375,7 @@ class TimerService : Service() {
 
     private fun cancelSessionGiveUp() {
         val now = SystemClock.elapsedRealtime()
+        // अगर फोकस चल रहा था और यूजर ने बीच में रोक दिया, तो उस अधूरे सेशन का टाइम भी जोड़ लो
         if (!isPomoBreakActive.value && isTimerRunning.value && sessionResumeElapsedRealtime > 0L) {
             accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
         }
@@ -423,8 +429,10 @@ class TimerService : Service() {
 
     private fun saveSessionToDiary(isCancelled: Boolean) {
         try {
+            // 🍅 यहाँ accumulatedActiveMillis में सारे पूरे हुए सेशंस का कुल समय (जैसे 25 + 25 + 10 = 60 मिनट) जमा है
             val rawSeconds = ((accumulatedActiveMillis + 500L) / 1000L).toInt().coerceAtLeast(0)
-            val completedSeconds = if (!isCancelled && originalTimerSeconds > 0 && activeModeType.value == "TIMER") {
+            
+            val completedSeconds = if (!isCancelled && originalTimerSeconds > 0 && activeModeType.value == "TIMER" && activeModeType.value != "POMODORO") {
                 originalTimerSeconds
             } else {
                 rawSeconds
@@ -448,7 +456,7 @@ class TimerService : Service() {
                 id = currentSessionId,
                 date = currentDate,
                 subject = currentSubjectName.value,
-                durationMinutes = minutes
+                durationMinutes = minutes // 🚀 यह कुल एक्युमलेटेड मिनट्स हैं!
             )
             
             FocusSessionManager.saveSession(this, session)
