@@ -19,7 +19,7 @@ private enum class GroupsScreenState {
     HOME,
     EXPLORE,
     DETAIL,
-    JOIN_FLOW // ✨ नया स्टेट ताकि बिना नई फाइल के काम हो सके
+    JOIN_FLOW
 }
 
 fun generateSecureGroupCode(): String {
@@ -86,7 +86,7 @@ fun GroupsRootScreen(
                     groups = groupsList,
                     userNickname = currentNickname,
                     onCreateGroupClick = { showCreateSheet = true },
-                    onKeyClick = { currentScreen = GroupsScreenState.JOIN_FLOW }, // ✨ की आइकॉन क्लिक पर फ्लो खुलेगा
+                    onKeyClick = { currentScreen = GroupsScreenState.JOIN_FLOW }, // ✨ अब यह सही से काम करेगा
                     onGroupClick = { group ->
                         selectedGroup = group
                         currentScreen = GroupsScreenState.DETAIL
@@ -105,8 +105,9 @@ fun GroupsRootScreen(
             }
 
             GroupsScreenState.JOIN_FLOW -> {
-                // ✨ यही वह मल्टी-स्टेप स्क्रीन है जो अब पुरानी फाइल के अंदर ही रेंडर होगी
-                JoinGroupFlowScreen(
+                // ✨ सही नाम JoinGroupFlowInternalScreen का उपयोग किया गया है
+                JoinGroupFlowInternalScreen(
+                    userDefaultNickname = currentNickname,
                     onBackClick = { currentScreen = GroupsScreenState.HOME },
                     onSuccessfullyJoined = { joinedGroup ->
                         val updated = joinedGroup.copy(isJoined = true)
