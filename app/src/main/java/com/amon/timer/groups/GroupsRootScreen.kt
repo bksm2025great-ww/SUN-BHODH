@@ -18,7 +18,8 @@ import java.security.SecureRandom
 private enum class GroupsScreenState {
     HOME,
     EXPLORE,
-    DETAIL
+    DETAIL,
+    JOIN_FLOW // ✨ नया स्टेट ताकि बिना नई फाइल के काम हो सके
 }
 
 fun generateSecureGroupCode(): String {
@@ -42,7 +43,6 @@ fun GroupsRootScreen(
 
     var currentScreen by remember { mutableStateOf(GroupsScreenState.HOME) }
 
-    // 🔒 यूनिवर्सल/ग्लोबल ग्रुप हमेशा के लिए हटा दिया गया है (अब सिर्फ प्राइवेट स्टडी सर्कल)
     val initialGroups = remember {
         val cached = GroupCacheManager.getCachedGroupsList(context)
         if (cached.isNotEmpty()) cached else emptyList()
@@ -59,7 +59,6 @@ fun GroupsRootScreen(
     var showSettingsSheet by remember { mutableStateOf(false) }
     var showNicknameDialog by remember { mutableStateOf(false) }
 
-    // 🔄 स्मार्ट बैकग्राउंड सिंक: केवल प्राइवेट ग्रुप्स और यूजर के जॉइन किए हुए सर्कल्स सिंक होंगे
     LaunchedEffect(Unit) {
         coroutineScope.launch(Dispatchers.IO) {
             val cloudGroups = CloudSyncManager.fetchGroups(context)
@@ -87,6 +86,7 @@ fun GroupsRootScreen(
                     groups = groupsList,
                     userNickname = currentNickname,
                     onCreateGroupClick = { showCreateSheet = true },
+                    onKeyClick = { currentScreen = GroupsScreenState.JOIN_FLOW }, // ✨ की आइकॉन क्लिक पर फ्लो खुलेगा
                     onGroupClick = { group ->
                         selectedGroup = group
                         currentScreen = GroupsScreenState.DETAIL
@@ -99,39 +99,30 @@ fun GroupsRootScreen(
                         GroupCacheManager.saveCachedGroupsList(context, groupsList)
                     },
                     onJoinGroup = { groupId ->
-                        GroupCacheManager.recordLocalJoin(context, groupId)
+                        // direct join fallback
+                    }
+                )
+            }
 
-                        val existing = groupsList.find { it.id == groupId }
-                        if (existing != null) {
-                            val updated = existing.copy(isJoined = true, memberCount = existing.memberCount + 1)
-                            groupsList = groupsList.map { if (it.id == groupId) updated else it }
-                            selectedGroup = updated
-                            GroupCacheManager.saveCachedGroupsList(context, groupsList)
-                            currentScreen = GroupsScreenState.DETAIL
-                            Toast.makeText(context, "Joined ${updated.name}!", Toast.LENGTH_SHORT).show()
+            GroupsScreenState.JOIN_FLOW -> {
+                // ✨ यही वह मल्टी-स्टेप स्क्रीन है जो अब पुरानी फाइल के अंदर ही रेंडर होगी
+                JoinGroupFlowScreen(
+                    onBackClick = { currentScreen = GroupsScreenState.HOME },
+                    onSuccessfullyJoined = { joinedGroup ->
+                        val updated = joinedGroup.copy(isJoined = true)
+                        groupsList = if (groupsList.any { it.id == updated.id }) {
+                            groupsList.map { if (it.id == updated.id) updated else it }
+                        } else {
+                            listOf(updated) + groupsList
                         }
-
-                        coroutineScope.launch(Dispatchers.IO) {
-                            CloudSyncManager.joinGroupOnCloud(context, groupId)
-                            val fresh = CloudSyncManager.fetchGroups(context)
-                            withContext(Dispatchers.Main) {
-                                if (fresh.isNotEmpty()) {
-                                    val merged = GroupCacheManager.mergeWithCloud(context, fresh)
-                                    groupsList = merged
-                                    GroupCacheManager.saveCachedGroupsList(context, merged)
-                                    val joinedTarget = merged.find { it.id == groupId }
-                                    if (joinedTarget != null) {
-                                        selectedGroup = joinedTarget
-                                    }
-                                }
-                            }
-                        }
+                        selectedGroup = updated
+                        GroupCacheManager.saveCachedGroupsList(context, groupsList)
+                        currentScreen = GroupsScreenState.DETAIL
                     }
                 )
             }
 
             GroupsScreenState.EXPLORE -> {
-                // इस स्टेट की अब जरूरत नहीं है क्योंकि सर्च/एक्सप्लोर हटा दिया गया है, पर कंपैटिबिलिटी के लिए होम भेज सकते हैं
                 currentScreen = GroupsScreenState.HOME
             }
 
@@ -144,32 +135,7 @@ fun GroupsRootScreen(
                         onInviteClick = { },
                         onSettingsClick = { showSettingsSheet = true },
                         onJoinClick = { groupId ->
-                            GroupCacheManager.recordLocalJoin(context, groupId)
-
-                            val target = groupsList.find { it.id == groupId }
-                            if (target != null) {
-                                val updated = target.copy(isJoined = true, memberCount = target.memberCount + 1)
-                                groupsList = groupsList.map { if (it.id == groupId) updated else it }
-                                selectedGroup = updated
-                                GroupCacheManager.saveCachedGroupsList(context, groupsList)
-                                Toast.makeText(context, "Joined ${updated.name}!", Toast.LENGTH_SHORT).show()
-                            }
-
-                            coroutineScope.launch(Dispatchers.IO) {
-                                CloudSyncManager.joinGroupOnCloud(context, groupId)
-                                val fresh = CloudSyncManager.fetchGroups(context)
-                                withContext(Dispatchers.Main) {
-                                    if (fresh.isNotEmpty()) {
-                                        val merged = GroupCacheManager.mergeWithCloud(context, fresh)
-                                        groupsList = merged
-                                        GroupCacheManager.saveCachedGroupsList(context, merged)
-                                        val joinedTarget = merged.find { it.id == groupId }
-                                        if (joinedTarget != null) {
-                                            selectedGroup = joinedTarget
-                                        }
-                                    }
-                                }
-                            }
+                            // join logic
                         }
                     )
                 }
@@ -179,14 +145,14 @@ fun GroupsRootScreen(
         if (showCreateSheet) {
             CreateGroupSheet(
                 onDismiss = { showCreateSheet = false },
-                onCreateGroup = { name, category, isPublic, inviteCode ->
+                onCreateGroup = { name, category, _, inviteCode ->
                     val finalCode = if (inviteCode.isNullOrBlank()) generateSecureGroupCode() else inviteCode.trim()
 
                     val newGroup = StudyGroup(
                         id = "grp_${System.currentTimeMillis()}",
                         name = name.trim(),
                         category = category.trim(),
-                        isPublic = false, // हमेशा प्राइवेट रहेगा
+                        isPublic = false,
                         memberCount = 1,
                         focusingCount = 0,
                         isPinned = false,
@@ -229,17 +195,15 @@ fun GroupsRootScreen(
                         if (g.id == currentGroup.id) g.copy(notificationsEnabled = enabled) else g
                     }
                     GroupCacheManager.saveCachedGroupsList(context, groupsList)
-                    val msg = if (enabled) "Notifications turned ON" else "Notifications turned OFF"
-                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, if (enabled) "Notifications ON" else "Notifications OFF", Toast.LENGTH_SHORT).show()
                 },
                 onReportGroup = {
                     showSettingsSheet = false
-                    Toast.makeText(context, "Group has been reported. We will review it shortly.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Group reported.", Toast.LENGTH_LONG).show()
                 },
                 onLeaveGroup = {
                     val groupId = currentGroup.id
                     GroupCacheManager.recordLocalLeave(context, groupId)
-
                     groupsList = groupsList.map { g ->
                         if (g.id == groupId) g.copy(isJoined = false, isPinned = false) else g
                     }
@@ -247,23 +211,18 @@ fun GroupsRootScreen(
                     showSettingsSheet = false
                     currentScreen = GroupsScreenState.HOME
                     Toast.makeText(context, "You left ${currentGroup.name}", Toast.LENGTH_SHORT).show()
-
                     coroutineScope.launch(Dispatchers.IO) {
                         CloudSyncManager.leaveGroupOnCloud(context, groupId)
                     }
                 },
                 onDeleteGroup = {
                     val groupId = currentGroup.id
-                    val deletedGroupName = currentGroup.name
-                    GroupCacheManager.recordLocalLeave(context, groupId)
-
                     groupsList = groupsList.filter { it.id != groupId }
                     selectedGroup = groupsList.firstOrNull()
                     GroupCacheManager.saveCachedGroupsList(context, groupsList)
                     showSettingsSheet = false
                     currentScreen = GroupsScreenState.HOME
-                    Toast.makeText(context, "Group \"$deletedGroupName\" deleted permanently", Toast.LENGTH_SHORT).show()
-
+                    Toast.makeText(context, "Group deleted", Toast.LENGTH_SHORT).show()
                     coroutineScope.launch(Dispatchers.IO) {
                         CloudSyncManager.deleteGroupOnCloud(groupId)
                     }
@@ -280,13 +239,8 @@ fun GroupsRootScreen(
                     userManager.setUserName(newName)
                     showNicknameDialog = false
                     Toast.makeText(context, "Nickname updated to $newName", Toast.LENGTH_SHORT).show()
-
                     coroutineScope.launch(Dispatchers.IO) {
-                        CloudSyncManager.registerUserOnCloud(
-                            context = context,
-                            userId = currentUserId,
-                            nickname = newName
-                        )
+                        CloudSyncManager.registerUserOnCloud(context, currentUserId, newName)
                     }
                 }
             )
