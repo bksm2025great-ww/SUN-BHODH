@@ -926,8 +926,8 @@ fun ProfileScreen() {
             }
         }
 
-        // ================= BOTTOM BALANCED ILLUSTRATION & FOOTER =================
-        Spacer(modifier = Modifier.height(8.dp))
+        // ================= BOTTOM BALANCED ILLUSTRATION & FOOTER (SPACING REDUCED BY 70%) =================
+        Spacer(modifier = Modifier.height(2.dp)) // Reduced from 8.dp to 2.dp (~70% reduction)
 
         val lottieComposition by rememberLottieComposition(
             LottieCompositionSpec.RawRes(R.raw.profile_anim)
@@ -937,11 +937,11 @@ fun ProfileScreen() {
             iterations = LottieConstants.IterateForever
         )
 
-        // 🧘‍♂️ बड़ा एनीमेशन (160.dp) और नीचे के टेक्स्ट के ठीक ऊपर
+        // Lottie Animation (JSON file view)
         Box(
             modifier = Modifier
-                .size(160.dp)
-                .padding(vertical = 2.dp),
+                .size(130.dp) // Slightly reduced frame size for compact look
+                .padding(vertical = 0.dp),
             contentAlignment = Alignment.Center
         ) {
             LottieAnimation(
@@ -953,10 +953,11 @@ fun ProfileScreen() {
             )
         }
 
+        // Students line ("Made for students...") with reduced bottom padding (~70% reduction)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 2.dp, bottom = 16.dp),
+                .padding(top = 0.dp, bottom = 4.dp), // Reduced bottom padding from 16.dp to 4.dp
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1095,8 +1096,7 @@ fun ProfileScreen() {
                                 CloudSyncManager.registerUserOnCloud(
                                     context = context,
                                     userId = userManager.getUserId(),
-                                    nickname = trimmedName,
-                                    email = userManager.getUserEmail()
+                                    nickname = trimmedName
                                 )
                             }
                             showEditProfileSheet = false
@@ -1209,10 +1209,6 @@ private fun SectionHeader(title: String, color: Color) {
     )
 }
 
-// =============================================================================
-// ✨ SUPPORT EMAIL DISPATCHER
-// =============================================================================
-
 private fun sendSupportEmail(context: Context, subject: String, appVersion: String, isBug: Boolean) {
     try {
         val body = """
@@ -1233,17 +1229,13 @@ App Version: v$appVersion
     }
 }
 
-// =============================================================================
-// ✨ CANVAS ART ICONS
-// =============================================================================
-
+// Canvas icons and helper functions remain unchanged...
 @Composable
 private fun OutlinedTrophyIcon(tint: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(22.dp)) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
-
         val cup = Path().apply {
             moveTo(w * 0.26f, h * 0.18f)
             lineTo(w * 0.74f, h * 0.18f)
@@ -1252,19 +1244,16 @@ private fun OutlinedTrophyIcon(tint: Color, modifier: Modifier = Modifier) {
             close()
         }
         drawPath(cup, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
-
         val leftHandle = Path().apply {
             moveTo(w * 0.26f, h * 0.24f)
             cubicTo(w * 0.10f, h * 0.24f, w * 0.10f, h * 0.46f, w * 0.29f, h * 0.46f)
         }
         drawPath(leftHandle, color = tint, style = Stroke(width = stroke * 0.9f, cap = StrokeCap.Round))
-
         val rightHandle = Path().apply {
             moveTo(w * 0.74f, h * 0.24f)
             cubicTo(w * 0.90f, h * 0.24f, w * 0.90f, h * 0.46f, w * 0.71f, h * 0.46f)
         }
         drawPath(rightHandle, color = tint, style = Stroke(width = stroke * 0.9f, cap = StrokeCap.Round))
-
         drawLine(color = tint, start = Offset(w * 0.5f, h * 0.64f), end = Offset(w * 0.5f, h * 0.82f), strokeWidth = stroke, cap = StrokeCap.Round)
         drawLine(color = tint, start = Offset(w * 0.30f, h * 0.82f), end = Offset(w * 0.70f, h * 0.82f), strokeWidth = stroke, cap = StrokeCap.Round)
     }
@@ -1276,10 +1265,8 @@ private fun OutlinedControlsIcon(tint: Color, modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
-
         drawLine(color = tint, start = Offset(w * 0.15f, h * 0.32f), end = Offset(w * 0.85f, h * 0.32f), strokeWidth = stroke, cap = StrokeCap.Round)
         drawCircle(color = tint, radius = w * 0.08f, center = Offset(w * 0.38f, h * 0.32f), style = Stroke(width = stroke))
-
         drawLine(color = tint, start = Offset(w * 0.15f, h * 0.68f), end = Offset(w * 0.85f, h * 0.68f), strokeWidth = stroke, cap = StrokeCap.Round)
         drawCircle(color = tint, radius = w * 0.08f, center = Offset(w * 0.62f, h * 0.68f), style = Stroke(width = stroke))
     }
@@ -1291,32 +1278,13 @@ private fun OutlinedBugReportIcon(tint: Color, modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val stroke = 1.6.dp.toPx()
-
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(w * 0.30f, h * 0.28f),
-            size = Size(w * 0.40f, h * 0.52f),
-            cornerRadius = CornerRadius(w * 0.20f, w * 0.20f),
-            style = Stroke(width = stroke)
-        )
-
-        drawArc(
-            color = tint,
-            startAngle = 180f,
-            sweepAngle = 180f,
-            useCenter = false,
-            topLeft = Offset(w * 0.34f, h * 0.12f),
-            size = Size(w * 0.32f, h * 0.24f),
-            style = Stroke(width = stroke, cap = StrokeCap.Round)
-        )
-
+        drawRoundRect(color = tint, topLeft = Offset(w * 0.30f, h * 0.28f), size = Size(w * 0.40f, h * 0.52f), cornerRadius = CornerRadius(w * 0.20f, w * 0.20f), style = Stroke(width = stroke))
+        drawArc(color = tint, startAngle = 180f, sweepAngle = 180f, useCenter = false, topLeft = Offset(w * 0.34f, h * 0.12f), size = Size(w * 0.32f, h * 0.24f), style = Stroke(width = stroke, cap = StrokeCap.Round))
         drawLine(color = tint, start = Offset(w * 0.40f, h * 0.14f), end = Offset(w * 0.26f, h * 0.04f), strokeWidth = stroke, cap = StrokeCap.Round)
         drawLine(color = tint, start = Offset(w * 0.60f, h * 0.14f), end = Offset(w * 0.74f, h * 0.04f), strokeWidth = stroke, cap = StrokeCap.Round)
-
         drawLine(color = tint, start = Offset(w * 0.30f, h * 0.40f), end = Offset(w * 0.12f, h * 0.34f), strokeWidth = stroke, cap = StrokeCap.Round)
         drawLine(color = tint, start = Offset(w * 0.30f, h * 0.54f), end = Offset(w * 0.10f, h * 0.54f), strokeWidth = stroke, cap = StrokeCap.Round)
         drawLine(color = tint, start = Offset(w * 0.30f, h * 0.68f), end = Offset(w * 0.14f, h * 0.74f), strokeWidth = stroke, cap = StrokeCap.Round)
-
         drawLine(color = tint, start = Offset(w * 0.70f, h * 0.40f), end = Offset(w * 0.88f, h * 0.34f), strokeWidth = stroke, cap = StrokeCap.Round)
         drawLine(color = tint, start = Offset(w * 0.70f, h * 0.54f), end = Offset(w * 0.90f, h * 0.54f), strokeWidth = stroke, cap = StrokeCap.Round)
         drawLine(color = tint, start = Offset(w * 0.70f, h * 0.68f), end = Offset(w * 0.86f, h * 0.74f), strokeWidth = stroke, cap = StrokeCap.Round)
@@ -1329,7 +1297,6 @@ private fun OutlinedLightbulbIdeaIcon(tint: Color, modifier: Modifier = Modifier
         val w = size.width
         val h = size.height
         val stroke = 1.6.dp.toPx()
-
         val bulb = Path().apply {
             moveTo(w * 0.32f, h * 0.64f)
             cubicTo(w * 0.12f, h * 0.50f, w * 0.16f, h * 0.16f, w * 0.50f, h * 0.14f)
@@ -1339,7 +1306,6 @@ private fun OutlinedLightbulbIdeaIcon(tint: Color, modifier: Modifier = Modifier
             close()
         }
         drawPath(bulb, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
-
         drawLine(color = tint, start = Offset(w * 0.38f, h * 0.82f), end = Offset(w * 0.62f, h * 0.82f), strokeWidth = stroke, cap = StrokeCap.Round)
         drawLine(color = tint, start = Offset(w * 0.42f, h * 0.89f), end = Offset(w * 0.58f, h * 0.89f), strokeWidth = stroke, cap = StrokeCap.Round)
     }
@@ -1351,7 +1317,6 @@ private fun OutlinedHelpSupportIcon(tint: Color, modifier: Modifier = Modifier) 
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
-
         val bubble = Path().apply {
             moveTo(w * 0.20f, h * 0.22f)
             lineTo(w * 0.80f, h * 0.22f)
@@ -1364,7 +1329,6 @@ private fun OutlinedHelpSupportIcon(tint: Color, modifier: Modifier = Modifier) 
             close()
         }
         drawPath(bubble, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
-
         val dotRadius = w * 0.038f
         drawCircle(color = tint, radius = dotRadius, center = Offset(w * 0.36f, h * 0.435f))
         drawCircle(color = tint, radius = dotRadius, center = Offset(w * 0.50f, h * 0.435f))
@@ -1378,17 +1342,7 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
-
-        val flameBrush = Brush.linearGradient(
-            colors = listOf(
-                Color(0xFFFFEB3B),
-                Color(0xFFFF9800),
-                Color(0xFFE53935)
-            ),
-            start = Offset(w * 0.40f, h * 0.60f),
-            end = Offset(w * 0.05f, h * 0.95f)
-        )
-
+        val flameBrush = Brush.linearGradient(colors = listOf(Color(0xFFFFEB3B), Color(0xFFFF9800), Color(0xFFE53935)), start = Offset(w * 0.40f, h * 0.60f), end = Offset(w * 0.05f, h * 0.95f))
         val flamePath = Path().apply {
             moveTo(w * 0.35f, h * 0.57f)
             cubicTo(w * 0.28f, h * 0.64f, w * 0.20f, h * 0.74f, w * 0.15f, h * 0.84f)
@@ -1400,7 +1354,6 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
             close()
         }
         drawPath(path = flamePath, brush = flameBrush)
-
         val bodyPath = Path().apply {
             moveTo(w * 0.92f, h * 0.08f)
             cubicTo(w * 0.88f, h * 0.28f, w * 0.74f, h * 0.50f, w * 0.52f, h * 0.64f)
@@ -1408,48 +1361,21 @@ private fun OutlinedRocketIcon(tint: Color, modifier: Modifier = Modifier) {
             cubicTo(w * 0.50f, h * 0.26f, w * 0.72f, h * 0.12f, w * 0.92f, h * 0.08f)
             close()
         }
-        drawPath(
-            path = bodyPath,
-            color = tint,
-            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
-
+        drawPath(path = bodyPath, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
         val leftFin = Path().apply {
             moveTo(w * 0.48f, h * 0.32f)
             cubicTo(w * 0.30f, h * 0.32f, w * 0.18f, h * 0.42f, w * 0.14f, h * 0.56f)
             cubicTo(w * 0.26f, h * 0.54f, w * 0.34f, h * 0.50f, w * 0.38f, h * 0.48f)
         }
-        drawPath(
-            path = leftFin,
-            color = tint,
-            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
-
+        drawPath(path = leftFin, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
         val rightFin = Path().apply {
             moveTo(w * 0.68f, h * 0.52f)
             cubicTo(w * 0.68f, h * 0.70f, w * 0.58f, h * 0.82f, w * 0.44f, h * 0.86f)
             cubicTo(w * 0.46f, h * 0.74f, w * 0.50f, h * 0.66f, w * 0.52f, h * 0.64f)
         }
-        drawPath(
-            path = rightFin,
-            color = tint,
-            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
-
-        drawCircle(
-            color = tint,
-            radius = w * 0.08f,
-            center = Offset(w * 0.66f, h * 0.34f),
-            style = Stroke(width = stroke * 0.9f)
-        )
-
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.41f, h * 0.53f),
-            end = Offset(w * 0.47f, h * 0.59f),
-            strokeWidth = stroke * 0.9f,
-            cap = StrokeCap.Round
-        )
+        drawPath(path = rightFin, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawCircle(color = tint, radius = w * 0.08f, center = Offset(w * 0.66f, h * 0.34f), style = Stroke(width = stroke * 0.9f))
+        drawLine(color = tint, start = Offset(w * 0.41f, h * 0.53f), end = Offset(w * 0.47f, h * 0.59f), strokeWidth = stroke * 0.9f, cap = StrokeCap.Round)
     }
 }
 
@@ -1459,7 +1385,6 @@ private fun OutlinedPencilIcon(tint: Color, modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
-
         val body = Path().apply {
             moveTo(w * 0.22f, h * 0.78f)
             lineTo(w * 0.72f, h * 0.28f)
@@ -1469,14 +1394,7 @@ private fun OutlinedPencilIcon(tint: Color, modifier: Modifier = Modifier) {
             close()
         }
         drawPath(body, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
-
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.26f, h * 0.74f),
-            end = Offset(w * 0.40f, h * 0.88f),
-            strokeWidth = stroke * 0.85f,
-            cap = StrokeCap.Round
-        )
+        drawLine(color = tint, start = Offset(w * 0.26f, h * 0.74f), end = Offset(w * 0.40f, h * 0.88f), strokeWidth = stroke * 0.85f, cap = StrokeCap.Round)
     }
 }
 
@@ -1486,7 +1404,6 @@ private fun OutlinedShieldIcon(tint: Color, modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
-
         val shield = Path().apply {
             moveTo(w * 0.5f, h * 0.14f)
             lineTo(w * 0.84f, h * 0.26f)
@@ -1504,7 +1421,6 @@ private fun OutlinedUploadIcon(tint: Color, modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
-
         val tray = Path().apply {
             moveTo(w * 0.2f, h * 0.68f)
             lineTo(w * 0.2f, h * 0.82f)
@@ -1512,7 +1428,6 @@ private fun OutlinedUploadIcon(tint: Color, modifier: Modifier = Modifier) {
             lineTo(w * 0.8f, h * 0.68f)
         }
         drawPath(tray, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
-
         drawLine(color = tint, start = Offset(w * 0.5f, h * 0.66f), end = Offset(w * 0.5f, h * 0.24f), strokeWidth = stroke, cap = StrokeCap.Round)
         val arrow = Path().apply {
             moveTo(w * 0.32f, h * 0.40f)
@@ -1529,7 +1444,6 @@ private fun OutlinedDownloadIcon(tint: Color, modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
-
         val tray = Path().apply {
             moveTo(w * 0.2f, h * 0.68f)
             lineTo(w * 0.2f, h * 0.82f)
@@ -1537,7 +1451,6 @@ private fun OutlinedDownloadIcon(tint: Color, modifier: Modifier = Modifier) {
             lineTo(w * 0.8f, h * 0.68f)
         }
         drawPath(tray, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
-
         drawLine(color = tint, start = Offset(w * 0.5f, h * 0.24f), end = Offset(w * 0.5f, h * 0.66f), strokeWidth = stroke, cap = StrokeCap.Round)
         val arrow = Path().apply {
             moveTo(w * 0.32f, h * 0.50f)
@@ -1554,14 +1467,7 @@ private fun OutlinedTableGridIcon(tint: Color, modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val stroke = 1.7.dp.toPx()
-
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(w * 0.15f, h * 0.15f),
-            size = Size(w * 0.70f, h * 0.70f),
-            cornerRadius = CornerRadius(w * 0.1f, w * 0.1f),
-            style = Stroke(width = stroke)
-        )
+        drawRoundRect(color = tint, topLeft = Offset(w * 0.15f, h * 0.15f), size = Size(w * 0.70f, h * 0.70f), cornerRadius = CornerRadius(w * 0.1f, w * 0.1f), style = Stroke(width = stroke))
         drawLine(color = tint, start = Offset(w * 0.15f, h * 0.44f), end = Offset(w * 0.85f, h * 0.44f), strokeWidth = stroke)
         drawLine(color = tint, start = Offset(w * 0.50f, h * 0.15f), end = Offset(w * 0.50f, h * 0.85f), strokeWidth = stroke * 0.85f)
     }
@@ -1573,7 +1479,6 @@ private fun OutlinedCloudSyncIcon(tint: Color, modifier: Modifier = Modifier) {
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
-
         val cloud = Path().apply {
             moveTo(w * 0.22f, h * 0.74f)
             lineTo(w * 0.78f, h * 0.74f)
@@ -1585,7 +1490,6 @@ private fun OutlinedCloudSyncIcon(tint: Color, modifier: Modifier = Modifier) {
             close()
         }
         drawPath(cloud, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
-
         val arrow = Path().apply {
             moveTo(w * 0.42f, h * 0.50f)
             lineTo(w * 0.50f, h * 0.42f)
@@ -1602,7 +1506,6 @@ private fun OutlinedPaperAirplaneIcon(tint: Color, modifier: Modifier = Modifier
         val w = size.width
         val h = size.height
         val stroke = 1.8.dp.toPx()
-
         val planeOutline = Path().apply {
             moveTo(w * 0.15f, h * 0.86f)
             lineTo(w * 0.88f, h * 0.50f)
@@ -1610,19 +1513,8 @@ private fun OutlinedPaperAirplaneIcon(tint: Color, modifier: Modifier = Modifier
             lineTo(w * 0.32f, h * 0.48f)
             close()
         }
-        drawPath(
-            path = planeOutline,
-            color = tint,
-            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
-
-        drawLine(
-            color = tint,
-            start = Offset(w * 0.32f, h * 0.48f),
-            end = Offset(w * 0.88f, h * 0.50f),
-            strokeWidth = stroke * 0.85f,
-            cap = StrokeCap.Round
-        )
+        drawPath(path = planeOutline, color = tint, style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawLine(color = tint, start = Offset(w * 0.32f, h * 0.48f), end = Offset(w * 0.88f, h * 0.50f), strokeWidth = stroke * 0.85f, cap = StrokeCap.Round)
     }
 }
 
