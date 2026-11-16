@@ -235,19 +235,23 @@ fun AndroidAutoRotateLineIcon(
         val arrowPath2 = Path().apply {
             moveTo(center.x - arcRadius * 0.10f, center.y + arcRadius * 1.02f)
             lineTo(center.x - arcRadius * 0.40f, center.y + arcRadius * 0.90f)
-            lineTo(center.x - arcRadius * 0.25f, center.y - arcRadius * 0.62f)
+            lineTo(center.x - arcRadius * 0.25f, center.y + arcRadius * 0.62f)
             close()
         }
         drawPath(path = arrowPath2, color = tint)
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
     val context = LocalContext.current
     val view = LocalView.current
     val activity = context as? Activity
     var currentNavIndex by remember { mutableIntStateOf(0) }
+
+    // 🔥 स्ट्रीक बॉटम शीट खोलने के लिए स्टेट
+    var showStreakBottomSheet by rememberSaveable { mutableStateOf(false) }
 
     val isDark = ThemeManager.isDarkTheme.value
     val isRunning = TimerService.isTimerRunning.value
@@ -435,7 +439,7 @@ fun MainScreen() {
             initialTotalSeconds = initialTotalSeconds,
             onInitialTotalSecondsChange = { initialTotalSeconds = it },
             areControlsVisible = areControlsVisible || isPaused,
-            onNavigateToStats = { currentNavIndex = 2 },
+            onNavigateToStats = { showStreakBottomSheet = true },
             onStartStopwatch = {
                 context.startService(Intent(context, TimerService::class.java).apply {
                     action = TimerService.ACTION_START
@@ -587,7 +591,7 @@ fun MainScreen() {
                         initialTotalSeconds = initialTotalSeconds,
                         onInitialTotalSecondsChange = { initialTotalSeconds = it },
                         areControlsVisible = true,
-                        onNavigateToStats = { currentNavIndex = 2 },
+                        onNavigateToStats = { showStreakBottomSheet = true }, // 👈 अब सीधे स्ट्रीक बॉटम शीट खुलेगा!
                         onStartStopwatch = {
                             context.startService(Intent(context, TimerService::class.java).apply {
                                 action = TimerService.ACTION_START
@@ -617,6 +621,31 @@ fun MainScreen() {
                     3 -> ProfileScreen()
                 }
             }
+        }
+    }
+
+    // 🔥 जब यूजर ऊपर स्ट्रीक (Flame) पर टैप करेगा, तो Stats की तरह यह Streak Bottom Sheet खुलेगा!
+    if (showStreakBottomSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showStreakBottomSheet = false },
+            sheetState = sheetState,
+            containerColor = if (isDark) Color(0xFF16151F) else Color.White,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            dragHandle = {
+                BottomSheetDefaults.DragHandle(color = textMuted.copy(alpha = 0.4f))
+            }
+        ) {
+            StreakBottomSheetContent(
+                context = context,
+                isDark = isDark,
+                cardBg = cardBg,
+                textMain = textMain,
+                textMuted = textMuted,
+                goldColor = goldColor,
+                glassBorder = glassBorder,
+                onDismiss = { showStreakBottomSheet = false }
+            )
         }
     }
 
@@ -949,11 +978,20 @@ fun HomeTimerTab(
 
     val totalSeconds = TimerService.remainingSeconds.intValue
 
+    // 📊 सेशंस से सीधे स्ट्रीक और आज की पढ़ाई के मिनट्स (Daily Goal Progress) निकालना
     var streakDays by remember { mutableIntStateOf(0) }
-    LaunchedEffect(isFocusActive) {
+    var todayStudiedMinutes by remember { mutableIntStateOf(0) }
+    val dailyGoalMinutes = remember {
+        context.getSharedPreferences("amon_user_prefs", Context.MODE_PRIVATE)
+            .getInt("daily_goal_minutes", 120)
+            .coerceAtLeast(30)
+    }
+
+    LaunchedEffect(isFocusActive, TimerService.showCompletionDialogTrigger.value) {
         if (!isFocusActive) {
             val sessions = try { FocusSessionManager.getAllSessions(context) } catch (_: Exception) { emptyList() }
             streakDays = calculateStreakDays(sessions)
+            todayStudiedMinutes = calculateTodayMinutesFromSessions(sessions)
         }
     }
 
@@ -1017,7 +1055,7 @@ fun HomeTimerTab(
                         letterSpacing = 2.5.sp
                     )
 
-                    // 🔥 Streak Flame Button with Lottie Animation -> Navigates to Stats Screen
+                    // 🔥 Streak Flame Button -> Opens Streak Bottom Sheet directly
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -1139,7 +1177,50 @@ fun HomeTimerTab(
                 }
 
                 if (!isSessionActive) {
-                    Spacer(modifier = Modifier.height(14.dp))
+                    // 📈 START FOCUS बटन के ठीक ऊपर Daily Goal Progress Line (सीधे सेशंस से काउंट)
+                    val goalFraction = (todayStudiedMinutes.toFloat() / dailyGoalMinutes.toFloat()).coerceIn(0f, 1f)
+                    val goalPercent = ((todayStudiedMinutes.toFloat() / dailyGoalMinutes.toFloat()) * 100).toInt().coerceAtMost(100)
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .padding(bottom = 10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Today's Focus: ${todayStudiedMinutes}m / ${dailyGoalMinutes}m",
+                                color = textMuted,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "$goalPercent%",
+                                color = goldColor,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(5.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(5.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isDark) Color(0x22FFFFFF) else Color(0xFFE2E8F0))
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(goalFraction)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(50))
+                                    .background(goldColor)
+                            )
+                        }
+                    }
 
                     Box(
                         contentAlignment = Alignment.Center,
@@ -1641,6 +1722,238 @@ fun HomeTimerTab(
             }
         }
     }
+}
+
+// 🔥 स्ट्रीक बॉटम शीट का कंटेंट (StreakFlame(isLarge = true) और सेशन स्टैट्स के साथ)
+@Composable
+fun StreakBottomSheetContent(
+    context: Context,
+    isDark: Boolean,
+    cardBg: Color,
+    textMain: Color,
+    textMuted: Color,
+    goldColor: Color,
+    glassBorder: Color,
+    onDismiss: () -> Unit
+) {
+    val sessions = remember { FocusSessionManager.getAllSessions(context) }
+    val streakDays = remember(sessions) { calculateStreakDays(sessions) }
+    val todayMinutes = remember(sessions) { calculateTodayMinutesFromSessions(sessions) }
+    val totalMinutes = remember(sessions) { sessions.sumOf { it.durationMinutes } }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 22.dp)
+            .padding(bottom = 30.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // बड़ा StreakFlame Lottie एनिमेशन (R.raw.flame_stats)
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(130.dp)
+                .clip(CircleShape)
+                .background(goldColor.copy(alpha = 0.08f))
+                .border(1.5.dp, goldColor.copy(alpha = 0.35f), CircleShape)
+        ) {
+            StreakFlame(
+                streakDays = streakDays,
+                isLarge = true,
+                modifier = Modifier.size(92.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Text(
+            text = "$streakDays Days Streak",
+            color = if (streakDays > 0) Color(0xFFFB923C) else textMain,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = if (todayMinutes >= 30) "Today's 30m streak goal is complete! Keep the flame alive."
+                   else "Focus ${30 - todayMinutes} more mins today to extend your streak!",
+            color = textMuted,
+            fontSize = 12.5.sp,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // पिछले 7 दिनों का कंसिस्टेंसी ट्रैक (सीधे सेशंस से)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(cardBg)
+                .border(1.dp, glassBorder, RoundedCornerShape(18.dp))
+                .padding(16.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "LAST 7 DAYS (30m+ / day)",
+                    color = textMuted,
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp
+                )
+                val last7Days = remember(sessions) { getLast7DaysStreakStatus(sessions) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    last7Days.forEach { (dayLabel, isCompleted) ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isCompleted) Color(0xFFFB923C).copy(alpha = 0.2f) else Color.Transparent)
+                                    .border(
+                                        1.2.dp,
+                                        if (isCompleted) Color(0xFFFB923C) else glassBorder,
+                                        CircleShape
+                                    )
+                            ) {
+                                Text(
+                                    text = if (isCompleted) "✓" else "•",
+                                    color = if (isCompleted) Color(0xFFFB923C) else textMuted,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                            Text(
+                                text = dayLabel,
+                                color = if (isCompleted) textMain else textMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(cardBg)
+                    .border(1.dp, glassBorder, RoundedCornerShape(16.dp))
+                    .padding(14.dp)
+            ) {
+                Column {
+                    Text("Today's Focus", color = textMuted, fontSize = 11.5.sp)
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text("${todayMinutes}m", color = goldColor, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(cardBg)
+                    .border(1.dp, glassBorder, RoundedCornerShape(16.dp))
+                    .padding(14.dp)
+            ) {
+                Column {
+                    Text("Total Focused", color = textMuted, fontSize = 11.5.sp)
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text("${totalMinutes / 60}h ${totalMinutes % 60}m", color = textMain, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        Button(
+            onClick = onDismiss,
+            colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+            shape = RoundedCornerShape(50),
+            modifier = Modifier.fillMaxWidth().height(46.dp)
+        ) {
+            Text("Keep Going!", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 14.sp)
+        }
+    }
+}
+
+// 📊 आज की तारीख के कुल मिनट्स सीधे सेशंस से निकालने का फंक्शन
+fun calculateTodayMinutesFromSessions(sessions: List<FocusSession>): Int {
+    if (sessions.isEmpty()) return 0
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val todayKey = sdf.format(Date())
+    val formats = listOf(
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    )
+    var total = 0
+    sessions.forEach { s ->
+        for (fmt in formats) {
+            try {
+                val d = fmt.parse(s.date)
+                if (d != null) {
+                    if (sdf.format(d) == todayKey) {
+                        total += s.durationMinutes
+                    }
+                    break
+                }
+            } catch (_: Exception) {}
+        }
+    }
+    return total
+}
+
+// 📅 पिछले 7 दिनों का स्टेटस सीधे सेशंस से निकालने का फंक्शन
+fun getLast7DaysStreakStatus(sessions: List<FocusSession>): List<Pair<String, Boolean>> {
+    val dayMinutesMap = mutableMapOf<String, Int>()
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val dayLabelFormat = SimpleDateFormat("EEE", Locale.getDefault())
+    val formats = listOf(
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    )
+
+    sessions.forEach { s ->
+        for (fmt in formats) {
+            try {
+                val d = fmt.parse(s.date)
+                if (d != null) {
+                    val key = sdf.format(d)
+                    dayMinutesMap[key] = (dayMinutesMap[key] ?: 0) + s.durationMinutes
+                    break
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    val result = mutableListOf<Pair<String, Boolean>>()
+    val cal = Calendar.getInstance()
+    cal.add(Calendar.DAY_OF_YEAR, -6)
+    for (i in 0..6) {
+        val key = sdf.format(cal.time)
+        val label = dayLabelFormat.format(cal.time).take(2)
+        val mins = dayMinutesMap[key] ?: 0
+        result.add(Pair(label, mins >= 30))
+        cal.add(Calendar.DAY_OF_YEAR, 1)
+    }
+    return result
 }
 
 fun calculateStreakDays(sessions: List<FocusSession>): Int {
