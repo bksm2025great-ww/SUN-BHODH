@@ -68,6 +68,14 @@ fun AuthScreen(
         }
     }
 
+    // 👤 Continue as Guest एक्शन
+    val handleGuestLogin = {
+        userManager.setGuestUser(true)
+        userManager.setUserName("Guest Aspirant")
+        Toast.makeText(context, "Welcome Guest!", Toast.LENGTH_SHORT).show()
+        proceedToApp()
+    }
+
     // 🌐 Google Sign-In + Supabase Auth (signInWithIdToken)
     val handleGoogleSignIn = {
         coroutineScope.launch {
@@ -113,10 +121,10 @@ fun AuthScreen(
                     }
 
                     // 2. फ़ोन मेमोरी में असली auth.uid और प्रोफ़ाइल डिटेल्स सेव करना
+                    userManager.setGuestUser(false)
                     userManager.setUserId(supabaseAuthUid)
                     userManager.setUserName(displayName)
                     userManager.setUserEmail(userEmail)
-                    userManager.setGuestUser(false)
 
                     // 3. बैकग्राउंड में इसी auth.uid के साथ profiles टेबल सिंक करना
                     coroutineScope.launch(Dispatchers.IO) {
@@ -124,8 +132,7 @@ fun AuthScreen(
                             CloudSyncManager.registerUserOnCloud(
                                 context = context,
                                 userId = supabaseAuthUid,
-                                nickname = displayName,
-                                email = userEmail
+                                nickname = displayName
                             )
                         } catch (e: Exception) {
                             e.printStackTrace()
@@ -258,6 +265,27 @@ fun AuthScreen(
                             )
                         }
                     }
+                }
+
+                // 👤 Continue as Guest बटन
+                OutlinedButton(
+                    onClick = { handleGuestLogin() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    shape = RoundedCornerShape(23.dp),
+                    border = BorderStroke(1.dp, cardBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = textMain
+                    ),
+                    enabled = !isLoading
+                ) {
+                    Text(
+                        text = "Continue as Guest",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = textMuted
+                    )
                 }
             }
         }
