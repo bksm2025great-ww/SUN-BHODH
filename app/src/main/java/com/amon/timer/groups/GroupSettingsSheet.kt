@@ -17,7 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Share
@@ -177,7 +177,6 @@ fun GroupSettingsSheet(
                 .padding(horizontal = 20.dp, vertical = 6.dp)
         ) {
             if (showInviteCodeView) {
-                // ================= INVITE CODE BOTTOM SHEET VIEW =================
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -232,7 +231,6 @@ fun GroupSettingsSheet(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Code Display Box
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
@@ -279,7 +277,7 @@ fun GroupSettingsSheet(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ContentCopy,
+                            imageVector = Icons.Default.Done,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
@@ -295,7 +293,6 @@ fun GroupSettingsSheet(
                 Spacer(modifier = Modifier.height(30.dp))
 
             } else {
-                // ================= MAIN SETTINGS VIEW =================
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -331,7 +328,6 @@ fun GroupSettingsSheet(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 🎯 Invite Aspirants Card -> Opens Invite Code View Inside Sheet
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -375,7 +371,6 @@ fun GroupSettingsSheet(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Report Group Card
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -417,11 +412,9 @@ fun GroupSettingsSheet(
                     }
                 }
 
-                // 🛑 Universal Library (Default group) को कोई लीव या डिलीट नहीं कर सकता
                 if (!group.isDefault) {
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Leave Group Action (सभी मेंबर्स के लिए)
                     OutlinedButton(
                         onClick = { showLeaveConfirmDialog = true },
                         modifier = Modifier
@@ -448,7 +441,6 @@ fun GroupSettingsSheet(
                         )
                     }
 
-                    // Delete Group Action (केवल ग्रुप एडमिन के लिए)
                     if (isAdmin) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(
