@@ -1,9 +1,7 @@
 package com.amon.timer.groups
 
-import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -57,7 +55,7 @@ fun GroupsHomeScreen(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ================= CLEAN HEADER =================
+            // ================= HEADER WITH ALWAYS-VISIBLE CREATE & JOIN BUTTONS =================
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -71,12 +69,68 @@ fun GroupsHomeScreen(
                     fontWeight = FontWeight.Black,
                     color = textMain
                 )
+
+                // ✨ हमेशा दिखने वाले टॉप एक्शन बटन्स
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Join Button
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = cardBg,
+                        border = BorderStroke(1.dp, cardBorder),
+                        modifier = Modifier.clickable { onKeyClick() }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = textMain,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Join",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textMain
+                            )
+                        }
+                    }
+
+                    // Create Button
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = goldAccent,
+                        modifier = Modifier.clickable { onCreateGroupClick() }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Create",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                        }
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             if (groups.isEmpty()) {
-                // ================= PREMIUM EMPTY STATE CARD (AS IN REFERENCE IMAGE) =================
+                // ================= EMPTY STATE CARD =================
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -96,7 +150,6 @@ fun GroupsHomeScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            // Handshake Icon Box
                             Box(
                                 modifier = Modifier
                                     .size(56.dp)
@@ -122,7 +175,7 @@ fun GroupsHomeScreen(
                                 )
                                 
                                 Text(
-                                    text = "Study with your friends. Sometimes studying alone is hard—build a companion, track consistency, and support each other.",
+                                    text = "Make a group for your class or friends, share the link, and see who studies most this week.",
                                     fontSize = 13.sp,
                                     color = textMuted,
                                     textAlign = TextAlign.Center,
@@ -132,12 +185,10 @@ fun GroupsHomeScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // ================= PROMINENT ACTION BUTTONS =================
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                // Create Circle Button
                                 Button(
                                     onClick = onCreateGroupClick,
                                     modifier = Modifier
@@ -153,15 +204,15 @@ fun GroupsHomeScreen(
                                         text = "+ Create Circle",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.5.sp,
-                                        maxLines = 1,
-                                        softWrap = false
+                                        maxLines = 1
                                     )
                                 }
 
-                                // Join with Code Button
                                 OutlinedButton(
                                     onClick = onKeyClick,
-                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(50.dp),
                                     shape = RoundedCornerShape(14.dp),
                                     border = BorderStroke(1.dp, cardBorder)
                                 ) {
@@ -170,7 +221,6 @@ fun GroupsHomeScreen(
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 13.5.sp,
                                         maxLines = 1,
-                                        softWrap = false,
                                         color = textMain
                                     )
                                 }
