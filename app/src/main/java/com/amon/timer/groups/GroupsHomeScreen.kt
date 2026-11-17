@@ -12,7 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -57,7 +57,7 @@ fun GroupsHomeScreen(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ================= 4. CLEAN HEADER =================
+            // ================= CLEAN HEADER =================
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -66,7 +66,7 @@ fun GroupsHomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Groups", // 👈 साफ़ टाइटल
+                    text = "Groups",
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = textMain
@@ -76,7 +76,7 @@ fun GroupsHomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Key / Join via code button
+                    // Lock / Join via code button (Fixed from Key to Lock)
                     IconButton(
                         onClick = onKeyClick,
                         modifier = Modifier
@@ -86,7 +86,7 @@ fun GroupsHomeScreen(
                             .border(slimBorderStroke, cardBorder, RoundedCornerShape(10.dp))
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Key,
+                            imageVector = Icons.Default.Lock,
                             contentDescription = "Join with Code",
                             tint = goldAccent,
                             modifier = Modifier.size(18.dp)
@@ -113,7 +113,7 @@ fun GroupsHomeScreen(
             }
 
             if (groups.isEmpty()) {
-                // ================= 2, 3 & 5. CLEAN EMPTY STATE =================
+                // ================= CLEAN EMPTY STATE =================
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -149,7 +149,6 @@ fun GroupsHomeScreen(
                                 textAlign = TextAlign.Center
                             )
                             
-                            // 5. मिनिमलिस्ट लाइन
                             Text(
                                 text = "Study together. Stay consistent.",
                                 fontSize = 13.sp,
@@ -158,11 +157,9 @@ fun GroupsHomeScreen(
                             )
                         }
 
-                        // 2. सारा नकली डेटा (Alex 14 Days Streak) हटा दिया गया है
-
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // ================= 1 & 5. BUTTONS (SINGLE LINE, NO OUTREACH ERROR) =================
+                        // ================= BUTTONS =================
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -188,7 +185,7 @@ fun GroupsHomeScreen(
                                 )
                             }
 
-                            // Secondary Join Button (OutlinedButtonDefaults एरर पूरी तरह फिक्स)
+                            // Secondary Join Button
                             OutlinedButton(
                                 onClick = onKeyClick,
                                 modifier = Modifier
@@ -210,7 +207,6 @@ fun GroupsHomeScreen(
                     }
                 }
             } else {
-                // ग्रुप्स लिस्ट दिखने पर
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
