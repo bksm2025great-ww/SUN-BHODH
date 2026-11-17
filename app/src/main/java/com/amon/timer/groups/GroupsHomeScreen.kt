@@ -131,7 +131,7 @@ fun GroupsHomeScreen(
     groups: List<StudyGroup> = emptyList(),
     userNickname: String = "",
     onCreateGroupClick: () -> Unit = {},
-    onKeyClick: () -> Unit = {}, // ✨ onKeyClick पैरामीटर आधिकारिक रूप से जोड़ दिया गया है
+    onKeyClick: () -> Unit = {},
     onGroupClick: (StudyGroup) -> Unit = {},
     onTogglePin: (String) -> Unit = {},
     onJoinGroup: (String) -> Unit = {},
@@ -180,69 +180,22 @@ fun GroupsHomeScreen(
         }
     }
 
-    val userInitials = remember(effectiveNickname) {
-        val parts = effectiveNickname.trim().split(" ", "_", "-").filter { it.isNotBlank() }
-        when {
-            parts.size >= 2 -> "${parts[0].first().uppercase()}${parts[1].first().uppercase()}"
-            parts.isNotEmpty() && parts[0].length >= 2 -> parts[0].take(2).uppercase()
-            parts.isNotEmpty() -> parts[0].take(1).uppercase()
-            else -> "AM"
-        }
-    }
-
     val yourGroups = liveGroups.filter { it.isJoined }
 
     Scaffold(
         topBar = {
+            // 4. हेडर साफ़ करना: "Study Profile" हटाकर सीधे "Groups" टाइटल रखना
             TopAppBar(
                 title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { onNicknameClick() }
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(accentColor),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = userInitials,
-                                color = if (isDark) Color.Black else Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = effectiveNickname,
-                                color = textMain,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                            Text(
-                                text = "Study Profile",
-                                color = textMuted,
-                                fontSize = 11.sp
-                            )
-                        }
-                    }
+                    Text(
+                        text = "Groups",
+                        color = textMain,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
                 },
                 actions = {
-                    // 🔑 की आइकॉन क्लिक करते ही onKeyClick ट्रिगर होगा
-                    IconButton(
-                        onClick = onKeyClick,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        GroupKeyIcon(
-                            tint = accentColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    // ➕ नया प्राइवेट ग्रुप बनाने का बटन
+                    // सिर्फ एक साफ़-सुथरा '+' बटन (डेटा क्लटर हटाने के लिए)
                     IconButton(
                         onClick = onCreateGroupClick,
                         modifier = Modifier.size(40.dp)
@@ -274,7 +227,7 @@ fun GroupsHomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Your Study Circles (${yourGroups.size})",
+                        text = "Your Study Circles",
                         color = textMain,
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.Bold
@@ -293,27 +246,28 @@ fun GroupsHomeScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(containerColor = cardBg),
-                        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
+                        border = BorderStroke(1.dp, cardBorder)
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(20.dp),
+                                .padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
+                            // 3. इमोजी की जगह साफ़ मिनिमलिस्ट आइकन बॉक्स
                             Box(
                                 modifier = Modifier
-                                    .size(50.dp)
+                                    .size(46.dp)
                                     .clip(CircleShape)
                                     .background(accentSubtle),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = "⚡", fontSize = 24.sp)
+                                GroupKeyIcon(tint = accentColor, modifier = Modifier.size(22.dp))
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(14.dp))
 
                             Text(
                                 text = "Build Your Inner Study Circle",
@@ -325,75 +279,61 @@ fun GroupsHomeScreen(
 
                             Spacer(modifier = Modifier.height(6.dp))
 
+                            // 5. लंबा पैराग్రాफ़ हटाकर एक साफ़ और प्रोफेशनल लाइन
                             Text(
-                                text = "Isolate distractions. Sync focus timers with your peers, maintain daily streaks, and conquer your goals together.",
+                                text = "Study together. Stay consistent.",
                                 color = textMuted,
-                                fontSize = 12.5.sp,
-                                lineHeight = 18.sp,
+                                fontSize = 13.sp,
                                 textAlign = TextAlign.Center
                             )
 
-                            Spacer(modifier = Modifier.height(18.dp))
+                            // 2. नकली डेटा (Alex 14 Days Streak) पूरी तरह से हटा दिया गया है.
 
-                            Surface(
-                                color = if (isDark) Color(0x1AFFFFFF) else Color(0x0A000000),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(8.dp)
-                                                .clip(CircleShape)
-                                                .background(focusingGreen)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(text = "Alex (Active Peer)", color = textMain, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
-                                    }
-                                    Text(text = "🔥 14 Days Streak", color = Color(0xFFFF9800), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
+                            Spacer(modifier = Modifier.height(20.dp))
 
-                            Spacer(modifier = Modifier.height(18.dp))
-
+                            // 5. बटन्स (Create Circle मुख्य भरा हुआ बटन, Join हल्का आउटलाइन बटन)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Button(
                                     onClick = onCreateGroupClick,
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(42.dp),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = accentColor)
+                                        .height(46.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = accentColor,
+                                        contentColor = if (isDark) Color.Black else Color.White
+                                    )
                                 ) {
                                     Text(
-                                        text = "+ Create Circle",
-                                        color = if (isDark) Color.Black else Color.White,
+                                        text = "Create Circle",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
+                                        fontSize = 13.5.sp,
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
 
+                                // 1. सिंगल लाइन 'Join' बटन (बिना इमोजी के, जो कभी दो लाइन में नहीं टूटेगा)
                                 OutlinedButton(
                                     onClick = onKeyClick,
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(42.dp),
-                                    shape = RoundedCornerShape(10.dp),
-                                    border = BorderStroke(1.dp, accentColor)
+                                        .height(46.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, cardBorder),
+                                    colors = OutlinedButtonDefaults.outlinedButtonColors(
+                                        contentColor = textMain
+                                    )
                                 ) {
                                     Text(
-                                        text = "🔑 Join via Code",
-                                        color = accentColor,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
+                                        text = "Join",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.5.sp,
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
                             }
@@ -538,6 +478,7 @@ fun GroupCard(
 
                     if (group.category.isNotBlank() && group.category != "All") {
                         Spacer(modifier = Modifier.weight(1f))
+                        textMain
                         Text(
                             text = group.category,
                             color = textMuted,
