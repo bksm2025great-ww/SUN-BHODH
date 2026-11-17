@@ -45,7 +45,7 @@ fun generateSecureGroupCode(): String {
     for (i in 0 until 8) {
         sb.append(chars[random.nextInt(chars.length)])
     }
-    return "AMON-$sb"
+    return sb.toString() // 👈 8 characters random combination without prefix
 }
 
 @Composable
@@ -61,7 +61,9 @@ fun GroupsRootScreen(
 
     val initialGroups = remember {
         val cached = GroupCacheManager.getCachedGroupsList(context)
-        if (cached.isNotEmpty()) cached else emptyList()
+        // ✨ Filter out default/universal groups so only private circles show
+        val filtered = cached.filter { !it.isDefault }
+        if (filtered.isNotEmpty()) filtered else emptyList()
     }
 
     var groupsList by remember { mutableStateOf(initialGroups) }
@@ -79,13 +81,17 @@ fun GroupsRootScreen(
         coroutineScope.launch(Dispatchers.IO) {
             val cloudGroups = CloudSyncManager.fetchGroups(context)
             withContext(Dispatchers.Main) {
-                if (cloudGroups.isNotEmpty()) {
-                    val mergedGroups = GroupCacheManager.mergeWithCloud(context, cloudGroups)
+                // ✨ Keep only non-default (private) groups from cloud
+                val privateCloudGroups = cloudGroups.filter { !it.isDefault }
+                if (privateCloudGroups.isNotEmpty()) {
+                    val mergedGroups = GroupCacheManager.mergeWithCloud(context, privateCloudGroups)
                     groupsList = mergedGroups
                     if (selectedGroup != null) {
                         selectedGroup = mergedGroups.find { it.id == selectedGroup?.id } ?: mergedGroups.firstOrNull()
                     }
                     GroupCacheManager.saveCachedGroupsList(context, mergedGroups)
+                } else {
+                    groupsList = emptyList()
                 }
             }
         }
@@ -121,7 +127,6 @@ fun GroupsRootScreen(
             }
 
             GroupsScreenState.JOIN_FLOW -> {
-                // ✨ अब यह फंक्शन इसी फाइल के नीचे मौजूद है, इसलिए कोई अनरिज्ॉल्व्ड एरर नहीं आएगा
                 JoinGroupFlowInternalScreen(
                     userDefaultNickname = currentNickname,
                     onBackClick = { currentScreen = GroupsScreenState.HOME },
@@ -265,7 +270,6 @@ fun GroupsRootScreen(
     }
 }
 
-// ✨✨✨ JoinGroupFlowInternalScreen अब इसी फाइल के अंदर मौजूद है (कोई अनरिज्ॉल्व्ड एरर नहीं आएगा)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JoinGroupFlowInternalScreen(
