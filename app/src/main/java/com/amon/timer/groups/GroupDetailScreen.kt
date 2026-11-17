@@ -1,8 +1,10 @@
 package com.amon.timer.groups
 
-import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,7 +21,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,6 +43,7 @@ fun GroupDetailScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
     val isDark = ThemeManager.isDarkTheme.value
     val bgColor = ThemeManager.getBackgroundColor()
@@ -53,10 +55,6 @@ fun GroupDetailScreen(
     val focusingGreen = Color(0xFF22C55E)
     val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
 
-    val userManager = remember { UserManager(context) }
-    val currentUserName = remember { userManager.getUserName().ifBlank { "An Aspirant" } }
-
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
     var showWeekPickerSheet by remember { mutableStateOf(false) }
     val weekSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -76,55 +74,34 @@ fun GroupDetailScreen(
         mutableStateOf(if (group.members.isNotEmpty()) group.members else cachedMembers)
     }
 
-    LaunchedEffect(selectedWeek.id, group.id, group.isJoined) {
-        if (group.isJoined) {
-            coroutineScope.launch(Dispatchers.IO) {
-                val freshMembers: List<GroupMember> = CloudSyncManager.fetchGroupLeaderboard(
-                    context = context,
-                    groupId = group.id,
-                    isCurrentWeek = selectedWeek.isCurrent
-                )
-                if (freshMembers.isNotEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        leaderboardMembers = freshMembers
-                    }
-                    if (selectedWeek.isCurrent) {
-                        GroupCacheManager.saveLeaderboard(context, group.id, freshMembers)
-                    }
+    LaunchedEffect(selectedWeek.id, group.id) {
+        coroutineScope.launch(Dispatchers.IO) {
+            val freshMembers: List<GroupMember> = CloudSyncManager.fetchGroupLeaderboard(
+                context = context,
+                groupId = group.id,
+                isCurrentWeek = selectedWeek.isCurrent
+            )
+            if (freshMembers.isNotEmpty()) {
+                withContext(Dispatchers.Main) {
+                    leaderboardMembers = freshMembers
+                }
+                if (selectedWeek.isCurrent) {
+                    GroupCacheManager.saveLeaderboard(context, group.id, freshMembers)
                 }
             }
         }
-    }
-
-    val activeMembers: List<GroupMember> = remember(leaderboardMembers) {
-        leaderboardMembers.filter { it.isCurrentlyFocusing }
     }
 
     val displayMemberCount = remember(leaderboardMembers, group.memberCount) {
         if (leaderboardMembers.isNotEmpty()) leaderboardMembers.size else maxOf(group.memberCount, 1)
     }
 
-    val triggerShareIntent = {
+    // 📋 Generates and copies the unique invite code to clipboard
+    val copyInviteCodeToClipboard = {
         val inviteCode = group.inviteCode.ifBlank { "AMON-GROUP" }
-        val shareMessage = """
-            🎯 AMON STUDY CIRCLE
-            ━━━━━━━━━━━━━━━━━━━━━━
-            Hey! $currentUserName has invited you to join their private study group "${group.name}".
-
-            Join using the link below:
-            👉 https://amon.app/join?code=$inviteCode
-
-            (Or enter this invite code in the Amon app: $inviteCode)
-            ━━━━━━━━━━━━━━━━━━━━━━
-        """.trimIndent()
-
-        val sendIntent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TEXT, shareMessage)
-            type = "text/plain"
-        }
-        val shareIntent = Intent.createChooser(sendIntent, "Invite to ${group.name}")
-        context.startActivity(shareIntent)
+        val clip = ClipData.newPlainText("Invite Code", inviteCode)
+        clipboardManager.setPrimaryClip(clip)
+        Toast.makeText(context, "Invite code copied: $inviteCode", Toast.LENGTH_SHORT).show()
     }
 
     Scaffold(
@@ -153,50 +130,49 @@ fun GroupDetailScreen(
                     }
                 },
                 actions = {
-                    if (group.isJoined) {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = accentSubtle,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable {
-                                    triggerShareIntent()
-                                    onInviteClick()
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = "Invite",
-                                    tint = accentColor,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Invite",
-                                    color = accentColor,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                    // Invite Button -> Copies Code directly
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = accentSubtle,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable {
+                                copyInviteCodeToClipboard()
+                                onInviteClick()
                             }
-                        }
-
-                        Spacer(modifier = Modifier.width(4.dp))
-
-                        IconButton(
-                            onClick = onSettingsClick,
-                            modifier = Modifier.size(40.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Settings",
-                                tint = textMain,
-                                modifier = Modifier.size(20.dp)
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Invite",
+                                tint = accentColor,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Invite",
+                                color = accentColor,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    IconButton(
+                        onClick = onSettingsClick,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = textMain,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = bgColor)
@@ -239,10 +215,12 @@ fun GroupDetailScreen(
                             text = group.name,
                             color = textMain,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "$displayMemberCount members · Private Study Group",
+                            text = "$displayMemberCount members · Private Study Circle",
                             color = textMuted,
                             fontSize = 11.5.sp
                         )
@@ -252,224 +230,80 @@ fun GroupDetailScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            if (!group.isJoined) {
+            // Week Selector Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable { showWeekPickerSheet = true }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = selectedWeek.label,
+                        color = textMain,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = null,
+                        tint = textMuted,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                Text(
+                    text = "Reset: Mon 00:00",
+                    color = textMuted.copy(alpha = 0.6f),
+                    fontSize = 11.sp
+                )
+            }
+
+            if (leaderboardMembers.isEmpty()) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
+                        .fillMaxWidth()
+                        .weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(cardBg)
-                            .border(1.dp, cardBorder, RoundedCornerShape(24.dp))
-                            .padding(24.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(54.dp)
-                                .clip(CircleShape)
-                                .background(accentSubtle),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = "Locked",
-                                tint = accentColor,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "Private Study Circle",
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Black,
-                                color = textMain
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "यह एक प्राइवेट ग्रुप है। मेंबर्स की लिस्ट, डेली स्टडी टाइम और स्ट्रीक्स देखने के लिए कृपया ग्रुप ज्वाइन करें।",
-                                fontSize = 12.5.sp,
-                                color = textMuted,
-                                textAlign = TextAlign.Center,
-                                lineHeight = 18.sp
-                            )
-                        }
-
-                        Button(
-                            onClick = { onJoinClick(group.id) },
-                            colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp)
-                        ) {
-                            Text(
-                                text = "🚀 Join Group to Enter",
-                                color = if (isDark) Color.Black else Color.White,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.sp
-                            )
-                        }
-                    }
+                    Text(
+                        text = "No study sessions yet for ${selectedWeek.label.lowercase()}.",
+                        color = textMuted,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
                 }
             } else {
-                TabRow(
-                    selectedTabIndex = selectedTabIndex,
-                    containerColor = bgColor,
-                    contentColor = accentColor
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Tab(
-                        selected = selectedTabIndex == 0,
-                        onClick = { selectedTabIndex = 0 },
-                        modifier = Modifier.height(38.dp),
-                        text = {
-                            Text(
-                                text = "Leaderboard & Streaks",
-                                color = if (selectedTabIndex == 0) accentColor else textMuted,
-                                fontWeight = if (selectedTabIndex == 0) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 13.sp
-                            )
-                        }
-                    )
-                    Tab(
-                        selected = selectedTabIndex == 1,
-                        onClick = { selectedTabIndex = 1 },
-                        modifier = Modifier.height(38.dp),
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(7.dp)
-                                        .clip(CircleShape)
-                                        .background(focusingGreen)
-                                )
-                                Spacer(modifier = Modifier.width(5.dp))
-                                Text(
-                                    text = "Active Now (${activeMembers.size})",
-                                    color = if (selectedTabIndex == 1) accentColor else textMuted,
-                                    fontWeight = if (selectedTabIndex == 1) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 13.sp
-                                )
-                            }
-                        }
-                    )
-                }
-
-                if (selectedTabIndex == 0) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .clickable { showWeekPickerSheet = true }
-                                .padding(vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = selectedWeek.label,
-                                color = textMain,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                                tint = textMuted,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-
-                        Text(
-                            text = "Reset: Mon 00:00",
-                            color = textMuted.copy(alpha = 0.6f),
-                            fontSize = 11.sp
+                    itemsIndexed(
+                        items = leaderboardMembers,
+                        key = { _, m -> m.id }
+                    ) { index, member ->
+                        LeaderboardRow(
+                            rank = index + 1,
+                            member = member,
+                            isCurrentUser = userNickname.isNotBlank() && member.nickname.equals(userNickname, ignoreCase = true),
+                            textMain = textMain,
+                            textMuted = textMuted,
+                            accentColor = accentColor,
+                            accentSubtle = accentSubtle,
+                            focusingGreen = focusingGreen,
+                            isDark = isDark
                         )
-                    }
-
-                    if (leaderboardMembers.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "No study sessions yet for ${selectedWeek.label.lowercase()}.",
-                                color = textMuted,
-                                fontSize = 13.sp,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            itemsIndexed(
-                                items = leaderboardMembers,
-                                key = { _, m -> m.id }
-                            ) { index, member ->
-                                LeaderboardRow(
-                                    rank = index + 1,
-                                    member = member,
-                                    isCurrentUser = userNickname.isNotBlank() && member.nickname.equals(userNickname, ignoreCase = true),
-                                    textMain = textMain,
-                                    textMuted = textMuted,
-                                    accentColor = accentColor,
-                                    accentSubtle = accentSubtle,
-                                    focusingGreen = focusingGreen,
-                                    isDark = isDark
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    if (activeMembers.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "No one is studying right now.\nBe the first to start!",
-                                color = textMuted,
-                                fontSize = 13.sp,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            itemsIndexed(
-                                items = activeMembers,
-                                key = { _, m -> m.id }
-                            ) { _, member ->
-                                ActiveMemberRow(
-                                    member = member,
-                                    textMain = textMain,
-                                    textMuted = textMuted,
-                                    focusingGreen = focusingGreen,
-                                    isDark = isDark
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -594,24 +428,39 @@ fun LeaderboardRow(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        // 📝 Long Nickname Handling with Ellipsis & Weight constraint
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(
                     text = member.nickname,
                     color = itemContentColor,
                     fontWeight = if (rank <= 3 || isCurrentUser) FontWeight.Bold else FontWeight.Medium,
                     fontSize = 14.sp,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
                 if (isCurrentUser) {
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "You",
-                        color = accentColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Surface(
+                        color = accentColor.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "You",
+                            color = accentColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(2.dp))
@@ -629,7 +478,10 @@ fun LeaderboardRow(
         val mins = member.studyTimeMinutes % 60
         val formattedTime = if (member.studyTimeMinutes == 0) "0h 00m" else "${hours}h ${mins.toString().padStart(2, '0')}m"
 
-        Column(horizontalAlignment = Alignment.End) {
+        Column(
+            horizontalAlignment = Alignment.End,
+            modifier = Modifier.wrapContentWidth()
+        ) {
             Text(
                 text = formattedTime,
                 color = itemContentColor,
@@ -653,72 +505,6 @@ fun LeaderboardRow(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun ActiveMemberRow(
-    member: GroupMember,
-    textMain: Color,
-    textMuted: Color,
-    focusingGreen: Color,
-    isDark: Boolean
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (isDark) Color(0x0FFFFFFF) else Color(0x08000000))
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(focusingGreen)
-        )
-
-        Spacer(modifier = Modifier.width(10.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = member.nickname,
-                color = textMain,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.5.sp
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "🔥 ${member.streak} Days Streak • ${member.currentSubject ?: "Deep Focus"}",
-                color = textMuted,
-                fontSize = 11.5.sp
-            )
-        }
-
-        Surface(
-            color = focusingGreen.copy(alpha = 0.15f),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(5.dp)
-                        .clip(CircleShape)
-                        .background(focusingGreen)
-                )
-                Spacer(modifier = Modifier.width(5.dp))
-                Text(
-                    text = "Studying now",
-                    color = focusingGreen,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 11.sp
-                )
             }
         }
     }
