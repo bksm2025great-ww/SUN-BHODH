@@ -1,6 +1,9 @@
 package com.amon.timer.groups
 
-import androidx.compose.animation.AnimatedVisibility
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,21 +15,22 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.amon.timer.ThemeManager
-import java.util.UUID
+import java.security.SecureRandom
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +38,8 @@ fun CreateGroupSheet(
     onDismiss: () -> Unit = {},
     onCreateGroup: (name: String, category: String, isPublic: Boolean, inviteCode: String?) -> Unit = { _, _, _, _ -> }
 ) {
+    val context = LocalContext.current
+    val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     val isDark = ThemeManager.isDarkTheme.value
     val cardBg = ThemeManager.getCardColor()
     val bgColor = ThemeManager.getBackgroundColor()
@@ -45,15 +51,19 @@ fun CreateGroupSheet(
 
     var groupName by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(MockRepository.categories.getOrElse(1) { "General" }) }
-    var isPublic by remember { mutableStateOf(true) }
     var isCodeCopied by remember { mutableStateOf(false) }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // 🔒 100% यूनिक रूम कोड जनरेटर (UUID + Base36 Unique Hash)
+    // 🔒 8-character random alphanumeric combo without prefix (matching root screen update)
     val generatedInviteCode = remember {
-        val uniqueToken = UUID.randomUUID().toString().replace("-", "").take(6).uppercase()
-        "AMON-$uniqueToken"
+        val chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+        val random = SecureRandom()
+        val sb = StringBuilder(8)
+        for (i in 0 until 8) {
+            sb.append(chars[random.nextInt(chars.length)])
+        }
+        sb.toString()
     }
 
     ModalBottomSheet(
@@ -77,7 +87,7 @@ fun CreateGroupSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Create Study Group",
+                    text = "Create Study Circle",
                     color = textMain,
                     fontWeight = FontWeight.Bold,
                     fontSize = 19.sp
@@ -106,13 +116,12 @@ fun CreateGroupSheet(
             OutlinedTextField(
                 value = groupName,
                 onValueChange = { input ->
-                    // 🔤 पहला अक्षर अपने आप कैपिटल बनाएगा
                     groupName = input.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
-                        text = "e.g. UPSC Prelims 2026 Sprint",
+                        text = "e.g. Morning Study Squad",
                         color = textMuted,
                         fontSize = 14.sp
                     )
@@ -125,7 +134,6 @@ fun CreateGroupSheet(
                     )
                 },
                 singleLine = true,
-                // ⌨️ कीबोर्ड पर भी हर शब्द का पहला अक्षर कैपिटल खुलेगा
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -139,124 +147,86 @@ fun CreateGroupSheet(
                 )
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(1.dp, cardBorder, RoundedCornerShape(14.dp)),
-                color = bgColor
+            // 🔒 Always Private & Invite Code display card right on the sheet
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = accentSubtle),
+                border = BorderStroke(1.dp, accentColor.copy(alpha = 0.5f))
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = if (isPublic) Icons.Default.Share else Icons.Default.Lock,
-                                contentDescription = null,
-                                tint = accentColor,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (isPublic) "Public Group" else "Private Group",
-                                color = textMain,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = accentColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isPublic)
-                                "Anyone can discover and join from Explore."
-                            else
-                                "Only aspirants with invite code or link can join.",
-                            color = textMuted,
-                            fontSize = 11.5.sp
+                            text = "Private Study Circle",
+                            color = accentColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
                         )
                     }
-
-                    Switch(
-                        checked = !isPublic,
-                        onCheckedChange = { isPublic = !it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = if (isDark) Color.Black else Color.White,
-                            checkedTrackColor = accentColor,
-                            uncheckedThumbColor = textMuted,
-                            uncheckedTrackColor = cardBorder
-                        )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Only members with this unique 8-character invite code can join.",
+                        color = textMuted,
+                        fontSize = 11.5.sp
                     )
-                }
-            }
 
-            AnimatedVisibility(visible = !isPublic) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp)
-                ) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = accentSubtle),
-                        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(cardBg)
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column {
                             Text(
-                                text = "Private Invite Credentials",
-                                color = accentColor,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
+                                text = "UNIQUE INVITE CODE",
+                                color = textMuted,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(cardBg)
-                                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        text = "UNIQUE ROOM CODE",
-                                        color = textMuted,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Text(
-                                        text = generatedInviteCode,
-                                        color = textMain,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                IconButton(
-                                    onClick = { isCodeCopied = true },
-                                    modifier = Modifier.size(34.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (isCodeCopied) Icons.Default.Check else Icons.Default.Share,
-                                        contentDescription = "Copy Code",
-                                        tint = accentColor,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = generatedInviteCode,
+                                color = textMain,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.5.sp
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                val clip = ClipData.newPlainText("Invite Code", generatedInviteCode)
+                                clipboardManager.setPrimaryClip(clip)
+                                isCodeCopied = true
+                                Toast.makeText(context, "Invite code copied: $generatedInviteCode", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isCodeCopied) Icons.Default.Check else Icons.Default.ContentCopy,
+                                contentDescription = "Copy Code",
+                                tint = accentColor,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             Button(
                 onClick = {
@@ -264,8 +234,8 @@ fun CreateGroupSheet(
                         onCreateGroup(
                             groupName.trim(),
                             selectedCategory,
-                            isPublic,
-                            if (isPublic) null else generatedInviteCode
+                            false, // Always private
+                            generatedInviteCode
                         )
                         onDismiss()
                     }
@@ -273,8 +243,8 @@ fun CreateGroupSheet(
                 enabled = groupName.isNotBlank(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(24.dp),
+                    .height(50.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = accentColor,
                     contentColor = if (isDark) Color.Black else Color.White,
@@ -282,7 +252,7 @@ fun CreateGroupSheet(
                 )
             ) {
                 Text(
-                    text = "Create Group",
+                    text = "Create Circle",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
