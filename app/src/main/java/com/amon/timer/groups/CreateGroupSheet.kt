@@ -15,7 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
@@ -55,7 +55,7 @@ fun CreateGroupSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // 🔒 8-character random alphanumeric combo without prefix (matching root screen update)
+    // 🔒 8-character random alphanumeric combo without prefix
     val generatedInviteCode = remember {
         val chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
         val random = SecureRandom()
@@ -216,7 +216,7 @@ fun CreateGroupSheet(
                             modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
-                                imageVector = if (isCodeCopied) Icons.Default.Check else Icons.Default.ContentCopy,
+                                imageVector = if (isCodeCopied) Icons.Default.Check else Icons.Default.Done,
                                 contentDescription = "Copy Code",
                                 tint = accentColor,
                                 modifier = Modifier.size(18.dp)
