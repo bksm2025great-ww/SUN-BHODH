@@ -67,146 +67,119 @@ fun GroupsHomeScreen(
             ) {
                 Text(
                     text = "Groups",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Black,
                     color = textMain
                 )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Lock / Join via code button (Fixed from Key to Lock)
-                    IconButton(
-                        onClick = onKeyClick,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(cardBg)
-                            .border(slimBorderStroke, cardBorder, RoundedCornerShape(10.dp))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Join with Code",
-                            tint = goldAccent,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    // Create group button
-                    IconButton(
-                        onClick = onCreateGroupClick,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(cardBg)
-                            .border(slimBorderStroke, cardBorder, RoundedCornerShape(10.dp))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Create Group",
-                            tint = goldAccent,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
+
             if (groups.isEmpty()) {
-                // ================= CLEAN EMPTY STATE =================
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = cardBg),
-                    border = BorderStroke(slimBorderStroke, cardBorder)
+                // ================= PREMIUM EMPTY STATE CARD (AS IN REFERENCE IMAGE) =================
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = cardBg),
+                        border = BorderStroke(slimBorderStroke, cardBorder)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(goldAccent.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "⚡", fontSize = 20.sp)
-                        }
-
                         Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Text(
-                                text = "Build Your Inner Study Circle",
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = textMain,
-                                textAlign = TextAlign.Center
-                            )
-                            
-                            Text(
-                                text = "Study together. Stay consistent.",
-                                fontSize = 13.sp,
-                                color = textMuted,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // ================= BUTTONS =================
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            // Primary Create Circle Button
-                            Button(
-                                onClick = onCreateGroupClick,
+                            // Handshake Icon Box
+                            Box(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .height(46.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = goldAccent,
-                                    contentColor = Color.Black
-                                )
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(goldAccent.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = "🤝", fontSize = 26.sp)
+                            }
+
+                            Spacer(modifier = Modifier.height(2.dp))
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "Create Circle",
+                                    text = "Study with your friends",
+                                    fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 13.5.sp,
-                                    maxLines = 1,
-                                    softWrap = false
+                                    color = textMain,
+                                    textAlign = TextAlign.Center
+                                )
+                                
+                                Text(
+                                    text = "Study with your friends. Sometimes studying alone is hard—build a companion, track consistency, and support each other.",
+                                    fontSize = 13.sp,
+                                    color = textMuted,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 19.sp
                                 )
                             }
 
-                            // Secondary Join Button
-                            OutlinedButton(
-                                onClick = onKeyClick,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(46.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, cardBorder)
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // ================= PROMINENT ACTION BUTTONS =================
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Text(
-                                    text = "Join",
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 13.5.sp,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    color = textMain
-                                )
+                                // Create Circle Button
+                                Button(
+                                    onClick = onCreateGroupClick,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(50.dp),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = goldAccent,
+                                        contentColor = Color.Black
+                                    )
+                                ) {
+                                    Text(
+                                        text = "+ Create Circle",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.5.sp,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
+
+                                // Join with Code Button
+                                OutlinedButton(
+                                    onClick = onKeyClick,
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    shape = RoundedCornerShape(14.dp),
+                                    border = BorderStroke(1.dp, cardBorder)
+                                ) {
+                                    Text(
+                                        text = "🔓 Join with code",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.5.sp,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        color = textMain
+                                    )
+                                }
                             }
                         }
                     }
                 }
             } else {
+                // ================= GROUPS LIST =================
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
