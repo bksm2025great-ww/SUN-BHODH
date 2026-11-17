@@ -1,6 +1,5 @@
 package com.amon.timer
 
-import com.amon.timer.groups.GroupsRootScreen
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -563,6 +562,7 @@ fun MainScreen() {
                     .background(bgColor)
                     .padding(paddingValues)
             ) {
+                // 🎯 सही 3-टैब इंडेक्स मैपिंग (Home = 0, Stats = 1, Profile = 2)
                 when (currentNavIndex) {
                     0 -> HomeTimerTab(
                         context = context,
@@ -591,7 +591,7 @@ fun MainScreen() {
                         initialTotalSeconds = initialTotalSeconds,
                         onInitialTotalSecondsChange = { initialTotalSeconds = it },
                         areControlsVisible = true,
-                        onNavigateToStats = { showStreakBottomSheet = true }, // 👈 अब सीधे स्ट्रीक बॉटम शीट खुलेगा!
+                        onNavigateToStats = { showStreakBottomSheet = true },
                         onStartStopwatch = {
                             context.startService(Intent(context, TimerService::class.java).apply {
                                 action = TimerService.ACTION_START
@@ -613,18 +613,13 @@ fun MainScreen() {
                         },
                         onDirectEndSession = onDirectEndSession
                     )
-                    1 -> GroupsRootScreen(onStartFocus = { 
-                        currentNavIndex = 0 
-                        isFocusMinimized = false
-                    })
-                    2 -> StatsScreen()
-                    3 -> ProfileScreen()
+                    1 -> StatsScreen()    // 👈 Index 1: Stats & Analytics
+                    2 -> ProfileScreen()  // 👈 Index 2: Profile Screen
                 }
             }
         }
     }
 
-    // 🔥 जब यूजर ऊपर स्ट्रीक (Flame) पर टैप करेगा, तो Stats की तरह यह Streak Bottom Sheet खुलेगा!
     if (showStreakBottomSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
@@ -978,7 +973,6 @@ fun HomeTimerTab(
 
     val totalSeconds = TimerService.remainingSeconds.intValue
 
-    // 📊 सेशंस से सीधे स्ट्रीक और आज की पढ़ाई के मिनट्स (Daily Goal Progress) निकालना
     var streakDays by remember { mutableIntStateOf(0) }
     var todayStudiedMinutes by remember { mutableIntStateOf(0) }
     val dailyGoalMinutes = remember {
@@ -1055,7 +1049,6 @@ fun HomeTimerTab(
                         letterSpacing = 2.5.sp
                     )
 
-                    // 🔥 Streak Flame Button -> Opens Streak Bottom Sheet directly
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -1177,7 +1170,6 @@ fun HomeTimerTab(
                 }
 
                 if (!isSessionActive) {
-                    // 📈 START FOCUS बटन के ठीक ऊपर Daily Goal Progress Line (सीधे सेशंस से काउंट)
                     val goalFraction = (todayStudiedMinutes.toFloat() / dailyGoalMinutes.toFloat()).coerceIn(0f, 1f)
                     val goalPercent = ((todayStudiedMinutes.toFloat() / dailyGoalMinutes.toFloat()) * 100).toInt().coerceAtMost(100)
 
@@ -1724,7 +1716,6 @@ fun HomeTimerTab(
     }
 }
 
-// 🔥 स्ट्रीक बॉटम शीट का कंटेंट (StreakFlame(isLarge = true) और सेशन स्टैट्स के साथ)
 @Composable
 fun StreakBottomSheetContent(
     context: Context,
@@ -1748,7 +1739,6 @@ fun StreakBottomSheetContent(
             .padding(bottom = 30.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // बड़ा StreakFlame Lottie एनिमेशन (R.raw.flame_stats)
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -1783,7 +1773,6 @@ fun StreakBottomSheetContent(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // पिछले 7 दिनों का कंसिस्टेंसी ट्रैक (सीधे सेशंस से)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1890,7 +1879,6 @@ fun StreakBottomSheetContent(
     }
 }
 
-// 📊 आज की तारीख के कुल मिनट्स सीधे सेशंस से निकालने का फंक्शन
 fun calculateTodayMinutesFromSessions(sessions: List<FocusSession>): Int {
     if (sessions.isEmpty()) return 0
     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -1918,7 +1906,6 @@ fun calculateTodayMinutesFromSessions(sessions: List<FocusSession>): Int {
     return total
 }
 
-// 📅 पिछले 7 दिनों का स्टेटस सीधे सेशंस से निकालने का फंक्शन
 fun getLast7DaysStreakStatus(sessions: List<FocusSession>): List<Pair<String, Boolean>> {
     val dayMinutesMap = mutableMapOf<String, Int>()
     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
