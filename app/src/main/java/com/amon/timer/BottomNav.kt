@@ -20,27 +20,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // =============================================================================
-// 🟢 1. VECTOR ICONS (HOME, CIRCLE BADGE, STATS GROWTH, PROFILE)
+// 🟢 1. VECTOR ICONS (HOME, STATS GROWTH, PROFILE)
 // =============================================================================
 @Composable
 fun SimpleNavIcon(
     index: Int,
     tint: Color,
-    modifier: Modifier = Modifier,
-    cutoutColor: Color = Color(0xFF14141E)
+    modifier: Modifier = Modifier
 ) {
     when (index) {
         0 -> {
@@ -52,101 +49,6 @@ fun SimpleNavIcon(
             )
         }
         1 -> {
-            // 🟢 Circular Badge with 3 People Silhouette Cutout
-            Canvas(modifier = modifier) {
-                val w = size.width
-                val h = size.height
-                val cx = w / 2f
-                val cy = h / 2f
-                val r = size.minDimension * 0.48f
-
-                val circlePath = Path().apply {
-                    addOval(Rect(cx - r, cy - r, cx + r, cy + r))
-                }
-
-                clipPath(circlePath) {
-                    drawCircle(
-                        color = tint,
-                        radius = r,
-                        center = Offset(cx, cy)
-                    )
-
-                    val centerHeadR = r * 0.28f
-                    val centerHeadCenter = Offset(cx, cy - r * 0.28f)
-                    val centerBodyW = r * 0.96f
-                    val centerBodyH = r * 0.85f
-
-                    val sideHeadR = r * 0.20f
-                    val sideHeadY = cy - r * 0.16f
-                    val sideBodyW = r * 0.72f
-                    val sideBodyH = r * 0.68f
-
-                    // Left person silhouette
-                    val leftCx = cx - r * 0.44f
-                    drawCircle(
-                        color = cutoutColor,
-                        radius = sideHeadR,
-                        center = Offset(leftCx, sideHeadY)
-                    )
-                    drawArc(
-                        color = cutoutColor,
-                        startAngle = 180f,
-                        sweepAngle = 180f,
-                        useCenter = true,
-                        topLeft = Offset(leftCx - sideBodyW / 2f, sideHeadY + sideHeadR * 0.4f),
-                        size = Size(sideBodyW, sideBodyH * 1.4f)
-                    )
-
-                    // Right person silhouette
-                    val rightCx = cx + r * 0.44f
-                    drawCircle(
-                        color = cutoutColor,
-                        radius = sideHeadR,
-                        center = Offset(rightCx, sideHeadY)
-                    )
-                    drawArc(
-                        color = cutoutColor,
-                        startAngle = 180f,
-                        sweepAngle = 180f,
-                        useCenter = true,
-                        topLeft = Offset(rightCx - sideBodyW / 2f, sideHeadY + sideHeadR * 0.4f),
-                        size = Size(sideBodyW, sideBodyH * 1.4f)
-                    )
-
-                    // Center boundary gap
-                    val gapStroke = 1.8.dp.toPx()
-                    drawCircle(
-                        color = tint,
-                        radius = centerHeadR + gapStroke,
-                        center = centerHeadCenter
-                    )
-                    drawArc(
-                        color = tint,
-                        startAngle = 180f,
-                        sweepAngle = 180f,
-                        useCenter = true,
-                        topLeft = Offset(cx - (centerBodyW / 2f + gapStroke), (cy - r * 0.02f) - gapStroke),
-                        size = Size(centerBodyW + gapStroke * 2f, (centerBodyH * 1.5f) + gapStroke * 2f)
-                    )
-
-                    // Center main person
-                    drawCircle(
-                        color = cutoutColor,
-                        radius = centerHeadR,
-                        center = centerHeadCenter
-                    )
-                    drawArc(
-                        color = cutoutColor,
-                        startAngle = 180f,
-                        sweepAngle = 180f,
-                        useCenter = true,
-                        topLeft = Offset(cx - centerBodyW / 2f, cy - r * 0.02f),
-                        size = Size(centerBodyW, centerBodyH * 1.5f)
-                    )
-                }
-            }
-        }
-        2 -> {
             // 🟢 Stats Growth Bars Icon
             Canvas(modifier = modifier) {
                 val w = size.width
@@ -203,7 +105,7 @@ fun SimpleNavIcon(
                 )
             }
         }
-        3 -> {
+        2 -> {
             Icon(
                 imageVector = Icons.Default.Person,
                 contentDescription = "Profile",
@@ -215,7 +117,7 @@ fun SimpleNavIcon(
 }
 
 // =============================================================================
-// 🟢 2. SEAMLESS CURVED BOTTOM BAR (NO BORDER, PURE SCREEN COLOR)
+// 🟢 2. SEAMLESS CURVED BOTTOM BAR (3 CLEAN TABS: HOME, STATS, PROFILE)
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
@@ -227,7 +129,8 @@ fun AmonCurvedBottomBar(
     borderCol: Color,
     hasNewUpdate: Boolean = false
 ) {
-    val tabTitles = listOf("Home", "Groups", "Stats", "Profile")
+    // 🎯 अब केवल 3 मुख्य टैब रहेंगे (Groups पूरी तरह हट चुका है)
+    val tabTitles = listOf("Home", "Stats", "Profile")
 
     val animatedIndex by animateFloatAsState(
         targetValue = selectedIndex.toFloat(),
@@ -245,7 +148,8 @@ fun AmonCurvedBottomBar(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val barHeight = 64.dp.toPx()
             val startY = size.height - barHeight
-            val tabWidth = size.width / 4f
+            val totalTabs = 3f
+            val tabWidth = size.width / totalTabs
 
             val notchCenterX = (animatedIndex + 0.5f) * tabWidth
             val notchRadius = 34.dp.toPx()
@@ -266,16 +170,15 @@ fun AmonCurvedBottomBar(
                 close()
             }
 
-            // 🎯 केवल स्क्रीन बैकग्राउंड कलर से ड्रा करें — कोई स्ट्रोक या बॉर्डर लाइन नहीं
             drawPath(path = path, color = cardBg)
         }
 
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val tabWidth = maxWidth / 4
+            val totalTabs = 3f
+            val tabWidth = maxWidth / totalTabs
             val bubbleSize = 54.dp
             val bubbleX = (tabWidth * animatedIndex) + (tabWidth / 2) - (bubbleSize / 2)
 
-            // 🎯 फ्लोटिंग एक्टिव बबल का बैकग्राउंड भी स्क्रीन बैकग्राउंड (cardBg) जैसा
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -289,11 +192,10 @@ fun AmonCurvedBottomBar(
                     SimpleNavIcon(
                         index = selectedIndex,
                         tint = goldColor,
-                        cutoutColor = cardBg,
                         modifier = Modifier.size(26.dp)
                     )
 
-                    if (hasNewUpdate && selectedIndex == 3) {
+                    if (hasNewUpdate && selectedIndex == 2) {
                         Box(
                             modifier = Modifier
                                 .offset(x = 2.dp, y = (-2).dp)
@@ -330,11 +232,10 @@ fun AmonCurvedBottomBar(
                                 SimpleNavIcon(
                                     index = index,
                                     tint = inactiveColor,
-                                    cutoutColor = cardBg,
                                     modifier = Modifier.size(22.dp)
                                 )
 
-                                if (hasNewUpdate && index == 3) {
+                                if (hasNewUpdate && index == 2) {
                                     Box(
                                         modifier = Modifier
                                             .offset(x = 3.dp, y = (-2).dp)
