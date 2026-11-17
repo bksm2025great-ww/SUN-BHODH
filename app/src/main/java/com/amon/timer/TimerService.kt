@@ -229,6 +229,22 @@ class TimerService : Service() {
         isTimerRunning.value = true
         isTimerPaused.value = false
 
+        // 🚀 1. जब भी टाइमर शुरू हो, क्लाउड को बताएं कि यूजर अब लाइव फोकस कर रहा है
+        val isBreak = isPomoBreakActive.value
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val userId = UserManager(applicationContext).getUserId()
+                CloudSyncManager.updateUserFocusStatus(
+                    context = applicationContext,
+                    userId = userId,
+                    isFocusing = !isBreak,
+                    currentSubject = if (isBreak) "Break" else subject
+                )
+            } catch (e: Exception) {
+                Log.e("TimerService", "Cloud focus start sync error: ${e.localizedMessage}")
+            }
+        }
+
         val isStopwatch = (activeModeType.value == "STOPWATCH")
 
         if (isStopwatch) {
@@ -278,7 +294,7 @@ class TimerService : Service() {
 
         if (activeModeType.value == "POMODORO") {
             if (!isPomoBreakActive.value) {
-                // ✅ फोकस सेशन पूरा हुआ: इसका समय एक्युम्युलेटर (accumulatedActiveMillis) में जुड़ गया
+                // ✅ फोकस सेशन पूरा हुआ
                 if (sessionResumeElapsedRealtime > 0L) {
                     accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
                 }
@@ -290,7 +306,6 @@ class TimerService : Service() {
                 val breakSecs = if (currentPomoRound.intValue >= totalPomoRounds.intValue) pomoLongBreakSecs else pomoShortBreakSecs
                 isPomoBreakActive.value = true
 
-                // 🛑 यहाँ ब्रेक शुरू हो रहा है, ब्रेक का समय एक्युम्युलेटर में नहीं जुड़ेगा
                 startSession(breakSecs, currentSubjectName.value, isResume = false)
             } else {
                 // ✅ ब्रेक खत्म हुआ, अब अगले राउंड पर जाना है
@@ -298,7 +313,6 @@ class TimerService : Service() {
                 triggerHapticBuzz(HapticType.LIGHT)
 
                 if (currentPomoRound.intValue >= totalPomoRounds.intValue) {
-                    // 🚀 सारे पोमोडोरो राउंड्स कम्प्लीट हो गए! अब सारा डेटा एक साथ सेव होगा।
                     triggerHapticBuzz(HapticType.LONG)
                     onTimerFinished()
                 } else {
@@ -311,12 +325,20 @@ class TimerService : Service() {
                         remainingSeconds.intValue = pomoFocusSecs
                         isTimerRunning.value = false
                         isTimerPaused.value = true
+                        
+                        // ब्रेक के बाद ऑटो-स्टार्ट बंद होने पर भी लाइव स्टेटस हटा दें
+                        serviceScope.launch(Dispatchers.IO) {
+                            try {
+                                val userId = UserManager(applicationContext).getUserId()
+                                CloudSyncManager.updateUserFocusStatus(applicationContext, userId, false, null)
+                            } catch (_: Exception) {}
+                        }
+
                         updateForegroundNotification()
                     }
                 }
             }
         } else {
-            // नॉर्मल टाइमर के लिए
             if (sessionResumeElapsedRealtime > 0L) {
                 accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
             }
@@ -355,6 +377,21 @@ class TimerService : Service() {
         isTimerRunning.value = false
         isTimerPaused.value = true
 
+        // 🚀 2. टाइमर पॉज़ होने पर क्लाउड को बताएं कि यूजर अब फोकस नहीं कर रहा है
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val userId = UserManager(applicationContext).getUserId()
+                CloudSyncManager.updateUserFocusStatus(
+                    context = applicationContext,
+                    userId = userId,
+                    isFocusing = false,
+                    currentSubject = null
+                )
+            } catch (e: Exception) {
+                Log.e("TimerService", "Cloud focus pause sync error: ${e.localizedMessage}")
+            }
+        }
+
         val isStopwatch = (activeModeType.value == "STOPWATCH")
         if (isStopwatch) {
             stopwatchElapsedMillis.value = accumulatedActiveMillis
@@ -375,9 +412,16 @@ class TimerService : Service() {
 
     private fun cancelSessionGiveUp() {
         val now = SystemClock.elapsedRealtime()
-        // अगर फोकस चल रहा था और यूजर ने बीच में रोक दिया, तो उस अधूरे सेशन का टाइम भी जोड़ लो
         if (!isPomoBreakActive.value && isTimerRunning.value && sessionResumeElapsedRealtime > 0L) {
             accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
+        }
+
+        // 🚀 3. सेशन कैंसल होने पर लाइव स्टेटस हटा दें
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val userId = UserManager(applicationContext).getUserId()
+                CloudSyncManager.updateUserFocusStatus(applicationContext, userId, false, null)
+            } catch (_: Exception) {}
         }
 
         val isStopwatch = (activeModeType.value == "STOPWATCH")
@@ -392,6 +436,14 @@ class TimerService : Service() {
         val now = SystemClock.elapsedRealtime()
         if (!isPomoBreakActive.value && isTimerRunning.value && sessionResumeElapsedRealtime > 0L) {
             accumulatedActiveMillis += (now - sessionResumeElapsedRealtime)
+        }
+
+        // 🚀 4. सेशन पूरा होने पर लाइव स्टेटस हटा दें
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val userId = UserManager(applicationContext).getUserId()
+                CloudSyncManager.updateUserFocusStatus(applicationContext, userId, false, null)
+            } catch (_: Exception) {}
         }
 
         if (isTimerRunning.value || isTimerPaused.value) {
@@ -429,7 +481,6 @@ class TimerService : Service() {
 
     private fun saveSessionToDiary(isCancelled: Boolean) {
         try {
-            // 🍅 यहाँ accumulatedActiveMillis में सारे पूरे हुए सेशंस का कुल समय (जैसे 25 + 25 + 10 = 60 मिनट) जमा है
             val rawSeconds = ((accumulatedActiveMillis + 500L) / 1000L).toInt().coerceAtLeast(0)
             
             val completedSeconds = if (!isCancelled && originalTimerSeconds > 0 && activeModeType.value == "TIMER" && activeModeType.value != "POMODORO") {
@@ -438,7 +489,6 @@ class TimerService : Service() {
                 rawSeconds
             }
 
-            // 🛑 5 मिनट (300 सेकंड) का चेक: कम होने पर सेव नहीं होगा और अलर्ट ट्रिगर होगा
             if (completedSeconds < 300) {
                 if (completedSeconds >= 5) {
                     showSessionTooShortDialogTrigger.value = true
@@ -456,7 +506,7 @@ class TimerService : Service() {
                 id = currentSessionId,
                 date = currentDate,
                 subject = currentSubjectName.value,
-                durationMinutes = minutes // 🚀 यह कुल एक्युमलेटेड मिनट्स हैं!
+                durationMinutes = minutes
             )
             
             FocusSessionManager.saveSession(this, session)
