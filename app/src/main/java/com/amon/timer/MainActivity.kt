@@ -36,7 +36,6 @@ import kotlinx.coroutines.delay
 
 private enum class AppScreenState {
     SPLASH,
-    AUTH,
     MAIN
 }
 
@@ -71,19 +70,8 @@ class MainActivity : ComponentActivity() {
             Log.e("AmonLaunch", "Safe Reminder catch: ${e.localizedMessage}")
         }
 
-        val userManager = UserManager(this)
-        if (userManager.getUserId().isNotBlank() &&
-            userManager.getUserName().isNotBlank() &&
-            !userManager.getUserName().equals("Guest", ignoreCase = true)
-        ) {
-            CloudSyncManager.registerUserOnCloud(this)
-        }
-
         setContent {
             AmonTheme {
-                val context = LocalContext.current
-                val localUserManager = remember { UserManager(context) }
-
                 val isDark = ThemeManager.isDarkTheme.value
                 val appBgColor = ThemeManager.getBackgroundColor()
 
@@ -91,12 +79,10 @@ class MainActivity : ComponentActivity() {
 
                 val currentStatusBarColor = when (currentScreen) {
                     AppScreenState.SPLASH -> Color(0xFF0F0F12)
-                    AppScreenState.AUTH -> Color(0xFF0A0A0E)
                     AppScreenState.MAIN -> appBgColor
                 }
                 val isLightStatusBarIcons = when (currentScreen) {
                     AppScreenState.SPLASH -> false
-                    AppScreenState.AUTH -> false
                     AppScreenState.MAIN -> !isDark
                 }
 
@@ -110,13 +96,9 @@ class MainActivity : ComponentActivity() {
                     color = currentStatusBarColor
                 ) {
                     LaunchedEffect(Unit) {
-                        delay(1200)
-                        if (!localUserManager.isFreshAuthDone() || localUserManager.getUserId().isBlank()) {
-                            currentScreen = AppScreenState.AUTH
-                        } else {
-                            CloudSyncManager.registerUserOnCloud(context)
-                            currentScreen = AppScreenState.MAIN
-                        }
+                        delay(1000)
+                        // 🚀 Offline-First: Skip auth completely and go straight to MAIN screen
+                        currentScreen = AppScreenState.MAIN
                     }
 
                     Crossfade(
@@ -126,14 +108,6 @@ class MainActivity : ComponentActivity() {
                     ) { screen ->
                         when (screen) {
                             AppScreenState.SPLASH -> SplashScreenContent()
-                            AppScreenState.AUTH -> {
-                                AuthScreen(
-                                    onAuthComplete = {
-                                        localUserManager.setFreshAuthDone(true)
-                                        currentScreen = AppScreenState.MAIN
-                                    }
-                                )
-                            }
                             AppScreenState.MAIN -> {
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     MainScreen()
