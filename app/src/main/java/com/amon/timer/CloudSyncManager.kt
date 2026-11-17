@@ -135,6 +135,36 @@ object CloudSyncManager {
         })
     }
 
+    // 🎯 Live Focus Status Update on Cloud
+    suspend fun updateUserFocusStatus(
+        context: Context,
+        userId: String,
+        isFocusing: Boolean,
+        currentSubject: String?
+    ) = withContext(Dispatchers.IO) {
+        if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank() || userId.isBlank()) return@withContext
+
+        val patchPayload = JSONObject().apply {
+            put("is_currently_focusing", isFocusing)
+            put("current_subject", currentSubject ?: "")
+        }
+
+        val request = Request.Builder()
+            .url("$SUPABASE_URL/rest/v1/group_members?user_id=eq.$userId")
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .addHeader("Content-Type", "application/json")
+            .patch(patchPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+            response.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Update user focus status error: ${e.message}")
+        }
+    }
+
     suspend fun fetchGroups(context: Context): List<StudyGroup> = withContext(Dispatchers.IO) {
         val localBackup = GroupCacheManager.getCachedGroupsList(context)
         val userManager = UserManager(context)
@@ -277,6 +307,7 @@ object CloudSyncManager {
                 put("group_id", groupId)
                 put("user_id", userId)
                 put("nickname", userName)
+                put("is_currently_focusing", false)
             }
 
             val request = Request.Builder()
@@ -561,7 +592,7 @@ object CloudSyncManager {
         if (SUPABASE_URL.isBlank() || SUPABASE_KEY.isBlank()) return@withContext cached
 
         try {
-            val membersUrl = "$SUPABASE_URL/rest/v1/group_members?group_id=eq.$groupId&select=user_id,nickname"
+            val membersUrl = "$SUPABASE_URL/rest/v1/group_members?group_id=eq.$groupId&select=user_id,nickname,is_currently_focusing,current_subject"
             val memReq = Request.Builder()
                 .url(membersUrl)
                 .addHeader("apikey", SUPABASE_KEY)
@@ -574,12 +605,17 @@ object CloudSyncManager {
             if (!memRes.isSuccessful || memText.isBlank()) return@withContext cached
 
             val memArray = JSONArray(memText)
-            val membersMap = mutableMapOf<String, String>()
+            data class MemberStatus(val nickname: String, val isFocusing: Boolean, val subject: String)
+            val membersMap = mutableMapOf<String, MemberStatus>()
             for (i in 0 until memArray.length()) {
                 val obj = memArray.getJSONObject(i)
                 val uId = obj.optString("user_id")
                 val nick = obj.optString("nickname", "Aspirant")
-                if (uId.isNotBlank()) membersMap[uId] = nick
+                val isFocusing = obj.optBoolean("is_currently_focusing", false)
+                val sub = obj.optString("current_subject", "")
+                if (uId.isNotBlank()) {
+                    membersMap[uId] = MemberStatus(nick, isFocusing, sub)
+                }
             }
 
             if (membersMap.isEmpty()) return@withContext cached
@@ -609,15 +645,15 @@ object CloudSyncManager {
                 }
             }
 
-            val result = membersMap.map { (uId, nick) ->
+            val result = membersMap.map { (uId, status) ->
                 val totalMins = minutesMap[uId] ?: 0
                 GroupMember(
                     id = uId,
-                    nickname = nick,
+                    nickname = status.nickname,
                     role = MemberRole.MEMBER,
                     studyTimeMinutes = totalMins,
-                    isCurrentlyFocusing = false,
-                    lastActive = if (totalMins > 0) "This week" else "No sessions"
+                    isCurrentlyFocusing = status.isFocusing,
+                    lastActive = if (status.isFocusing) "Focusing on ${status.subject}" else if (totalMins > 0) "This week" else "No sessions"
                 )
             }.sortedByDescending { it.studyTimeMinutes }
 
