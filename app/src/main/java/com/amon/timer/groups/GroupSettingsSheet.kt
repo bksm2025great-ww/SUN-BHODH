@@ -1,8 +1,13 @@
 package com.amon.timer.groups
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,7 +15,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Share
@@ -23,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.amon.timer.ThemeManager
@@ -46,36 +54,24 @@ fun GroupSettingsSheet(
     val textMain = ThemeManager.getTextColor()
     val textMuted = ThemeManager.getTextMutedColor()
     val accentColor = ThemeManager.getAccentColor()
+    val accentSubtle = accentColor.copy(alpha = 0.15f)
     val cardBorder = if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1)
     val dangerColor = Color(0xFFEF4444)
 
     val userManager = remember { UserManager(context) }
-    val currentUserName = remember { userManager.getUserName().ifBlank { "An Aspirant" } }
+    val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
+    var showInviteCodeView by remember { mutableStateOf(false) }
     var showLeaveConfirmDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    fun launchShareSheet() {
-        val inviteCode = group.inviteCode.ifBlank { "AMON-GROUP" }
-        val shareMessage = """
-            🎯 AMON STUDY CIRCLE
-            ━━━━━━━━━━━━━━━━━━━━━━
-            Hey! $currentUserName has invited you to join their study group "${group.name}".
+    val inviteCode = group.inviteCode.ifBlank { "N/A" }
 
-            Join using the link below:
-            👉 https://amon.app/join?code=$inviteCode
-
-            (Or enter this invite code in the Amon app: $inviteCode)
-            ━━━━━━━━━━━━━━━━━━━━━━
-        """.trimIndent()
-
-        val sendIntent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TEXT, shareMessage)
-            type = "text/plain"
-        }
-        context.startActivity(Intent.createChooser(sendIntent, "Invite to ${group.name}"))
+    val copyInviteCodeToClipboard = {
+        val clip = ClipData.newPlainText("Invite Code", inviteCode)
+        clipboardManager.setPrimaryClip(clip)
+        Toast.makeText(context, "Invite code copied: $inviteCode", Toast.LENGTH_SHORT).show()
     }
 
     fun launchReportEmail() {
@@ -180,188 +176,309 @@ fun GroupSettingsSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 6.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Group Settings",
-                        color = textMain,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                    Text(
-                        text = "${group.name} ${if (isAdmin) "· (Admin)" else ""}",
-                        color = if (isAdmin) accentColor else textMuted,
-                        fontSize = 12.sp,
-                        fontWeight = if (isAdmin) FontWeight.SemiBold else FontWeight.Normal
-                    )
-                }
-
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = textMuted,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 🎯 Invite Aspirants Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-                    .clickable {
-                        onInvite()
-                        launchShareSheet()
-                    },
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = cardBg)
-            ) {
+            if (showInviteCodeView) {
+                // ================= INVITE CODE BOTTOM SHEET VIEW =================
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = { showInviteCodeView = false },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Back",
+                                tint = textMain,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Invite Aspirants",
                             color = textMain,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 18.sp
                         )
-                        Text(
-                            text = "Code: ${group.inviteCode.ifBlank { "N/A" }} · Tap to share",
-                            color = textMuted,
-                            fontSize = 11.5.sp
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = textMuted,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Report Group Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
-                    .clickable {
-                        onReportGroup()
-                        launchReportEmail()
-                    },
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = cardBg)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = textMuted,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Report Group",
-                            color = textMain,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                        Text(
-                            text = "Flag spam or inappropriate content via email",
-                            color = textMuted,
-                            fontSize = 11.5.sp
-                        )
-                    }
-                }
-            }
-
-            // 🛑 Universal Library (Default group) को कोई लीव या डिलीट नहीं कर सकता
-            if (!group.isDefault) {
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Leave Group Action (सभी मेंबर्स के लिए)
-                OutlinedButton(
-                    onClick = { showLeaveConfirmDialog = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp),
-                    shape = RoundedCornerShape(23.dp),
-                    border = BorderStroke(1.2.dp, dangerColor.copy(alpha = 0.8f)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = dangerColor,
-                        containerColor = dangerColor.copy(alpha = 0.06f)
-                    )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ExitToApp,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = dangerColor
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Leave Group",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
+                        text = "Share this unique code with friends to let them join \"${group.name}\".",
+                        color = textMuted,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
                     )
-                }
 
-                // Delete Group Action (केवल ग्रुप एडमिन के लिए)
-                if (isAdmin) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Code Display Box
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = accentSubtle,
+                        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.4f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "GROUP INVITE CODE",
+                                color = accentColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = inviteCode,
+                                color = textMain,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 2.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
                     Button(
-                        onClick = { showDeleteConfirmDialog = true },
+                        onClick = {
+                            copyInviteCodeToClipboard()
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp),
-                        shape = RoundedCornerShape(23.dp),
+                            .height(50.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = dangerColor,
-                            contentColor = Color.White
+                            containerColor = accentColor,
+                            contentColor = Color.Black
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Delete,
+                            imageVector = Icons.Default.ContentCopy,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Delete Group",
-                            fontSize = 14.sp,
+                            text = "Copy Invite Code",
+                            fontSize = 14.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(30.dp))
+
+            } else {
+                // ================= MAIN SETTINGS VIEW =================
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Group Settings",
+                            color = textMain,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                        Text(
+                            text = "${group.name} ${if (isAdmin) "· (Admin)" else ""}",
+                            color = if (isAdmin) accentColor else textMuted,
+                            fontSize = 12.sp,
+                            fontWeight = if (isAdmin) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = textMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 🎯 Invite Aspirants Card -> Opens Invite Code View Inside Sheet
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                        .clickable {
+                            onInvite()
+                            showInviteCodeView = true
+                        },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = cardBg)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = null,
+                            tint = accentColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Invite Aspirants",
+                                color = textMain,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "Code: $inviteCode · Tap to view code",
+                                color = textMuted,
+                                fontSize = 11.5.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Report Group Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, cardBorder, RoundedCornerShape(12.dp))
+                        .clickable {
+                            onReportGroup()
+                            launchReportEmail()
+                        },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = cardBg)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = textMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Report Group",
+                                color = textMain,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "Flag spam or inappropriate content via email",
+                                color = textMuted,
+                                fontSize = 11.5.sp
+                            )
+                        }
+                    }
+                }
+
+                // 🛑 Universal Library (Default group) को कोई लीव या डिलीट नहीं कर सकता
+                if (!group.isDefault) {
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Leave Group Action (सभी मेंबर्स के लिए)
+                    OutlinedButton(
+                        onClick = { showLeaveConfirmDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp),
+                        shape = RoundedCornerShape(23.dp),
+                        border = BorderStroke(1.2.dp, dangerColor.copy(alpha = 0.8f)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = dangerColor,
+                            containerColor = dangerColor.copy(alpha = 0.06f)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = dangerColor
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Leave Group",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Delete Group Action (केवल ग्रुप एडमिन के लिए)
+                    if (isAdmin) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = { showDeleteConfirmDialog = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp),
+                            shape = RoundedCornerShape(23.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = dangerColor,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Delete Group",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(28.dp))
+            }
         }
     }
 }
