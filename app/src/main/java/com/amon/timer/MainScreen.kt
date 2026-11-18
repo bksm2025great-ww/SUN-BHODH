@@ -249,7 +249,6 @@ fun MainScreen() {
     val activity = context as? Activity
     var currentNavIndex by remember { mutableIntStateOf(0) }
 
-    // 🔥 स्ट्रीक बॉटम शीट खोलने के लिए स्टेट
     var showStreakBottomSheet by rememberSaveable { mutableStateOf(false) }
 
     val isDark = ThemeManager.isDarkTheme.value
@@ -562,7 +561,6 @@ fun MainScreen() {
                     .background(bgColor)
                     .padding(paddingValues)
             ) {
-                // 🎯 सही 3-टैब इंडेक्स मैपिंग (Home = 0, Stats = 1, Profile = 2)
                 when (currentNavIndex) {
                     0 -> HomeTimerTab(
                         context = context,
@@ -613,8 +611,8 @@ fun MainScreen() {
                         },
                         onDirectEndSession = onDirectEndSession
                     )
-                    1 -> StatsScreen()    // 👈 Index 1: Stats & Analytics
-                    2 -> ProfileScreen()  // 👈 Index 2: Profile Screen
+                    1 -> StatsScreen()
+                    2 -> ProfileScreen()
                 }
             }
         }
@@ -1243,19 +1241,21 @@ fun HomeTimerTab(
             }
         } else {
             if (activeMode == FocusModeType.STOPWATCH) {
-                Column(
+                // 🟢 स्टॉपवॉच मोड: फिक्स्ड सेंटर लेआउट (लैंडस्केप और पोर्ट्रेट दोनों के लिए)
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .statusBarsPadding()
                         .padding(horizontal = 20.dp)
                         .padding(top = 10.dp, bottom = 44.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween
+                    contentAlignment = Alignment.Center
                 ) {
+                    // ऊपर सब्जेक्ट टैग
                     AnimatedVisibility(
                         visible = areControlsVisible,
                         enter = fadeIn(tween(200)),
-                        exit = fadeOut(tween(200))
+                        exit = fadeOut(tween(200)),
+                        modifier = Modifier.align(Alignment.TopCenter)
                     ) {
                         Text(
                             text = "$selectedSubjectName • Stopwatch",
@@ -1270,17 +1270,26 @@ fun HomeTimerTab(
                         )
                     }
 
-                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.Center) {
+                    // मुख्य स्टॉपवॉच टाइमर (हमेशा एकदम बीच में फिक्स रहेगा)
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Alignment.CenterProvider { Alignment.CenterHorizontally }
+                    ) {
                         Text(text = swMainTime, color = textMain, fontSize = 52.sp, fontWeight = FontWeight.Black)
                         Text(text = swMilliText, color = goldColor, fontSize = 28.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(bottom = 6.dp))
                     }
 
+                    // नीचे के बटन्स (बिना इमोजी के)
                     AnimatedVisibility(
                         visible = areControlsVisible,
                         enter = fadeIn(tween(200)),
-                        exit = fadeOut(tween(200))
+                        exit = fadeOut(tween(200)),
+                        modifier = Modifier.align(Alignment.BottomCenter)
                     ) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
                             Button(
                                 onClick = {
                                     FocusSoundManager.triggerHaptic(context, false)
@@ -1290,7 +1299,11 @@ fun HomeTimerTab(
                                 shape = RoundedCornerShape(50),
                                 modifier = Modifier.weight(1f).height(48.dp)
                             ) {
-                                Text(text = if (isStopwatchRunning) "⏸ Pause" else "▶ Resume", color = Color.Black, fontWeight = FontWeight.ExtraBold)
+                                Text(
+                                    text = if (isStopwatchRunning) "Pause" else "Resume",
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
                             }
 
                             OutlinedButton(
@@ -1299,29 +1312,34 @@ fun HomeTimerTab(
                                 border = BorderStroke(1.2.dp, cancelColor),
                                 modifier = Modifier.weight(1f).height(48.dp)
                             ) {
-                                Text("End Session", color = cancelColor, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "End Session",
+                                    color = cancelColor,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
                 }
             } else {
-                Column(
+                // 🟢 टाइमर / पोमोडोरो मोड (Fixed Center Layout)
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .statusBarsPadding()
                         .padding(horizontal = 20.dp)
                         .padding(top = 10.dp, bottom = 44.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween
+                    contentAlignment = Alignment.Center
                 ) {
                     AnimatedVisibility(
                         visible = areControlsVisible,
                         enter = fadeIn(tween(200)),
-                        exit = fadeOut(tween(200))
+                        exit = fadeOut(tween(200)),
+                        modifier = Modifier.align(Alignment.TopCenter)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
-                                text = if (isBreakActive) "☕ Break Time" else selectedSubjectName,
+                                text = if (isBreakActive) "Break Time" else selectedSubjectName,
                                 color = if (isBreakActive) Color(0xFF10B981) else textMain,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
@@ -1338,7 +1356,10 @@ fun HomeTimerTab(
                         AnimatedVisibility(
                             visible = areControlsVisible,
                             enter = fadeIn(tween(200)),
-                            exit = fadeOut(tween(200))
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 36.dp)
                         ) {
                             PomodoroSessionTracker(
                                 totalSessions = pomodoroConfig.totalRounds,
@@ -1352,7 +1373,8 @@ fun HomeTimerTab(
                         }
                     }
 
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    // मुख्य टाइमर रिंग (बीच में फिक्स)
+                    Box(contentAlignment = Alignment.Center) {
                         TimerWatchesContainer(
                             dialMinutes = dialMinutes,
                             onDialMinutesChange = {},
@@ -1374,10 +1396,12 @@ fun HomeTimerTab(
                         )
                     }
 
+                    // नीचे के कंट्रोल्स (बिना इमोजी के)
                     AnimatedVisibility(
                         visible = areControlsVisible,
                         enter = fadeIn(tween(200)),
-                        exit = fadeOut(tween(200))
+                        exit = fadeOut(tween(200)),
+                        modifier = Modifier.align(Alignment.BottomCenter)
                     ) {
                         if (isBreakActive) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1392,7 +1416,7 @@ fun HomeTimerTab(
                                     shape = RoundedCornerShape(50),
                                     modifier = Modifier.weight(1.2f).height(48.dp)
                                 ) {
-                                    Text("⏭ Skip Break", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                                    Text("Skip Break", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
                                 }
 
                                 Button(
@@ -1405,7 +1429,7 @@ fun HomeTimerTab(
                                     shape = RoundedCornerShape(50),
                                     modifier = Modifier.weight(1f).height(48.dp)
                                 ) {
-                                    Text(if (isPaused) "▶ Resume" else "⏸ Pause", color = Color.Black, fontWeight = FontWeight.Black)
+                                    Text(if (isPaused) "Resume" else "Pause", color = Color.Black, fontWeight = FontWeight.Black)
                                 }
 
                                 OutlinedButton(
@@ -1429,7 +1453,7 @@ fun HomeTimerTab(
                                     shape = RoundedCornerShape(50),
                                     modifier = Modifier.weight(1f).height(48.dp)
                                 ) {
-                                    Text(text = if (isPaused) "Resume 🎯" else "⏸ Pause", color = Color.Black, fontWeight = FontWeight.Black)
+                                    Text(text = if (isPaused) "Resume" else "Pause", color = Color.Black, fontWeight = FontWeight.Black)
                                 }
 
                                 OutlinedButton(
