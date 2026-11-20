@@ -1241,7 +1241,6 @@ fun HomeTimerTab(
             }
         } else {
             if (activeMode == FocusModeType.STOPWATCH) {
-                // 🟢 स्टॉपवॉच मोड: फिक्स्ड सेंटर लेआउट (लैंडस्केप और पोर्ट्रेट दोनों के लिए)
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1250,7 +1249,6 @@ fun HomeTimerTab(
                         .padding(top = 10.dp, bottom = 44.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    // ऊपर सब्जेक्ट टैग
                     AnimatedVisibility(
                         visible = areControlsVisible,
                         enter = fadeIn(tween(200)),
@@ -1270,16 +1268,14 @@ fun HomeTimerTab(
                         )
                     }
 
-                    // मुख्य स्टॉपवॉच टाइमर (हमेशा एकदम बीच में फिक्स रहेगा)
                     Row(
                         verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Alignment.CenterProvider { Alignment.CenterHorizontally }
+                        horizontalArrangement = Arrangement.Center
                     ) {
                         Text(text = swMainTime, color = textMain, fontSize = 52.sp, fontWeight = FontWeight.Black)
                         Text(text = swMilliText, color = goldColor, fontSize = 28.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(bottom = 6.dp))
                     }
 
-                    // नीचे के बटन्स (बिना इमोजी के)
                     AnimatedVisibility(
                         visible = areControlsVisible,
                         enter = fadeIn(tween(200)),
@@ -1322,7 +1318,6 @@ fun HomeTimerTab(
                     }
                 }
             } else {
-                // 🟢 टाइमर / पोमोडोरो मोड (Fixed Center Layout)
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1373,7 +1368,6 @@ fun HomeTimerTab(
                         }
                     }
 
-                    // मुख्य टाइमर रिंग (बीच में फिक्स)
                     Box(contentAlignment = Alignment.Center) {
                         TimerWatchesContainer(
                             dialMinutes = dialMinutes,
@@ -1396,7 +1390,6 @@ fun HomeTimerTab(
                         )
                     }
 
-                    // नीचे के कंट्रोल्स (बिना इमोजी के)
                     AnimatedVisibility(
                         visible = areControlsVisible,
                         enter = fadeIn(tween(200)),
