@@ -328,8 +328,10 @@ fun MainScreen() {
         } catch (_: Exception) {}
     }
 
+    // 🔔 सेशन एंड करने पर हैप्टिक + चाइम साउंड
     val onDirectEndSession: () -> Unit = {
         FocusSoundManager.triggerHaptic(context, isCompletion = true)
+        FocusSoundManager.playCompletionSound(context)
         val intent = Intent(context, TimerService::class.java).apply {
             action = TimerService.ACTION_STOP
         }
@@ -423,6 +425,7 @@ fun MainScreen() {
             isPaused = isPaused,
             isFocusActive = true,
             isSessionActive = true,
+            isLandscape = isLandscape,
             activeMode = activeMode,
             onActiveModeChange = { activeMode = it },
             pomodoroConfig = pomodoroConfig,
@@ -439,6 +442,7 @@ fun MainScreen() {
             areControlsVisible = areControlsVisible || isPaused,
             onNavigateToStats = { showStreakBottomSheet = true },
             onStartStopwatch = {
+                FocusSoundManager.playCompletionSound(context)
                 context.startService(Intent(context, TimerService::class.java).apply {
                     action = TimerService.ACTION_START
                     putExtra(TimerService.EXTRA_SECONDS, 0)
@@ -575,6 +579,7 @@ fun MainScreen() {
                         isPaused = isPaused,
                         isFocusActive = false,
                         isSessionActive = isFocusActive,
+                        isLandscape = false,
                         activeMode = activeMode,
                         onActiveModeChange = { activeMode = it },
                         pomodoroConfig = pomodoroConfig,
@@ -591,6 +596,7 @@ fun MainScreen() {
                         areControlsVisible = true,
                         onNavigateToStats = { showStreakBottomSheet = true },
                         onStartStopwatch = {
+                            FocusSoundManager.playCompletionSound(context)
                             context.startService(Intent(context, TimerService::class.java).apply {
                                 action = TimerService.ACTION_START
                                 putExtra(TimerService.EXTRA_SECONDS, 0)
@@ -926,6 +932,7 @@ fun HomeTimerTab(
     isPaused: Boolean,
     isFocusActive: Boolean,
     isSessionActive: Boolean = false,
+    isLandscape: Boolean = false,
     activeMode: FocusModeType,
     onActiveModeChange: (FocusModeType) -> Unit,
     pomodoroConfig: PomodoroConfig,
@@ -1241,101 +1248,107 @@ fun HomeTimerTab(
             }
         } else {
             if (activeMode == FocusModeType.STOPWATCH) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding()
-                        .padding(horizontal = 20.dp)
-                        .padding(top = 10.dp, bottom = 44.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AnimatedVisibility(
-                        visible = areControlsVisible,
-                        enter = fadeIn(tween(200)),
-                        exit = fadeOut(tween(200)),
-                        modifier = Modifier.align(Alignment.TopCenter)
+                if (isLandscape) {
+                    // 📱 Stopwatch Landscape: टाइमर बीच में, छोटे कंट्रोल्स राइट साइड में
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "$selectedSubjectName • Stopwatch",
-                            color = textMain,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
-                                .border(1.dp, glassBorder, RoundedCornerShape(50))
-                                .padding(horizontal = 16.dp, vertical = 6.dp)
-                        )
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(text = swMainTime, color = textMain, fontSize = 52.sp, fontWeight = FontWeight.Black)
-                        Text(text = swMilliText, color = goldColor, fontSize = 28.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(bottom = 6.dp))
-                    }
-
-                    AnimatedVisibility(
-                        visible = areControlsVisible,
-                        enter = fadeIn(tween(200)),
-                        exit = fadeOut(tween(200)),
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.TopStart)
                         ) {
-                            Button(
-                                onClick = {
-                                    FocusSoundManager.triggerHaptic(context, false)
-                                    if (isStopwatchRunning) onPauseStopwatch() else onResumeStopwatch()
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = goldColor),
-                                shape = RoundedCornerShape(50),
-                                modifier = Modifier.weight(1f).height(48.dp)
-                            ) {
-                                Text(
-                                    text = if (isStopwatchRunning) "Pause" else "Resume",
-                                    color = Color.Black,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
+                            Text(
+                                text = "$selectedSubjectName • Stopwatch",
+                                color = textMain,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                    .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                    .padding(horizontal = 14.dp, vertical = 5.dp)
+                            )
+                        }
 
-                            OutlinedButton(
-                                onClick = onDirectEndSession,
-                                shape = RoundedCornerShape(50),
-                                border = BorderStroke(1.2.dp, cancelColor),
-                                modifier = Modifier.weight(1f).height(48.dp)
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(text = swMainTime, color = textMain, fontSize = 48.sp, fontWeight = FontWeight.Black)
+                            Text(text = swMilliText, color = goldColor, fontSize = 24.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(bottom = 5.dp))
+                        }
+
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Text(
-                                    text = "End Session",
-                                    color = cancelColor,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                if (isStopwatchRunning) {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            onPauseStopwatch()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.width(120.dp).height(38.dp)
+                                    ) {
+                                        Text("Pause", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            onResumeStopwatch()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.width(120.dp).height(38.dp)
+                                    ) {
+                                        Text("Resume", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                    }
+                                    OutlinedButton(
+                                        onClick = onDirectEndSession,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, cancelColor),
+                                        modifier = Modifier.width(120.dp).height(38.dp)
+                                    ) {
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
                             }
                         }
                     }
-                }
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding()
-                        .padding(horizontal = 20.dp)
-                        .padding(top = 10.dp, bottom = 44.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AnimatedVisibility(
-                        visible = areControlsVisible,
-                        enter = fadeIn(tween(200)),
-                        exit = fadeOut(tween(200)),
-                        modifier = Modifier.align(Alignment.TopCenter)
+                } else {
+                    // 📱 Stopwatch Portrait: टाइमर बीच में, सिंगल पॉज़ बटन फ्लो
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 10.dp, bottom = 44.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        ) {
                             Text(
-                                text = if (isBreakActive) "Break Time" else selectedSubjectName,
-                                color = if (isBreakActive) Color(0xFF10B981) else textMain,
+                                text = "$selectedSubjectName • Stopwatch",
+                                color = textMain,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier
@@ -1345,117 +1358,354 @@ fun HomeTimerTab(
                                     .padding(horizontal = 16.dp, vertical = 6.dp)
                             )
                         }
-                    }
 
-                    if (activeMode == FocusModeType.POMODORO) {
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(text = swMainTime, color = textMain, fontSize = 52.sp, fontWeight = FontWeight.Black)
+                            Text(text = swMilliText, color = goldColor, fontSize = 28.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(bottom = 6.dp))
+                        }
+
                         AnimatedVisibility(
                             visible = areControlsVisible,
                             enter = fadeIn(tween(200)),
                             exit = fadeOut(tween(200)),
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(top = 36.dp)
+                            modifier = Modifier.align(Alignment.BottomCenter)
                         ) {
-                            PomodoroSessionTracker(
-                                totalSessions = pomodoroConfig.totalRounds,
-                                currentSessionIndex = currentSessionIndex,
-                                isBreakActive = isBreakActive,
-                                isRunning = isRunning,
-                                goldColor = goldColor,
-                                glowYellow = glowYellow,
-                                isDark = isDark
-                            )
+                            if (isStopwatchRunning) {
+                                Button(
+                                    onClick = {
+                                        FocusSoundManager.triggerHaptic(context, false)
+                                        onPauseStopwatch()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                    shape = RoundedCornerShape(50),
+                                    modifier = Modifier.fillMaxWidth(0.75f).height(48.dp)
+                                ) {
+                                    Text("Pause", color = Color.Black, fontWeight = FontWeight.ExtraBold)
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            onResumeStopwatch()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.weight(1f).height(48.dp)
+                                    ) {
+                                        Text("Resume", color = Color.Black, fontWeight = FontWeight.ExtraBold)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onDirectEndSession,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.2.dp, cancelColor),
+                                        modifier = Modifier.weight(1f).height(48.dp)
+                                    ) {
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
                         }
                     }
-
-                    Box(contentAlignment = Alignment.Center) {
-                        TimerWatchesContainer(
-                            dialMinutes = dialMinutes,
-                            onDialMinutesChange = {},
-                            totalSeconds = totalSeconds,
-                            initialTotalSeconds = initialTotalSeconds,
-                            isRunning = true,
-                            isCustomMode = false,
-                            onCustomModeToggle = {},
-                            goldColor = if (isBreakActive) Color(0xFF10B981) else goldColor,
-                            glowYellow = if (isBreakActive) Color.Transparent else glowYellow,
-                            cardBg = cardBg,
-                            glassBorder = glassBorder,
-                            textMain = textMain,
-                            textMuted = textMuted,
-                            isDark = isDark,
-                            timeFormatted = timeFormatted,
-                            hours = hours,
-                            selectedSubjectName = selectedSubjectName
-                        )
-                    }
-
-                    AnimatedVisibility(
-                        visible = areControlsVisible,
-                        enter = fadeIn(tween(200)),
-                        exit = fadeOut(tween(200)),
-                        modifier = Modifier.align(Alignment.BottomCenter)
+                }
+            } else {
+                if (isLandscape) {
+                    // 📱 Timer / Pomodoro Landscape: टाइमर बीच में, छोटे कंट्रोल्स राइट साइड में
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        if (isBreakActive) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(
+                            horizontalAlignment = Alignment.Start,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.align(Alignment.TopStart)
+                        ) {
+                            AnimatedVisibility(
+                                visible = areControlsVisible,
+                                enter = fadeIn(tween(200)),
+                                exit = fadeOut(tween(200))
+                            ) {
+                                Text(
+                                    text = if (isBreakActive) "Break Time" else selectedSubjectName,
+                                    color = if (isBreakActive) Color(0xFF10B981) else textMain,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                        .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                        .padding(horizontal = 14.dp, vertical = 5.dp)
+                                )
+                            }
+
+                            if (activeMode == FocusModeType.POMODORO) {
+                                AnimatedVisibility(
+                                    visible = areControlsVisible,
+                                    enter = fadeIn(tween(200)),
+                                    exit = fadeOut(tween(200))
+                                ) {
+                                    PomodoroSessionTracker(
+                                        totalSessions = pomodoroConfig.totalRounds,
+                                        currentSessionIndex = currentSessionIndex,
+                                        isBreakActive = isBreakActive,
+                                        isRunning = isRunning,
+                                        goldColor = goldColor,
+                                        glowYellow = glowYellow,
+                                        isDark = isDark
+                                    )
+                                }
+                            }
+                        }
+
+                        Box(contentAlignment = Alignment.Center) {
+                            TimerWatchesContainer(
+                                dialMinutes = dialMinutes,
+                                onDialMinutesChange = {},
+                                totalSeconds = totalSeconds,
+                                initialTotalSeconds = initialTotalSeconds,
+                                isRunning = true,
+                                isCustomMode = false,
+                                onCustomModeToggle = {},
+                                goldColor = if (isBreakActive) Color(0xFF10B981) else goldColor,
+                                glowYellow = if (isBreakActive) Color.Transparent else glowYellow,
+                                cardBg = cardBg,
+                                glassBorder = glassBorder,
+                                textMain = textMain,
+                                textMuted = textMuted,
+                                isDark = isDark,
+                                timeFormatted = timeFormatted,
+                                hours = hours,
+                                selectedSubjectName = selectedSubjectName
+                            )
+                        }
+
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                if (isBreakActive) {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            context.startService(Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_SKIP_BREAK
+                                            })
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.width(124.dp).height(38.dp)
+                                    ) {
+                                        Text("Skip Break", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onDirectEndSession,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, cancelColor),
+                                        modifier = Modifier.width(124.dp).height(38.dp)
+                                    ) {
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                } else if (!isPaused) {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            context.startService(Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_PAUSE
+                                            })
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.width(124.dp).height(38.dp)
+                                    ) {
+                                        Text("Pause", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            context.startService(Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            })
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.width(124.dp).height(38.dp)
+                                    ) {
+                                        Text("Resume", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onDirectEndSession,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, cancelColor),
+                                        modifier = Modifier.width(124.dp).height(38.dp)
+                                    ) {
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // 📱 Timer / Pomodoro Portrait: टाइमर बीच में, सिंगल पॉज़ बटन फ्लो
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 10.dp, bottom = 44.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = if (isBreakActive) "Break Time" else selectedSubjectName,
+                                    color = if (isBreakActive) Color(0xFF10B981) else textMain,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                        .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+
+                        if (activeMode == FocusModeType.POMODORO) {
+                            AnimatedVisibility(
+                                visible = areControlsVisible,
+                                enter = fadeIn(tween(200)),
+                                exit = fadeOut(tween(200)),
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 36.dp)
+                            ) {
+                                PomodoroSessionTracker(
+                                    totalSessions = pomodoroConfig.totalRounds,
+                                    currentSessionIndex = currentSessionIndex,
+                                    isBreakActive = isBreakActive,
+                                    isRunning = isRunning,
+                                    goldColor = goldColor,
+                                    glowYellow = glowYellow,
+                                    isDark = isDark
+                                )
+                            }
+                        }
+
+                        Box(contentAlignment = Alignment.Center) {
+                            TimerWatchesContainer(
+                                dialMinutes = dialMinutes,
+                                onDialMinutesChange = {},
+                                totalSeconds = totalSeconds,
+                                initialTotalSeconds = initialTotalSeconds,
+                                isRunning = true,
+                                isCustomMode = false,
+                                onCustomModeToggle = {},
+                                goldColor = if (isBreakActive) Color(0xFF10B981) else goldColor,
+                                glowYellow = if (isBreakActive) Color.Transparent else glowYellow,
+                                cardBg = cardBg,
+                                glassBorder = glassBorder,
+                                textMain = textMain,
+                                textMuted = textMuted,
+                                isDark = isDark,
+                                timeFormatted = timeFormatted,
+                                hours = hours,
+                                selectedSubjectName = selectedSubjectName
+                            )
+                        }
+
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        ) {
+                            if (isBreakActive) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            context.startService(Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_SKIP_BREAK
+                                            })
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.weight(1.2f).height(48.dp)
+                                    ) {
+                                        Text("Skip Break", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onDirectEndSession,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.2.dp, cancelColor),
+                                        modifier = Modifier.weight(1f).height(48.dp)
+                                    ) {
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            } else if (!isPaused) {
                                 Button(
                                     onClick = {
                                         FocusSoundManager.triggerHaptic(context, false)
                                         context.startService(Intent(context, TimerService::class.java).apply {
-                                            action = TimerService.ACTION_SKIP_BREAK
+                                            action = TimerService.ACTION_PAUSE
                                         })
                                     },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                                    shape = RoundedCornerShape(50),
-                                    modifier = Modifier.weight(1.2f).height(48.dp)
-                                ) {
-                                    Text("Skip Break", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
-                                }
-
-                                Button(
-                                    onClick = {
-                                        FocusSoundManager.triggerHaptic(context, false)
-                                        val act = if (isPaused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE
-                                        context.startService(Intent(context, TimerService::class.java).apply { action = act })
-                                    },
                                     colors = ButtonDefaults.buttonColors(containerColor = goldColor),
                                     shape = RoundedCornerShape(50),
-                                    modifier = Modifier.weight(1f).height(48.dp)
+                                    modifier = Modifier.fillMaxWidth(0.75f).height(48.dp)
                                 ) {
-                                    Text(if (isPaused) "Resume" else "Pause", color = Color.Black, fontWeight = FontWeight.Black)
+                                    Text("Pause", color = Color.Black, fontWeight = FontWeight.ExtraBold)
                                 }
+                            } else {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            context.startService(Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            })
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.weight(1f).height(48.dp)
+                                    ) {
+                                        Text("Resume", color = Color.Black, fontWeight = FontWeight.Black)
+                                    }
 
-                                OutlinedButton(
-                                    onClick = onDirectEndSession,
-                                    shape = RoundedCornerShape(50),
-                                    border = BorderStroke(1.2.dp, cancelColor),
-                                    modifier = Modifier.weight(0.9f).height(48.dp)
-                                ) {
-                                    Text("End", color = cancelColor, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        } else {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                                Button(
-                                    onClick = {
-                                        FocusSoundManager.triggerHaptic(context, false)
-                                        val act = if (isPaused) TimerService.ACTION_RESUME else TimerService.ACTION_PAUSE
-                                        context.startService(Intent(context, TimerService::class.java).apply { action = act })
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = goldColor),
-                                    shape = RoundedCornerShape(50),
-                                    modifier = Modifier.weight(1f).height(48.dp)
-                                ) {
-                                    Text(text = if (isPaused) "Resume" else "Pause", color = Color.Black, fontWeight = FontWeight.Black)
-                                }
-
-                                OutlinedButton(
-                                    onClick = onDirectEndSession,
-                                    shape = RoundedCornerShape(50),
-                                    border = BorderStroke(1.2.dp, cancelColor),
-                                    modifier = Modifier.weight(1f).height(48.dp)
-                                ) {
-                                    Text("End Session", color = cancelColor, fontWeight = FontWeight.Bold)
+                                    OutlinedButton(
+                                        onClick = onDirectEndSession,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.2.dp, cancelColor),
+                                        modifier = Modifier.weight(1f).height(48.dp)
+                                    ) {
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
@@ -1476,6 +1726,7 @@ fun HomeTimerTab(
                 selectedSubject = selectedSubjectName,
                 onSubjectChange = { onSelectedSubjectChange(it) },
                 onStartFocus = { chosenMode, durationSeconds, pConfig ->
+                    FocusSoundManager.playCompletionSound(context)
                     onActiveModeChange(chosenMode)
                     if (pConfig != null) {
                         onPomodoroConfigChange(pConfig)
