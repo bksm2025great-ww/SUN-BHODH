@@ -328,7 +328,6 @@ fun MainScreen() {
         } catch (_: Exception) {}
     }
 
-    // 🔔 सेशन एंड करने पर हैप्टिक + चाइम साउंड
     val onDirectEndSession: () -> Unit = {
         FocusSoundManager.triggerHaptic(context, isCompletion = true)
         FocusSoundManager.playCompletionSound(context)
@@ -957,6 +956,16 @@ fun HomeTimerTab(
     var showAddDialog by remember { mutableStateOf(false) }
     var newSubjectInput by remember { mutableStateOf("") }
 
+    // 💡 Suggestions pool (नए सब्जेक्ट्स भी यहाँ रखे जा सकते हैं, जो पहले से userSubjects में हैं वे हट जाएंगे)
+    var suggestionPool by remember {
+        mutableStateOf(
+            listOf(
+                "Physics", "Chemistry", "Biology", "Maths", "History", "Polity",
+                "Geography", "Economics", "English", "Coding", "Current Affairs", "Reasoning"
+            )
+        )
+    }
+
     var showFocusLauncherSheet by remember { mutableStateOf(false) }
     var dialMinutes by rememberSaveable { mutableFloatStateOf(25f) }
 
@@ -1010,23 +1019,49 @@ fun HomeTimerTab(
     val swMainTime = String.format("%02d:%02d:%02d", swH, swM, swS)
     val swMilliText = String.format(".%02d", swMs)
 
+    // ✅ Active Subject Chips (जो hide नहीं हैं)
     val activeSortedSubjects = remember(userSubjects, hiddenSubjects) {
         userSubjects.filter { it !in hiddenSubjects }
     }
 
-    val onAddSubjectAction = {
-        if (newSubjectInput.isNotBlank()) {
-            val clean = newSubjectInput.trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-            if (SubjectManager.addSubject(context, clean)) {
-                userSubjects = SubjectManager.getUserSubjects(context)
-                if (clean in hiddenSubjects) {
-                    val newHidden = hiddenSubjects - clean
-                    hiddenSubjects = newHidden
-                    subjectPrefs.edit().putStringSet("hidden_subjects", newHidden).apply()
-                }
-                onSelectedSubjectChange(clean)
-                newSubjectInput = ""
+    // ✅ Suggestions: जो अभी userSubjects में नहीं हैं, वही सुझाव में दिखेंगे
+    val availableSuggestions = remember(suggestionPool, userSubjects) {
+        val existingLower = userSubjects.map { it.lowercase(Locale.getDefault()) }.toSet()
+        suggestionPool.filterNot { it.lowercase(Locale.getDefault()) in existingLower }
+    }
+
+    // ✅ किसी सब्जेक्ट को जोड़ने/चुनने का फंक्शन (सुझाव से हटाकर सिलेक्टेड/एक्टिव में लाना)
+    val selectAndAddSubject: (String) -> Unit = { rawName ->
+        val clean = rawName.trim().replaceFirstChar {
+            if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+        }
+        if (clean.isNotBlank()) {
+            SubjectManager.addSubject(context, clean)
+            userSubjects = SubjectManager.getUserSubjects(context)
+
+            // सुझाव सूची में नया सब्जेक्ट जोड़ें (यदि पहले से नहीं है), और जो चुना गया है उसे सुझाव से हटा दें
+            val updatedPool = suggestionPool.filterNot {
+                it.equals(clean, ignoreCase = true)
+            }.toMutableList()
+            if (clean !in userSubjects && updatedPool.none { it.equals(clean, ignoreCase = true) }) {
+                updatedPool.add(clean)
             }
+            suggestionPool = updatedPool
+
+            if (clean in hiddenSubjects) {
+                val newHidden = hiddenSubjects - clean
+                hiddenSubjects = newHidden
+                subjectPrefs.edit().putStringSet("hidden_subjects", newHidden).apply()
+            }
+            onSelectedSubjectChange(clean)
+        }
+    }
+
+    val onAddSubjectAction: () -> Unit = {
+        if (newSubjectInput.isNotBlank()) {
+            val typed = newSubjectInput.trim()
+            selectAndAddSubject(typed)
+            newSubjectInput = ""
         }
     }
 
@@ -1078,6 +1113,7 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // 🎯 Subject Chips Row (All + Selected/Active Subjects + "+ Subject")
                 Box(modifier = Modifier.fillMaxWidth().height(38.dp)) {
                     LazyRow(
                         modifier = Modifier.fillMaxSize(),
@@ -1085,57 +1121,88 @@ fun HomeTimerTab(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         item {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(cardBg)
-                                    .border(1.2.dp, goldColor, RoundedCornerShape(50))
-                                    .clickable { showAddDialog = true }
-                                    .padding(horizontal = 13.dp, vertical = 6.dp)
-                            ) {
-                                Text("+ Subject", color = goldColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
+                            val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    FocusSoundManager.triggerHaptic(context, false)
+                                    onSelectedSubjectChange("All")
+                                },
+                                label = {
+                                    Text(
+                                        text = "All",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                },
+                                shape = RoundedCornerShape(50),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = cardBg,
+                                    labelColor = textMuted,
+                                    selectedContainerColor = goldColor,
+                                    selectedLabelColor = if (isDark) Color.Black else Color.White
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    borderColor = glassBorder,
+                                    selectedBorderColor = goldColor
+                                )
+                            )
+                        }
+
+                        items(activeSortedSubjects, key = { it }) { subj ->
+                            val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    FocusSoundManager.triggerHaptic(context, false)
+                                    onSelectedSubjectChange(subj)
+                                },
+                                label = {
+                                    Text(
+                                        text = subj,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1
+                                    )
+                                },
+                                shape = RoundedCornerShape(50),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = cardBg,
+                                    labelColor = textMuted,
+                                    selectedContainerColor = goldColor,
+                                    selectedLabelColor = if (isDark) Color.Black else Color.White
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    borderColor = glassBorder,
+                                    selectedBorderColor = goldColor
+                                )
+                            )
                         }
 
                         item {
-                            val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(if (isSelected) goldColor else cardBg)
-                                    .border(1.dp, if (isSelected) goldColor else glassBorder, RoundedCornerShape(50))
-                                    .clickable { onSelectedSubjectChange("All") }
-                                    .padding(horizontal = 14.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = "All",
-                                    color = if (isSelected) (if (isDark) Color.Black else Color.White) else textMuted,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        items(activeSortedSubjects) { subj ->
-                            val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(if (isSelected) goldColor else cardBg)
-                                    .border(1.dp, if (isSelected) goldColor else glassBorder, RoundedCornerShape(50))
-                                    .clickable { onSelectedSubjectChange(subj) }
-                                    .padding(horizontal = 14.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = subj,
-                                    color = if (isSelected) (if (isDark) Color.Black else Color.White) else textMuted,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                            AssistChip(
+                                onClick = {
+                                    FocusSoundManager.triggerHaptic(context, false)
+                                    showAddDialog = true
+                                },
+                                label = {
+                                    Text(
+                                        text = "+ Subject",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                },
+                                shape = RoundedCornerShape(50),
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = cardBg,
+                                    labelColor = goldColor
+                                ),
+                                border = BorderStroke(1.2.dp, goldColor)
+                            )
                         }
                     }
                 }
@@ -1249,7 +1316,6 @@ fun HomeTimerTab(
         } else {
             if (activeMode == FocusModeType.STOPWATCH) {
                 if (isLandscape) {
-                    // 📱 Stopwatch Landscape: टाइमर बीच में, छोटे कंट्रोल्स राइट साइड में
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -1331,7 +1397,6 @@ fun HomeTimerTab(
                         }
                     }
                 } else {
-                    // 📱 Stopwatch Portrait: टाइमर बीच में, सिंगल पॉज़ बटन फ्लो
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -1417,7 +1482,6 @@ fun HomeTimerTab(
                 }
             } else {
                 if (isLandscape) {
-                    // 📱 Timer / Pomodoro Landscape: टाइमर बीच में, छोटे कंट्रोल्स राइट साइड में
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -1564,7 +1628,6 @@ fun HomeTimerTab(
                         }
                     }
                 } else {
-                    // 📱 Timer / Pomodoro Portrait: टाइमर बीच में, सिंगल पॉज़ बटन फ्लो
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -1774,7 +1837,6 @@ fun HomeTimerTab(
                 newSubjectInput = ""
             }) {
                 val frostedDialogBg = if (isDark) Color(0xEB161620) else Color(0xF2FFFFFF)
-                val suggestedSubjects = listOf("Physics", "Chemistry", "Biology", "Maths", "History", "Polity")
 
                 Box(
                     modifier = Modifier
@@ -1822,41 +1884,61 @@ fun HomeTimerTab(
 
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
-                            text = "Tap to Show (Color) or Hide (Plain)",
+                            text = "Tap suggestion to move to Selected, or toggle visibility",
                             color = textMuted,
-                            fontSize = 12.5.sp,
+                            fontSize = 12.sp,
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        LazyRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            items(suggestedSubjects) { suggestion ->
-                                Surface(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .clickable {
-                                            newSubjectInput = suggestion
-                                            onAddSubjectAction()
+                        // 💡 Suggestions Row: चुनने पर यह यहाँ से हटकर Selected/Active subjects में चला जाता है
+                        if (availableSuggestions.isNotEmpty()) {
+                            Text(
+                                text = "Suggestions",
+                                color = goldColor,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                items(availableSuggestions, key = { it }) { suggestion ->
+                                    SuggestionChip(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            selectAndAddSubject(suggestion)
                                         },
-                                    color = goldColor.copy(alpha = 0.12f),
-                                    border = BorderStroke(1.dp, goldColor.copy(alpha = 0.4f)),
-                                    shape = RoundedCornerShape(50)
-                                ) {
-                                    Text(
-                                        text = "+ $suggestion",
-                                        color = goldColor,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        label = {
+                                            Text(
+                                                text = "+ $suggestion",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        },
+                                        shape = RoundedCornerShape(50),
+                                        colors = SuggestionChipDefaults.suggestionChipColors(
+                                            containerColor = goldColor.copy(alpha = 0.12f),
+                                            labelColor = goldColor
+                                        ),
+                                        border = BorderStroke(1.dp, goldColor.copy(alpha = 0.4f))
                                     )
                                 }
                             }
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        // ✅ Selected / Active Subjects Grid
+                        Text(
+                            text = "Selected Subjects",
+                            color = textMain,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         Column(
                             modifier = Modifier
@@ -1872,8 +1954,9 @@ fun HomeTimerTab(
                                 ) {
                                     rowItems.forEach { subj ->
                                         val isHidden = subj in hiddenSubjects
+                                        val isCurrentSelected = selectedSubjectName.equals(subj, ignoreCase = true)
                                         val chipBg = if (!isHidden) {
-                                            goldColor.copy(alpha = 0.22f)
+                                            goldColor.copy(alpha = if (isCurrentSelected) 0.32f else 0.18f)
                                         } else {
                                             if (isDark) Color(0x22FFFFFF) else Color(0xFFF1F5F9)
                                         }
@@ -1890,18 +1973,22 @@ fun HomeTimerTab(
                                                     RoundedCornerShape(12.dp)
                                                 )
                                                 .clickable {
-                                                    val newHidden = if (isHidden) {
-                                                        hiddenSubjects - subj
+                                                    if (isHidden) {
+                                                        val newHidden = hiddenSubjects - subj
+                                                        hiddenSubjects = newHidden
+                                                        subjectPrefs.edit()
+                                                            .putStringSet("hidden_subjects", newHidden)
+                                                            .apply()
+                                                        onSelectedSubjectChange(subj)
                                                     } else {
-                                                        hiddenSubjects + subj
-                                                    }
-                                                    hiddenSubjects = newHidden
-                                                    subjectPrefs.edit()
-                                                        .putStringSet("hidden_subjects", newHidden)
-                                                        .apply()
-
-                                                    if (!isHidden && selectedSubjectName.equals(subj, ignoreCase = true)) {
-                                                        onSelectedSubjectChange("All")
+                                                        val newHidden = hiddenSubjects + subj
+                                                        hiddenSubjects = newHidden
+                                                        subjectPrefs.edit()
+                                                            .putStringSet("hidden_subjects", newHidden)
+                                                            .apply()
+                                                        if (selectedSubjectName.equals(subj, ignoreCase = true)) {
+                                                            onSelectedSubjectChange("All")
+                                                        }
                                                     }
                                                 }
                                                 .padding(vertical = 10.dp, horizontal = 4.dp)
