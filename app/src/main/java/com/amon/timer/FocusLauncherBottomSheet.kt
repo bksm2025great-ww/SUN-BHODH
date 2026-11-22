@@ -55,7 +55,7 @@ fun FocusLauncherBottomSheet(
     var pomoRounds by remember { mutableIntStateOf(4) }
     var pomoAutoStartNext by remember { mutableStateOf(true) }
 
-    // 🎯 Drum Scroll Time Picker Dialog State
+    // Drum Scroll Time Picker Dialog State
     var showDrumTimeDialog by remember { mutableStateOf(false) }
     var isEditingPomodoroFocus by remember { mutableStateOf(false) }
 
@@ -175,7 +175,7 @@ fun FocusLauncherBottomSheet(
                                 color = goldColor
                             )
                             Text(
-                                text = "Tap to set custom time ⏱️",
+                                text = "Tap to set custom time",
                                 fontSize = 11.sp,
                                 color = textMuted,
                                 fontWeight = FontWeight.Medium
@@ -262,7 +262,7 @@ fun FocusLauncherBottomSheet(
                                         }
                                 ) {
                                     Text(
-                                        text = "Custom ⏱️",
+                                        text = "Custom",
                                         color = if (isCustom) Color.Black else goldColor,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp
@@ -282,13 +282,12 @@ fun FocusLauncherBottomSheet(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(text = "00:00:00", fontSize = 42.sp, fontWeight = FontWeight.Black, color = textMain)
-                        Text(text = "Count-up Mode (0 ➔ ∞)", fontSize = 13.sp, color = goldColor, fontWeight = FontWeight.Bold)
+                        Text(text = "Count-up Mode", fontSize = 13.sp, color = goldColor, fontWeight = FontWeight.Bold)
                     }
                 }
 
                 FocusModeType.POMODORO -> {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // 🍅 Clean Classic Pomodoro Title Card (Subtitle removed)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -304,21 +303,14 @@ fun FocusLauncherBottomSheet(
                                 }
                                 .padding(horizontal = 14.dp, vertical = 10.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Text(text = "🍅", fontSize = 20.sp)
-                                Text(
-                                    text = "Classic Pomodoro",
-                                    fontWeight = FontWeight.Black,
-                                    color = textMain,
-                                    fontSize = 14.sp
-                                )
-                            }
+                            Text(
+                                text = "Classic Pomodoro",
+                                fontWeight = FontWeight.Black,
+                                color = textMain,
+                                fontSize = 14.sp
+                            )
                         }
 
-                        // Stepper: Focus Time
                         PomodoroStepperRow(
                             label = "Focus",
                             valueText = "$pomoFocusMinutes min",
@@ -334,7 +326,6 @@ fun FocusLauncherBottomSheet(
                             glassBorder = glassBorder
                         )
 
-                        // Stepper: Short Break
                         PomodoroStepperRow(
                             label = "Short break",
                             valueText = "$pomoShortBreak min",
@@ -347,7 +338,6 @@ fun FocusLauncherBottomSheet(
                             glassBorder = glassBorder
                         )
 
-                        // Stepper: Long Break
                         PomodoroStepperRow(
                             label = "Long break",
                             valueText = "$pomoLongBreak min",
@@ -360,7 +350,6 @@ fun FocusLauncherBottomSheet(
                             glassBorder = glassBorder
                         )
 
-                        // Stepper: Rounds
                         PomodoroStepperRow(
                             label = "Rounds",
                             valueText = "$pomoRounds",
@@ -455,7 +444,7 @@ fun FocusLauncherBottomSheet(
                     .height(48.dp)
             ) {
                 Text(
-                    text = "Begin Focus Session 🚀",
+                    text = "Begin Focus Session",
                     color = Color.Black,
                     fontWeight = FontWeight.Black,
                     fontSize = 14.5.sp,
@@ -465,7 +454,7 @@ fun FocusLauncherBottomSheet(
         }
     }
 
-    // 🥁 DRUM SCROLL TIME PICKER DIALOG (Hours & Minutes Wheel)
+    // DRUM SCROLL TIME PICKER DIALOG (Hours & Minutes Wheel)
     if (showDrumTimeDialog) {
         val initialMins = if (isEditingPomodoroFocus) pomoFocusMinutes else timerMinutes
         DrumScrollTimePickerDialog(
@@ -527,7 +516,7 @@ fun PomodoroStepperRow(
                         onMinus()
                     }
             ) {
-                Text("－", color = textMain, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("-", color = textMain, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
 
             Text(
@@ -553,7 +542,7 @@ fun PomodoroStepperRow(
                         onPlus()
                     }
             ) {
-                Text("＋", color = textMain, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("+", color = textMain, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
         }
     }
@@ -595,7 +584,6 @@ fun DrumScrollTimePickerDialog(
                     color = goldColor
                 )
 
-                val totalM = selectedHour * 60 + selectedMin
                 Text(
                     text = if (selectedHour > 0) "${selectedHour}h ${selectedMin}m" else "${selectedMin}m",
                     fontSize = 32.sp,
@@ -662,7 +650,7 @@ fun DrumScrollTimePickerDialog(
                         shape = RoundedCornerShape(50),
                         modifier = Modifier.weight(1f).height(44.dp)
                     ) {
-                        Text("Set Time 🎯", color = Color.Black, fontWeight = FontWeight.Black)
+                        Text("Set Time", color = Color.Black, fontWeight = FontWeight.Black)
                     }
                 }
             }
@@ -692,15 +680,7 @@ fun DrumWheelColumn(
         modifier = modifier.height(130.dp),
         contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .height(38.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(goldColor.copy(alpha = 0.15f))
-                .border(1.2.dp, goldColor, RoundedCornerShape(10.dp))
-        )
-
+        // सिलेक्शन बॉक्स/बॉर्डर हटा दिया गया है ताकि नंबर एकदम क्लीन दिखें
         LazyColumn(
             state = listState,
             flingBehavior = snapBehavior,
@@ -718,9 +698,9 @@ fun DrumWheelColumn(
                 ) {
                     Text(
                         text = items[index],
-                        fontSize = if (isSelected) 18.sp else 14.sp,
+                        fontSize = if (isSelected) 19.sp else 14.sp,
                         fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium,
-                        color = if (isSelected) goldColor else textMuted.copy(alpha = 0.6f)
+                        color = if (isSelected) Color.White else textMuted.copy(alpha = 0.6f)
                     )
                 }
             }
