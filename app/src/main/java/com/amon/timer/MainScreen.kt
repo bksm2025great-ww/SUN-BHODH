@@ -10,6 +10,13 @@ import android.os.Build
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -36,6 +43,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -988,13 +996,27 @@ fun HomeTimerTab(
 
     var streakDays by remember { mutableIntStateOf(0) }
     var todayStudiedMinutes by remember { mutableIntStateOf(0) }
-    val dailyGoalMinutes = remember {
-        context.getSharedPreferences("amon_user_prefs", Context.MODE_PRIVATE)
-            .getInt("daily_goal_minutes", 120)
-            .coerceAtLeast(30)
+
+    // StatsScreen में सेव किए गए daily_goal_hours को मिनट में पढ़ें, वरना डिफ़ॉल्ट 30m रखें
+    var dailyGoalMinutes by remember {
+        val savedHours = try {
+            context.getSharedPreferences("amon_stats_goals", Context.MODE_PRIVATE)
+                .getFloat("daily_goal_hours", 0f)
+        } catch (_: Exception) {
+            0f
+        }
+        mutableIntStateOf(if (savedHours > 0f) (savedHours * 60).toInt() else 30)
     }
 
     LaunchedEffect(isFocusActive, TimerService.showCompletionDialogTrigger.value) {
+        val updatedHours = try {
+            context.getSharedPreferences("amon_stats_goals", Context.MODE_PRIVATE)
+                .getFloat("daily_goal_hours", 0f)
+        } catch (_: Exception) {
+            0f
+        }
+        dailyGoalMinutes = if (updatedHours > 0f) (updatedHours * 60).toInt() else 30
+
         if (!isFocusActive) {
             val sessions = try { FocusSessionManager.getAllSessions(context) } catch (_: Exception) { emptyList() }
             streakDays = calculateStreakDays(sessions)
@@ -1108,7 +1130,6 @@ fun HomeTimerTab(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 🎯 Subject Chips Row: + Subject सबसे आगे, फिर All और बाकी Subjects
                 Box(modifier = Modifier.fillMaxWidth().height(38.dp)) {
                     LazyRow(
                         modifier = Modifier.fillMaxSize(),
@@ -1237,8 +1258,52 @@ fun HomeTimerTab(
                 }
 
                 if (!isSessionActive) {
-                    val goalFraction = (todayStudiedMinutes.toFloat() / dailyGoalMinutes.toFloat()).coerceIn(0f, 1f)
-                    val goalPercent = ((todayStudiedMinutes.toFloat() / dailyGoalMinutes.toFloat()) * 100).toInt().coerceAtMost(100)
+                    val safeGoal = if (dailyGoalMinutes > 0) dailyGoalMinutes else 30
+                    val goalFraction = (todayStudiedMinutes.toFloat() / safeGoal.toFloat()).coerceIn(0f, 1f)
+                    val goalPercent = ((todayStudiedMinutes.toFloat() / safeGoal.toFloat()) * 100).toInt().coerceAtMost(100)
+                    val isGoalCompleted = todayStudiedMinutes >= safeGoal
+
+                    val animatedFraction by animateFloatAsState(
+                        targetValue = goalFraction,
+                        animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing),
+                        label = "goal_progress_fill"
+                    )
+
+                    val infiniteTransition = rememberInfiniteTransition(label = "goal_bar_anim")
+                    val shimmerOffset by infiniteTransition.animateFloat(
+                        initialValue = -0.35f,
+                        targetValue = 1.35f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 2200, easing = LinearEasing),
+                            repeatMode = RepeatMode.Restart
+                        ),
+                        label = "goal_shimmer"
+                    )
+                    val goalPulseAlpha by infiniteTransition.animateFloat(
+                        initialValue = 0.75f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "goal_complete_pulse"
+                    )
+
+                    val goalTextFormatted = if (safeGoal >= 60) {
+                        val h = safeGoal / 60
+                        val m = safeGoal % 60
+                        if (m == 0) "${h}h" else "${h}h ${m}m"
+                    } else {
+                        "${safeGoal}m"
+                    }
+
+                    val studiedTextFormatted = if (todayStudiedMinutes >= 60) {
+                        val h = todayStudiedMinutes / 60
+                        val m = todayStudiedMinutes % 60
+                        if (m == 0) "${h}h" else "${h}h ${m}m"
+                    } else {
+                        "${todayStudiedMinutes}m"
+                    }
 
                     Column(
                         modifier = Modifier
@@ -1251,14 +1316,14 @@ fun HomeTimerTab(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Today's Focus: ${todayStudiedMinutes}m / ${dailyGoalMinutes}m",
+                                text = "Today's Focus: $studiedTextFormatted / $goalTextFormatted",
                                 color = textMuted,
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
                                 text = "$goalPercent%",
-                                color = goldColor,
+                                color = goldColor.copy(alpha = if (isGoalCompleted) goalPulseAlpha else 1f),
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
@@ -1267,17 +1332,36 @@ fun HomeTimerTab(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(5.dp)
+                                .height(6.dp)
                                 .clip(RoundedCornerShape(50))
                                 .background(if (isDark) Color(0x22FFFFFF) else Color(0xFFE2E8F0))
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(goalFraction)
-                                    .fillMaxHeight()
-                                    .clip(RoundedCornerShape(50))
-                                    .background(goldColor)
-                            )
+                            if (animatedFraction > 0f) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(animatedFraction)
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(50))
+                                        .background(goldColor.copy(alpha = if (isGoalCompleted) goalPulseAlpha else 1f))
+                                ) {
+                                    Canvas(modifier = Modifier.fillMaxSize()) {
+                                        val highlightWidth = size.width * 0.35f
+                                        val startX = size.width * shimmerOffset
+                                        drawRect(
+                                            brush = Brush.horizontalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color.White.copy(alpha = 0.35f),
+                                                    Color.Transparent
+                                                ),
+                                                startX = startX,
+                                                endX = startX + highlightWidth
+                                            ),
+                                            size = size
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -1924,7 +2008,6 @@ fun HomeTimerTab(
                             Spacer(modifier = Modifier.height(12.dp))
                         }
 
-                        // ✅ Selected / Active Subjects: ऊपर वाली चिप्स जैसी कॉम्पैक्ट साइज, पिल शेप और ✓ मार्क (बिना इमोजी के)
                         Text(
                             text = "Selected Subjects",
                             color = textMain,
