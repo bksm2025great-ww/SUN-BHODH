@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -28,7 +29,7 @@ import androidx.compose.ui.window.Dialog
 data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 // =============================================================================
-// 🍅 1. POMODORO SESSION TRACKER (PROGRESS INDICATORS)
+// 1. POMODORO SESSION TRACKER (MINIMAL DOTS + GREEN HEARTBEAT ON BREAK)
 // =============================================================================
 @Composable
 fun PomodoroSessionTracker(
@@ -40,129 +41,119 @@ fun PomodoroSessionTracker(
     glowYellow: Color,
     isDark: Boolean
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse_session")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.95f,
+    val breakGreen = Color(0xFF10B981)
+    val upcomingTargetIndex = if (isBreakActive) {
+        (currentSessionIndex + 1).coerceAtMost(totalSessions)
+    } else {
+        currentSessionIndex
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "dot_heartbeat")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 1.48f,
         animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_scale"
+    )
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.65f,
+        targetValue = 0.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 700, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse_alpha"
     )
 
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .height(38.dp)
-            .clip(RoundedCornerShape(50))
-            .background(if (isDark) Color(0xFF161620) else Color(0xFFF1F5F9))
-            .border(1.dp, if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1), RoundedCornerShape(50))
-            .padding(horizontal = 14.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            for (i in 1..totalSessions) {
-                val isCompleted = i < currentSessionIndex
-                val isCurrent = i == currentSessionIndex
-                val isUpcoming = i > currentSessionIndex
+        for (i in 1..totalSessions) {
+            val isCompleted = i < currentSessionIndex || (isBreakActive && i <= currentSessionIndex)
+            val isBreakTarget = isBreakActive && (i == upcomingTargetIndex)
+            val isActiveFocusDot = !isBreakActive && (i == currentSessionIndex)
 
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(20.dp)
-                ) {
-                    when {
-                        isCompleted -> {
-                            Box(
-                                modifier = Modifier
-                                    .size(15.dp)
-                                    .clip(CircleShape)
-                                    .background(goldColor)
-                            )
-                        }
-                        isCurrent -> {
-                            if (isBreakActive) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(15.dp)
-                                        .clip(CircleShape)
-                                        .background(goldColor)
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(19.dp)
-                                        .clip(CircleShape)
-                                        .background(goldColor.copy(alpha = if (isRunning) pulseAlpha * 0.4f else 0.3f))
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .size(13.dp)
-                                        .clip(CircleShape)
-                                        .background(goldColor)
-                                )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(18.dp)
+            ) {
+                if (isBreakTarget && isRunning) {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .graphicsLayer {
+                                scaleX = pulseScale
+                                scaleY = pulseScale
+                                alpha = pulseAlpha
                             }
-                        }
-                        isUpcoming -> {
-                            Box(
-                                modifier = Modifier
-                                    .size(14.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Transparent)
-                                    .border(1.6.dp, if (isDark) Color(0xFF38384A) else Color(0xFF94A3B8), CircleShape)
-                            )
-                        }
-                    }
+                            .clip(CircleShape)
+                            .background(breakGreen)
+                    )
                 }
 
-                if (i < totalSessions) {
-                    val isBreakCurrent = (i == currentSessionIndex && isBreakActive)
-                    val isBreakDone = (i < currentSessionIndex)
-
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                when {
+                    isBreakTarget -> {
                         Box(
                             modifier = Modifier
-                                .weight(1f)
-                                .height(1.8.dp)
-                                .background(if (isBreakDone) goldColor.copy(alpha = 0.5f) else (if (isDark) Color(0xFF262636) else Color(0xFFCBD5E1)))
-                        )
-                        Box(
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp)
-                                .size(if (isBreakCurrent) 9.dp else 7.dp)
+                                .size(10.dp)
                                 .clip(CircleShape)
-                                .background(
-                                    when {
-                                        isBreakCurrent -> Color(0xFF10B981)
-                                        isBreakDone -> goldColor.copy(alpha = 0.6f)
-                                        else -> if (isDark) Color(0xFF343446) else Color(0xFF94A3B8)
-                                    }
-                                )
+                                .background(breakGreen)
                         )
+                    }
+                    isActiveFocusDot -> {
                         Box(
                             modifier = Modifier
-                                .weight(1f)
-                                .height(1.8.dp)
-                                .background(if (isBreakDone) goldColor.copy(alpha = 0.5f) else (if (isDark) Color(0xFF262636) else Color(0xFFCBD5E1)))
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(goldColor)
+                        )
+                    }
+                    isCompleted -> {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(goldColor.copy(alpha = 0.85f))
+                        )
+                    }
+                    else -> {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .border(
+                                    width = 1.4.dp,
+                                    color = if (isDark) Color(0xFF47475A) else Color(0xFF94A3B8),
+                                    shape = CircleShape
+                                )
                         )
                     }
                 }
             }
         }
+
+        val displayRound = if (isBreakActive) {
+            upcomingTargetIndex.coerceIn(1, totalSessions)
+        } else {
+            currentSessionIndex.coerceIn(1, totalSessions)
+        }
+
+        Text(
+            text = "$displayRound/$totalSessions",
+            color = if (isBreakActive) breakGreen else (if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)),
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
 // =============================================================================
-// ⚙️ 2. POMODORO SETTINGS MODAL BOTTOM SHEET
+// 2. POMODORO SETTINGS MODAL BOTTOM SHEET
 // =============================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -564,7 +555,7 @@ fun PomodoroSettingsBottomSheet(
 }
 
 // =============================================================================
-// ⏱️ 3. STOPWATCH DISPLAY (HOME TAB READOUT)
+// 3. STOPWATCH DISPLAY (HOME TAB READOUT)
 // =============================================================================
 @Composable
 fun StopwatchPrecisionDisplay(
@@ -607,7 +598,7 @@ fun StopwatchPrecisionDisplay(
 }
 
 // =============================================================================
-// 🎯 4. ADAPTIVE FOCUS CONTROLS (PAUSE / RESUME / SWITCH TO BREAK / END SESSION)
+// 4. ADAPTIVE FOCUS CONTROLS (PAUSE / RESUME / SWITCH TO BREAK / END SESSION)
 // =============================================================================
 @Composable
 fun PomodoroFocusControls(
@@ -640,19 +631,13 @@ fun PomodoroFocusControls(
                 border = BorderStroke(1.dp, glassBorder),
                 modifier = Modifier.clickable { onSwitchToBreakClick() }
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                Text(
+                    text = "Switch to Break",
+                    color = goldColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Text(text = "☕", fontSize = 12.sp)
-                    Text(
-                        text = "Switch to Break",
-                        color = goldColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                )
             }
         }
 
@@ -672,7 +657,7 @@ fun PomodoroFocusControls(
                             .height(46.dp)
                     ) {
                         Text(
-                            text = "Resume Focus 🎯",
+                            text = "Resume Focus",
                             color = Color.Black,
                             fontWeight = FontWeight.Black,
                             fontSize = 13.5.sp
@@ -706,7 +691,7 @@ fun PomodoroFocusControls(
                             .height(46.dp)
                     ) {
                         Text(
-                            text = "Resume 🎯",
+                            text = "Resume",
                             color = Color.Black,
                             fontWeight = FontWeight.Black,
                             fontSize = 13.5.sp
@@ -740,7 +725,7 @@ fun PomodoroFocusControls(
                             .height(46.dp)
                     ) {
                         Text(
-                            text = "⏸ Pause",
+                            text = "Pause",
                             color = Color.Black,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 13.5.sp
