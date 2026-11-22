@@ -6,10 +6,12 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -28,6 +30,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalConfiguration
@@ -37,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -50,23 +54,22 @@ fun StatsScreen() {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
-    // 🎨 Theme Colors
+    // Theme Colors + Single Unified Gray/Slate Border
     val isDark = ThemeManager.isDarkTheme.value
     val bgColor = ThemeManager.getBackgroundColor()
     val cardBg = ThemeManager.getCardColor()
     val textMain = ThemeManager.getTextColor()
     val textMuted = ThemeManager.getTextMutedColor()
     val goldColor = ThemeManager.getAccentColor()
-    val cardBorder = if (isDark) Color(0x22FFFFFF) else Color(0xFFCBD5E1)
+    val unifiedBorder = if (isDark) Color(0x26FFFFFF) else Color(0xFFCBD5E1)
 
-    // Filter Tabs State
-    var selectedTab by remember { mutableStateOf("Weekly") }
+    // Default tab set to "Today" (Daily)
+    var selectedTab by remember { mutableStateOf("Today") }
     var dateOffset by remember { mutableIntStateOf(0) }
     var showStreakSheet by remember { mutableStateOf(false) }
     var showComparisonSheet by remember { mutableStateOf(false) }
     var showGoalDialog by remember { mutableStateOf(false) }
 
-    // 🎯 Stored Daily Goal (Default 0 = Not set)
     val prefs = remember { context.getSharedPreferences("amon_stats_goals", Context.MODE_PRIVATE) }
     var dailyGoalHours by remember { mutableFloatStateOf(prefs.getFloat("daily_goal_hours", 0f)) }
 
@@ -74,13 +77,11 @@ fun StatsScreen() {
         dateOffset = 0
     }
 
-    // 📦 Saved Sessions
     var allSessions by remember { mutableStateOf(listOf<FocusSession>()) }
     LaunchedEffect(selectedTab, dateOffset) {
         allSessions = FocusSessionManager.getAllSessions(context)
     }
 
-    // 🗓️ Date Display Text
     val dateRangeText = remember(selectedTab, dateOffset) {
         val cal = Calendar.getInstance().apply { firstDayOfWeek = Calendar.MONDAY }
         when (selectedTab) {
@@ -108,12 +109,10 @@ fun StatsScreen() {
         }
     }
 
-    // 🔍 Filter Sessions for selected Tab and Date Offset
     val filteredSessions = remember(allSessions, selectedTab, dateOffset) {
         filterSessionsByPeriod(allSessions, selectedTab, dateOffset)
     }
 
-    // 📊 Chart Bars Data Generator
     val chartBars = remember(filteredSessions, selectedTab, dateOffset) {
         generateChartBars(filteredSessions, selectedTab, dateOffset)
     }
@@ -123,7 +122,6 @@ fun StatsScreen() {
         selectedBarIndex = null
     }
 
-    // 🧮 Summary Calculations
     val totalMinutes = remember(filteredSessions) {
         filteredSessions.sumOf { it.durationMinutes }
     }
@@ -144,12 +142,10 @@ fun StatsScreen() {
         formatMinutes(avgMinutes)
     }
 
-    // 🔥 Live Streak Number
     val streakDaysCount = remember(allSessions) {
         calculateStreakCount(allSessions)
     }
 
-    // 🎯 Dynamic Unified Goal Progress
     val targetGoalMinutes = remember(selectedTab, dailyGoalHours) {
         if (dailyGoalHours <= 0f) 0 else {
             val dailyMins = (dailyGoalHours * 60).toInt()
@@ -169,7 +165,6 @@ fun StatsScreen() {
         (actualGoalPercentage / 100f).coerceIn(0f, 1f)
     }
 
-    // 🥧 Donut Chart Data
     val subjectMinutesList = remember(filteredSessions) {
         filteredSessions.groupBy { it.subject }
             .map { (subject, sessions) -> Pair(subject, sessions.sumOf { it.durationMinutes }) }
@@ -178,7 +173,6 @@ fun StatsScreen() {
     }
     val totalSubjectMinutes = remember(subjectMinutesList) { subjectMinutesList.sumOf { it.second } }
 
-    // 👁️ Donut Chart On-Scroll Viewport Animation
     val donutAnimProgress = remember { Animatable(0f) }
     var isDonutVisibleOnScreen by remember { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
@@ -197,7 +191,6 @@ fun StatsScreen() {
         Color(0xFFEAB308), Color(0xFF8B5CF6)
     )
 
-    // 📈 Dynamic Comparison Calculation
     val prevPeriodMins = remember(allSessions, selectedTab, dateOffset) {
         val prevSessions = filterSessionsByPeriod(allSessions, selectedTab, dateOffset - 1)
         prevSessions.sumOf { it.durationMinutes }
@@ -234,16 +227,39 @@ fun StatsScreen() {
         else -> "Tap to inspect daily wave comparison"
     }
 
+    val onSwipePeriod: (Int) -> Unit = { delta ->
+        if (delta < 0) {
+            dateOffset--
+        } else if (delta > 0 && dateOffset < 0) {
+            dateOffset++
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(bgColor)
+            .pointerInput(selectedTab, dateOffset) {
+                var dragAccum = 0f
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        if (dragAccum < -80f) {
+                            onSwipePeriod(-1)
+                        } else if (dragAccum > 80f) {
+                            onSwipePeriod(1)
+                        }
+                        dragAccum = 0f
+                    },
+                    onDragCancel = { dragAccum = 0f }
+                ) { _, dragAmount ->
+                    dragAccum += dragAmount
+                }
+            }
             .verticalScroll(scrollState)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. SCREEN HEADER
         Text(
             text = "STATS & ANALYTICS",
             color = textMain,
@@ -253,13 +269,31 @@ fun StatsScreen() {
             modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
         )
 
-        // 2. TIME FILTER TABS
+        // Filter Tabs with swipe support
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(50))
                 .background(cardBg)
-                .border(1.dp, cardBorder, RoundedCornerShape(50))
+                .border(1.dp, unifiedBorder, RoundedCornerShape(50))
+                .pointerInput(selectedTab) {
+                    var tabDrag = 0f
+                    val tabsOrder = listOf("Today", "Weekly", "Monthly")
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            val idx = tabsOrder.indexOf(selectedTab)
+                            if (tabDrag < -60f && idx < tabsOrder.lastIndex) {
+                                selectedTab = tabsOrder[idx + 1]
+                            } else if (tabDrag > 60f && idx > 0) {
+                                selectedTab = tabsOrder[idx - 1]
+                            }
+                            tabDrag = 0f
+                        },
+                        onDragCancel = { tabDrag = 0f }
+                    ) { _, amount ->
+                        tabDrag += amount
+                    }
+                }
                 .padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -284,7 +318,7 @@ fun StatsScreen() {
             }
         }
 
-        // 3. DATE SWITCHER
+        // Date Switcher
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -297,7 +331,7 @@ fun StatsScreen() {
                     .size(36.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(cardBg)
-                    .border(1.dp, cardBorder, RoundedCornerShape(10.dp))
+                    .border(1.dp, unifiedBorder, RoundedCornerShape(10.dp))
                     .clickable { dateOffset-- },
                 contentAlignment = Alignment.Center
             ) {
@@ -316,7 +350,7 @@ fun StatsScreen() {
                     .size(36.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(cardBg)
-                    .border(1.dp, cardBorder, RoundedCornerShape(10.dp))
+                    .border(1.dp, unifiedBorder, RoundedCornerShape(10.dp))
                     .clickable { if (dateOffset < 0) dateOffset++ },
                 contentAlignment = Alignment.Center
             ) {
@@ -328,14 +362,14 @@ fun StatsScreen() {
             }
         }
 
-        // 4. INTERACTIVE BAR CHART
+        // Interactive Bar Chart
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(246.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .background(cardBg)
-                .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
+                .border(1.dp, unifiedBorder, RoundedCornerShape(18.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
             Column(
@@ -361,6 +395,11 @@ fun StatsScreen() {
 
                     if (selectedBarIndex != null && selectedBarIndex!! in chartBars.indices) {
                         val bar = chartBars[selectedBarIndex!!]
+                        val inspectLabel = if (selectedTab == "Monthly") {
+                            "Day ${bar.title}: ${formatMinutes(bar.minutes)}"
+                        } else {
+                            "${bar.title}: ${formatMinutes(bar.minutes)}"
+                        }
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -370,7 +409,7 @@ fun StatsScreen() {
                                 .padding(horizontal = 10.dp, vertical = 3.dp)
                         ) {
                             Text(
-                                text = "${bar.title}: ${formatMinutes(bar.minutes)}",
+                                text = inspectLabel,
                                 color = goldColor,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.ExtraBold
@@ -378,7 +417,7 @@ fun StatsScreen() {
                         }
                     } else {
                         Text(
-                            text = "Tap bar to inspect ☝️",
+                            text = "Tap or swipe chart",
                             color = textMuted.copy(alpha = 0.6f),
                             fontSize = 10.5.sp
                         )
@@ -427,7 +466,6 @@ fun StatsScreen() {
                                         hasSelection = hasSelection,
                                         isZero = bar.minutes == 0,
                                         goldColor = goldColor,
-                                        isDark = isDark,
                                         onClick = { selectedBarIndex = if (selectedBarIndex == index) null else index }
                                     )
                                 }
@@ -442,7 +480,7 @@ fun StatsScreen() {
                                     val isSelected = selectedBarIndex == index
                                     val isMonthly = selectedTab == "Monthly"
                                     val barWidth = if (isMonthly) {
-                                        if (isSelected) 7.5.dp else 5.5.dp
+                                        if (isSelected) 7.dp else 5.dp
                                     } else 22.dp
                                     val barHeight = if (bar.minutes == 0) 3.dp else {
                                         ((bar.minutes.toFloat() / maxMinutes) * maxBarHeight.value).dp.coerceIn(8.dp, maxBarHeight)
@@ -456,7 +494,6 @@ fun StatsScreen() {
                                         hasSelection = hasSelection,
                                         isZero = bar.minutes == 0,
                                         goldColor = goldColor,
-                                        isDark = isDark,
                                         onClick = { selectedBarIndex = if (selectedBarIndex == index) null else index }
                                     )
                                 }
@@ -467,7 +504,7 @@ fun StatsScreen() {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(1.5.dp)
-                                .background(if (isDark) Color(0x33FFFFFF) else Color(0xFFCBD5E1))
+                                .background(unifiedBorder)
                         )
 
                         Box(
@@ -493,6 +530,38 @@ fun StatsScreen() {
                                         }
                                     }
                                 }
+                            } else if (selectedTab == "Monthly") {
+                                // Clean full milestone dates: 1, 5, 10, 15, 20, 25, and last day (30/31)
+                                val lastDayNum = chartBars.size
+                                val milestoneDays = setOf(1, 5, 10, 15, 20, 25, lastDayNum)
+                                Row(
+                                    modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    chartBars.forEachIndexed { index, bar ->
+                                        val dayNum = bar.title.toIntOrNull() ?: (index + 1)
+                                        val showMilestone = dayNum in milestoneDays
+                                        val isSelected = selectedBarIndex == index
+
+                                        Box(
+                                            modifier = Modifier.width(6.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (showMilestone) {
+                                                Text(
+                                                    text = bar.title,
+                                                    color = if (isSelected) goldColor else textMuted,
+                                                    fontSize = 9.5.sp,
+                                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    overflow = TextOverflow.Visible
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             } else {
                                 Row(
                                     modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
@@ -501,19 +570,14 @@ fun StatsScreen() {
                                 ) {
                                     chartBars.forEachIndexed { index, bar ->
                                         val isSelected = selectedBarIndex == index
-                                        val isMonthly = selectedTab == "Monthly"
-                                        val barWidth = if (isMonthly) 5.5.dp else 22.dp
-
-                                        Box(modifier = Modifier.width(barWidth), contentAlignment = Alignment.Center) {
-                                            if (!isMonthly || (index + 1) == 1 || (index + 1) % 5 == 0) {
-                                                Text(
-                                                    text = bar.title,
-                                                    color = if (isSelected) goldColor else textMuted,
-                                                    fontSize = if (isMonthly) 9.sp else 11.sp,
-                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                    textAlign = TextAlign.Center
-                                                )
-                                            }
+                                        Box(modifier = Modifier.width(22.dp), contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = bar.title,
+                                                color = if (isSelected) goldColor else textMuted,
+                                                fontSize = 11.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                textAlign = TextAlign.Center
+                                            )
                                         }
                                     }
                                 }
@@ -524,13 +588,13 @@ fun StatsScreen() {
             }
         }
 
-        // 4.1 DYNAMIC GOAL CARD
+        // Dynamic Goal Card
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(18.dp))
                 .background(cardBg)
-                .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
+                .border(1.dp, unifiedBorder, RoundedCornerShape(18.dp))
                 .padding(14.dp)
         ) {
             Row(
@@ -558,7 +622,7 @@ fun StatsScreen() {
 
                         if (dailyGoalHours > 0f) {
                             Text(
-                                text = "✎ Edit Goal",
+                                text = "Edit Goal",
                                 color = goldColor,
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Bold,
@@ -606,7 +670,7 @@ fun StatsScreen() {
                         if (actualGoalPercentage > 100) {
                             val extraMins = totalMinutes - targetGoalMinutes
                             Text(
-                                text = "${formatMinutes(totalMinutes)} achieved ($actualGoalPercentage%) • 🔥 +${formatMinutes(extraMins)} over goal!",
+                                text = "${formatMinutes(totalMinutes)} achieved ($actualGoalPercentage%) • +${formatMinutes(extraMins)} over goal",
                                 color = Color(0xFF10B981),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
@@ -661,7 +725,7 @@ fun StatsScreen() {
             }
         }
 
-        // 5. 4 SUMMARY CARDS
+        // 4 Summary Cards
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -676,10 +740,9 @@ fun StatsScreen() {
                     value = totalHoursStr,
                     subtitle = "Focus Time",
                     cardBg = cardBg,
-                    cardBorder = cardBorder,
+                    cardBorder = unifiedBorder,
                     textMain = textMain,
-                    textMuted = textMuted,
-                    accentColor = goldColor
+                    textMuted = textMuted
                 )
                 SummaryCard(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -687,10 +750,9 @@ fun StatsScreen() {
                     value = "${filteredSessions.size}",
                     subtitle = "Completed",
                     cardBg = cardBg,
-                    cardBorder = cardBorder,
+                    cardBorder = unifiedBorder,
                     textMain = textMain,
-                    textMuted = textMuted,
-                    accentColor = goldColor
+                    textMuted = textMuted
                 )
             }
 
@@ -707,10 +769,9 @@ fun StatsScreen() {
                     value = if (streakDaysCount > 0) "$streakDaysCount Days" else "__",
                     subtitle = "Tap to view streak",
                     cardBg = cardBg,
-                    cardBorder = cardBorder,
+                    cardBorder = unifiedBorder,
                     textMain = textMain,
                     textMuted = textMuted,
-                    accentColor = goldColor,
                     flameContent = if (streakDaysCount > 0) {
                         {
                             StreakFlame(
@@ -728,21 +789,20 @@ fun StatsScreen() {
                     value = dailyAvgStr,
                     subtitle = "Based on $selectedTab",
                     cardBg = cardBg,
-                    cardBorder = cardBorder,
+                    cardBorder = unifiedBorder,
                     textMain = textMain,
-                    textMuted = textMuted,
-                    accentColor = goldColor
+                    textMuted = textMuted
                 )
             }
         }
 
-        // 5.1 DYNAMIC BENTO COMPARISON STRIP CARD
+        // Comparison Strip Card
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(cardBg)
-                .border(1.dp, cardBorder.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                .border(1.dp, unifiedBorder, RoundedCornerShape(16.dp))
                 .clickable { showComparisonSheet = true }
                 .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
@@ -792,13 +852,13 @@ fun StatsScreen() {
             }
         }
 
-        // 6. SUBJECT BREAKDOWN DONUT
+        // Subject Breakdown Donut
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(18.dp))
                 .background(cardBg)
-                .border(1.dp, cardBorder, RoundedCornerShape(18.dp))
+                .border(1.dp, unifiedBorder, RoundedCornerShape(18.dp))
                 .padding(16.dp)
                 .onGloballyPositioned { coordinates ->
                     val y = coordinates.positionInWindow().y
@@ -939,7 +999,6 @@ fun StatsScreen() {
         Spacer(modifier = Modifier.height(16.dp))
     }
 
-    // 🌟 GOAL SETTING DIALOG
     if (showGoalDialog) {
         val initialInput = when (selectedTab) {
             "Today" -> if (dailyGoalHours > 0f) dailyGoalHours.toString() else ""
@@ -953,7 +1012,7 @@ fun StatsScreen() {
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
                     .background(if (isDark) Color(0xFF1E1E2D) else Color.White)
-                    .border(1.dp, cardBorder, RoundedCornerShape(20.dp))
+                    .border(1.dp, unifiedBorder, RoundedCornerShape(20.dp))
                     .padding(20.dp)
             ) {
                 Column(
@@ -998,7 +1057,7 @@ fun StatsScreen() {
                         },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = goldColor,
-                            unfocusedBorderColor = cardBorder,
+                            unfocusedBorderColor = unifiedBorder,
                             focusedTextColor = textMain,
                             unfocusedTextColor = textMain
                         ),
@@ -1012,7 +1071,7 @@ fun StatsScreen() {
                         Button(
                             onClick = { showGoalDialog = false },
                             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                            border = BorderStroke(1.dp, unifiedBorder),
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("Cancel", color = textMuted)
@@ -1041,7 +1100,6 @@ fun StatsScreen() {
         }
     }
 
-    // Streak Sheet
     if (showStreakSheet) {
         StreakJournalBottomSheet(
             streakDays = streakDaysCount,
@@ -1050,12 +1108,11 @@ fun StatsScreen() {
             goldColor = goldColor,
             textMain = textMain,
             textMuted = textMuted,
-            cardBorder = cardBorder,
+            cardBorder = unifiedBorder,
             onDismiss = { showStreakSheet = false }
         )
     }
 
-    // Dynamic Comparison Sheet
     if (showComparisonSheet) {
         WeeklyComparisonBottomSheet(
             selectedPeriod = selectedTab,
@@ -1065,7 +1122,7 @@ fun StatsScreen() {
             goldColor = goldColor,
             textMain = textMain,
             textMuted = textMuted,
-            cardBorder = cardBorder,
+            cardBorder = unifiedBorder,
             onDismiss = { showComparisonSheet = false }
         )
     }
@@ -1074,13 +1131,13 @@ fun StatsScreen() {
 @Composable
 fun AnimatedBarItem(
     modifier: Modifier = Modifier,
-    targetHeight: androidx.compose.ui.unit.Dp,
+    targetHeight: Dp,
     delayMillis: Int,
     isSelected: Boolean,
     hasSelection: Boolean,
     isZero: Boolean,
     goldColor: Color,
-    isDark: Boolean,
+    isDark: Boolean = ThemeManager.isDarkTheme.value,
     onClick: () -> Unit
 ) {
     val animatedHeight = remember(targetHeight) { Animatable(0f) }
@@ -1543,14 +1600,13 @@ fun SummaryCard(
     cardBorder: Color,
     textMain: Color,
     textMuted: Color,
-    accentColor: Color,
     flameContent: (@Composable () -> Unit)? = null
 ) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(cardBg)
-            .border(1.dp, cardBorder.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+            .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
             .padding(12.dp)
     ) {
         Column(
