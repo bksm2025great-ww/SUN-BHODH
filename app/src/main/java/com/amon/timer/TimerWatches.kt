@@ -43,8 +43,8 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.*
 
 /**
- * 👑 AMON CENTRAL WATCH CONTAINER
- * तीनों घड़ियों को एक ही मॉड्यूलर हब में कंट्रोल करता है
+ * AMON CENTRAL WATCH CONTAINER
+ * चारों घड़ियों को एक ही मॉड्यूलर हब में कंट्रोल करता है
  */
 @Composable
 fun TimerWatchesContainer(
@@ -78,7 +78,7 @@ fun TimerWatchesContainer(
 
     var selectedWatchStyle by rememberSaveable {
         val saved = try {
-            watchPrefs.getInt("selected_watch_style", 0)
+            watchPrefs.getInt("selected_watch_style", 0).coerceIn(0, 3)
         } catch (_: Exception) {
             0
         }
@@ -86,14 +86,14 @@ fun TimerWatchesContainer(
     }
 
     val onPrevStyle = {
-        selectedWatchStyle = if (selectedWatchStyle > 0) selectedWatchStyle - 1 else 2
+        selectedWatchStyle = if (selectedWatchStyle > 0) selectedWatchStyle - 1 else 3
         try {
             watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
         } catch (_: Exception) {}
     }
 
     val onNextStyle = {
-        selectedWatchStyle = if (selectedWatchStyle < 2) selectedWatchStyle + 1 else 0
+        selectedWatchStyle = if (selectedWatchStyle < 3) selectedWatchStyle + 1 else 0
         try {
             watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
         } catch (_: Exception) {}
@@ -186,6 +186,20 @@ fun TimerWatchesContainer(
                         goldColor = goldColor,
                         isDark = isDark
                     )
+
+                    3 -> CarbonMatrixDigitalWatch(
+                        dialMinutes = dialMinutes,
+                        totalSeconds = totalSeconds,
+                        initialTotalSeconds = initialTotalSeconds,
+                        isRunning = isRunning,
+                        onCustomModeToggle = onCustomModeToggle,
+                        goldColor = goldColor,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        isDark = isDark,
+                        timeFormatted = timeFormatted,
+                        hours = hours
+                    )
                 }
             }
 
@@ -219,7 +233,7 @@ fun TimerWatchesContainer(
 }
 
 // =============================================================================
-// 🏹 PURE FLOATING CHEVRON BUTTON
+// PURE FLOATING CHEVRON BUTTON
 // =============================================================================
 @Composable
 private fun WatchNavArrowButton(
@@ -286,7 +300,7 @@ private fun SleekWideChevronRight(tint: Color, modifier: Modifier = Modifier) {
 }
 
 // =============================================================================
-// ⏱ WATCH STYLE 1: CLASSIC LUXE RING
+// WATCH STYLE 0: CLASSIC LUXE RING
 // =============================================================================
 @Composable
 private fun ClassicRingWatch(
@@ -374,7 +388,7 @@ private fun ClassicRingWatch(
 }
 
 // =============================================================================
-// 🕰 WATCH STYLE 2: 12-HOUR STYLE DYNAMIC ANALOG WATCH
+// WATCH STYLE 1: 12-HOUR STYLE DYNAMIC ANALOG WATCH (SINGLE NEEDLE OVER TIME)
 // =============================================================================
 @Composable
 private fun DynamicSessionAnalogWatch(
@@ -390,17 +404,14 @@ private fun DynamicSessionAnalogWatch(
     timeFormatted: String,
     hours: Int
 ) {
-    // कुल सेशन सेकंड (जैसे 25m = 1500s, 1h 25m = 5100s)
     val effectiveTotalSeconds = when {
         initialTotalSeconds > 0 -> initialTotalSeconds
         totalSeconds > 0 -> totalSeconds
         else -> (dialMinutes.toInt().coerceAtLeast(1)) * 60
     }
 
-    // टॉप (12 o'clock की जगह) पर दिखने वाले कुल मिनट: जैसे 25 या 85
     val topTotalMinutes = ((effectiveTotalSeconds + 59) / 60).coerceAtLeast(1)
 
-    // बीते हुए समय और बचे हुए समय का अनुपात (पूरा 360° चक्कर = पूरा सेशन)
     val remainingFraction = if (!isRunning) {
         1f
     } else {
@@ -408,7 +419,6 @@ private fun DynamicSessionAnalogWatch(
     }
     val elapsedFraction = (1f - remainingFraction).coerceIn(0f, 1f)
 
-    // सुई का कोण: 12 o'clock (-90f) से शुरू होकर 360° घूमने पर सेशन पूरा
     val needleAngleDeg = -90f + (elapsedFraction * 360f)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -424,11 +434,11 @@ private fun DynamicSessionAnalogWatch(
                 ),
             contentAlignment = Alignment.Center
         ) {
+            // 1. डायल, 60 टिक्स और प्रोग्रेस आर्क
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val radius = size.minDimension / 2f - 10.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
 
-                // 1. बाहरी घड़ी का डायल रिंग
                 drawCircle(
                     color = if (isDark) Color(0xFF16161F) else Color(0xFFF8FAFC),
                     radius = radius,
@@ -441,7 +451,6 @@ private fun DynamicSessionAnalogWatch(
                     style = Stroke(width = 3.5.dp.toPx())
                 )
 
-                // 2. 12-Hour Analog Watch के 60 टिक्स (12 मुख्य + 48 छोटे)
                 for (i in 0 until 60) {
                     val angleDeg = (i * 6f) - 90f
                     val rad = angleDeg * (PI.toFloat() / 180f)
@@ -476,7 +485,6 @@ private fun DynamicSessionAnalogWatch(
                     )
                 }
 
-                // 3. बचे हुए समय का प्रोग्रेस आर्क
                 val sweepRemaining = remainingFraction * 360f
                 if (isRunning && sweepRemaining > 0f) {
                     drawArc(
@@ -499,31 +507,44 @@ private fun DynamicSessionAnalogWatch(
                     size = Size(radius * 2f, radius * 2f),
                     style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
                 )
+            }
 
-                // 4. छोटी सेकेंडरी सुई (Hour-style hand जो आधी गति से चलती है)
-                val secondaryAngleDeg = -90f + (elapsedFraction * 180f)
-                rotate(degrees = secondaryAngleDeg + 90f, pivot = center) {
-                    drawLine(
-                        color = textMuted.copy(alpha = 0.45f),
-                        start = Offset(center.x, center.y + 8.dp.toPx()),
-                        end = Offset(center.x, center.y - radius * 0.48f),
-                        strokeWidth = 3.2.dp.toPx(),
-                        cap = StrokeCap.Round
-                    )
-                }
+            // टॉप पर कुल मिनट
+            Text(
+                text = "$topTotalMinutes",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black,
+                color = goldColor,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 26.dp)
+            )
 
-                // 5. मुख्य मिनट/सेशन सुई (Main Needle जो पूरे 360° चक्कर के साथ घूमती है)
+            // 2. डिजिटल टाइम बिल्कुल सेंटर में
+            Text(
+                text = timeFormatted,
+                fontSize = if (hours > 0) 26.sp else 32.sp,
+                fontWeight = FontWeight.Black,
+                color = textMain,
+                letterSpacing = (-0.5).sp,
+                modifier = Modifier.align(Alignment.Center)
+            )
+
+            // 3. केवल बड़ी सुई और सेंटर पिन (डिजिटल टाइम के ऊपर से निकलेगी)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val radius = size.minDimension / 2f - 10.dp.toPx()
+                val center = Offset(size.width / 2f, size.height / 2f)
+
                 rotate(degrees = needleAngleDeg + 90f, pivot = center) {
                     drawLine(
                         color = goldColor,
-                        start = Offset(center.x, center.y + 12.dp.toPx()),
-                        end = Offset(center.x, center.y - radius * 0.74f),
-                        strokeWidth = 2.6.dp.toPx(),
+                        start = Offset(center.x, center.y + 14.dp.toPx()),
+                        end = Offset(center.x, center.y - radius * 0.76f),
+                        strokeWidth = 3.dp.toPx(),
                         cap = StrokeCap.Round
                     )
                 }
 
-                // 6. सेंटर पिन (Center Cap)
                 drawCircle(
                     color = goldColor,
                     radius = 5.dp.toPx(),
@@ -535,35 +556,12 @@ private fun DynamicSessionAnalogWatch(
                     center = center
                 )
             }
-
-            // घड़ी के टॉप (12 की जगह) पर कुल मिनट: जैसे 25 या 85
-            Text(
-                text = "$topTotalMinutes",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Black,
-                color = goldColor,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 26.dp)
-            )
-
-            // बीच से थोड़ा नीचे डिजिटल टाइम रीडआउट ताकि सुई के सेंटर से साफ़ दिखे
-            Text(
-                text = timeFormatted,
-                fontSize = if (hours > 0) 26.sp else 30.sp,
-                fontWeight = FontWeight.Black,
-                color = textMain,
-                letterSpacing = (-0.5).sp,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 44.dp)
-            )
         }
     }
 }
 
 // =============================================================================
-// 📜 WATCH STYLE 3: RETRO FLIP CLOCK (UNIFIED WITH BOTTOM SHEET)
+// WATCH STYLE 2: RETRO FLIP CLOCK
 // =============================================================================
 @Composable
 private fun RetroFlipClockWatch(
@@ -694,8 +692,139 @@ private fun RetroFlipClockWatch(
     }
 }
 
+// =============================================================================
+// WATCH STYLE 3: CARBON MATRIX DIGITAL
+// =============================================================================
+@Composable
+private fun CarbonMatrixDigitalWatch(
+    dialMinutes: Float,
+    totalSeconds: Int,
+    initialTotalSeconds: Int,
+    isRunning: Boolean,
+    onCustomModeToggle: () -> Unit,
+    goldColor: Color,
+    textMain: Color,
+    textMuted: Color,
+    isDark: Boolean,
+    timeFormatted: String,
+    hours: Int
+) {
+    val effectiveTotalSeconds = when {
+        initialTotalSeconds > 0 -> initialTotalSeconds
+        totalSeconds > 0 -> totalSeconds
+        else -> (dialMinutes.toInt().coerceAtLeast(1)) * 60
+    }
+    val topTotalMinutes = ((effectiveTotalSeconds + 59) / 60).coerceAtLeast(1)
+
+    val remainingFraction = if (!isRunning) {
+        1f
+    } else {
+        (totalSeconds.toFloat() / effectiveTotalSeconds.toFloat()).coerceIn(0f, 1f)
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(258.dp)
+                .padding(vertical = 4.dp)
+                .clickable(
+                    enabled = !isRunning,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onCustomModeToggle
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val radius = size.minDimension / 2f - 10.dp.toPx()
+                val center = Offset(size.width / 2f, size.height / 2f)
+
+                // Dark Carbon Dial
+                drawCircle(
+                    color = if (isDark) Color(0xFF14141B) else Color(0xFFF8FAFC),
+                    radius = radius,
+                    center = center
+                )
+                // Metallic Bezel Ring
+                drawCircle(
+                    color = if (isDark) Color(0xFF282834) else Color(0xFFCBD5E1),
+                    radius = radius,
+                    center = center,
+                    style = Stroke(width = 4.dp.toPx())
+                )
+
+                // Segmented Outer Matrix Ticks (60 segments)
+                val totalSegments = 60
+                val activeSegments = (remainingFraction * totalSegments).roundToInt()
+
+                for (i in 0 until totalSegments) {
+                    val angleDeg = (i * 6f) - 90f
+                    val rad = angleDeg * (PI.toFloat() / 180f)
+                    val isMajor = (i % 5 == 0)
+                    val isLit = !isRunning || i < activeSegments
+
+                    val outerPtRadius = radius - 6.dp.toPx()
+                    val innerPtRadius = if (isMajor) radius - 14.dp.toPx() else radius - 10.dp.toPx()
+
+                    drawLine(
+                        color = if (isLit) {
+                            goldColor.copy(alpha = if (isMajor) 1f else 0.78f)
+                        } else {
+                            textMuted.copy(alpha = if (isDark) 0.18f else 0.15f)
+                        },
+                        start = Offset(center.x + innerPtRadius * cos(rad), center.y + innerPtRadius * sin(rad)),
+                        end = Offset(center.x + outerPtRadius * cos(rad), center.y + outerPtRadius * sin(rad)),
+                        strokeWidth = if (isMajor) 2.4.dp.toPx() else 1.6.dp.toPx(),
+                        cap = StrokeCap.Butt
+                    )
+                }
+
+                // Thin Inner Accent Ring
+                drawCircle(
+                    color = goldColor.copy(alpha = 0.22f),
+                    radius = radius - 19.dp.toPx(),
+                    center = center,
+                    style = Stroke(width = 1.dp.toPx())
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "$topTotalMinutes",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black,
+                    color = goldColor,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Text(
+                    text = timeFormatted,
+                    fontSize = if (hours > 0) 31.sp else 39.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    color = goldColor,
+                    letterSpacing = 2.sp,
+                    modifier = Modifier.padding(vertical = 2.dp)
+                )
+
+                Text(
+                    text = "LEFT",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textMuted.copy(alpha = 0.85f),
+                    letterSpacing = 2.2.sp,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        }
+    }
+}
+
 /**
- * 🎴 MECHANICAL SPLIT-FLAP COMPONENT
+ * MECHANICAL SPLIT-FLAP COMPONENT
  */
 @Composable
 private fun AuthenticSplitFlapCard(
@@ -895,7 +1024,7 @@ private fun SplitFlapHalfPlate(
 }
 
 // =============================================================================
-// 🌟 CUSTOM HORIZONTAL SLIDER
+// CUSTOM HORIZONTAL SLIDER
 // =============================================================================
 @Composable
 fun CustomHorizontalSlider(
