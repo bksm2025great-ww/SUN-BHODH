@@ -8,7 +8,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -29,6 +28,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
@@ -164,15 +164,15 @@ fun TimerWatchesContainer(
                         hours = hours
                     )
 
-                    1 -> RotaryDialWatch(
+                    1 -> DynamicSessionAnalogWatch(
                         dialMinutes = dialMinutes,
-                        onDialMinutesChange = onDialMinutesChange,
                         totalSeconds = totalSeconds,
                         initialTotalSeconds = initialTotalSeconds,
                         isRunning = isRunning,
                         onCustomModeToggle = onCustomModeToggle,
                         goldColor = goldColor,
                         textMain = textMain,
+                        textMuted = textMuted,
                         isDark = isDark,
                         timeFormatted = timeFormatted,
                         hours = hours
@@ -374,166 +374,190 @@ private fun ClassicRingWatch(
 }
 
 // =============================================================================
-// 🎛 WATCH STYLE 2: ROTARY DIAL
+// 🕰 WATCH STYLE 2: 12-HOUR STYLE DYNAMIC ANALOG WATCH
 // =============================================================================
 @Composable
-private fun RotaryDialWatch(
+private fun DynamicSessionAnalogWatch(
     dialMinutes: Float,
-    onDialMinutesChange: (Float) -> Unit,
     totalSeconds: Int,
     initialTotalSeconds: Int,
     isRunning: Boolean,
     onCustomModeToggle: () -> Unit,
     goldColor: Color,
     textMain: Color,
+    textMuted: Color,
     isDark: Boolean,
     timeFormatted: String,
     hours: Int
 ) {
-    var centerOffset by remember { mutableStateOf(Offset.Zero) }
+    // कुल सेशन सेकंड (जैसे 25m = 1500s, 1h 25m = 5100s)
+    val effectiveTotalSeconds = when {
+        initialTotalSeconds > 0 -> initialTotalSeconds
+        totalSeconds > 0 -> totalSeconds
+        else -> (dialMinutes.toInt().coerceAtLeast(1)) * 60
+    }
+
+    // टॉप (12 o'clock की जगह) पर दिखने वाले कुल मिनट: जैसे 25 या 85
+    val topTotalMinutes = ((effectiveTotalSeconds + 59) / 60).coerceAtLeast(1)
+
+    // बीते हुए समय और बचे हुए समय का अनुपात (पूरा 360° चक्कर = पूरा सेशन)
+    val remainingFraction = if (!isRunning) {
+        1f
+    } else {
+        (totalSeconds.toFloat() / effectiveTotalSeconds.toFloat()).coerceIn(0f, 1f)
+    }
+    val elapsedFraction = (1f - remainingFraction).coerceIn(0f, 1f)
+
+    // सुई का कोण: 12 o'clock (-90f) से शुरू होकर 360° घूमने पर सेशन पूरा
+    val needleAngleDeg = -90f + (elapsedFraction * 360f)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
                 .size(258.dp)
-                .padding(vertical = 4.dp),
+                .padding(vertical = 4.dp)
+                .clickable(
+                    enabled = !isRunning,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onCustomModeToggle
+                ),
             contentAlignment = Alignment.Center
         ) {
-            Canvas(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(isRunning) {
-                        if (!isRunning) {
-                            detectDragGestures { change, _ ->
-                                change.consume()
-                                val touchPos = change.position
-                                val dx = touchPos.x - centerOffset.x
-                                val dy = touchPos.y - centerOffset.y
-
-                                var angleDeg = (atan2(dy, dx) * (180f / PI.toFloat()))
-                                angleDeg = (angleDeg + 90f + 360f) % 360f
-
-                                val computedMins = (angleDeg / 360f) * 180f
-                                val snappedMins = (round(computedMins / 5f) * 5f).coerceIn(5f, 180f)
-
-                                if (snappedMins != dialMinutes) {
-                                    onDialMinutesChange(snappedMins)
-                                }
-                            }
-                        }
-                    }
-            ) {
-                val radius = size.minDimension / 2f - 14.dp.toPx()
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val radius = size.minDimension / 2f - 10.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
-                centerOffset = center
 
+                // 1. बाहरी घड़ी का डायल रिंग
                 drawCircle(
-                    color = if (isDark) Color(0xFF1E1E28) else Color(0xFFE2E8F0),
+                    color = if (isDark) Color(0xFF16161F) else Color(0xFFF8FAFC),
+                    radius = radius,
+                    center = center
+                )
+                drawCircle(
+                    color = if (isDark) Color(0xFF232330) else Color(0xFFE2E8F0),
                     radius = radius,
                     center = center,
-                    style = Stroke(width = 3.8.dp.toPx())
+                    style = Stroke(width = 3.5.dp.toPx())
                 )
 
-                if (!isRunning) {
-                    val totalMarks = 36
-                    for (i in 1..totalMarks) {
-                        val markMins = i * 5
-                        val markAngleDeg = (markMins / 180f) * 360f - 90f
-                        val rad = markAngleDeg * (PI.toFloat() / 180f)
+                // 2. 12-Hour Analog Watch के 60 टिक्स (12 मुख्य + 48 छोटे)
+                for (i in 0 until 60) {
+                    val angleDeg = (i * 6f) - 90f
+                    val rad = angleDeg * (PI.toFloat() / 180f)
+                    val isHourMark = (i % 5 == 0)
 
-                        val isMajor = (markMins % 30 == 0)
-                        val markLen = if (isMajor) 10.dp.toPx() else 5.dp.toPx()
-                        val markStroke = if (isMajor) 2.dp.toPx() else 1.2.dp.toPx()
-                        val markAlpha = if (isMajor) 0.8f else 0.35f
-
-                        val startX = center.x + (radius - 2.dp.toPx()) * cos(rad)
-                        val startY = center.y + (radius - 2.dp.toPx()) * sin(rad)
-                        val endX = center.x + (radius - 2.dp.toPx() - markLen) * cos(rad)
-                        val endY = center.y + (radius - 2.dp.toPx() - markLen) * sin(rad)
-
-                        drawLine(
-                            color = goldColor.copy(alpha = markAlpha),
-                            start = Offset(startX, startY),
-                            end = Offset(endX, endY),
-                            strokeWidth = markStroke,
-                            cap = StrokeCap.Round
-                        )
+                    val outerPtRadius = radius - 5.dp.toPx()
+                    val innerPtRadius = if (isHourMark) {
+                        radius - 14.dp.toPx()
+                    } else {
+                        radius - 9.dp.toPx()
                     }
 
-                    val sweep = (dialMinutes.coerceIn(5f, 180f) / 180f) * 360f
-                    drawArc(
-                        color = goldColor,
-                        startAngle = -90f,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        topLeft = Offset(center.x - radius, center.y - radius),
-                        size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 4.2.dp.toPx(), cap = StrokeCap.Round)
+                    val startPt = Offset(
+                        x = center.x + innerPtRadius * cos(rad),
+                        y = center.y + innerPtRadius * sin(rad)
+                    )
+                    val endPt = Offset(
+                        x = center.x + outerPtRadius * cos(rad),
+                        y = center.y + outerPtRadius * sin(rad)
                     )
 
-                    val knobAngleRad = (sweep - 90f) * (PI.toFloat() / 180f)
-                    val knobX = center.x + radius * cos(knobAngleRad)
-                    val knobY = center.y + radius * sin(knobAngleRad)
-
-                    drawCircle(color = goldColor.copy(alpha = 0.25f), radius = 14.dp.toPx(), center = Offset(knobX, knobY))
-                    drawCircle(color = goldColor, radius = 9.dp.toPx(), center = Offset(knobX, knobY))
-                    drawCircle(color = Color.White, radius = 3.dp.toPx(), center = Offset(knobX, knobY))
-                } else {
-                    val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
-                    val sweep = (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
-
-                    drawArc(
-                        color = goldColor.copy(alpha = 0.20f),
-                        startAngle = -90f,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        topLeft = Offset(center.x - radius, center.y - radius),
-                        size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 8.8.dp.toPx(), cap = StrokeCap.Round)
-                    )
-
-                    drawArc(
-                        color = goldColor,
-                        startAngle = -90f,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        topLeft = Offset(center.x - radius, center.y - radius),
-                        size = Size(radius * 2f, radius * 2f),
-                        style = Stroke(width = 4.4.dp.toPx(), cap = StrokeCap.Round)
+                    drawLine(
+                        color = if (isHourMark) {
+                            goldColor.copy(alpha = 0.75f)
+                        } else {
+                            textMuted.copy(alpha = 0.25f)
+                        },
+                        start = startPt,
+                        end = endPt,
+                        strokeWidth = if (isHourMark) 2.2.dp.toPx() else 1.1.dp.toPx(),
+                        cap = StrokeCap.Round
                     )
                 }
-            }
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(18.dp))
-                    .clickable(
-                        enabled = !isRunning,
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onCustomModeToggle
+                // 3. बचे हुए समय का प्रोग्रेस आर्क
+                val sweepRemaining = remainingFraction * 360f
+                if (isRunning && sweepRemaining > 0f) {
+                    drawArc(
+                        color = goldColor.copy(alpha = 0.18f),
+                        startAngle = needleAngleDeg,
+                        sweepAngle = sweepRemaining,
+                        useCenter = false,
+                        topLeft = Offset(center.x - radius, center.y - radius),
+                        size = Size(radius * 2f, radius * 2f),
+                        style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
                     )
-                    .padding(8.dp)
-            ) {
-                Text(
-                    text = timeFormatted,
-                    fontSize = if (hours > 0) 36.sp else 43.sp,
-                    fontWeight = FontWeight.Black,
-                    color = textMain,
-                    letterSpacing = if (hours > 0) (-0.5).sp else 0.sp
+                }
+
+                drawArc(
+                    color = goldColor,
+                    startAngle = needleAngleDeg,
+                    sweepAngle = sweepRemaining,
+                    useCenter = false,
+                    topLeft = Offset(center.x - radius, center.y - radius),
+                    size = Size(radius * 2f, radius * 2f),
+                    style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
                 )
-                if (!isRunning) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Rotate Dial",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = goldColor
+
+                // 4. छोटी सेकेंडरी सुई (Hour-style hand जो आधी गति से चलती है)
+                val secondaryAngleDeg = -90f + (elapsedFraction * 180f)
+                rotate(degrees = secondaryAngleDeg + 90f, pivot = center) {
+                    drawLine(
+                        color = textMuted.copy(alpha = 0.45f),
+                        start = Offset(center.x, center.y + 8.dp.toPx()),
+                        end = Offset(center.x, center.y - radius * 0.48f),
+                        strokeWidth = 3.2.dp.toPx(),
+                        cap = StrokeCap.Round
                     )
                 }
+
+                // 5. मुख्य मिनट/सेशन सुई (Main Needle जो पूरे 360° चक्कर के साथ घूमती है)
+                rotate(degrees = needleAngleDeg + 90f, pivot = center) {
+                    drawLine(
+                        color = goldColor,
+                        start = Offset(center.x, center.y + 12.dp.toPx()),
+                        end = Offset(center.x, center.y - radius * 0.74f),
+                        strokeWidth = 2.6.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                // 6. सेंटर पिन (Center Cap)
+                drawCircle(
+                    color = goldColor,
+                    radius = 5.dp.toPx(),
+                    center = center
+                )
+                drawCircle(
+                    color = if (isDark) Color(0xFF121216) else Color.White,
+                    radius = 2.dp.toPx(),
+                    center = center
+                )
             }
+
+            // घड़ी के टॉप (12 की जगह) पर कुल मिनट: जैसे 25 या 85
+            Text(
+                text = "$topTotalMinutes",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black,
+                color = goldColor,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 26.dp)
+            )
+
+            // बीच से थोड़ा नीचे डिजिटल टाइम रीडआउट ताकि सुई के सेंटर से साफ़ दिखे
+            Text(
+                text = timeFormatted,
+                fontSize = if (hours > 0) 26.sp else 30.sp,
+                fontWeight = FontWeight.Black,
+                color = textMain,
+                letterSpacing = (-0.5).sp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 44.dp)
+            )
         }
     }
 }
@@ -612,7 +636,7 @@ private fun RetroFlipClockWatch(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     enabled = !isRunning,
-                    onClick = onCustomModeToggle // 🎯 अब यह सीधे वही शेयर्ड बॉटम शीट खोलेगा
+                    onClick = onCustomModeToggle
                 )
             ) {
                 AuthenticSplitFlapCard(
@@ -643,7 +667,7 @@ private fun RetroFlipClockWatch(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     enabled = !isRunning,
-                    onClick = onCustomModeToggle // 🎯 अब यह सीधे वही शेयर्ड बॉटम शीट खोलेगा
+                    onClick = onCustomModeToggle
                 )
             ) {
                 AuthenticSplitFlapCard(
@@ -781,7 +805,6 @@ private fun AuthenticSplitFlapCard(
             }
         }
 
-        // 🌟 स्प्लिट सीम लाइन: लाइट थीम में बैकग्राउंड जैसा साफ़ रंग (#F8FAFC) ताकि कोई भूरा पैच न दिखे
         Box(
             modifier = Modifier
                 .fillMaxWidth()
