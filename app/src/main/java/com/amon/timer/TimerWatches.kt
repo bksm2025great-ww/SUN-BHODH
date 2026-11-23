@@ -434,7 +434,6 @@ private fun DynamicSessionAnalogWatch(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            // 1. डायल, 60 टिक्स और प्रोग्रेस आर्क
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val radius = size.minDimension / 2f - 10.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
@@ -509,7 +508,6 @@ private fun DynamicSessionAnalogWatch(
                 )
             }
 
-            // टॉप पर कुल मिनट
             Text(
                 text = "$topTotalMinutes",
                 fontSize = 13.sp,
@@ -520,7 +518,6 @@ private fun DynamicSessionAnalogWatch(
                     .padding(top = 26.dp)
             )
 
-            // 2. डिजिटल टाइम बिल्कुल सेंटर में
             Text(
                 text = timeFormatted,
                 fontSize = if (hours > 0) 26.sp else 32.sp,
@@ -530,7 +527,6 @@ private fun DynamicSessionAnalogWatch(
                 modifier = Modifier.align(Alignment.Center)
             )
 
-            // 3. केवल बड़ी सुई और सेंटर पिन (डिजिटल टाइम के ऊपर से निकलेगी)
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val radius = size.minDimension / 2f - 10.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
@@ -693,7 +689,7 @@ private fun RetroFlipClockWatch(
 }
 
 // =============================================================================
-// WATCH STYLE 3: CARBON MATRIX DIGITAL
+// WATCH STYLE 3: CARBON MATRIX DIGITAL (120 DENSE TICKS)
 // =============================================================================
 @Composable
 private fun CarbonMatrixDigitalWatch(
@@ -739,13 +735,11 @@ private fun CarbonMatrixDigitalWatch(
                 val radius = size.minDimension / 2f - 10.dp.toPx()
                 val center = Offset(size.width / 2f, size.height / 2f)
 
-                // Dark Carbon Dial
                 drawCircle(
                     color = if (isDark) Color(0xFF14141B) else Color(0xFFF8FAFC),
                     radius = radius,
                     center = center
                 )
-                // Metallic Bezel Ring
                 drawCircle(
                     color = if (isDark) Color(0xFF282834) else Color(0xFFCBD5E1),
                     radius = radius,
@@ -753,33 +747,47 @@ private fun CarbonMatrixDigitalWatch(
                     style = Stroke(width = 4.dp.toPx())
                 )
 
-                // Segmented Outer Matrix Ticks (60 segments)
-                val totalSegments = 60
+                // 120 Ticks (हर 3° पर एक टिक)
+                val totalSegments = 120
                 val activeSegments = (remainingFraction * totalSegments).roundToInt()
 
                 for (i in 0 until totalSegments) {
-                    val angleDeg = (i * 6f) - 90f
+                    val angleDeg = (i * 3f) - 90f
                     val rad = angleDeg * (PI.toFloat() / 180f)
-                    val isMajor = (i % 5 == 0)
+                    val isMajor = (i % 10 == 0)
+                    val isMedium = (i % 5 == 0)
                     val isLit = !isRunning || i < activeSegments
 
                     val outerPtRadius = radius - 6.dp.toPx()
-                    val innerPtRadius = if (isMajor) radius - 14.dp.toPx() else radius - 10.dp.toPx()
+                    val innerPtRadius = when {
+                        isMajor -> radius - 14.dp.toPx()
+                        isMedium -> radius - 11.dp.toPx()
+                        else -> radius - 9.dp.toPx()
+                    }
 
                     drawLine(
                         color = if (isLit) {
-                            goldColor.copy(alpha = if (isMajor) 1f else 0.78f)
+                            goldColor.copy(
+                                alpha = when {
+                                    isMajor -> 1f
+                                    isMedium -> 0.85f
+                                    else -> 0.65f
+                                }
+                            )
                         } else {
                             textMuted.copy(alpha = if (isDark) 0.18f else 0.15f)
                         },
                         start = Offset(center.x + innerPtRadius * cos(rad), center.y + innerPtRadius * sin(rad)),
                         end = Offset(center.x + outerPtRadius * cos(rad), center.y + outerPtRadius * sin(rad)),
-                        strokeWidth = if (isMajor) 2.4.dp.toPx() else 1.6.dp.toPx(),
+                        strokeWidth = when {
+                            isMajor -> 2.4.dp.toPx()
+                            isMedium -> 1.6.dp.toPx()
+                            else -> 1.1.dp.toPx()
+                        },
                         cap = StrokeCap.Butt
                     )
                 }
 
-                // Thin Inner Accent Ring
                 drawCircle(
                     color = goldColor.copy(alpha = 0.22f),
                     radius = radius - 19.dp.toPx(),
