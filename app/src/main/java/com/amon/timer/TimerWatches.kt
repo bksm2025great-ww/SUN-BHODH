@@ -862,7 +862,7 @@ private fun CarbonMatrixDigitalWatch(
 }
 
 // =============================================================================
-// WATCH STYLE 4: SAND HOURGLASS TIMER (NO TEXT INSIDE, TIME + % OUTSIDE BELOW)
+// WATCH STYLE 4: SAND HOURGLASS TIMER (SLOW MICRO-GRAINS + WOODEN/GRAY BORDER)
 // =============================================================================
 @Composable
 private fun SandHourglassTimerWatch(
@@ -891,16 +891,19 @@ private fun SandHourglassTimerWatch(
     val elapsedFraction = (1f - remainingFraction).coerceIn(0f, 1f)
     val progressPercent = (remainingFraction * 100f).roundToInt().coerceIn(0, 100)
 
-    val grainAnim = rememberInfiniteTransition(label = "sand_grain_stream")
+    // धीमी गति से गिरते हुए बारीक रेत के कण (micro grains)
+    val grainAnim = rememberInfiniteTransition(label = "slow_sand_micro_grains")
     val grainPhase by grainAnim.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 700, easing = LinearEasing),
+            animation = tween(durationMillis = 3200, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "sand_grain_phase"
+        label = "slow_grain_phase"
     )
+
+    val outerBorderColor = if (isDark) Color(0xFF9CA3AF) else Color(0xFF8D6E63)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -975,44 +978,40 @@ private fun SandHourglassTimerWatch(
                         )
                     }
 
+                    // बिना लकीर के सिर्फ बारीक रेत के कण (micro sand particles)
                     if (isRunning && remainingFraction > 0.01f) {
-                        drawLine(
-                            color = goldColor.copy(alpha = 0.75f),
-                            start = Offset(centerX, neckY),
-                            end = Offset(centerX, bottomY - lowerSandHeight.coerceAtLeast(8f)),
-                            strokeWidth = 2.dp.toPx(),
-                            cap = StrokeCap.Round
-                        )
-
-                        for (g in 0 until 4) {
-                            val t = (grainPhase + g * 0.25f) % 1f
-                            val gy = neckY + t * (bottomY - neckY - lowerSandHeight.coerceAtLeast(10f))
-                            val gx = centerX + sin(t * 12f + g) * 2.5.dp.toPx()
+                        val maxDropDist = (bottomY - neckY - lowerSandHeight.coerceAtLeast(10f)).coerceAtLeast(12f)
+                        for (g in 0 until 14) {
+                            val t = (grainPhase + g * (1f / 14f)) % 1f
+                            val gy = neckY + t * maxDropDist
+                            val spreadX = ((g % 3) - 1) * 1.4.dp.toPx() + sin(t * 7f + g * 1.7f) * 1.3.dp.toPx()
+                            val grainRadius = if (g % 3 == 0) 1.35.dp.toPx() else 0.95.dp.toPx()
                             drawCircle(
-                                color = goldColor,
-                                radius = 1.6.dp.toPx(),
-                                center = Offset(gx, gy)
+                                color = goldColor.copy(alpha = if (g % 2 == 0) 0.92f else 0.65f),
+                                radius = grainRadius,
+                                center = Offset(centerX + spreadX, gy)
                             )
                         }
                     }
                 }
 
+                // बाहरी कंटेनर/कैप्स का ग्रे/वुडन बॉर्डर
                 drawPath(
                     path = glassPath,
-                    color = goldColor.copy(alpha = 0.72f),
+                    color = outerBorderColor.copy(alpha = 0.85f),
                     style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                 )
 
                 val capWidth = w * 0.58f
                 val capHeight = 6.dp.toPx()
                 drawRoundRect(
-                    color = goldColor.copy(alpha = 0.85f),
+                    color = outerBorderColor,
                     topLeft = Offset(centerX - capWidth / 2f, topY - capHeight / 2f),
                     size = Size(capWidth, capHeight),
                     cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx())
                 )
                 drawRoundRect(
-                    color = goldColor.copy(alpha = 0.85f),
+                    color = outerBorderColor,
                     topLeft = Offset(centerX - capWidth / 2f, bottomY - capHeight / 2f),
                     size = Size(capWidth, capHeight),
                     cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx())
@@ -1040,7 +1039,7 @@ private fun SandHourglassTimerWatch(
 }
 
 // =============================================================================
-// WATCH STYLE 5: WATER WAVE TIMER (NO TEXT INSIDE, TIME + % OUTSIDE BELOW)
+// WATCH STYLE 5: WATER WAVE TIMER (HALF ON HOME, FILLS 0% -> 100% WHEN RUNNING)
 // =============================================================================
 @Composable
 private fun WaterWaveTimerWatch(
@@ -1066,14 +1065,22 @@ private fun WaterWaveTimerWatch(
     } else {
         (totalSeconds.toFloat() / effectiveTotalSeconds.toFloat()).coerceIn(0f, 1f)
     }
+    val elapsedFraction = (1f - remainingFraction).coerceIn(0f, 1f)
     val progressPercent = (remainingFraction * 100f).roundToInt().coerceIn(0, 100)
+
+    // मेन पेज पर आधा (50%) भरा दिखे, चलने पर खाली से भरते हुए 100% तक जाए
+    val tankLevelFraction = if (!isRunning) {
+        0.5f
+    } else {
+        elapsedFraction.coerceIn(0.03f, 1f)
+    }
 
     val waveTransition = rememberInfiniteTransition(label = "water_wave_anim")
     val waveShift by waveTransition.animateFloat(
         initialValue = 0f,
         targetValue = (2f * PI).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2400, easing = LinearEasing),
+            animation = tween(durationMillis = 2600, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "wave_phase"
@@ -1082,11 +1089,13 @@ private fun WaterWaveTimerWatch(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = LinearEasing),
+            animation = tween(durationMillis = 3200, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "bubble_phase"
     )
+
+    val outerBorderColor = if (isDark) Color(0xFF9CA3AF) else Color(0xFF8D6E63)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1128,8 +1137,8 @@ private fun WaterWaveTimerWatch(
                 clipPath(vesselPath) {
                     val topEdgeY = center.y - radius
                     val bottomEdgeY = center.y + radius
-                    val waterBaseY = bottomEdgeY - (radius * 2f * remainingFraction)
-                    val amp = if (isRunning) 5.5.dp.toPx() else 2.5.dp.toPx()
+                    val waterBaseY = bottomEdgeY - (radius * 2f * tankLevelFraction)
+                    val amp = if (isRunning) 6.dp.toPx() else 4.5.dp.toPx()
 
                     val backWavePath = Path().apply {
                         val stepPx = 8f
@@ -1181,8 +1190,9 @@ private fun WaterWaveTimerWatch(
                     }
                 }
 
+                // बाहरी ग्रे/वुडन बॉर्डर
                 drawCircle(
-                    color = goldColor.copy(alpha = 0.75f),
+                    color = outerBorderColor.copy(alpha = 0.85f),
                     radius = radius,
                     center = center,
                     style = Stroke(width = 3.dp.toPx())
