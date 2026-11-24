@@ -948,7 +948,7 @@ private fun SandHourglassTimerWatch(
                         val sandTopY = neckY - upperSandHeight
                         val upperSandPath = Path().apply {
                             moveTo(w * 0.15f, sandTopY)
-                            quadraticTo(centerX, sandTopY - 6.dp.toPx(), w * 0.85f, sandTopY)
+                            quadraticBezierTo(centerX, sandTopY - 6.dp.toPx(), w * 0.85f, sandTopY)
                             lineTo(w * 0.85f, neckY)
                             lineTo(w * 0.15f, neckY)
                             close()
@@ -965,7 +965,7 @@ private fun SandHourglassTimerWatch(
                         val lowerSandPath = Path().apply {
                             moveTo(w * 0.15f, bottomY)
                             lineTo(w * 0.15f, moundTopY + 5.dp.toPx())
-                            quadraticTo(centerX, moundTopY - 8.dp.toPx(), w * 0.85f, moundTopY + 5.dp.toPx())
+                            quadraticBezierTo(centerX, moundTopY - 8.dp.toPx(), w * 0.85f, moundTopY + 5.dp.toPx())
                             lineTo(w * 0.85f, bottomY)
                             close()
                         }
