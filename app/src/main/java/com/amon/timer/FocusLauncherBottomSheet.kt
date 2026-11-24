@@ -602,6 +602,7 @@ fun DrumScrollTimePickerDialog(
                         items = (0..8).map { "$it h" },
                         initialIndex = initialH,
                         onItemSelected = { selectedHour = it },
+                        isDark = isDark,
                         goldColor = goldColor,
                         textMain = textMain,
                         textMuted = textMuted,
@@ -622,6 +623,7 @@ fun DrumScrollTimePickerDialog(
                         items = minuteOptions.map { "$it m" },
                         initialIndex = mIndex,
                         onItemSelected = { selectedMin = minuteOptions[it] },
+                        isDark = isDark,
                         goldColor = goldColor,
                         textMain = textMain,
                         textMuted = textMuted,
@@ -664,6 +666,7 @@ fun DrumWheelColumn(
     items: List<String>,
     initialIndex: Int,
     onItemSelected: (Int) -> Unit,
+    isDark: Boolean,
     goldColor: Color,
     textMain: Color,
     textMuted: Color,
@@ -676,11 +679,12 @@ fun DrumWheelColumn(
         onItemSelected(listState.firstVisibleItemIndex.coerceIn(0, items.size - 1))
     }
 
+    val selectedNumberColor = if (isDark) Color.White else Color.Black
+
     Box(
         modifier = modifier.height(130.dp),
         contentAlignment = Alignment.Center
     ) {
-        // सिलेक्शन बॉक्स/बॉर्डर हटा दिया गया है ताकि नंबर एकदम क्लीन दिखें
         LazyColumn(
             state = listState,
             flingBehavior = snapBehavior,
@@ -700,7 +704,7 @@ fun DrumWheelColumn(
                         text = items[index],
                         fontSize = if (isSelected) 19.sp else 14.sp,
                         fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium,
-                        color = if (isSelected) Color.White else textMuted.copy(alpha = 0.6f)
+                        color = if (isSelected) selectedNumberColor else textMuted.copy(alpha = 0.6f)
                     )
                 }
             }
