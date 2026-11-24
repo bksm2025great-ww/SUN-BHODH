@@ -19,7 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -28,6 +30,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -44,7 +47,7 @@ import kotlin.math.*
 
 /**
  * AMON CENTRAL WATCH CONTAINER
- * चारों घड़ियों को एक ही मॉड्यूलर हब में कंट्रोल करता है
+ * सभी 6 घड़ियों को एक ही मॉड्यूलर हब में कंट्रोल करता है
  */
 @Composable
 fun TimerWatchesContainer(
@@ -72,13 +75,15 @@ fun TimerWatchesContainer(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
+    val maxStyleIndex = 5
+
     val watchPrefs = remember {
         context.getSharedPreferences("amon_watch_prefs", Context.MODE_PRIVATE)
     }
 
     var selectedWatchStyle by rememberSaveable {
         val saved = try {
-            watchPrefs.getInt("selected_watch_style", 0).coerceIn(0, 3)
+            watchPrefs.getInt("selected_watch_style", 0).coerceIn(0, maxStyleIndex)
         } catch (_: Exception) {
             0
         }
@@ -86,14 +91,14 @@ fun TimerWatchesContainer(
     }
 
     val onPrevStyle = {
-        selectedWatchStyle = if (selectedWatchStyle > 0) selectedWatchStyle - 1 else 3
+        selectedWatchStyle = if (selectedWatchStyle > 0) selectedWatchStyle - 1 else maxStyleIndex
         try {
             watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
         } catch (_: Exception) {}
     }
 
     val onNextStyle = {
-        selectedWatchStyle = if (selectedWatchStyle < 3) selectedWatchStyle + 1 else 0
+        selectedWatchStyle = if (selectedWatchStyle < maxStyleIndex) selectedWatchStyle + 1 else 0
         try {
             watchPrefs.edit().putInt("selected_watch_style", selectedWatchStyle).apply()
         } catch (_: Exception) {}
@@ -196,6 +201,32 @@ fun TimerWatchesContainer(
                         goldColor = goldColor,
                         textMain = textMain,
                         textMuted = textMuted,
+                        isDark = isDark,
+                        timeFormatted = timeFormatted,
+                        hours = hours
+                    )
+
+                    4 -> SandHourglassTimerWatch(
+                        dialMinutes = dialMinutes,
+                        totalSeconds = totalSeconds,
+                        initialTotalSeconds = initialTotalSeconds,
+                        isRunning = isRunning,
+                        onCustomModeToggle = onCustomModeToggle,
+                        goldColor = goldColor,
+                        textMain = textMain,
+                        isDark = isDark,
+                        timeFormatted = timeFormatted,
+                        hours = hours
+                    )
+
+                    else -> WaterWaveTimerWatch(
+                        dialMinutes = dialMinutes,
+                        totalSeconds = totalSeconds,
+                        initialTotalSeconds = initialTotalSeconds,
+                        isRunning = isRunning,
+                        onCustomModeToggle = onCustomModeToggle,
+                        goldColor = goldColor,
+                        textMain = textMain,
                         isDark = isDark,
                         timeFormatted = timeFormatted,
                         hours = hours
@@ -747,7 +778,6 @@ private fun CarbonMatrixDigitalWatch(
                     style = Stroke(width = 4.dp.toPx())
                 )
 
-                // 120 Ticks (हर 3° पर एक टिक)
                 val totalSegments = 120
                 val activeSegments = (remainingFraction * totalSegments).roundToInt()
 
@@ -828,6 +858,354 @@ private fun CarbonMatrixDigitalWatch(
                 )
             }
         }
+    }
+}
+
+// =============================================================================
+// WATCH STYLE 4: SAND HOURGLASS TIMER (NO TEXT INSIDE, TIME + % OUTSIDE BELOW)
+// =============================================================================
+@Composable
+private fun SandHourglassTimerWatch(
+    dialMinutes: Float,
+    totalSeconds: Int,
+    initialTotalSeconds: Int,
+    isRunning: Boolean,
+    onCustomModeToggle: () -> Unit,
+    goldColor: Color,
+    textMain: Color,
+    isDark: Boolean,
+    timeFormatted: String,
+    hours: Int
+) {
+    val effectiveTotalSeconds = when {
+        initialTotalSeconds > 0 -> initialTotalSeconds
+        totalSeconds > 0 -> totalSeconds
+        else -> (dialMinutes.toInt().coerceAtLeast(1)) * 60
+    }
+
+    val remainingFraction = if (!isRunning) {
+        1f
+    } else {
+        (totalSeconds.toFloat() / effectiveTotalSeconds.toFloat()).coerceIn(0f, 1f)
+    }
+    val elapsedFraction = (1f - remainingFraction).coerceIn(0f, 1f)
+    val progressPercent = (remainingFraction * 100f).roundToInt().coerceIn(0, 100)
+
+    val grainAnim = rememberInfiniteTransition(label = "sand_grain_stream")
+    val grainPhase by grainAnim.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 700, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "sand_grain_phase"
+    )
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clickable(
+                enabled = !isRunning,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onCustomModeToggle
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .size(210.dp)
+                .padding(vertical = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
+                val centerX = w / 2f
+                val neckY = h * 0.50f
+                val topY = h * 0.10f
+                val bottomY = h * 0.90f
+
+                val glassPath = Path().apply {
+                    moveTo(w * 0.24f, topY)
+                    lineTo(w * 0.76f, topY)
+                    cubicTo(w * 0.76f, h * 0.34f, centerX + w * 0.05f, neckY - h * 0.05f, centerX + w * 0.03f, neckY)
+                    cubicTo(centerX + w * 0.05f, neckY + h * 0.05f, w * 0.76f, h * 0.66f, w * 0.76f, bottomY)
+                    lineTo(w * 0.24f, bottomY)
+                    cubicTo(w * 0.24f, h * 0.66f, centerX - w * 0.05f, neckY + h * 0.05f, centerX - w * 0.03f, neckY)
+                    cubicTo(centerX - w * 0.05f, neckY - h * 0.05f, w * 0.24f, h * 0.34f, w * 0.24f, topY)
+                    close()
+                }
+
+                drawPath(
+                    path = glassPath,
+                    color = if (isDark) Color(0xFF161620) else Color(0xFFF8FAFC)
+                )
+
+                clipPath(glassPath) {
+                    val upperSandHeight = (neckY - (topY + h * 0.08f)) * remainingFraction
+                    if (upperSandHeight > 1f) {
+                        val sandTopY = neckY - upperSandHeight
+                        val upperSandPath = Path().apply {
+                            moveTo(w * 0.15f, sandTopY)
+                            quadraticTo(centerX, sandTopY - 6.dp.toPx(), w * 0.85f, sandTopY)
+                            lineTo(w * 0.85f, neckY)
+                            lineTo(w * 0.15f, neckY)
+                            close()
+                        }
+                        drawPath(
+                            path = upperSandPath,
+                            color = goldColor.copy(alpha = 0.88f)
+                        )
+                    }
+
+                    val lowerSandHeight = ((bottomY - h * 0.04f) - neckY) * elapsedFraction
+                    if (lowerSandHeight > 1f) {
+                        val moundTopY = bottomY - lowerSandHeight
+                        val lowerSandPath = Path().apply {
+                            moveTo(w * 0.15f, bottomY)
+                            lineTo(w * 0.15f, moundTopY + 5.dp.toPx())
+                            quadraticTo(centerX, moundTopY - 8.dp.toPx(), w * 0.85f, moundTopY + 5.dp.toPx())
+                            lineTo(w * 0.85f, bottomY)
+                            close()
+                        }
+                        drawPath(
+                            path = lowerSandPath,
+                            color = goldColor
+                        )
+                    }
+
+                    if (isRunning && remainingFraction > 0.01f) {
+                        drawLine(
+                            color = goldColor.copy(alpha = 0.75f),
+                            start = Offset(centerX, neckY),
+                            end = Offset(centerX, bottomY - lowerSandHeight.coerceAtLeast(8f)),
+                            strokeWidth = 2.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+
+                        for (g in 0 until 4) {
+                            val t = (grainPhase + g * 0.25f) % 1f
+                            val gy = neckY + t * (bottomY - neckY - lowerSandHeight.coerceAtLeast(10f))
+                            val gx = centerX + sin(t * 12f + g) * 2.5.dp.toPx()
+                            drawCircle(
+                                color = goldColor,
+                                radius = 1.6.dp.toPx(),
+                                center = Offset(gx, gy)
+                            )
+                        }
+                    }
+                }
+
+                drawPath(
+                    path = glassPath,
+                    color = goldColor.copy(alpha = 0.72f),
+                    style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                )
+
+                val capWidth = w * 0.58f
+                val capHeight = 6.dp.toPx()
+                drawRoundRect(
+                    color = goldColor.copy(alpha = 0.85f),
+                    topLeft = Offset(centerX - capWidth / 2f, topY - capHeight / 2f),
+                    size = Size(capWidth, capHeight),
+                    cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx())
+                )
+                drawRoundRect(
+                    color = goldColor.copy(alpha = 0.85f),
+                    topLeft = Offset(centerX - capWidth / 2f, bottomY - capHeight / 2f),
+                    size = Size(capWidth, capHeight),
+                    cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx())
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = timeFormatted,
+            fontSize = if (hours > 0) 34.sp else 40.sp,
+            fontWeight = FontWeight.Black,
+            color = textMain,
+            letterSpacing = if (hours > 0) (-0.5).sp else 0.sp
+        )
+        Text(
+            text = "$progressPercent%",
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = goldColor,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+    }
+}
+
+// =============================================================================
+// WATCH STYLE 5: WATER WAVE TIMER (NO TEXT INSIDE, TIME + % OUTSIDE BELOW)
+// =============================================================================
+@Composable
+private fun WaterWaveTimerWatch(
+    dialMinutes: Float,
+    totalSeconds: Int,
+    initialTotalSeconds: Int,
+    isRunning: Boolean,
+    onCustomModeToggle: () -> Unit,
+    goldColor: Color,
+    textMain: Color,
+    isDark: Boolean,
+    timeFormatted: String,
+    hours: Int
+) {
+    val effectiveTotalSeconds = when {
+        initialTotalSeconds > 0 -> initialTotalSeconds
+        totalSeconds > 0 -> totalSeconds
+        else -> (dialMinutes.toInt().coerceAtLeast(1)) * 60
+    }
+
+    val remainingFraction = if (!isRunning) {
+        1f
+    } else {
+        (totalSeconds.toFloat() / effectiveTotalSeconds.toFloat()).coerceIn(0f, 1f)
+    }
+    val progressPercent = (remainingFraction * 100f).roundToInt().coerceIn(0, 100)
+
+    val waveTransition = rememberInfiniteTransition(label = "water_wave_anim")
+    val waveShift by waveTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2f * PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "wave_phase"
+    )
+    val bubbleShift by waveTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "bubble_phase"
+    )
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clickable(
+                enabled = !isRunning,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onCustomModeToggle
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .size(210.dp)
+                .padding(vertical = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val radius = size.minDimension / 2f - 8.dp.toPx()
+                val center = Offset(size.width / 2f, size.height / 2f)
+
+                val vesselPath = Path().apply {
+                    addOval(
+                        Rect(
+                            left = center.x - radius,
+                            top = center.y - radius,
+                            right = center.x + radius,
+                            bottom = center.y + radius
+                        )
+                    )
+                }
+
+                drawCircle(
+                    color = if (isDark) Color(0xFF15151E) else Color(0xFFF8FAFC),
+                    radius = radius,
+                    center = center
+                )
+
+                clipPath(vesselPath) {
+                    val topEdgeY = center.y - radius
+                    val bottomEdgeY = center.y + radius
+                    val waterBaseY = bottomEdgeY - (radius * 2f * remainingFraction)
+                    val amp = if (isRunning) 5.5.dp.toPx() else 2.5.dp.toPx()
+
+                    val backWavePath = Path().apply {
+                        val stepPx = 8f
+                        var x = center.x - radius
+                        moveTo(x, bottomEdgeY)
+                        while (x <= center.x + radius + stepPx) {
+                            val normX = ((x - (center.x - radius)) / (radius * 2f)) * (2f * PI).toFloat()
+                            val y = waterBaseY - 3.dp.toPx() + sin(normX + waveShift * 0.7f + 1.2f) * (amp * 0.8f)
+                            lineTo(x, y)
+                            x += stepPx
+                        }
+                        lineTo(center.x + radius, bottomEdgeY)
+                        close()
+                    }
+                    drawPath(
+                        path = backWavePath,
+                        color = goldColor.copy(alpha = 0.35f)
+                    )
+
+                    val frontWavePath = Path().apply {
+                        val stepPx = 8f
+                        var x = center.x - radius
+                        moveTo(x, bottomEdgeY)
+                        while (x <= center.x + radius + stepPx) {
+                            val normX = ((x - (center.x - radius)) / (radius * 2f)) * (2f * PI).toFloat()
+                            val y = waterBaseY + cos(normX + waveShift) * amp
+                            lineTo(x, y)
+                            x += stepPx
+                        }
+                        lineTo(center.x + radius, bottomEdgeY)
+                        close()
+                    }
+                    drawPath(
+                        path = frontWavePath,
+                        color = goldColor.copy(alpha = 0.72f)
+                    )
+
+                    for (b in 0 until 5) {
+                        val phase = (bubbleShift + b * 0.2f) % 1f
+                        val bx = center.x - radius * 0.55f + ((b * 37) % 100) / 100f * (radius * 1.1f)
+                        val by = bottomEdgeY - phase * (radius * 1.7f)
+                        if (by >= topEdgeY + 10f) {
+                            drawCircle(
+                                color = if (isDark) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.55f),
+                                radius = (2.dp + (b % 2).dp).toPx(),
+                                center = Offset(bx, by)
+                            )
+                        }
+                    }
+                }
+
+                drawCircle(
+                    color = goldColor.copy(alpha = 0.75f),
+                    radius = radius,
+                    center = center,
+                    style = Stroke(width = 3.dp.toPx())
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = timeFormatted,
+            fontSize = if (hours > 0) 34.sp else 40.sp,
+            fontWeight = FontWeight.Black,
+            color = textMain,
+            letterSpacing = if (hours > 0) (-0.5).sp else 0.sp
+        )
+        Text(
+            text = "$progressPercent%",
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = goldColor,
+            modifier = Modifier.padding(top = 2.dp)
+        )
     }
 }
 
