@@ -46,6 +46,32 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.*
 
 /**
+ * किसी भी सेशन (Focus या Pomodoro Break) के लिए कुल सेकंड निकालने का एकसमान नियम:
+ * ताकि ब्रेक शुरू होते ही आधा या 1/4 से न दिखे, बल्कि पूरे ब्रेक समय (0 से ब्रेक मिनट तक) पर स्केल हो।
+ */
+private fun resolveEffectiveSessionSeconds(
+    dialMinutes: Float,
+    totalSeconds: Int,
+    initialTotalSeconds: Int
+): Int {
+    val dialSecs = (dialMinutes.toInt().coerceAtLeast(1)) * 60
+    return when {
+        initialTotalSeconds > 0 && totalSeconds <= initialTotalSeconds -> initialTotalSeconds
+        totalSeconds > 0 -> {
+            val roundedMinutes = ((totalSeconds + 59) / 60).coerceAtLeast(1)
+            val candidate = roundedMinutes * 60
+            if (initialTotalSeconds > 0 && abs(initialTotalSeconds - totalSeconds) > dialSecs) {
+                candidate
+            } else {
+                maxOf(candidate, totalSeconds)
+            }
+        }
+        initialTotalSeconds > 0 -> initialTotalSeconds
+        else -> dialSecs
+    }
+}
+
+/**
  * AMON CENTRAL WATCH CONTAINER
  * सभी 6 घड़ियों को एक ही मॉड्यूलर हब में कंट्रोल करता है
  */
@@ -158,6 +184,7 @@ fun TimerWatchesContainer(
             ) { style ->
                 when (style) {
                     0 -> ClassicRingWatch(
+                        dialMinutes = dialMinutes,
                         totalSeconds = totalSeconds,
                         initialTotalSeconds = initialTotalSeconds,
                         isRunning = isRunning,
@@ -331,10 +358,11 @@ private fun SleekWideChevronRight(tint: Color, modifier: Modifier = Modifier) {
 }
 
 // =============================================================================
-// WATCH STYLE 0: CLASSIC LUXE RING
+// WATCH STYLE 0: CLASSIC LUXE RING (FULL CIRCLE AT START OF SESSION & BREAK)
 // =============================================================================
 @Composable
 private fun ClassicRingWatch(
+    dialMinutes: Float,
     totalSeconds: Int,
     initialTotalSeconds: Int,
     isRunning: Boolean,
@@ -345,6 +373,12 @@ private fun ClassicRingWatch(
     timeFormatted: String,
     hours: Int
 ) {
+    val effectiveTotalSeconds = resolveEffectiveSessionSeconds(
+        dialMinutes = dialMinutes,
+        totalSeconds = totalSeconds,
+        initialTotalSeconds = initialTotalSeconds
+    )
+
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
@@ -363,11 +397,10 @@ private fun ClassicRingWatch(
                     style = Stroke(width = 3.8.dp.toPx())
                 )
 
-                val maxSeconds = if (initialTotalSeconds > 0) initialTotalSeconds else maxOf(totalSeconds, 1)
                 val sweep = if (!isRunning) {
                     360f
                 } else {
-                    (totalSeconds.toFloat() / maxSeconds.toFloat() * 360f).coerceIn(0f, 360f)
+                    (totalSeconds.toFloat() / effectiveTotalSeconds.toFloat() * 360f).coerceIn(0f, 360f)
                 }
 
                 if (isRunning) {
@@ -435,11 +468,11 @@ private fun DynamicSessionAnalogWatch(
     timeFormatted: String,
     hours: Int
 ) {
-    val effectiveTotalSeconds = when {
-        initialTotalSeconds > 0 -> initialTotalSeconds
-        totalSeconds > 0 -> totalSeconds
-        else -> (dialMinutes.toInt().coerceAtLeast(1)) * 60
-    }
+    val effectiveTotalSeconds = resolveEffectiveSessionSeconds(
+        dialMinutes = dialMinutes,
+        totalSeconds = totalSeconds,
+        initialTotalSeconds = initialTotalSeconds
+    )
 
     val topTotalMinutes = ((effectiveTotalSeconds + 59) / 60).coerceAtLeast(1)
 
@@ -736,11 +769,11 @@ private fun CarbonMatrixDigitalWatch(
     timeFormatted: String,
     hours: Int
 ) {
-    val effectiveTotalSeconds = when {
-        initialTotalSeconds > 0 -> initialTotalSeconds
-        totalSeconds > 0 -> totalSeconds
-        else -> (dialMinutes.toInt().coerceAtLeast(1)) * 60
-    }
+    val effectiveTotalSeconds = resolveEffectiveSessionSeconds(
+        dialMinutes = dialMinutes,
+        totalSeconds = totalSeconds,
+        initialTotalSeconds = initialTotalSeconds
+    )
     val topTotalMinutes = ((effectiveTotalSeconds + 59) / 60).coerceAtLeast(1)
 
     val remainingFraction = if (!isRunning) {
@@ -862,7 +895,7 @@ private fun CarbonMatrixDigitalWatch(
 }
 
 // =============================================================================
-// WATCH STYLE 4: SAND HOURGLASS TIMER (SLOW MICRO-GRAINS + WOODEN/GRAY BORDER)
+// WATCH STYLE 4: SAND HOURGLASS TIMER (FULL BREAK SCALE + MOUND + MICRO GRAINS)
 // =============================================================================
 @Composable
 private fun SandHourglassTimerWatch(
@@ -877,11 +910,11 @@ private fun SandHourglassTimerWatch(
     timeFormatted: String,
     hours: Int
 ) {
-    val effectiveTotalSeconds = when {
-        initialTotalSeconds > 0 -> initialTotalSeconds
-        totalSeconds > 0 -> totalSeconds
-        else -> (dialMinutes.toInt().coerceAtLeast(1)) * 60
-    }
+    val effectiveTotalSeconds = resolveEffectiveSessionSeconds(
+        dialMinutes = dialMinutes,
+        totalSeconds = totalSeconds,
+        initialTotalSeconds = initialTotalSeconds
+    )
 
     val remainingFraction = if (!isRunning) {
         1f
@@ -891,7 +924,6 @@ private fun SandHourglassTimerWatch(
     val elapsedFraction = (1f - remainingFraction).coerceIn(0f, 1f)
     val progressPercent = (remainingFraction * 100f).roundToInt().coerceIn(0, 100)
 
-    // धीमी गति से गिरते हुए बारीक रेत के कण (micro grains)
     val grainAnim = rememberInfiniteTransition(label = "slow_sand_micro_grains")
     val grainPhase by grainAnim.animateFloat(
         initialValue = 0f,
@@ -947,13 +979,17 @@ private fun SandHourglassTimerWatch(
 
                 clipPath(glassPath) {
                     val upperSandHeight = (neckY - (topY + h * 0.08f)) * remainingFraction
+                    val lowerSandHeight = ((bottomY - h * 0.04f) - neckY) * elapsedFraction
+                    val moundPeakHeight = (lowerSandHeight * 0.52f).coerceIn(0f, 24.dp.toPx())
+
                     if (upperSandHeight > 1f) {
                         val sandTopY = neckY - upperSandHeight
+                        val funnelDip = if (isRunning && remainingFraction > 0.02f) 6.dp.toPx() else 0f
                         val upperSandPath = Path().apply {
-                            moveTo(w * 0.15f, sandTopY)
-                            quadraticBezierTo(centerX, sandTopY - 6.dp.toPx(), w * 0.85f, sandTopY)
-                            lineTo(w * 0.85f, neckY)
-                            lineTo(w * 0.15f, neckY)
+                            moveTo(w * 0.14f, sandTopY)
+                            quadraticBezierTo(centerX, sandTopY + funnelDip, w * 0.86f, sandTopY)
+                            lineTo(w * 0.86f, neckY)
+                            lineTo(w * 0.14f, neckY)
                             close()
                         }
                         drawPath(
@@ -962,32 +998,53 @@ private fun SandHourglassTimerWatch(
                         )
                     }
 
-                    val lowerSandHeight = ((bottomY - h * 0.04f) - neckY) * elapsedFraction
                     if (lowerSandHeight > 1f) {
-                        val moundTopY = bottomY - lowerSandHeight
-                        val lowerSandPath = Path().apply {
+                        val edgeBaseY = bottomY - (lowerSandHeight - moundPeakHeight * 0.45f).coerceAtLeast(0f)
+                        val peakY = (edgeBaseY - moundPeakHeight).coerceAtLeast(neckY + 4.dp.toPx())
+
+                        val backSlopePath = Path().apply {
+                            moveTo(w * 0.16f, bottomY)
+                            lineTo(w * 0.18f, edgeBaseY)
+                            lineTo(centerX, peakY)
+                            lineTo(w * 0.82f, edgeBaseY)
+                            lineTo(w * 0.84f, bottomY)
+                            close()
+                        }
+                        drawPath(
+                            path = backSlopePath,
+                            color = goldColor.copy(alpha = 0.72f)
+                        )
+
+                        val frontMoundPath = Path().apply {
                             moveTo(w * 0.15f, bottomY)
-                            lineTo(w * 0.15f, moundTopY + 5.dp.toPx())
-                            quadraticBezierTo(centerX, moundTopY - 8.dp.toPx(), w * 0.85f, moundTopY + 5.dp.toPx())
+                            lineTo(w * 0.20f, edgeBaseY + 2.dp.toPx())
+                            quadraticBezierTo(centerX - 4.dp.toPx(), peakY, centerX, peakY)
+                            quadraticBezierTo(centerX + 4.dp.toPx(), peakY, w * 0.80f, edgeBaseY + 2.dp.toPx())
                             lineTo(w * 0.85f, bottomY)
                             close()
                         }
                         drawPath(
-                            path = lowerSandPath,
+                            path = frontMoundPath,
                             color = goldColor
                         )
                     }
 
-                    // बिना लकीर के सिर्फ बारीक रेत के कण (micro sand particles)
                     if (isRunning && remainingFraction > 0.01f) {
-                        val maxDropDist = (bottomY - neckY - lowerSandHeight.coerceAtLeast(10f)).coerceAtLeast(12f)
-                        for (g in 0 until 14) {
-                            val t = (grainPhase + g * (1f / 14f)) % 1f
+                        val peakTargetY = if (lowerSandHeight > 1f) {
+                            val edgeBaseY = bottomY - (lowerSandHeight - moundPeakHeight * 0.45f).coerceAtLeast(0f)
+                            (edgeBaseY - moundPeakHeight).coerceAtLeast(neckY + 4.dp.toPx())
+                        } else {
+                            bottomY - 4.dp.toPx()
+                        }
+                        val maxDropDist = (peakTargetY - neckY).coerceAtLeast(10f)
+
+                        for (g in 0 until 16) {
+                            val t = (grainPhase + g * (1f / 16f)) % 1f
                             val gy = neckY + t * maxDropDist
-                            val spreadX = ((g % 3) - 1) * 1.4.dp.toPx() + sin(t * 7f + g * 1.7f) * 1.3.dp.toPx()
-                            val grainRadius = if (g % 3 == 0) 1.35.dp.toPx() else 0.95.dp.toPx()
+                            val spreadX = ((g % 3) - 1) * 1.3.dp.toPx() + sin(t * 6f + g * 1.9f) * 1.2.dp.toPx()
+                            val grainRadius = if (g % 4 == 0) 1.3.dp.toPx() else 0.9.dp.toPx()
                             drawCircle(
-                                color = goldColor.copy(alpha = if (g % 2 == 0) 0.92f else 0.65f),
+                                color = goldColor.copy(alpha = if (g % 2 == 0) 0.92f else 0.62f),
                                 radius = grainRadius,
                                 center = Offset(centerX + spreadX, gy)
                             )
@@ -995,7 +1052,6 @@ private fun SandHourglassTimerWatch(
                     }
                 }
 
-                // बाहरी कंटेनर/कैप्स का ग्रे/वुडन बॉर्डर
                 drawPath(
                     path = glassPath,
                     color = outerBorderColor.copy(alpha = 0.85f),
@@ -1039,7 +1095,7 @@ private fun SandHourglassTimerWatch(
 }
 
 // =============================================================================
-// WATCH STYLE 5: WATER WAVE TIMER (HALF ON HOME, FILLS 0% -> 100% WHEN RUNNING)
+// WATCH STYLE 5: WATER WAVE TIMER (EMPTY -> FULL FOR BOTH SESSION & BREAK)
 // =============================================================================
 @Composable
 private fun WaterWaveTimerWatch(
@@ -1054,11 +1110,11 @@ private fun WaterWaveTimerWatch(
     timeFormatted: String,
     hours: Int
 ) {
-    val effectiveTotalSeconds = when {
-        initialTotalSeconds > 0 -> initialTotalSeconds
-        totalSeconds > 0 -> totalSeconds
-        else -> (dialMinutes.toInt().coerceAtLeast(1)) * 60
-    }
+    val effectiveTotalSeconds = resolveEffectiveSessionSeconds(
+        dialMinutes = dialMinutes,
+        totalSeconds = totalSeconds,
+        initialTotalSeconds = initialTotalSeconds
+    )
 
     val remainingFraction = if (!isRunning) {
         1f
@@ -1068,12 +1124,17 @@ private fun WaterWaveTimerWatch(
     val elapsedFraction = (1f - remainingFraction).coerceIn(0f, 1f)
     val progressPercent = (remainingFraction * 100f).roundToInt().coerceIn(0, 100)
 
-    // मेन पेज पर आधा (50%) भरा दिखे, चलने पर खाली से भरते हुए 100% तक जाए
+    // मेन पेज पर आधा (50%) भरा दिखे, चलने (या ब्रेक चलने) पर खाली से भरते हुए 100% तक जाए
     val tankLevelFraction = if (!isRunning) {
         0.5f
     } else {
         elapsedFraction.coerceIn(0.03f, 1f)
     }
+
+    val backWaterColor = Color(0xFF0284C7).copy(alpha = 0.45f)
+    val frontWaterColor = Color(0xFF38BDF8).copy(alpha = 0.78f)
+    val bubbleColor = Color(0xFFE0F2FE).copy(alpha = 0.65f)
+    val outerBorderColor = if (isDark) Color(0xFF9CA3AF) else Color(0xFF8D6E63)
 
     val waveTransition = rememberInfiniteTransition(label = "water_wave_anim")
     val waveShift by waveTransition.animateFloat(
@@ -1094,8 +1155,6 @@ private fun WaterWaveTimerWatch(
         ),
         label = "bubble_phase"
     )
-
-    val outerBorderColor = if (isDark) Color(0xFF9CA3AF) else Color(0xFF8D6E63)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1129,7 +1188,7 @@ private fun WaterWaveTimerWatch(
                 }
 
                 drawCircle(
-                    color = if (isDark) Color(0xFF15151E) else Color(0xFFF8FAFC),
+                    color = if (isDark) Color(0xFF121822) else Color(0xFFF0F9FF),
                     radius = radius,
                     center = center
                 )
@@ -1155,7 +1214,7 @@ private fun WaterWaveTimerWatch(
                     }
                     drawPath(
                         path = backWavePath,
-                        color = goldColor.copy(alpha = 0.35f)
+                        color = backWaterColor
                     )
 
                     val frontWavePath = Path().apply {
@@ -1173,7 +1232,7 @@ private fun WaterWaveTimerWatch(
                     }
                     drawPath(
                         path = frontWavePath,
-                        color = goldColor.copy(alpha = 0.72f)
+                        color = frontWaterColor
                     )
 
                     for (b in 0 until 5) {
@@ -1182,7 +1241,7 @@ private fun WaterWaveTimerWatch(
                         val by = bottomEdgeY - phase * (radius * 1.7f)
                         if (by >= topEdgeY + 10f) {
                             drawCircle(
-                                color = if (isDark) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.55f),
+                                color = bubbleColor,
                                 radius = (2.dp + (b % 2).dp).toPx(),
                                 center = Offset(bx, by)
                             )
@@ -1190,7 +1249,6 @@ private fun WaterWaveTimerWatch(
                     }
                 }
 
-                // बाहरी ग्रे/वुडन बॉर्डर
                 drawCircle(
                     color = outerBorderColor.copy(alpha = 0.85f),
                     radius = radius,
