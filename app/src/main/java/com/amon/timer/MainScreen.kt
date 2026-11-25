@@ -7,6 +7,7 @@ import android.content.pm.ActivityInfo
 import android.graphics.Color as AndroidColor
 import android.graphics.drawable.ColorDrawable
 import android.os.Build
+import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
@@ -258,6 +259,7 @@ fun MainScreen() {
     var currentNavIndex by remember { mutableIntStateOf(0) }
 
     var showStreakBottomSheet by rememberSaveable { mutableStateOf(false) }
+    var showBlockSettingsSheet by rememberSaveable { mutableStateOf(false) }
 
     val isDark = ThemeManager.isDarkTheme.value
     val isRunning = TimerService.isTimerRunning.value
@@ -625,7 +627,119 @@ fun MainScreen() {
                         onDirectEndSession = onDirectEndSession
                     )
                     1 -> StatsScreen()
-                    2 -> ProfileScreen()
+                    2 -> BlockTabPlaceholderScreen(
+                        context = context,
+                        isDark = isDark,
+                        cardBg = cardBg,
+                        glassBorder = glassBorder,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        goldColor = goldColor,
+                        onOpenBlockSettings = { showBlockSettingsSheet = true }
+                    )
+                    else -> ProfileScreen()
+                }
+            }
+        }
+    }
+
+    if (showBlockSettingsSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        var blockConfig by remember { mutableStateOf(BlockSettingsManager.loadConfig(context)) }
+
+        ModalBottomSheet(
+            onDismissRequest = { showBlockSettingsSheet = false },
+            sheetState = sheetState,
+            containerColor = if (isDark) Color(0xFF16151F) else Color.White,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            dragHandle = {
+                BottomSheetDefaults.DragHandle(color = textMuted.copy(alpha = 0.4f))
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 22.dp)
+                    .padding(bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = "Block Settings",
+                    color = goldColor,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(cardBg)
+                        .border(1.dp, glassBorder, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Block Notifications",
+                            color = textMain,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Silence distracting alerts during focus",
+                            color = textMuted,
+                            fontSize = 11.5.sp
+                        )
+                    }
+                    Switch(
+                        checked = blockConfig.blockNotificationsDuringFocus,
+                        onCheckedChange = { checked ->
+                            blockConfig = blockConfig.copy(blockNotificationsDuringFocus = checked)
+                            BlockSettingsManager.saveConfig(context, blockConfig)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.Black,
+                            checkedTrackColor = goldColor
+                        )
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(cardBg)
+                        .border(1.dp, glassBorder, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Block Apps During Break",
+                            color = textMain,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Keep blocked apps locked during break time",
+                            color = textMuted,
+                            fontSize = 11.5.sp
+                        )
+                    }
+                    Switch(
+                        checked = blockConfig.blockAppsDuringBreak,
+                        onCheckedChange = { checked ->
+                            blockConfig = blockConfig.copy(blockAppsDuringBreak = checked)
+                            BlockSettingsManager.saveConfig(context, blockConfig)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.Black,
+                            checkedTrackColor = goldColor
+                        )
+                    )
                 }
             }
         }
@@ -796,6 +910,98 @@ fun MainScreen() {
                     ) {
                         Text("Got it", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 14.sp)
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BlockTabPlaceholderScreen(
+    context: Context,
+    isDark: Boolean,
+    cardBg: Color,
+    glassBorder: Color,
+    textMain: Color,
+    textMuted: Color,
+    goldColor: Color,
+    onOpenBlockSettings: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Block",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                color = if (isDark) Color.White else Color(0xFF1C1917)
+            )
+
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(cardBg)
+                    .border(1.dp, goldColor.copy(alpha = 0.6f), RoundedCornerShape(50))
+                    .clickable { onOpenBlockSettings() }
+                    .padding(horizontal = 14.dp, vertical = 7.dp)
+            ) {
+                Text(
+                    text = "Block Settings",
+                    color = goldColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(cardBg)
+                .border(1.dp, glassBorder, RoundedCornerShape(18.dp))
+                .padding(16.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Accessibility Permission",
+                    color = textMain,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = "Permission is requested only when you enable app blocking.",
+                    color = textMuted,
+                    fontSize = 12.5.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Button(
+                    onClick = {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            })
+                        } catch (_: Exception) {}
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier.height(40.dp)
+                ) {
+                    Text(
+                        text = "Open Accessibility Settings",
+                        color = Color.Black,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Black
+                    )
                 }
             }
         }
@@ -997,7 +1203,6 @@ fun HomeTimerTab(
     var streakDays by remember { mutableIntStateOf(0) }
     var todayStudiedMinutes by remember { mutableIntStateOf(0) }
 
-    // StatsScreen में सेव किए गए daily_goal_hours को मिनट में पढ़ें, वरना डिफ़ॉल्ट 30m रखें
     var dailyGoalMinutes by remember {
         val savedHours = try {
             context.getSharedPreferences("amon_stats_goals", Context.MODE_PRIVATE)
