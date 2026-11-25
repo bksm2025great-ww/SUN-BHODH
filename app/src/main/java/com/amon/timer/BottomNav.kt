@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -31,7 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // =============================================================================
-// 🟢 1. VECTOR ICONS (HOME, STATS GROWTH, PROFILE)
+// 🟢 1. VECTOR ICONS (HOME, STATS GROWTH, BLOCK, PROFILE)
 // =============================================================================
 @Composable
 fun SimpleNavIcon(
@@ -107,6 +108,14 @@ fun SimpleNavIcon(
         }
         2 -> {
             Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = "Block",
+                tint = tint,
+                modifier = modifier
+            )
+        }
+        else -> {
+            Icon(
                 imageVector = Icons.Default.Person,
                 contentDescription = "Profile",
                 tint = tint,
@@ -117,7 +126,7 @@ fun SimpleNavIcon(
 }
 
 // =============================================================================
-// 🟢 2. SEAMLESS CURVED BOTTOM BAR (3 CLEAN TABS: HOME, STATS, PROFILE)
+// 🟢 2. SEAMLESS CURVED BOTTOM BAR (4 TABS: HOME, STATS, BLOCK, PROFILE)
 // =============================================================================
 @Composable
 fun AmonCurvedBottomBar(
@@ -129,11 +138,11 @@ fun AmonCurvedBottomBar(
     borderCol: Color,
     hasNewUpdate: Boolean = false
 ) {
-    // 🎯 अब केवल 3 मुख्य टैब रहेंगे (Groups पूरी तरह हट चुका है)
-    val tabTitles = listOf("Home", "Stats", "Profile")
+    val tabTitles = listOf("Home", "Stats", "Block", "Profile")
+    val totalTabs = tabTitles.size.toFloat()
 
     val animatedIndex by animateFloatAsState(
-        targetValue = selectedIndex.toFloat(),
+        targetValue = selectedIndex.coerceIn(0, tabTitles.lastIndex).toFloat(),
         animationSpec = tween(durationMillis = 200),
         label = "notch_slide"
     )
@@ -148,7 +157,6 @@ fun AmonCurvedBottomBar(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val barHeight = 64.dp.toPx()
             val startY = size.height - barHeight
-            val totalTabs = 3f
             val tabWidth = size.width / totalTabs
 
             val notchCenterX = (animatedIndex + 0.5f) * tabWidth
@@ -174,7 +182,6 @@ fun AmonCurvedBottomBar(
         }
 
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val totalTabs = 3f
             val tabWidth = maxWidth / totalTabs
             val bubbleSize = 54.dp
             val bubbleX = (tabWidth * animatedIndex) + (tabWidth / 2) - (bubbleSize / 2)
@@ -195,7 +202,7 @@ fun AmonCurvedBottomBar(
                         modifier = Modifier.size(26.dp)
                     )
 
-                    if (hasNewUpdate && selectedIndex == 2) {
+                    if (hasNewUpdate && selectedIndex == 3) {
                         Box(
                             modifier = Modifier
                                 .offset(x = 2.dp, y = (-2).dp)
@@ -235,7 +242,7 @@ fun AmonCurvedBottomBar(
                                     modifier = Modifier.size(22.dp)
                                 )
 
-                                if (hasNewUpdate && index == 2) {
+                                if (hasNewUpdate && index == 3) {
                                     Box(
                                         modifier = Modifier
                                             .offset(x = 3.dp, y = (-2).dp)
