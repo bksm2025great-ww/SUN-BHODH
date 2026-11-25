@@ -17,6 +17,33 @@ data class InstalledBlockableApp(
     val isBlocked: Boolean
 )
 
+data class BlockSettingsConfig(
+    val blockNotificationsDuringFocus: Boolean = false,
+    val blockAppsDuringBreak: Boolean = false
+)
+
+object BlockSettingsManager {
+    private const val PREFS_NAME = "amon_block_settings_prefs"
+    private const val KEY_BLOCK_NOTIFS = "block_notifications_during_focus"
+    private const val KEY_BLOCK_DURING_BREAK = "block_apps_during_break"
+
+    fun loadConfig(context: Context): BlockSettingsConfig {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return BlockSettingsConfig(
+            blockNotificationsDuringFocus = prefs.getBoolean(KEY_BLOCK_NOTIFS, false),
+            blockAppsDuringBreak = prefs.getBoolean(KEY_BLOCK_DURING_BREAK, false)
+        )
+    }
+
+    fun saveConfig(context: Context, config: BlockSettingsConfig) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_BLOCK_NOTIFS, config.blockNotificationsDuringFocus)
+            .putBoolean(KEY_BLOCK_DURING_BREAK, config.blockAppsDuringBreak)
+            .apply()
+    }
+}
+
 object BlockAppManager {
     private const val PREFS_NAME = "amon_block_apps_prefs"
     private const val KEY_BLOCKED_PACKAGES = "blocked_package_names"
