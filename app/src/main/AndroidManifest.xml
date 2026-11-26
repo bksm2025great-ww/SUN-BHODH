@@ -20,6 +20,9 @@
     <!-- 5. 📲 In-app update APK install karne ki permission -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- 6. 🛡️ Blocked apps ke upar shield dikhane ke liye overlay permission -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <!-- 📱 Installed launchable apps list padhne ke liye (Android 11+ package visibility) -->
     <queries>
         <intent>
@@ -42,7 +45,7 @@
             android:exported="true"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize">
-            
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -85,6 +88,7 @@
         <!-- 🛡️ Accessibility Service: Distracting apps ko detect karke overlay shield dikhane ke liye -->
         <service
             android:name=".AmonAppBlockerService"
+            android:label="Amon App Blocker"
             android:enabled="true"
             android:exported="true"
             android:permission="android:permission.BIND_ACCESSIBILITY_SERVICE">
