@@ -1083,7 +1083,6 @@ private fun AmonBlockTabSection(
             }
         }
 
-        // App-level On/Off toggle so user can turn shield on/off directly inside the app
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1702,4 +1701,1622 @@ private fun BlockPreviewStepThree(
             )
         }
     }
+}
+
+@Composable
+fun MiniFocusBar(
+    subjectName: String,
+    timeText: String,
+    isRunning: Boolean,
+    isPaused: Boolean,
+    goldColor: Color,
+    isDark: Boolean,
+    onTogglePlayPause: () -> Unit,
+    onExpand: () -> Unit
+) {
+    val barBg = if (isDark) Color(0xFF16161F) else Color(0xFFFFFFFF)
+    val textMain = if (isDark) Color.White else Color(0xFF1E293B)
+    val textMuted = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(50))
+                .background(barBg)
+                .border(1.2.dp, goldColor.copy(alpha = 0.5f), RoundedCornerShape(50))
+                .clickable { onExpand() }
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(goldColor)
+                    .clickable { onTogglePlayPause() }
+            ) {
+                if (isPaused) {
+                    Canvas(modifier = Modifier.size(13.dp)) {
+                        val path = Path().apply {
+                            moveTo(size.width * 0.22f, size.height * 0.15f)
+                            lineTo(size.width * 0.88f, size.height * 0.5f)
+                            lineTo(size.width * 0.22f, size.height * 0.85f)
+                            close()
+                        }
+                        drawPath(path, color = Color.Black)
+                    }
+                } else {
+                    Canvas(modifier = Modifier.size(13.dp)) {
+                        val barW = size.width * 0.28f
+                        val barH = size.height * 0.85f
+                        val cr = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                        drawRoundRect(
+                            color = Color.Black,
+                            topLeft = Offset(size.width * 0.14f, size.height * 0.075f),
+                            size = Size(barW, barH),
+                            cornerRadius = cr
+                        )
+                        drawRoundRect(
+                            color = Color.Black,
+                            topLeft = Offset(size.width * 0.58f, size.height * 0.075f),
+                            size = Size(barW, barH),
+                            cornerRadius = cr
+                        )
+                    }
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = subjectName,
+                    color = textMain,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "•",
+                    color = textMuted,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = timeText,
+                    color = goldColor,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
+                    .clickable { onExpand() }
+            ) {
+                Canvas(modifier = Modifier.size(14.dp)) {
+                    val p = Path().apply {
+                        moveTo(size.width * 0.18f, size.height * 0.65f)
+                        lineTo(size.width * 0.5f, size.height * 0.32f)
+                        lineTo(size.width * 0.82f, size.height * 0.65f)
+                    }
+                    drawPath(
+                        path = p,
+                        color = textMain,
+                        style = Stroke(
+                            width = 2.2.dp.toPx(),
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HomeTimerTab(
+    context: Context,
+    goldColor: Color,
+    glowYellow: Color,
+    cardBg: Color,
+    glassBorder: Color,
+    textMuted: Color,
+    textMain: Color,
+    isDark: Boolean,
+    isRunning: Boolean,
+    isPaused: Boolean,
+    isFocusActive: Boolean,
+    isSessionActive: Boolean = false,
+    isLandscape: Boolean = false,
+    activeMode: FocusModeType,
+    onActiveModeChange: (FocusModeType) -> Unit,
+    pomodoroConfig: PomodoroConfig,
+    onPomodoroConfigChange: (PomodoroConfig) -> Unit,
+    isBreakActive: Boolean,
+    currentSessionIndex: Int,
+    isStopwatchRunning: Boolean,
+    isStopwatchFocusActive: Boolean,
+    stopwatchElapsedMillis: Long,
+    selectedSubjectName: String,
+    onSelectedSubjectChange: (String) -> Unit,
+    initialTotalSeconds: Int,
+    onInitialTotalSecondsChange: (Int) -> Unit,
+    areControlsVisible: Boolean = true,
+    onNavigateToStats: () -> Unit = {},
+    onStartStopwatch: () -> Unit,
+    onPauseStopwatch: () -> Unit,
+    onResumeStopwatch: () -> Unit,
+    onDirectEndSession: () -> Unit
+) {
+    var userSubjects by remember { mutableStateOf(listOf<String>()) }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var newSubjectInput by remember { mutableStateOf("") }
+
+    var suggestionPool by remember {
+        mutableStateOf(
+            listOf(
+                "Physics", "Chemistry", "Biology", "Maths", "History", "Polity",
+                "Geography", "Economics", "English", "Coding", "Current Affairs", "Reasoning"
+            )
+        )
+    }
+
+    var showFocusLauncherSheet by remember { mutableStateOf(false) }
+    var dialMinutes by rememberSaveable { mutableFloatStateOf(25f) }
+
+    val subjectPrefs = remember { context.getSharedPreferences("amon_subject_prefs", Context.MODE_PRIVATE) }
+    var hiddenSubjects by remember {
+        val saved = try { subjectPrefs.getStringSet("hidden_subjects", null) } catch (_: Exception) { null }
+        if (saved == null) {
+            val initial = try { SubjectManager.getUserSubjects(context).toSet() } catch (_: Exception) { emptySet() }
+            try { subjectPrefs.edit().putStringSet("hidden_subjects", initial).apply() } catch (_: Exception) {}
+            mutableStateOf(initial)
+        } else {
+            mutableStateOf(saved)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        userSubjects = try { SubjectManager.getUserSubjects(context) } catch (_: Exception) { emptyList() }
+    }
+
+    val totalSeconds = TimerService.remainingSeconds.intValue
+
+    var streakDays by remember { mutableIntStateOf(0) }
+    var todayStudiedMinutes by remember { mutableIntStateOf(0) }
+
+    var dailyGoalMinutes by remember {
+        val savedHours = try {
+            context.getSharedPreferences("amon_stats_goals", Context.MODE_PRIVATE)
+                .getFloat("daily_goal_hours", 0f)
+        } catch (_: Exception) {
+            0f
+        }
+        mutableIntStateOf(if (savedHours > 0f) (savedHours * 60).toInt() else 30)
+    }
+
+    LaunchedEffect(isFocusActive, TimerService.showCompletionDialogTrigger.value) {
+        val updatedHours = try {
+            context.getSharedPreferences("amon_stats_goals", Context.MODE_PRIVATE)
+                .getFloat("daily_goal_hours", 0f)
+        } catch (_: Exception) {
+            0f
+        }
+        dailyGoalMinutes = if (updatedHours > 0f) (updatedHours * 60).toInt() else 30
+
+        if (!isFocusActive) {
+            val sessions = try { FocusSessionManager.getAllSessions(context) } catch (_: Exception) { emptyList() }
+            streakDays = calculateStreakDays(sessions)
+            todayStudiedMinutes = calculateTodayMinutesFromSessions(sessions)
+        }
+    }
+
+    val hours = totalSeconds / 3600
+    val displayMinutes = (totalSeconds % 3600) / 60
+    val displaySeconds = totalSeconds % 60
+    val timeFormatted = if (hours > 0) {
+        String.format("%02d:%02d:%02d", hours, displayMinutes, displaySeconds)
+    } else {
+        String.format("%02d:%02d", displayMinutes, displaySeconds)
+    }
+
+    val swH = (stopwatchElapsedMillis / 3600000).toInt()
+    val swM = ((stopwatchElapsedMillis % 3600000) / 60000).toInt()
+    val swS = ((stopwatchElapsedMillis % 60000) / 1000).toInt()
+    val swMs = ((stopwatchElapsedMillis % 1000) / 10).toInt()
+    val swMainTime = String.format("%02d:%02d:%02d", swH, swM, swS)
+    val swMilliText = String.format(".%02d", swMs)
+
+    val activeSortedSubjects = remember(userSubjects, hiddenSubjects) {
+        userSubjects.filter { it !in hiddenSubjects }
+    }
+
+    val availableSuggestions = remember(suggestionPool, userSubjects) {
+        val existingLower = userSubjects.map { it.lowercase(Locale.getDefault()) }.toSet()
+        suggestionPool.filterNot { it.lowercase(Locale.getDefault()) in existingLower }
+    }
+
+    val selectAndAddSubject: (String) -> Unit = { rawName ->
+        val clean = rawName.trim().replaceFirstChar {
+            if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+        }
+        if (clean.isNotBlank()) {
+            SubjectManager.addSubject(context, clean)
+            userSubjects = SubjectManager.getUserSubjects(context)
+
+            val updatedPool = suggestionPool.filterNot {
+                it.equals(clean, ignoreCase = true)
+            }.toMutableList()
+            if (clean !in userSubjects && updatedPool.none { it.equals(clean, ignoreCase = true) }) {
+                updatedPool.add(clean)
+            }
+            suggestionPool = updatedPool
+
+            if (clean in hiddenSubjects) {
+                val newHidden = hiddenSubjects - clean
+                hiddenSubjects = newHidden
+                subjectPrefs.edit().putStringSet("hidden_subjects", newHidden).apply()
+            }
+            onSelectedSubjectChange(clean)
+        }
+    }
+
+    val onAddSubjectAction: () -> Unit = {
+        if (newSubjectInput.isNotBlank()) {
+            val typed = newSubjectInput.trim()
+            selectAndAddSubject(typed)
+            newSubjectInput = ""
+        }
+    }
+
+    val cancelColor = if (isDark) Color(0xFFEF4444) else Color(0xFFDC2626)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (!isFocusActive) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp, bottom = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(38.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "AMON",
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.Black,
+                        color = if (isDark) Color.White else Color(0xFF1C1917),
+                        letterSpacing = 2.5.sp
+                    )
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (isDark) Color(0xFF1E1E24) else Color(0xFFF1F5F9))
+                            .border(1.dp, glassBorder, RoundedCornerShape(50))
+                            .clickable { onNavigateToStats() }
+                            .padding(horizontal = 10.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            StreakFlame(streakDays = streakDays, isLarge = false, modifier = Modifier.size(20.dp))
+                            Text(
+                                text = "$streakDays D",
+                                color = if (streakDays > 0) Color(0xFFFB923C) else textMuted,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Box(modifier = Modifier.fillMaxWidth().height(38.dp)) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        item {
+                            AssistChip(
+                                onClick = {
+                                    FocusSoundManager.triggerHaptic(context, false)
+                                    showAddDialog = true
+                                },
+                                label = {
+                                    Text(
+                                        text = "+ Subject",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                },
+                                shape = RoundedCornerShape(50),
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = cardBg,
+                                    labelColor = goldColor
+                                ),
+                                border = BorderStroke(1.2.dp, goldColor)
+                            )
+                        }
+
+                        item {
+                            val isSelected = selectedSubjectName.equals("All", ignoreCase = true)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    FocusSoundManager.triggerHaptic(context, false)
+                                    onSelectedSubjectChange("All")
+                                },
+                                label = {
+                                    Text(
+                                        text = "All",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                },
+                                shape = RoundedCornerShape(50),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = cardBg,
+                                    labelColor = textMuted,
+                                    selectedContainerColor = goldColor,
+                                    selectedLabelColor = if (isDark) Color.Black else Color.White
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    borderColor = glassBorder,
+                                    selectedBorderColor = goldColor
+                                )
+                            )
+                        }
+
+                        items(activeSortedSubjects, key = { it }) { subj ->
+                            val isSelected = selectedSubjectName.equals(subj, ignoreCase = true)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    FocusSoundManager.triggerHaptic(context, false)
+                                    onSelectedSubjectChange(subj)
+                                },
+                                label = {
+                                    Text(
+                                        text = subj,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1
+                                    )
+                                },
+                                shape = RoundedCornerShape(50),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = cardBg,
+                                    labelColor = textMuted,
+                                    selectedContainerColor = goldColor,
+                                    selectedLabelColor = if (isDark) Color.Black else Color.White
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    borderColor = glassBorder,
+                                    selectedBorderColor = goldColor
+                                )
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TimerWatchesContainer(
+                        dialMinutes = dialMinutes,
+                        onDialMinutesChange = { nextMins ->
+                            if (!isSessionActive) {
+                                dialMinutes = nextMins
+                                val secs = nextMins.toInt() * 60
+                                TimerService.remainingSeconds.intValue = secs
+                                onInitialTotalSecondsChange(secs)
+                            }
+                        },
+                        totalSeconds = totalSeconds,
+                        initialTotalSeconds = initialTotalSeconds,
+                        isRunning = isRunning || isStopwatchRunning,
+                        isCustomMode = false,
+                        onCustomModeToggle = { if (!isSessionActive) showFocusLauncherSheet = true },
+                        goldColor = goldColor,
+                        glowYellow = glowYellow,
+                        cardBg = cardBg,
+                        glassBorder = glassBorder,
+                        textMain = textMain,
+                        textMuted = textMuted,
+                        isDark = isDark,
+                        timeFormatted = timeFormatted,
+                        hours = hours,
+                        selectedSubjectName = selectedSubjectName
+                    )
+                }
+
+                if (!isSessionActive) {
+                    val safeGoal = if (dailyGoalMinutes > 0) dailyGoalMinutes else 30
+                    val goalFraction = (todayStudiedMinutes.toFloat() / safeGoal.toFloat()).coerceIn(0f, 1f)
+                    val goalPercent = ((todayStudiedMinutes.toFloat() / safeGoal.toFloat()) * 100).toInt().coerceAtMost(100)
+                    val isGoalCompleted = todayStudiedMinutes >= safeGoal
+
+                    val animatedFraction by animateFloatAsState(
+                        targetValue = goalFraction,
+                        animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing),
+                        label = "goal_progress_fill"
+                    )
+
+                    val infiniteTransition = rememberInfiniteTransition(label = "goal_bar_anim")
+                    val shimmerOffset by infiniteTransition.animateFloat(
+                        initialValue = -0.35f,
+                        targetValue = 1.35f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 2200, easing = LinearEasing),
+                            repeatMode = RepeatMode.Restart
+                        ),
+                        label = "goal_shimmer"
+                    )
+                    val goalPulseAlpha by infiniteTransition.animateFloat(
+                        initialValue = 0.75f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "goal_complete_pulse"
+                    )
+
+                    val goalTextFormatted = if (safeGoal >= 60) {
+                        val h = safeGoal / 60
+                        val m = safeGoal % 60
+                        if (m == 0) "${h}h" else "${h}h ${m}m"
+                    } else {
+                        "${safeGoal}m"
+                    }
+
+                    val studiedTextFormatted = if (todayStudiedMinutes >= 60) {
+                        val h = todayStudiedMinutes / 60
+                        val m = todayStudiedMinutes % 60
+                        if (m == 0) "${h}h" else "${h}h ${m}m"
+                    } else {
+                        "${todayStudiedMinutes}m"
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .padding(bottom = 10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Today's Focus: $studiedTextFormatted / $goalTextFormatted",
+                                color = textMuted,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "$goalPercent%",
+                                color = goldColor.copy(alpha = if (isGoalCompleted) goalPulseAlpha else 1f),
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(5.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isDark) Color(0x22FFFFFF) else Color(0xFFE2E8F0))
+                        ) {
+                            if (animatedFraction > 0f) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(animatedFraction)
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(50))
+                                        .background(goldColor.copy(alpha = if (isGoalCompleted) goalPulseAlpha else 1f))
+                                ) {
+                                    Canvas(modifier = Modifier.fillMaxSize()) {
+                                        val highlightWidth = size.width * 0.35f
+                                        val startX = size.width * shimmerOffset
+                                        drawRect(
+                                            brush = Brush.horizontalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color.White.copy(alpha = 0.35f),
+                                                    Color.Transparent
+                                                ),
+                                                startX = startX,
+                                                endX = startX + highlightWidth
+                                            ),
+                                            size = size
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .height(48.dp)
+                            .shadow(12.dp, RoundedCornerShape(50), spotColor = goldColor, ambientColor = goldColor)
+                            .clip(RoundedCornerShape(50))
+                            .background(goldColor)
+                            .border(1.dp, glowYellow, RoundedCornerShape(50))
+                            .clickable { showFocusLauncherSheet = true }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(text = "▶", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                            Text(
+                                text = "START FOCUS",
+                                color = Color.Black,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            if (activeMode == FocusModeType.STOPWATCH) {
+                if (isLandscape) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.TopStart)
+                        ) {
+                            Text(
+                                text = "$selectedSubjectName • Stopwatch",
+                                color = textMain,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                    .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                    .padding(horizontal = 14.dp, vertical = 5.dp)
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(text = swMainTime, color = textMain, fontSize = 48.sp, fontWeight = FontWeight.Black)
+                            Text(text = swMilliText, color = goldColor, fontSize = 24.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(bottom = 5.dp))
+                        }
+
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                if (isStopwatchRunning) {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            onPauseStopwatch()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.width(120.dp).height(38.dp)
+                                    ) {
+                                        Text("Pause", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            onResumeStopwatch()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.width(120.dp).height(38.dp)
+                                    ) {
+                                        Text("Resume", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                    }
+                                    OutlinedButton(
+                                        onClick = onDirectEndSession,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, cancelColor),
+                                        modifier = Modifier.width(120.dp).height(38.dp)
+                                    ) {
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 10.dp, bottom = 44.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        ) {
+                            Text(
+                                text = "$selectedSubjectName • Stopwatch",
+                                color = textMain,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                    .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(text = swMainTime, color = textMain, fontSize = 52.sp, fontWeight = FontWeight.Black)
+                            Text(text = swMilliText, color = goldColor, fontSize = 28.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(bottom = 6.dp))
+                        }
+
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        ) {
+                            if (isStopwatchRunning) {
+                                Button(
+                                    onClick = {
+                                        FocusSoundManager.triggerHaptic(context, false)
+                                        onPauseStopwatch()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                    shape = RoundedCornerShape(50),
+                                    modifier = Modifier.fillMaxWidth(0.75f).height(48.dp)
+                                ) {
+                                    Text("Pause", color = Color.Black, fontWeight = FontWeight.ExtraBold)
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            onResumeStopwatch()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.weight(1f).height(48.dp)
+                                    ) {
+                                        Text("Resume", color = Color.Black, fontWeight = FontWeight.ExtraBold)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onDirectEndSession,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.2.dp, cancelColor),
+                                        modifier = Modifier.weight(1f).height(48.dp)
+                                    ) {
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                if (isLandscape) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.Start,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.align(Alignment.TopStart)
+                        ) {
+                            AnimatedVisibility(
+                                visible = areControlsVisible,
+                                enter = fadeIn(tween(200)),
+                                exit = fadeOut(tween(200))
+                            ) {
+                                Text(
+                                    text = if (isBreakActive) "Break Time" else selectedSubjectName,
+                                    color = if (isBreakActive) Color(0xFF10B981) else textMain,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                        .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                        .padding(horizontal = 14.dp, vertical = 5.dp)
+                                )
+                            }
+
+                            if (activeMode == FocusModeType.POMODORO) {
+                                AnimatedVisibility(
+                                    visible = areControlsVisible,
+                                    enter = fadeIn(tween(200)),
+                                    exit = fadeOut(tween(200))
+                                ) {
+                                    PomodoroSessionTracker(
+                                        totalSessions = pomodoroConfig.totalRounds,
+                                        currentSessionIndex = currentSessionIndex,
+                                        isBreakActive = isBreakActive,
+                                        isRunning = isRunning,
+                                        goldColor = goldColor,
+                                        glowYellow = glowYellow,
+                                        isDark = isDark
+                                    )
+                                }
+                            }
+                        }
+
+                        Box(contentAlignment = Alignment.Center) {
+                            TimerWatchesContainer(
+                                dialMinutes = dialMinutes,
+                                onDialMinutesChange = {},
+                                totalSeconds = totalSeconds,
+                                initialTotalSeconds = initialTotalSeconds,
+                                isRunning = true,
+                                isCustomMode = false,
+                                onCustomModeToggle = {},
+                                goldColor = if (isBreakActive) Color(0xFF10B981) else goldColor,
+                                glowYellow = if (isBreakActive) Color.Transparent else glowYellow,
+                                cardBg = cardBg,
+                                glassBorder = glassBorder,
+                                textMain = textMain,
+                                textMuted = textMuted,
+                                isDark = isDark,
+                                timeFormatted = timeFormatted,
+                                hours = hours,
+                                selectedSubjectName = selectedSubjectName
+                            )
+                        }
+
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                if (isBreakActive) {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            context.startService(Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_SKIP_BREAK
+                                            })
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.width(124.dp).height(38.dp)
+                                    ) {
+                                        Text("Skip Break", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onDirectEndSession,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, cancelColor),
+                                        modifier = Modifier.width(124.dp).height(38.dp)
+                                    ) {
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                } else if (!isPaused) {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            context.startService(Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_PAUSE
+                                            })
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.width(124.dp).height(38.dp)
+                                    ) {
+                                        Text("Pause", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            context.startService(Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            })
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.width(124.dp).height(38.dp)
+                                    ) {
+                                        Text("Resume", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onDirectEndSession,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, cancelColor),
+                                        modifier = Modifier.width(124.dp).height(38.dp)
+                                    ) {
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 10.dp, bottom = 44.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = if (isBreakActive) "Break Time" else selectedSubjectName,
+                                    color = if (isBreakActive) Color(0xFF10B981) else textMain,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (isDark) Color(0xFF16161B) else Color(0xFFF1F5F9))
+                                        .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+
+                        if (activeMode == FocusModeType.POMODORO) {
+                            AnimatedVisibility(
+                                visible = areControlsVisible,
+                                enter = fadeIn(tween(200)),
+                                exit = fadeOut(tween(200)),
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 36.dp)
+                            ) {
+                                PomodoroSessionTracker(
+                                    totalSessions = pomodoroConfig.totalRounds,
+                                    currentSessionIndex = currentSessionIndex,
+                                    isBreakActive = isBreakActive,
+                                    isRunning = isRunning,
+                                    goldColor = goldColor,
+                                    glowYellow = glowYellow,
+                                    isDark = isDark
+                                )
+                            }
+                        }
+
+                        Box(contentAlignment = Alignment.Center) {
+                            TimerWatchesContainer(
+                                dialMinutes = dialMinutes,
+                                onDialMinutesChange = {},
+                                totalSeconds = totalSeconds,
+                                initialTotalSeconds = initialTotalSeconds,
+                                isRunning = true,
+                                isCustomMode = false,
+                                onCustomModeToggle = {},
+                                goldColor = if (isBreakActive) Color(0xFF10B981) else goldColor,
+                                glowYellow = if (isBreakActive) Color.Transparent else glowYellow,
+                                cardBg = cardBg,
+                                glassBorder = glassBorder,
+                                textMain = textMain,
+                                textMuted = textMuted,
+                                isDark = isDark,
+                                timeFormatted = timeFormatted,
+                                hours = hours,
+                                selectedSubjectName = selectedSubjectName
+                            )
+                        }
+
+                        AnimatedVisibility(
+                            visible = areControlsVisible,
+                            enter = fadeIn(tween(200)),
+                            exit = fadeOut(tween(200)),
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        ) {
+                            if (isBreakActive) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            context.startService(Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_SKIP_BREAK
+                                            })
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.weight(1.2f).height(48.dp)
+                                    ) {
+                                        Text("Skip Break", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onDirectEndSession,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.2.dp, cancelColor),
+                                        modifier = Modifier.weight(1f).height(48.dp)
+                                    ) {
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            } else if (!isPaused) {
+                                Button(
+                                    onClick = {
+                                        FocusSoundManager.triggerHaptic(context, false)
+                                        context.startService(Intent(context, TimerService::class.java).apply {
+                                            action = TimerService.ACTION_PAUSE
+                                        })
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                    shape = RoundedCornerShape(50),
+                                    modifier = Modifier.fillMaxWidth(0.75f).height(48.dp)
+                                ) {
+                                    Text("Pause", color = Color.Black, fontWeight = FontWeight.ExtraBold)
+                                }
+                            } else {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    Button(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            context.startService(Intent(context, TimerService::class.java).apply {
+                                                action = TimerService.ACTION_RESUME
+                                            })
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier.weight(1f).height(48.dp)
+                                    ) {
+                                        Text("Resume", color = Color.Black, fontWeight = FontWeight.Black)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onDirectEndSession,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.2.dp, cancelColor),
+                                        modifier = Modifier.weight(1f).height(48.dp)
+                                    ) {
+                                        Text("End", color = cancelColor, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showFocusLauncherSheet) {
+            FocusLauncherBottomSheet(
+                isDark = isDark,
+                goldColor = goldColor,
+                cardBg = cardBg,
+                textMain = textMain,
+                textMuted = textMuted,
+                initialMode = activeMode,
+                availableSubjects = userSubjects,
+                selectedSubject = selectedSubjectName,
+                onSubjectChange = { onSelectedSubjectChange(it) },
+                onStartFocus = { chosenMode, durationSeconds, pConfig ->
+                    FocusSoundManager.playCompletionSound(context)
+                    onActiveModeChange(chosenMode)
+                    if (pConfig != null) {
+                        onPomodoroConfigChange(pConfig)
+                    }
+
+                    when (chosenMode) {
+                        FocusModeType.STOPWATCH -> {
+                            onStartStopwatch()
+                        }
+                        FocusModeType.TIMER -> {
+                            onInitialTotalSecondsChange(durationSeconds)
+                            TimerService.remainingSeconds.intValue = durationSeconds
+                            context.startService(Intent(context, TimerService::class.java).apply {
+                                action = TimerService.ACTION_START
+                                putExtra(TimerService.EXTRA_SECONDS, durationSeconds)
+                                putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                putExtra(TimerService.EXTRA_MODE, "TIMER")
+                            })
+                        }
+                        FocusModeType.POMODORO -> {
+                            onInitialTotalSecondsChange(durationSeconds)
+                            TimerService.remainingSeconds.intValue = durationSeconds
+                            context.startService(Intent(context, TimerService::class.java).apply {
+                                action = TimerService.ACTION_START
+                                putExtra(TimerService.EXTRA_SECONDS, durationSeconds)
+                                putExtra(TimerService.EXTRA_SUBJECT, selectedSubjectName)
+                                putExtra(TimerService.EXTRA_MODE, "POMODORO")
+                                if (pConfig != null) {
+                                    putExtra(TimerService.EXTRA_POMO_SHORT_BREAK, pConfig.shortBreakMinutes)
+                                    putExtra(TimerService.EXTRA_POMO_LONG_BREAK, pConfig.longBreakMinutes)
+                                    putExtra(TimerService.EXTRA_POMO_TOTAL_ROUNDS, pConfig.totalRounds)
+                                    putExtra(TimerService.EXTRA_POMO_AUTO_START, pConfig.autoStartNextFocus)
+                                }
+                            })
+                        }
+                    }
+                },
+                onDismiss = { showFocusLauncherSheet = false }
+            )
+        }
+
+        if (showAddDialog) {
+            Dialog(onDismissRequest = {
+                showAddDialog = false
+                newSubjectInput = ""
+            }) {
+                val frostedDialogBg = if (isDark) Color(0xEB161620) else Color(0xF2FFFFFF)
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(frostedDialogBg)
+                        .border(1.5.dp, if (isDark) Color(0x44FFFFFF) else Color(0x33000000), RoundedCornerShape(26.dp))
+                        .padding(20.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Manage Subjects",
+                                color = goldColor,
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) Color(0x22FFFFFF) else Color(0x11000000))
+                                    .clickable {
+                                        showAddDialog = false
+                                        newSubjectInput = ""
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "✕",
+                                    color = textMuted,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Tap suggestion to move to Selected, or toggle visibility",
+                            color = textMuted,
+                            fontSize = 12.sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        if (availableSuggestions.isNotEmpty()) {
+                            Text(
+                                text = "Suggestions",
+                                color = goldColor,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                items(availableSuggestions, key = { it }) { suggestion ->
+                                    SuggestionChip(
+                                        onClick = {
+                                            FocusSoundManager.triggerHaptic(context, false)
+                                            selectAndAddSubject(suggestion)
+                                        },
+                                        label = {
+                                            Text(
+                                                text = "+ $suggestion",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        },
+                                        shape = RoundedCornerShape(50),
+                                        colors = SuggestionChipDefaults.suggestionChipColors(
+                                            containerColor = goldColor.copy(alpha = 0.12f),
+                                            labelColor = goldColor
+                                        ),
+                                        border = BorderStroke(1.dp, goldColor.copy(alpha = 0.4f))
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        Text(
+                            text = "Selected Subjects",
+                            color = textMain,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 150.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            userSubjects.chunked(3).forEach { rowItems ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    rowItems.forEach { subj ->
+                                        val isHidden = subj in hiddenSubjects
+                                        val isShown = !isHidden
+                                        val chipBg = if (isShown) {
+                                            goldColor.copy(alpha = 0.22f)
+                                        } else {
+                                            if (isDark) Color(0xFF1E1E28) else Color(0xFFF1F5F9)
+                                        }
+
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(32.dp)
+                                                .clip(RoundedCornerShape(50))
+                                                .background(chipBg)
+                                                .border(
+                                                    1.dp,
+                                                    if (isShown) goldColor else glassBorder,
+                                                    RoundedCornerShape(50)
+                                                )
+                                                .clickable {
+                                                    FocusSoundManager.triggerHaptic(context, false)
+                                                    val newHidden = if (isHidden) {
+                                                        hiddenSubjects - subj
+                                                    } else {
+                                                        hiddenSubjects + subj
+                                                    }
+                                                    hiddenSubjects = newHidden
+                                                    subjectPrefs.edit()
+                                                        .putStringSet("hidden_subjects", newHidden)
+                                                        .apply()
+
+                                                    if (isHidden) {
+                                                        onSelectedSubjectChange(subj)
+                                                    } else if (selectedSubjectName.equals(subj, ignoreCase = true)) {
+                                                        onSelectedSubjectChange("All")
+                                                    }
+                                                }
+                                                .padding(horizontal = 8.dp)
+                                        ) {
+                                            Text(
+                                                text = if (isShown) "✓ $subj" else "○ $subj",
+                                                color = if (isShown) goldColor else (if (isDark) textMuted else Color(0xFF475569)),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                    repeat(3 - rowItems.size) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(50))
+                                .background(if (isDark) Color(0x33FFFFFF) else Color(0xFFF8FAFC))
+                                .border(1.dp, glassBorder, RoundedCornerShape(50))
+                                .padding(horizontal = 10.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = newSubjectInput,
+                                onValueChange = { input ->
+                                    newSubjectInput = input.replaceFirstChar {
+                                        if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                                    }
+                                },
+                                placeholder = {
+                                    Text("Type custom subject...", color = textMuted, fontSize = 13.sp)
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    capitalization = KeyboardCapitalization.Words,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = { onAddSubjectAction() }
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    focusedTextColor = textMain,
+                                    unfocusedTextColor = textMain,
+                                    cursorColor = goldColor
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(goldColor)
+                                    .clickable { onAddSubjectAction() }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "Add",
+                                    color = Color.Black,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StreakBottomSheetContent(
+    context: Context,
+    isDark: Boolean,
+    cardBg: Color,
+    textMain: Color,
+    textMuted: Color,
+    goldColor: Color,
+    glassBorder: Color,
+    onDismiss: () -> Unit
+) {
+    val sessions = remember { FocusSessionManager.getAllSessions(context) }
+    val streakDays = remember(sessions) { calculateStreakDays(sessions) }
+    val todayMinutes = remember(sessions) { calculateTodayMinutesFromSessions(sessions) }
+    val totalMinutes = remember(sessions) { sessions.sumOf { it.durationMinutes } }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 22.dp)
+            .padding(bottom = 30.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(130.dp)
+                .clip(CircleShape)
+                .background(goldColor.copy(alpha = 0.08f))
+                .border(1.5.dp, goldColor.copy(alpha = 0.35f), CircleShape)
+        ) {
+            StreakFlame(
+                streakDays = streakDays,
+                isLarge = true,
+                modifier = Modifier.size(92.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Text(
+            text = "$streakDays Days Streak",
+            color = if (streakDays > 0) Color(0xFFFB923C) else textMain,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = if (todayMinutes >= 30) "Today's 30m streak goal is complete! Keep the flame alive."
+                   else "Focus ${30 - todayMinutes} more mins today to extend your streak!",
+            color = textMuted,
+            fontSize = 12.5.sp,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(cardBg)
+                .border(1.dp, glassBorder, RoundedCornerShape(18.dp))
+                .padding(16.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "LAST 7 DAYS (30m+ / day)",
+                    color = textMuted,
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp
+                )
+                val last7Days = remember(sessions) { getLast7DaysStreakStatus(sessions) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    last7Days.forEach { (dayLabel, isCompleted) ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isCompleted) Color(0xFFFB923C).copy(alpha = 0.2f) else Color.Transparent)
+                                    .border(
+                                        1.2.dp,
+                                        if (isCompleted) Color(0xFFFB923C) else glassBorder,
+                                        CircleShape
+                                    )
+                            ) {
+                                Text(
+                                    text = if (isCompleted) "✓" else "•",
+                                    color = if (isCompleted) Color(0xFFFB923C) else textMuted,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
+                            Text(
+                                text = dayLabel,
+                                color = if (isCompleted) textMain else textMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(cardBg)
+                    .border(1.dp, glassBorder, RoundedCornerShape(16.dp))
+                    .padding(14.dp)
+            ) {
+                Column {
+                    Text("Today's Focus", color = textMuted, fontSize = 11.5.sp)
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text("${todayMinutes}m", color = goldColor, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(cardBg)
+                    .border(1.dp, glassBorder, RoundedCornerShape(16.dp))
+                    .padding(14.dp)
+            ) {
+                Column {
+                    Text("Total Focused", color = textMuted, fontSize = 11.5.sp)
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text("${totalMinutes / 60}h ${totalMinutes % 60}m", color = textMain, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        Button(
+            onClick = onDismiss,
+            colors = ButtonDefaults.buttonColors(containerColor = goldColor),
+            shape = RoundedCornerShape(50),
+            modifier = Modifier.fillMaxWidth().height(46.dp)
+        ) {
+            Text("Keep Going!", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 14.sp)
+        }
+    }
+}
+
+fun calculateTodayMinutesFromSessions(sessions: List<FocusSession>): Int {
+    if (sessions.isEmpty()) return 0
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val todayKey = sdf.format(Date())
+    val formats = listOf(
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    )
+    var total = 0
+    sessions.forEach { s ->
+        for (fmt in formats) {
+            try {
+                val d = fmt.parse(s.date)
+                if (d != null) {
+                    if (sdf.format(d) == todayKey) {
+                        total += s.durationMinutes
+                    }
+                    break
+                }
+            } catch (_: Exception) {}
+        }
+    }
+    return total
+}
+
+fun getLast7DaysStreakStatus(sessions: List<FocusSession>): List<Pair<String, Boolean>> {
+    val dayMinutesMap = mutableMapOf<String, Int>()
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val dayLabelFormat = SimpleDateFormat("EEE", Locale.getDefault())
+    val formats = listOf(
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    )
+
+    sessions.forEach { s ->
+        for (fmt in formats) {
+            try {
+                val d = fmt.parse(s.date)
+                if (d != null) {
+                    val key = sdf.format(d)
+                    dayMinutesMap[key] = (dayMinutesMap[key] ?: 0) + s.durationMinutes
+                    break
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    val result = mutableListOf<Pair<String, Boolean>>()
+    val cal = Calendar.getInstance()
+    cal.add(Calendar.DAY_OF_YEAR, -6)
+    for (i in 0..6) {
+        val key = sdf.format(cal.time)
+        val label = dayLabelFormat.format(cal.time).take(2)
+        val mins = dayMinutesMap[key] ?: 0
+        result.add(Pair(label, mins >= 30))
+        cal.add(Calendar.DAY_OF_YEAR, 1)
+    }
+    return result
+}
+
+fun calculateStreakDays(sessions: List<FocusSession>): Int {
+    if (sessions.isEmpty()) return 0
+    val dayMinutesMap = mutableMapOf<String, Int>()
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val formats = listOf(
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
+        SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    )
+
+    sessions.forEach { s ->
+        var date: Date? = null
+        for (fmt in formats) {
+            try {
+                val d = fmt.parse(s.date)
+                if (d != null) { date = d; break }
+            } catch (_: Exception) {}
+        }
+        if (date != null) {
+            val key = sdf.format(date)
+            dayMinutesMap[key] = (dayMinutesMap[key] ?: 0) + s.durationMinutes
+        }
+    }
+
+    val cal = Calendar.getInstance()
+    var streak = 0
+    val todayKey = sdf.format(cal.time)
+    val todayMins = dayMinutesMap[todayKey] ?: 0
+    if (todayMins >= 30) {
+        streak++
+    }
+
+    while (true) {
+        cal.add(Calendar.DAY_OF_YEAR, -1)
+        val dateKey = sdf.format(cal.time)
+        val mins = dayMinutesMap[dateKey] ?: 0
+        if (mins >= 30) {
+            streak++
+        } else {
+            break
+        }
+    }
+    return streak
 }
