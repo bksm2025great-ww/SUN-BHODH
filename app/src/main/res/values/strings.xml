@@ -6,6 +6,6 @@
     <string name="btn_pause">Pause</string>
     <string name="btn_reset">Reset</string>
     <string name="amon_blocker_service_description">Blocks selected distracting apps while an AMON focus session is active.</string>
-    
+
     <string name="default_web_client_id">1018900251176-7ipo2h0e9ib2gjcn4eqpo8q43lti1r5l.apps.googleusercontent.com</string>
 </resources>
