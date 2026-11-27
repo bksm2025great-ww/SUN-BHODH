@@ -6,9 +6,7 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Color as AndroidColor
 import android.graphics.drawable.ColorDrawable
-import android.net.Uri
 import android.os.Build
-import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
@@ -258,28 +256,6 @@ fun AndroidAutoRotateLineIcon(
             close()
         }
         drawPath(path = arrowPath2, color = tint)
-    }
-}
-
-private fun hasOverlayPermission(context: Context): Boolean {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        Settings.canDrawOverlays(context)
-    } else {
-        true
-    }
-}
-
-private fun openOverlayPermissionSettings(context: Context) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        try {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:${context.packageName}")
-            ).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
-        } catch (_: Exception) {}
     }
 }
 
@@ -961,11 +937,11 @@ private fun AmonBlockTabSection(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var isAccessibilityReady by remember {
-        mutableStateOf(BlockAppManager.isAccessibilityServiceEnabled(context))
+    var isUsageReady by remember {
+        mutableStateOf(BlockAppManager.hasUsageStatsPermission(context))
     }
     var isOverlayReady by remember {
-        mutableStateOf(hasOverlayPermission(context))
+        mutableStateOf(BlockAppManager.hasOverlayPermission(context))
     }
     var isBlockingEnabled by remember {
         mutableStateOf(BlockAppManager.isBlockingEnabled(context))
@@ -976,10 +952,13 @@ private fun AmonBlockTabSection(
     }
 
     fun refreshBlockTabState() {
-        isAccessibilityReady = BlockAppManager.isAccessibilityServiceEnabled(context)
-        isOverlayReady = hasOverlayPermission(context)
+        isUsageReady = BlockAppManager.hasUsageStatsPermission(context)
+        isOverlayReady = BlockAppManager.hasOverlayPermission(context)
         isBlockingEnabled = BlockAppManager.isBlockingEnabled(context)
         installedApps = BlockAppManager.getLaunchableApps(context)
+        if (isUsageReady && isOverlayReady) {
+            BlockAppManager.startBlockerService(context)
+        }
     }
 
     DisposableEffect(lifecycleOwner) {
@@ -994,7 +973,7 @@ private fun AmonBlockTabSection(
         }
     }
 
-    val permissionsGranted = isAccessibilityReady && isOverlayReady
+    val permissionsGranted = isUsageReady && isOverlayReady
 
     if (!permissionsGranted) {
         AmonBlockPreviewFlow(
@@ -1004,14 +983,13 @@ private fun AmonBlockTabSection(
             textMain = textMain,
             textMuted = textMuted,
             goldColor = goldColor,
+            isUsageReady = isUsageReady,
             isOverlayReady = isOverlayReady,
             onEnableClick = {
-                if (!isOverlayReady) {
-                    openOverlayPermissionSettings(context)
-                } else {
-                    BlockAppManager.setBlockingEnabled(context, true)
-                    isBlockingEnabled = true
-                    BlockAppManager.openAccessibilitySettings(context)
+                if (!isUsageReady) {
+                    BlockAppManager.openUsageAccessSettings(context)
+                } else if (!isOverlayReady) {
+                    BlockAppManager.openOverlayPermissionSettings(context)
                 }
             }
         )
@@ -1141,6 +1119,9 @@ private fun AmonBlockTabSection(
                 onCheckedChange = { checked ->
                     BlockAppManager.setBlockingEnabled(context, checked)
                     isBlockingEnabled = checked
+                    if (checked) {
+                        BlockAppManager.startBlockerService(context)
+                    }
                 },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.Black,
@@ -1275,15 +1256,22 @@ private fun AmonBlockPreviewFlow(
     textMain: Color,
     textMuted: Color,
     goldColor: Color,
+    isUsageReady: Boolean,
     isOverlayReady: Boolean,
     onEnableClick: () -> Unit
 ) {
     var currentStep by remember { mutableIntStateOf(0) }
 
     val stepLabel = when (currentStep) {
-        0 -> "1. Allow Accessibility"
-        1 -> "2. Select Apps"
+        0 -> "1. Usage Permission"
+        1 -> "2. Display Over Apps"
         else -> "3. During Focus"
+    }
+
+    val buttonLabel = when {
+        !isUsageReady -> "Allow Usage Permission"
+        !isOverlayReady -> "Allow Display Over Apps"
+        else -> "Continue"
     }
 
     Column(
@@ -1302,7 +1290,7 @@ private fun AmonBlockPreviewFlow(
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Allow Accessibility, choose apps to block,\nand stay focused during sessions",
+                text = "Allow Usage & Display over other apps\nto block distractions during focus",
                 color = textMuted,
                 fontSize = 13.sp,
                 lineHeight = 18.sp,
@@ -1378,7 +1366,7 @@ private fun AmonBlockPreviewFlow(
                     .height(50.dp)
             ) {
                 Text(
-                    text = if (!isOverlayReady) "Allow Overlay Permission" else "Allow Accessibility",
+                    text = buttonLabel,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Black
                 )
@@ -1419,8 +1407,8 @@ private fun BlockPreviewStepOne(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("Accessibility", color = textMain, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        Text("MORE", color = textMuted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+        Text("Usage Access", color = textMain, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text("PERMISSIONS", color = textMuted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1440,13 +1428,13 @@ private fun BlockPreviewStepOne(
                         .padding(end = 8.dp)
                 ) {
                     Text(
-                        text = "Amon App Blocker",
+                        text = "Amon Usage Access",
                         color = textMain,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Blocks selected distracting apps during focus",
+                        text = "Detects active apps during focus sessions",
                         color = textMuted,
                         fontSize = 10.sp
                     )
