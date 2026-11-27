@@ -48,7 +48,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -1281,13 +1280,6 @@ private fun AmonBlockPreviewFlow(
 ) {
     var currentStep by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(2800L)
-            currentStep = (currentStep + 1) % 3
-        }
-    }
-
     val stepLabel = when (currentStep) {
         0 -> "1. Allow Accessibility"
         1 -> "2. Select Apps"
@@ -1335,48 +1327,18 @@ private fun AmonBlockPreviewFlow(
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
-                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .width(256.dp)
-                    .height(346.dp)
-                    .drawBehind {
-                        drawRoundRect(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    goldColor.copy(alpha = 0.25f),
-                                    goldColor.copy(alpha = 0.07f),
-                                    Color.Transparent
-                                ),
-                                center = Offset(size.width / 2f, size.height / 2f),
-                                radius = size.maxDimension * 0.65f
-                            ),
-                            cornerRadius = CornerRadius(34.dp.toPx(), 34.dp.toPx())
-                        )
-                    }
+                    .width(248.dp)
+                    .height(330.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(cardBg)
+                    .border(1.5.dp, glassBorder, RoundedCornerShape(28.dp))
+                    .padding(14.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(8.dp)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(cardBg)
-                        .border(1.5.dp, glassBorder, RoundedCornerShape(28.dp))
-                        .padding(14.dp)
-                ) {
-                    AnimatedContent(
-                        targetState = currentStep,
-                        transitionSpec = {
-                            fadeIn(tween(350)) togetherWith fadeOut(tween(250))
-                        },
-                        label = "block_preview_step",
-                        modifier = Modifier.fillMaxSize()
-                    ) { step ->
-                        when (step) {
-                            0 -> BlockPreviewStepOne(goldColor, textMain, textMuted, isDark)
-                            1 -> BlockPreviewStepTwo(goldColor, textMain, textMuted, isDark)
-                            else -> BlockPreviewStepThree(goldColor, textMain, textMuted)
-                        }
-                    }
+                when (currentStep) {
+                    0 -> BlockPreviewStepOne(goldColor, textMain, textMuted, isDark)
+                    1 -> BlockPreviewStepTwo(goldColor, textMain, textMuted, isDark)
+                    else -> BlockPreviewStepThree(goldColor, textMain, textMuted)
                 }
             }
 
@@ -1388,15 +1350,10 @@ private fun AmonBlockPreviewFlow(
             ) {
                 repeat(3) { idx ->
                     val selected = currentStep == idx
-                    val width by animateFloatAsState(
-                        targetValue = if (selected) 22f else 8f,
-                        animationSpec = tween(250),
-                        label = "block_dot_width"
-                    )
                     Box(
                         modifier = Modifier
                             .height(8.dp)
-                            .width(width.dp)
+                            .width(if (selected) 22.dp else 8.dp)
                             .clip(CircleShape)
                             .background(if (selected) goldColor else textMuted.copy(alpha = 0.35f))
                             .clickable { currentStep = idx }
@@ -1458,11 +1415,6 @@ private fun BlockPreviewStepOne(
     textMuted: Color,
     isDark: Boolean
 ) {
-    val toggle by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = tween(550, easing = FastOutSlowInEasing),
-        label = "step1_toggle"
-    )
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -1504,7 +1456,7 @@ private fun BlockPreviewStepOne(
                         .width(36.dp)
                         .height(20.dp)
                         .clip(CircleShape)
-                        .background(if (toggle > 0.5f) goldColor else Color(0xFF3A3A46))
+                        .background(goldColor)
                         .padding(2.dp),
                     contentAlignment = Alignment.CenterEnd
                 ) {
@@ -1590,17 +1542,6 @@ private fun BlockPreviewStepThree(
     textMain: Color,
     textMuted: Color
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "step3_pulse")
-    val pulse by infiniteTransition.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "step3_pulse_val"
-    )
-
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1614,7 +1555,7 @@ private fun BlockPreviewStepThree(
                 val c = Offset(size.width / 2f, size.height / 2f)
                 drawCircle(
                     color = goldColor.copy(alpha = 0.22f),
-                    radius = (size.minDimension * 0.45f) * pulse,
+                    radius = size.minDimension * 0.45f,
                     center = c,
                     style = Stroke(width = 1.3.dp.toPx())
                 )
