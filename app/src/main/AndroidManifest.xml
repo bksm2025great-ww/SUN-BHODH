@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 🌐 Internet chalane ka license (Supabase & Cloud Sync ke liye) -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -20,7 +21,12 @@
     <!-- 5. 📲 In-app update APK install karne ki permission -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
-    <!-- 6. 🛡️ Blocked apps ke upar shield dikhane ke liye overlay permission -->
+    <!-- 6. 📊 Kaunsa app open hai yeh dekhne ke liye Usage permission -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- 7. 🛡️ Blocked apps ke upar shield dikhane ke liye overlay permission -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- 📱 Installed launchable apps list padhne ke liye (Android 11+ package visibility) -->
@@ -85,19 +91,15 @@
                 android:value="Focus Timer background countdown" />
         </service>
 
-        <!-- 🛡️ Accessibility Service: Distracting apps ko detect karke overlay shield dikhane ke liye -->
+        <!-- 🛡️ Background App Blocker Service: Usage stats se active app check karke shield dikhane ke liye -->
         <service
             android:name=".AmonAppBlockerService"
-            android:label="Amon App Blocker"
             android:enabled="true"
-            android:exported="true"
-            android:permission="android:permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/amon_accessibility_service_config" />
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Focus session app blocker monitor" />
         </service>
 
         <!-- 📬 Amon Reminder Receiver: Jo tay samay par notification girayega -->
