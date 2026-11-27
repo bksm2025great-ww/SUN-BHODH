@@ -1,14 +1,17 @@
 package com.amon.timer
 
-import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.AppOpsManager
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Build
+import android.os.Process
 import android.provider.Settings
-import android.view.accessibility.AccessibilityManager
 
 data class InstalledBlockableApp(
     val packageName: String,
@@ -51,7 +54,7 @@ object BlockAppManager {
 
     fun isBlockingEnabled(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_BLOCKING_ENABLED, false)
+        return prefs.getBoolean(KEY_BLOCKING_ENABLED, true)
     }
 
     fun setBlockingEnabled(context: Context, enabled: Boolean) {
@@ -92,30 +95,101 @@ object BlockAppManager {
         return getBlockedPackages(context).contains(packageName)
     }
 
-    fun isAccessibilityServiceEnabled(context: Context): Boolean {
+    fun hasUsageStatsPermission(context: Context): Boolean {
         return try {
-            val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
                 ?: return false
-            val enabledServices = am.getEnabledAccessibilityServiceList(
-                AccessibilityServiceInfo.FEEDBACK_GENERIC
-            )
-            val expectedComponentPrefix = "${context.packageName}/"
-            enabledServices.any { serviceInfo ->
-                val id = serviceInfo.id.orEmpty()
-                id.startsWith(expectedComponentPrefix) || id.contains(context.packageName)
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                appOps.unsafeCheckOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    Process.myUid(),
+                    context.packageName
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                appOps.checkOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    Process.myUid(),
+                    context.packageName
+                )
             }
+            mode == AppOpsManager.MODE_ALLOWED
         } catch (_: Exception) {
             false
         }
     }
 
-    fun openAccessibilitySettings(context: Context) {
+    fun openUsageAccessSettings(context: Context) {
         try {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+            val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
         } catch (_: Exception) {}
+    }
+
+    fun hasOverlayPermission(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Settings.canDrawOverlays(context)
+        } else {
+            true
+        }
+    }
+
+    fun openOverlayPermissionSettings(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:${context.packageName}")
+                ).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun startBlockerService(context: Context) {
+        try {
+            val intent = Intent(context, AmonAppBlockerService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } catch (_: Exception) {}
+    }
+
+    fun getForegroundPackageName(context: Context): String? {
+        return try {
+            val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+                ?: return null
+            val endTime = System.currentTimeMillis()
+            val beginTime = endTime - 10_000L
+
+            val events = usm.queryEvents(beginTime, endTime)
+            val event = UsageEvents.Event()
+            var lastForegroundPkg: String? = null
+
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND ||
+                    event.eventType == UsageEvents.Event.ACTIVITY_RESUMED
+                ) {
+                    lastForegroundPkg = event.packageName
+                }
+            }
+
+            if (!lastForegroundPkg.isNullOrBlank()) {
+                return lastForegroundPkg
+            }
+
+            val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, endTime - 60_000L, endTime)
+            stats?.maxByOrNull { it.lastTimeUsed }?.packageName
+        } catch (_: Exception) {
+            null
+        }
     }
 
     fun getAppIcon(context: Context, packageName: String): Drawable? {
