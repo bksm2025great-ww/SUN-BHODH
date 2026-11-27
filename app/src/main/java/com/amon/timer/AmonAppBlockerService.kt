@@ -78,13 +78,18 @@ class AmonAppBlockerService : AccessibilityService() {
             return
         }
 
+        if (!BlockAppManager.isBlockingEnabled(this)) {
+            removeOverlayShield()
+            return
+        }
+
         val settingsConfig = BlockSettingsManager.loadConfig(this)
         if (TimerService.isPomoBreakActive.value && !settingsConfig.blockAppsDuringBreak) {
             removeOverlayShield()
             return
         }
 
-        if (BlockAppManager.isBlockingEnabled(this) && BlockAppManager.isPackageBlocked(this, pkgName)) {
+        if (BlockAppManager.isPackageBlocked(this, pkgName)) {
             if (currentlyBlockedPackage != pkgName || overlayView == null) {
                 showOverlayShield(pkgName)
             }
@@ -256,8 +261,8 @@ private fun AmonOverlayShieldScreen(
     onReturnToAmon: () -> Unit
 ) {
     val bgDark = Color(0xFF121216)
-    val lavenderAccent = Color(0xFFC4B5FD)
-    val softRingColor = Color(0xFF7C6FA8)
+    val goldAccent = Color(0xFFE5B44C)
+    val softRingColor = Color(0xFFE5B44C)
     val subTextColor = Color(0xFF9CA3AF)
 
     Box(
@@ -302,7 +307,7 @@ private fun AmonOverlayShieldScreen(
                             modifier = Modifier
                                 .size(92.dp)
                                 .clip(RoundedCornerShape(22.dp))
-                                .border(2.dp, lavenderAccent.copy(alpha = 0.7f), RoundedCornerShape(22.dp))
+                                .border(2.dp, goldAccent.copy(alpha = 0.7f), RoundedCornerShape(22.dp))
                         )
                     } else {
                         Box(
@@ -311,11 +316,11 @@ private fun AmonOverlayShieldScreen(
                                 .size(92.dp)
                                 .clip(RoundedCornerShape(22.dp))
                                 .background(Color(0xFF1E1E28))
-                                .border(2.dp, lavenderAccent.copy(alpha = 0.7f), RoundedCornerShape(22.dp))
+                                .border(2.dp, goldAccent.copy(alpha = 0.7f), RoundedCornerShape(22.dp))
                         ) {
                             Text(
                                 text = "APP",
-                                color = lavenderAccent,
+                                color = goldAccent,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Black
                             )
@@ -328,7 +333,7 @@ private fun AmonOverlayShieldScreen(
                             .offset(x = 6.dp, y = 6.dp)
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(lavenderAccent)
+                            .background(goldAccent)
                             .border(2.5.dp, bgDark, CircleShape)
                     ) {
                         Canvas(modifier = Modifier.size(16.dp)) {
@@ -383,7 +388,7 @@ private fun AmonOverlayShieldScreen(
                 onClick = onReturnToAmon,
                 shape = RoundedCornerShape(50),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = lavenderAccent,
+                    containerColor = goldAccent,
                     contentColor = Color(0xFF121216)
                 ),
                 modifier = Modifier
