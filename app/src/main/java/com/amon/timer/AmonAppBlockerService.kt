@@ -1,14 +1,19 @@
 package com.amon.timer
 
-import android.accessibilityservice.AccessibilityService
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
-import android.view.accessibility.AccessibilityEvent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -36,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -46,39 +52,83 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 
-class AmonAppBlockerService : AccessibilityService() {
+class AmonAppBlockerService : Service() {
 
+    companion object {
+        private const val CHANNEL_ID = "amon_blocker_channel"
+        private const val NOTIFICATION_ID = 9042
+        private const val POLL_INTERVAL_MS = 450L
+    }
+
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
     private var currentlyBlockedPackage: String? = null
     private var overlayLifecycleOwner: OverlayLifecycleOwner? = null
 
-    override fun onServiceConnected() {
-        super.onServiceConnected()
-        windowManager = getSystemService(WINDOW_SERVICE) as? WindowManager
+    private val pollRunnable = object : Runnable {
+        override fun run() {
+            checkActiveAppAndShield()
+            mainHandler.postDelayed(this, POLL_INTERVAL_MS)
+        }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event == null) return
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+    override fun onBind(intent: Intent?): IBinder? = null
 
-        val pkgName = event.packageName?.toString().orEmpty()
-        if (pkgName.isBlank()) return
+    override fun onCreate() {
+        super.onCreate()
+        windowManager = getSystemService(WINDOW_SERVICE) as? WindowManager
+        startAsForegroundService()
+        mainHandler.removeCallbacks(pollRunnable)
+        mainHandler.post(pollRunnable)
+    }
 
-        if (pkgName == packageName || isSafeSystemOrLauncherPackage(pkgName)) {
-            if (pkgName == packageName) {
-                removeOverlayShield()
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startAsForegroundService()
+        return START_STICKY
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacks(pollRunnable)
+        removeOverlayShield()
+        super.onDestroy()
+    }
+
+    private fun startAsForegroundService() {
+        val nm = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "AMON Focus Shield",
+                NotificationManager.IMPORTANCE_MIN
+            ).apply {
+                description = "Monitors active apps during focus sessions"
+                setShowBadge(false)
             }
-            return
+            nm.createNotificationChannel(channel)
         }
 
+        val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("AMON App Blocker")
+            .setContentText("Monitoring distracting apps during focus")
+            .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+            .setOngoing(true)
+            .setSilent(true)
+            .build()
+
+        try {
+            startForeground(NOTIFICATION_ID, notification)
+        } catch (_: Exception) {}
+    }
+
+    private fun checkActiveAppAndShield() {
         val isFocusRunning = TimerService.isTimerRunning.value || TimerService.isTimerPaused.value
         if (!isFocusRunning) {
             removeOverlayShield()
             return
         }
 
-        if (!BlockAppManager.isBlockingEnabled(this)) {
+        if (!BlockAppManager.isBlockingEnabled(this) || !BlockAppManager.hasUsageStatsPermission(this)) {
             removeOverlayShield()
             return
         }
@@ -89,6 +139,16 @@ class AmonAppBlockerService : AccessibilityService() {
             return
         }
 
+        val pkgName = BlockAppManager.getForegroundPackageName(this).orEmpty()
+        if (pkgName.isBlank()) return
+
+        if (pkgName == packageName || isSafeSystemOrLauncherPackage(pkgName)) {
+            if (pkgName == packageName) {
+                removeOverlayShield()
+            }
+            return
+        }
+
         if (BlockAppManager.isPackageBlocked(this, pkgName)) {
             if (currentlyBlockedPackage != pkgName || overlayView == null) {
                 showOverlayShield(pkgName)
@@ -96,15 +156,6 @@ class AmonAppBlockerService : AccessibilityService() {
         } else {
             removeOverlayShield()
         }
-    }
-
-    override fun onInterrupt() {
-        removeOverlayShield()
-    }
-
-    override fun onDestroy() {
-        removeOverlayShield()
-        super.onDestroy()
     }
 
     private fun isSafeSystemOrLauncherPackage(pkgName: String): Boolean {
