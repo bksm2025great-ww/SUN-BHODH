@@ -10,8 +10,10 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.foundation.Canvas
@@ -58,6 +60,7 @@ class AmonAppBlockerService : Service() {
         private const val CHANNEL_ID = "amon_blocker_channel"
         private const val NOTIFICATION_ID = 9042
         private const val POLL_INTERVAL_MS = 450L
+        private const val BACK_TO_HOME_COOLDOWN_MS = 1500L
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -65,6 +68,8 @@ class AmonAppBlockerService : Service() {
     private var overlayView: View? = null
     private var currentlyBlockedPackage: String? = null
     private var overlayLifecycleOwner: OverlayLifecycleOwner? = null
+    private var suppressedPackage: String? = null
+    private var suppressedUntilElapsed: Long = 0L
 
     private val pollRunnable = object : Runnable {
         override fun run() {
@@ -150,7 +155,6 @@ class AmonAppBlockerService : Service() {
         val isBlockerActive = BlockAppManager.isBlockingEnabled(this) &&
             BlockAppManager.hasUsageStatsPermission(this)
 
-        // Focus timer band ya blocker off hone par shield hata kar service stop kar dein
         if (!isFocusRunning || !isBlockerActive) {
             removeOverlayShield()
             stopSelf()
@@ -173,6 +177,14 @@ class AmonAppBlockerService : Service() {
             return true
         }
 
+        val nowElapsed = SystemClock.elapsedRealtime()
+        if (suppressedPackage == pkgName && nowElapsed < suppressedUntilElapsed) {
+            return true
+        } else if (nowElapsed >= suppressedUntilElapsed) {
+            suppressedPackage = null
+            suppressedUntilElapsed = 0L
+        }
+
         if (BlockAppManager.isPackageBlocked(this, pkgName)) {
             if (currentlyBlockedPackage != pkgName || overlayView == null) {
                 showOverlayShield(pkgName)
@@ -193,6 +205,16 @@ class AmonAppBlockerService : Service() {
             "com.sec.android.app.launcher"
         )
         return safePrefixes.any { pkgName.startsWith(it) }
+    }
+
+    private fun handleBackToPhoneHome() {
+        val pkgToSuppress = currentlyBlockedPackage
+        if (!pkgToSuppress.isNullOrBlank()) {
+            suppressedPackage = pkgToSuppress
+            suppressedUntilElapsed = SystemClock.elapsedRealtime() + BACK_TO_HOME_COOLDOWN_MS
+        }
+        removeOverlayShield()
+        sendToPhoneHome()
     }
 
     private fun showOverlayShield(blockedPkg: String) {
@@ -219,7 +241,17 @@ class AmonAppBlockerService : Service() {
         }
         overlayLifecycleOwner = lifecycleOwner
 
-        val composeView = ComposeView(this).apply {
+        val composeView = object : ComposeView(this) {
+            override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+                if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                    handleBackToPhoneHome()
+                    return true
+                }
+                return super.dispatchKeyEvent(event)
+            }
+        }.apply {
+            isFocusableInTouchMode = true
+            requestFocus()
             setViewTreeLifecycleOwner(lifecycleOwner)
             setViewTreeSavedStateRegistryOwner(lifecycleOwner)
             setContent {
@@ -261,6 +293,7 @@ class AmonAppBlockerService : Service() {
             wm.addView(composeView, params)
             overlayView = composeView
             currentlyBlockedPackage = blockedPkg
+            composeView.post { composeView.requestFocus() }
         } catch (_: Exception) {
             lifecycleOwner.destroy()
             overlayLifecycleOwner = null
