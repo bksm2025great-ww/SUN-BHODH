@@ -74,7 +74,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -968,25 +970,35 @@ private fun AmonBlockTabSection(
     var isBlockingEnabled by remember {
         mutableStateOf(BlockAppManager.isBlockingEnabled(context))
     }
-    var searchQuery by remember { mutableStateOf("") }
-    var installedApps by remember {
-        mutableStateOf(BlockAppManager.getLaunchableApps(context))
+    var blockedPackages by remember {
+        mutableStateOf(BlockAppManager.getBlockedPackages(context))
     }
+    var searchQuery by remember { mutableStateOf("") }
+    var installedApps by remember { mutableStateOf<List<InstalledBlockableApp>>(emptyList()) }
+    var isLoadingApps by remember { mutableStateOf(true) }
 
-    fun refreshBlockTabState() {
-        isUsageReady = BlockAppManager.hasUsageStatsPermission(context)
-        isOverlayReady = BlockAppManager.hasOverlayPermission(context)
-        isBlockingEnabled = BlockAppManager.isBlockingEnabled(context)
-        installedApps = BlockAppManager.getLaunchableApps(context)
-        if (isUsageReady && isOverlayReady) {
-            BlockAppManager.startBlockerService(context)
+    LaunchedEffect(Unit) {
+        isLoadingApps = true
+        val apps = withContext(Dispatchers.IO) {
+            BlockAppManager.getLaunchableApps(context)
         }
+        installedApps = apps
+        blockedPackages = BlockAppManager.getBlockedPackages(context)
+        isLoadingApps = false
     }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                refreshBlockTabState()
+                isUsageReady = BlockAppManager.hasUsageStatsPermission(context)
+                isOverlayReady = BlockAppManager.hasOverlayPermission(context)
+                isBlockingEnabled = BlockAppManager.isBlockingEnabled(context)
+                blockedPackages = BlockAppManager.getBlockedPackages(context)
+                if (isUsageReady && isOverlayReady && isBlockingEnabled &&
+                    (TimerService.isTimerRunning.value || TimerService.isTimerPaused.value)
+                ) {
+                    BlockAppManager.startBlockerService(context)
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -1026,15 +1038,21 @@ private fun AmonBlockTabSection(
         }
     }
 
-    val selectedBlockedApps = remember(filteredApps) {
-        filteredApps.filter { it.isBlocked }.sortedBy { it.appName.lowercase() }
+    val selectedBlockedApps = remember(filteredApps, blockedPackages) {
+        filteredApps
+            .filter { blockedPackages.contains(it.packageName) }
+            .sortedBy { it.appName.lowercase() }
     }
 
-    val unselectedApps = remember(filteredApps) {
-        filteredApps.filter { !it.isBlocked }.sortedBy { it.appName.lowercase() }
+    val unselectedApps = remember(filteredApps, blockedPackages) {
+        filteredApps
+            .filter { !blockedPackages.contains(it.packageName) }
+            .sortedBy { it.appName.lowercase() }
     }
 
-    val totalBlockedCount = installedApps.count { it.isBlocked }
+    val onToggleApp: (String) -> Unit = { pkgName ->
+        blockedPackages = BlockAppManager.toggleAppBlocked(context, pkgName)
+    }
 
     Column(
         modifier = Modifier
@@ -1055,7 +1073,7 @@ private fun AmonBlockTabSection(
                     color = if (isDark) Color.White else Color(0xFF1C1917)
                 )
                 Text(
-                    text = "$totalBlockedCount apps selected for focus",
+                    text = "${blockedPackages.size} apps selected for focus",
                     color = textMuted,
                     fontSize = 11.5.sp
                 )
@@ -1135,6 +1153,8 @@ private fun AmonBlockTabSection(
                     isBlockingEnabled = checked
                     if (checked) {
                         BlockAppManager.startBlockerService(context)
+                    } else {
+                        BlockAppManager.stopBlockerService(context)
                     }
                 },
                 goldColor = goldColor
@@ -1186,101 +1206,110 @@ private fun AmonBlockTabSection(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(44.dp)
+                .height(48.dp)
         )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            contentPadding = PaddingValues(bottom = 14.dp)
-        ) {
-            item(key = "header_selected_apps") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Selected Apps",
-                        color = goldColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 0.3.sp
-                    )
-                    Text(
-                        text = "${selectedBlockedApps.size}",
-                        color = textMuted,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+        if (isLoadingApps && installedApps.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = goldColor,
+                    strokeWidth = 2.5.dp,
+                    modifier = Modifier.size(28.dp)
+                )
             }
-
-            if (selectedBlockedApps.isEmpty()) {
-                item(key = "empty_selected_apps") {
-                    Text(
-                        text = if (searchQuery.isBlank()) {
-                            "No apps selected yet. Toggle any app below to block during focus."
-                        } else {
-                            "No blocked apps match \"$searchQuery\"."
-                        },
-                        color = textMuted,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                contentPadding = PaddingValues(bottom = 14.dp)
+            ) {
+                item(key = "header_selected_apps") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, bottom = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Selected Apps",
+                            color = goldColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.3.sp
+                        )
+                        Text(
+                            text = "${selectedBlockedApps.size}",
+                            color = textMuted,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
-            } else {
-                items(selectedBlockedApps, key = { "blocked_${it.packageName}" }) { app ->
+
+                if (selectedBlockedApps.isEmpty()) {
+                    item(key = "empty_selected_apps") {
+                        Text(
+                            text = if (searchQuery.isBlank()) {
+                                "No apps selected yet. Toggle any app below to block during focus."
+                            } else {
+                                "No blocked apps match \"$searchQuery\"."
+                            },
+                            color = textMuted,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+                } else {
+                    items(selectedBlockedApps, key = { "blocked_${it.packageName}" }) { app ->
+                        BlockAppRowItem(
+                            app = app,
+                            isBlocked = true,
+                            glassBorder = glassBorder,
+                            textMain = textMain,
+                            goldColor = goldColor,
+                            onToggle = { onToggleApp(app.packageName) }
+                        )
+                    }
+                }
+
+                item(key = "header_all_apps") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp, bottom = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "All Apps",
+                            color = textMain,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.3.sp
+                        )
+                        Text(
+                            text = "${unselectedApps.size}",
+                            color = textMuted,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                items(unselectedApps, key = { "available_${it.packageName}" }) { app ->
                     BlockAppRowItem(
                         app = app,
+                        isBlocked = false,
                         glassBorder = glassBorder,
                         textMain = textMain,
                         goldColor = goldColor,
-                        onToggle = {
-                            BlockAppManager.toggleAppBlocked(context, app.packageName)
-                            installedApps = BlockAppManager.getLaunchableApps(context)
-                        }
+                        onToggle = { onToggleApp(app.packageName) }
                     )
                 }
-            }
-
-            item(key = "header_all_apps") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "All Apps",
-                        color = textMain,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 0.3.sp
-                    )
-                    Text(
-                        text = "${unselectedApps.size}",
-                        color = textMuted,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            items(unselectedApps, key = { "available_${it.packageName}" }) { app ->
-                BlockAppRowItem(
-                    app = app,
-                    glassBorder = glassBorder,
-                    textMain = textMain,
-                    goldColor = goldColor,
-                    onToggle = {
-                        BlockAppManager.toggleAppBlocked(context, app.packageName)
-                        installedApps = BlockAppManager.getLaunchableApps(context)
-                    }
-                )
             }
         }
     }
@@ -1289,13 +1318,14 @@ private fun AmonBlockTabSection(
 @Composable
 private fun BlockAppRowItem(
     app: InstalledBlockableApp,
+    isBlocked: Boolean,
     glassBorder: Color,
     textMain: Color,
     goldColor: Color,
     onToggle: () -> Unit
 ) {
     val iconBitmap = remember(app.packageName) {
-        app.icon?.toBitmap(width = 80, height = 80)?.asImageBitmap()
+        app.icon?.toBitmap(width = 72, height = 72)?.asImageBitmap()
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1351,7 +1381,7 @@ private fun BlockAppRowItem(
             }
 
             AmonSlimPillSwitch(
-                checked = app.isBlocked,
+                checked = isBlocked,
                 onCheckedChange = { onToggle() },
                 goldColor = goldColor
             )
