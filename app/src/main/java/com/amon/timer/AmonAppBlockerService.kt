@@ -75,7 +75,7 @@ class AmonAppBlockerService : Service() {
         private const val CHANNEL_ID = "amon_blocker_channel"
         private const val NOTIFICATION_ID = 9042
         private const val POLL_INTERVAL_MS = 450L
-        private const val BACK_TO_HOME_COOLDOWN_MS = 1500L
+        private const val NAV_TO_HOME_COOLDOWN_MS = 1500L
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -187,7 +187,7 @@ class AmonAppBlockerService : Service() {
         if (pkgName.isBlank()) return true
 
         if (pkgName == packageName || isSafeSystemOrLauncherPackage(pkgName)) {
-            if (pkgName == packageName) {
+            if (overlayView != null) {
                 removeOverlayShield()
             }
             return true
@@ -224,11 +224,11 @@ class AmonAppBlockerService : Service() {
         return safePrefixes.any { pkgName.startsWith(it) }
     }
 
-    private fun handleBackToPhoneHome() {
+    private fun handleNavigationToPhoneHome() {
         val pkgToSuppress = currentlyBlockedPackage
         if (!pkgToSuppress.isNullOrBlank()) {
             suppressedPackage = pkgToSuppress
-            suppressedUntilElapsed = SystemClock.elapsedRealtime() + BACK_TO_HOME_COOLDOWN_MS
+            suppressedUntilElapsed = SystemClock.elapsedRealtime() + NAV_TO_HOME_COOLDOWN_MS
         }
         removeOverlayShield()
         sendToPhoneHome()
@@ -321,13 +321,31 @@ class AmonAppBlockerService : Service() {
 
         val shieldContainer = object : FrameLayout(this) {
             override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-                if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-                    handleBackToPhoneHome()
+                if (event.action == KeyEvent.ACTION_UP &&
+                    (event.keyCode == KeyEvent.KEYCODE_BACK || event.keyCode == KeyEvent.KEYCODE_HOME)
+                ) {
+                    handleNavigationToPhoneHome()
                     return true
                 }
                 return super.dispatchKeyEvent(event)
             }
+
+            override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+                super.onWindowFocusChanged(hasWindowFocus)
+                if (!hasWindowFocus && overlayView === this && currentlyBlockedPackage != null) {
+                    mainHandler.post {
+                        if (overlayView === this) {
+                            handleNavigationToPhoneHome()
+                        }
+                    }
+                }
+            }
         }.apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundColor(0xFF121216.toInt())
             isFocusableInTouchMode = true
             descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
             setViewTreeLifecycleOwner(lifecycleOwner)
@@ -524,7 +542,9 @@ private fun AmonOverlayShieldScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(bgDark)
-            .padding(horizontal = 24.dp, vertical = 28.dp),
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
