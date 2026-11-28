@@ -229,8 +229,16 @@ class TimerService : Service() {
         isTimerRunning.value = true
         isTimerPaused.value = false
 
-        // 🚀 1. जब भी टाइमर शुरू हो, क्लाउड को बताएं कि यूजर अब लाइव फोकस कर रहा है
+        // 🛡️ टाइमर शुरू होने पर ब्लॉकर सर्विस शुरू करें (ब्रेक में केवल blockAppsDuringBreak ऑन होने पर)
         val isBreak = isPomoBreakActive.value
+        val blockSettings = BlockSettingsManager.loadConfig(applicationContext)
+        if (!isBreak || blockSettings.blockAppsDuringBreak) {
+            BlockAppManager.startBlockerService(applicationContext)
+        } else {
+            BlockAppManager.stopBlockerService(applicationContext)
+        }
+
+        // 🚀 1. जब भी टाइमर शुरू हो, क्लाउड को बताएं कि यूजर अब लाइव फोकस कर रहा है
         serviceScope.launch(Dispatchers.IO) {
             try {
                 val userId = UserManager(applicationContext).getUserId()
@@ -325,7 +333,8 @@ class TimerService : Service() {
                         remainingSeconds.intValue = pomoFocusSecs
                         isTimerRunning.value = false
                         isTimerPaused.value = true
-                        
+                        BlockAppManager.stopBlockerService(applicationContext)
+
                         // ब्रेक के बाद ऑटो-स्टार्ट बंद होने पर भी लाइव स्टेटस हटा दें
                         serviceScope.launch(Dispatchers.IO) {
                             try {
@@ -464,6 +473,9 @@ class TimerService : Service() {
         accumulatedActiveMillis = 0L
         stopwatchElapsedMillis.value = 0L
 
+        // 🛡️ टाइमर बंद होते ही ब्लॉकर सर्विस व उसका नोटिफिकेशन हटा दें
+        BlockAppManager.stopBlockerService(applicationContext)
+
         clearPersistedState(this)
         remainingSeconds.intValue = if (originalTimerSeconds > 0) originalTimerSeconds else 0
 
@@ -482,7 +494,7 @@ class TimerService : Service() {
     private fun saveSessionToDiary(isCancelled: Boolean) {
         try {
             val rawSeconds = ((accumulatedActiveMillis + 500L) / 1000L).toInt().coerceAtLeast(0)
-            
+
             val completedSeconds = if (!isCancelled && originalTimerSeconds > 0 && activeModeType.value == "TIMER" && activeModeType.value != "POMODORO") {
                 originalTimerSeconds
             } else {
@@ -508,7 +520,7 @@ class TimerService : Service() {
                 subject = currentSubjectName.value,
                 durationMinutes = minutes
             )
-            
+
             FocusSessionManager.saveSession(this, session)
 
             lastCompletedMinutes.intValue = minutes
@@ -674,6 +686,7 @@ class TimerService : Service() {
         super.onDestroy()
         timerJob?.cancel()
         serviceScope.cancel()
+        BlockAppManager.stopBlockerService(applicationContext)
         try {
             val manager = getSystemService(NotificationManager::class.java)
             manager?.cancel(NOTIFICATION_ID)
