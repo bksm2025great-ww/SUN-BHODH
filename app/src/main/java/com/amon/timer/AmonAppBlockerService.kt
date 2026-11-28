@@ -16,7 +16,9 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.FrameLayout
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -292,17 +294,11 @@ class AmonAppBlockerService : Service() {
         }
         overlayLifecycleOwner = lifecycleOwner
 
-        val composeView = object : ComposeView(this) {
-            override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-                if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-                    handleBackToPhoneHome()
-                    return true
-                }
-                return super.dispatchKeyEvent(event)
-            }
-        }.apply {
-            isFocusableInTouchMode = true
-            requestFocus()
+        val composeView = ComposeView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
             setViewTreeLifecycleOwner(lifecycleOwner)
             setViewTreeSavedStateRegistryOwner(lifecycleOwner)
             setContent {
@@ -321,6 +317,22 @@ class AmonAppBlockerService : Service() {
                     }
                 )
             }
+        }
+
+        val shieldContainer = object : FrameLayout(this) {
+            override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+                if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                    handleBackToPhoneHome()
+                    return true
+                }
+                return super.dispatchKeyEvent(event)
+            }
+        }.apply {
+            isFocusableInTouchMode = true
+            descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+            setViewTreeLifecycleOwner(lifecycleOwner)
+            setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+            addView(composeView)
         }
 
         val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -347,10 +359,10 @@ class AmonAppBlockerService : Service() {
         }
 
         try {
-            wm.addView(composeView, params)
-            overlayView = composeView
+            wm.addView(shieldContainer, params)
+            overlayView = shieldContainer
             currentlyBlockedPackage = blockedPkg
-            composeView.post { composeView.requestFocus() }
+            shieldContainer.post { shieldContainer.requestFocus() }
         } catch (_: Exception) {
             lifecycleOwner.destroy()
             overlayLifecycleOwner = null
