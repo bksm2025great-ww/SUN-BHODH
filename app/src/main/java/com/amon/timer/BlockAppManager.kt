@@ -52,6 +52,9 @@ object BlockAppManager {
     private const val KEY_BLOCKED_PACKAGES = "blocked_package_names"
     private const val KEY_BLOCKING_ENABLED = "is_app_blocking_enabled"
 
+    @Volatile
+    private var cachedLaunchableApps: List<InstalledBlockableApp>? = null
+
     fun isBlockingEnabled(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getBoolean(KEY_BLOCKING_ENABLED, true)
@@ -151,13 +154,25 @@ object BlockAppManager {
     }
 
     fun startBlockerService(context: Context) {
+        val isFocusRunning = TimerService.isTimerRunning.value || TimerService.isTimerPaused.value
+        if (!isFocusRunning || !isBlockingEnabled(context) || !hasUsageStatsPermission(context)) {
+            return
+        }
         try {
-            val intent = Intent(context, AmonAppBlockerService::class.java)
+            val appCtx = context.applicationContext
+            val intent = Intent(appCtx, AmonAppBlockerService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
+                appCtx.startForegroundService(intent)
             } else {
-                context.startService(intent)
+                appCtx.startService(intent)
             }
+        } catch (_: Exception) {}
+    }
+
+    fun stopBlockerService(context: Context) {
+        try {
+            val appCtx = context.applicationContext
+            appCtx.stopService(Intent(appCtx, AmonAppBlockerService::class.java))
         } catch (_: Exception) {}
     }
 
@@ -210,10 +225,19 @@ object BlockAppManager {
         }
     }
 
-    fun getLaunchableApps(context: Context): List<InstalledBlockableApp> {
-        val pm = context.packageManager
+    fun getLaunchableApps(
+        context: Context,
+        forceRefresh: Boolean = false
+    ): List<InstalledBlockableApp> {
         val blockedSet = getBlockedPackages(context)
-        val selfPackage = context.packageName
+        val cached = cachedLaunchableApps
+        if (cached != null && !forceRefresh) {
+            return cached.map { it.copy(isBlocked = blockedSet.contains(it.packageName)) }
+        }
+
+        val appCtx = context.applicationContext
+        val pm = appCtx.packageManager
+        val selfPackage = appCtx.packageName
 
         val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
@@ -262,10 +286,9 @@ object BlockAppManager {
             )
         }
 
-        return uniqueByPackage.values.sortedWith(
-            compareByDescending<InstalledBlockableApp> { it.isBlocked }
-                .thenBy { it.appName.lowercase() }
-        )
+        val sorted = uniqueByPackage.values.sortedBy { it.appName.lowercase() }
+        cachedLaunchableApps = sorted
+        return sorted.map { it.copy(isBlocked = blockedSet.contains(it.packageName)) }
     }
 
     private fun getApplicationInfoCompat(pm: PackageManager, packageName: String): ApplicationInfo? {
