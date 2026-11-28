@@ -259,6 +259,34 @@ fun AndroidAutoRotateLineIcon(
     }
 }
 
+@Composable
+private fun AmonSlimPillSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    goldColor: Color
+) {
+    val trackColor = if (checked) goldColor else Color(0xFF3F3F46)
+    val thumbColor = if (checked) Color.Black else Color(0xFFD1D5DB)
+
+    Box(
+        modifier = Modifier
+            .width(38.dp)
+            .height(20.dp)
+            .clip(RoundedCornerShape(50))
+            .background(trackColor)
+            .clickable { onCheckedChange(!checked) }
+            .padding(2.dp),
+        contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .size(16.dp)
+                .clip(CircleShape)
+                .background(thumbColor)
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
@@ -701,16 +729,13 @@ fun MainScreen() {
                             fontSize = 11.5.sp
                         )
                     }
-                    Switch(
+                    AmonSlimPillSwitch(
                         checked = blockConfig.blockNotificationsDuringFocus,
                         onCheckedChange = { checked ->
                             blockConfig = blockConfig.copy(blockNotificationsDuringFocus = checked)
                             BlockSettingsManager.saveConfig(context, blockConfig)
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.Black,
-                            checkedTrackColor = goldColor
-                        )
+                        goldColor = goldColor
                     )
                 }
 
@@ -737,16 +762,13 @@ fun MainScreen() {
                             fontSize = 11.5.sp
                         )
                     }
-                    Switch(
+                    AmonSlimPillSwitch(
                         checked = blockConfig.blockAppsDuringBreak,
                         onCheckedChange = { checked ->
                             blockConfig = blockConfig.copy(blockAppsDuringBreak = checked)
                             BlockSettingsManager.saveConfig(context, blockConfig)
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.Black,
-                            checkedTrackColor = goldColor
-                        )
+                        goldColor = goldColor
                     )
                 }
             }
@@ -1004,13 +1026,21 @@ private fun AmonBlockTabSection(
         }
     }
 
-    val blockedCount = installedApps.count { it.isBlocked }
+    val selectedBlockedApps = remember(filteredApps) {
+        filteredApps.filter { it.isBlocked }.sortedBy { it.appName.lowercase() }
+    }
+
+    val unselectedApps = remember(filteredApps) {
+        filteredApps.filter { !it.isBlocked }.sortedBy { it.appName.lowercase() }
+    }
+
+    val totalBlockedCount = installedApps.count { it.isBlocked }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1025,9 +1055,9 @@ private fun AmonBlockTabSection(
                     color = if (isDark) Color.White else Color(0xFF1C1917)
                 )
                 Text(
-                    text = "$blockedCount apps selected for focus",
+                    text = "$totalBlockedCount apps selected for focus",
                     color = textMuted,
-                    fontSize = 12.sp
+                    fontSize = 11.5.sp
                 )
             }
 
@@ -1038,22 +1068,22 @@ private fun AmonBlockTabSection(
                     .background(cardBg)
                     .border(1.dp, goldColor.copy(alpha = 0.6f), RoundedCornerShape(50))
                     .clickable { onOpenBlockSettings() }
-                    .padding(horizontal = 14.dp, vertical = 7.dp)
+                    .padding(horizontal = 13.dp, vertical = 6.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Settings,
                         contentDescription = null,
                         tint = goldColor,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = "Block Settings",
                         color = goldColor,
-                        fontSize = 12.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -1063,14 +1093,15 @@ private fun AmonBlockTabSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
+                .height(46.dp)
+                .clip(RoundedCornerShape(14.dp))
                 .background(if (isBlockingEnabled) goldColor.copy(alpha = 0.14f) else cardBg)
                 .border(
-                    1.dp,
+                    0.8.dp,
                     if (isBlockingEnabled) goldColor.copy(alpha = 0.7f) else glassBorder,
-                    RoundedCornerShape(16.dp)
+                    RoundedCornerShape(14.dp)
                 )
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1080,41 +1111,24 @@ private fun AmonBlockTabSection(
                     .weight(1f)
                     .padding(end = 10.dp)
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(goldColor.copy(alpha = 0.18f))
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Lock,
-                        contentDescription = null,
-                        tint = goldColor,
-                        modifier = Modifier.size(17.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = if (isBlockingEnabled) "App Blocker On" else "App Blocker Off",
-                        color = textMain,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = if (isBlockingEnabled) {
-                            "Shield active during focus sessions"
-                        } else {
-                            "Shield paused inside app"
-                        },
-                        color = textMuted,
-                        fontSize = 11.5.sp
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Rounded.Lock,
+                    contentDescription = null,
+                    tint = goldColor,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = if (isBlockingEnabled) "App Blocker On • Active" else "App Blocker Off • Paused",
+                    color = textMain,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
-            Switch(
+            AmonSlimPillSwitch(
                 checked = isBlockingEnabled,
                 onCheckedChange = { checked ->
                     BlockAppManager.setBlockingEnabled(context, checked)
@@ -1123,10 +1137,7 @@ private fun AmonBlockTabSection(
                         BlockAppManager.startBlockerService(context)
                     }
                 },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.Black,
-                    checkedTrackColor = goldColor
-                )
+                goldColor = goldColor
             )
         }
 
@@ -1138,17 +1149,32 @@ private fun AmonBlockTabSection(
                 Text(
                     text = "Search apps...",
                     color = textMuted,
-                    fontSize = 13.5.sp
+                    fontSize = 13.sp
                 )
             },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = "Search",
-                    tint = goldColor
+                    tint = goldColor,
+                    modifier = Modifier.size(18.dp)
                 )
             },
-            shape = RoundedCornerShape(14.dp),
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    Text(
+                        text = "✕",
+                        color = textMuted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable { searchQuery = "" }
+                            .padding(8.dp)
+                    )
+                }
+            },
+            shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = textMain,
                 unfocusedTextColor = textMain,
@@ -1156,95 +1182,185 @@ private fun AmonBlockTabSection(
                 focusedContainerColor = cardBg,
                 unfocusedContainerColor = cardBg,
                 focusedBorderColor = goldColor,
-                unfocusedBorderColor = glassBorder
+                unfocusedBorderColor = glassBorder.copy(alpha = 0.6f)
             ),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
         )
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
             contentPadding = PaddingValues(bottom = 14.dp)
         ) {
-            items(filteredApps, key = { it.packageName }) { app ->
-                val iconBitmap = remember(app.packageName) {
-                    app.icon?.toBitmap(width = 96, height = 96)?.asImageBitmap()
-                }
-
+            item(key = "header_selected_apps") {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(if (app.isBlocked) goldColor.copy(alpha = 0.12f) else cardBg)
-                        .border(
-                            1.dp,
-                            if (app.isBlocked) goldColor.copy(alpha = 0.6f) else glassBorder,
-                            RoundedCornerShape(14.dp)
-                        )
-                        .clickable {
-                            BlockAppManager.toggleAppBlocked(context, app.packageName)
-                            installedApps = BlockAppManager.getLaunchableApps(context)
-                        }
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(top = 4.dp, bottom = 2.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 10.dp)
-                    ) {
-                        if (iconBitmap != null) {
-                            Image(
-                                bitmap = iconBitmap,
-                                contentDescription = app.appName,
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                            )
-                        } else {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(goldColor.copy(alpha = 0.16f))
-                            ) {
-                                Text(
-                                    text = app.appName.take(1).uppercase(),
-                                    color = goldColor,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        Text(
-                            text = app.appName,
-                            color = textMain,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    Switch(
-                        checked = app.isBlocked,
-                        onCheckedChange = {
-                            BlockAppManager.toggleAppBlocked(context, app.packageName)
-                            installedApps = BlockAppManager.getLaunchableApps(context)
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.Black,
-                            checkedTrackColor = goldColor
-                        )
+                    Text(
+                        text = "Selected Apps",
+                        color = goldColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.3.sp
+                    )
+                    Text(
+                        text = "${selectedBlockedApps.size}",
+                        color = textMuted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
+
+            if (selectedBlockedApps.isEmpty()) {
+                item(key = "empty_selected_apps") {
+                    Text(
+                        text = if (searchQuery.isBlank()) {
+                            "No apps selected yet. Toggle any app below to block during focus."
+                        } else {
+                            "No blocked apps match \"$searchQuery\"."
+                        },
+                        color = textMuted,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+            } else {
+                items(selectedBlockedApps, key = { "blocked_${it.packageName}" }) { app ->
+                    BlockAppRowItem(
+                        app = app,
+                        glassBorder = glassBorder,
+                        textMain = textMain,
+                        goldColor = goldColor,
+                        onToggle = {
+                            BlockAppManager.toggleAppBlocked(context, app.packageName)
+                            installedApps = BlockAppManager.getLaunchableApps(context)
+                        }
+                    )
+                }
+            }
+
+            item(key = "header_all_apps") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp, bottom = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "All Apps",
+                        color = textMain,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.3.sp
+                    )
+                    Text(
+                        text = "${unselectedApps.size}",
+                        color = textMuted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            items(unselectedApps, key = { "available_${it.packageName}" }) { app ->
+                BlockAppRowItem(
+                    app = app,
+                    glassBorder = glassBorder,
+                    textMain = textMain,
+                    goldColor = goldColor,
+                    onToggle = {
+                        BlockAppManager.toggleAppBlocked(context, app.packageName)
+                        installedApps = BlockAppManager.getLaunchableApps(context)
+                    }
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun BlockAppRowItem(
+    app: InstalledBlockableApp,
+    glassBorder: Color,
+    textMain: Color,
+    goldColor: Color,
+    onToggle: () -> Unit
+) {
+    val iconBitmap = remember(app.packageName) {
+        app.icon?.toBitmap(width = 80, height = 80)?.asImageBitmap()
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onToggle() }
+                .padding(vertical = 8.dp, horizontal = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 10.dp)
+            ) {
+                if (iconBitmap != null) {
+                    Image(
+                        bitmap = iconBitmap,
+                        contentDescription = app.appName,
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                    )
+                } else {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(goldColor.copy(alpha = 0.14f))
+                    ) {
+                        Text(
+                            text = app.appName.take(1).uppercase(),
+                            color = goldColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Text(
+                    text = app.appName,
+                    color = textMain,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            AmonSlimPillSwitch(
+                checked = app.isBlocked,
+                onCheckedChange = { onToggle() },
+                goldColor = goldColor
+            )
+        }
+
+        HorizontalDivider(
+            thickness = 0.6.dp,
+            color = glassBorder.copy(alpha = 0.35f)
+        )
     }
 }
 
