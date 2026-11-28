@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -16,24 +17,35 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -53,6 +65,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import kotlinx.coroutines.delay
 
 class AmonAppBlockerService : Service() {
 
@@ -70,6 +83,7 @@ class AmonAppBlockerService : Service() {
     private var overlayLifecycleOwner: OverlayLifecycleOwner? = null
     private var suppressedPackage: String? = null
     private var suppressedUntilElapsed: Long = 0L
+    private val openAttemptsState = mutableIntStateOf(0)
 
     private val pollRunnable = object : Runnable {
         override fun run() {
@@ -187,6 +201,7 @@ class AmonAppBlockerService : Service() {
 
         if (BlockAppManager.isPackageBlocked(this, pkgName)) {
             if (currentlyBlockedPackage != pkgName || overlayView == null) {
+                openAttemptsState.intValue += 1
                 showOverlayShield(pkgName)
             }
         } else {
@@ -217,6 +232,39 @@ class AmonAppBlockerService : Service() {
         sendToPhoneHome()
     }
 
+    private fun formatDailyTargetText(): String {
+        val savedHours = try {
+            getSharedPreferences("amon_stats_goals", MODE_PRIVATE)
+                .getFloat("daily_goal_hours", 0f)
+        } catch (_: Exception) {
+            0f
+        }
+        val totalMins = if (savedHours > 0f) (savedHours * 60f).toInt() else 30
+        return if (totalMins >= 60) {
+            val h = totalMins / 60
+            val m = totalMins % 60
+            if (m == 0) "${h}h daily" else "${h}h ${m}m daily"
+        } else {
+            "${totalMins}m daily"
+        }
+    }
+
+    private fun formatTodayFocusedText(): String {
+        val mins = try {
+            val sessions = FocusSessionManager.getAllSessions(this)
+            calculateTodayMinutesFromSessions(sessions)
+        } catch (_: Exception) {
+            0
+        }
+        return if (mins >= 60) {
+            val h = mins / 60
+            val m = mins % 60
+            if (m == 0) "${h}h focused today" else "${h}h ${m}m focused today"
+        } else {
+            "${mins}m focused today"
+        }
+    }
+
     private fun showOverlayShield(blockedPkg: String) {
         val wm = windowManager ?: (getSystemService(WINDOW_SERVICE) as? WindowManager)?.also {
             windowManager = it
@@ -233,6 +281,9 @@ class AmonAppBlockerService : Service() {
         } catch (_: Exception) {
             null
         }
+
+        val targetText = formatDailyTargetText()
+        val focusedTodayText = formatTodayFocusedText()
 
         val lifecycleOwner = OverlayLifecycleOwner().apply {
             onCreate()
@@ -257,6 +308,12 @@ class AmonAppBlockerService : Service() {
             setContent {
                 AmonOverlayShieldScreen(
                     appIconBitmap = appBitmap,
+                    remainingSeconds = TimerService.remainingSeconds.intValue,
+                    isStopwatch = TimerService.activeModeType.value == "STOPWATCH",
+                    stopwatchMillis = TimerService.stopwatchElapsedMillis.value,
+                    dailyTargetText = targetText,
+                    focusedTodayText = focusedTodayText,
+                    openAttemptsCount = openAttemptsState.intValue,
                     onReturnToAmon = {
                         removeOverlayShield()
                         sendToPhoneHome()
@@ -377,19 +434,85 @@ class AmonAppBlockerService : Service() {
 
 @Composable
 private fun AmonOverlayShieldScreen(
-    appIconBitmap: android.graphics.Bitmap?,
+    appIconBitmap: Bitmap?,
+    remainingSeconds: Int,
+    isStopwatch: Boolean,
+    stopwatchMillis: Long,
+    dailyTargetText: String,
+    focusedTodayText: String,
+    openAttemptsCount: Int,
     onReturnToAmon: () -> Unit
 ) {
     val bgDark = Color(0xFF121216)
     val goldAccent = Color(0xFFE5B44C)
-    val softRingColor = Color(0xFFE5B44C)
     val subTextColor = Color(0xFF9CA3AF)
+    val chipBg = Color(0xFF1C1C22)
+    val chipBorder = Color(0x26FFFFFF)
+
+    val breatheTransition = rememberInfiniteTransition(label = "shield_breathe")
+    val outerRingScale by breatheTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "outer_ring_scale"
+    )
+    val innerRingScale by breatheTransition.animateFloat(
+        initialValue = 1.04f,
+        targetValue = 0.96f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "inner_ring_scale"
+    )
+    val urgeButtonScale by breatheTransition.animateFloat(
+        initialValue = 0.985f,
+        targetValue = 1.015f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "urge_btn_scale"
+    )
+
+    var breatheRemaining by remember { mutableIntStateOf(0) }
+    LaunchedEffect(breatheRemaining) {
+        if (breatheRemaining > 0) {
+            delay(1000L)
+            breatheRemaining -= 1
+        }
+    }
+
+    val timerDisplay = if (isStopwatch) {
+        val totalSecs = (stopwatchMillis / 1000L).toInt()
+        val h = totalSecs / 3600
+        val m = (totalSecs % 3600) / 60
+        val s = totalSecs % 60
+        if (h > 0) String.format("%02d:%02d:%02d", h, m, s) else String.format("%02d:%02d", m, s)
+    } else {
+        val safeSecs = remainingSeconds.coerceAtLeast(0)
+        val h = safeSecs / 3600
+        val m = (safeSecs % 3600) / 60
+        val s = safeSecs % 60
+        if (h > 0) String.format("%02d:%02d:%02d", h, m, s) else String.format("%02d:%02d", m, s)
+    }
+
+    val dimmedIconFilter = remember {
+        ColorFilter.colorMatrix(
+            ColorMatrix().apply {
+                setToSaturation(0.28f)
+            }
+        )
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(bgDark)
-            .padding(horizontal = 24.dp, vertical = 36.dp),
+            .padding(horizontal = 24.dp, vertical = 28.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -397,25 +520,31 @@ private fun AmonOverlayShieldScreen(
             verticalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxSize()
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "AMON",
+                color = goldAccent,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.5.sp
+            )
 
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(210.dp)
+                modifier = Modifier.size(196.dp)
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val center = Offset(size.width / 2f, size.height / 2f)
                     drawCircle(
-                        color = softRingColor.copy(alpha = 0.22f),
-                        radius = size.minDimension * 0.46f,
+                        color = goldAccent.copy(alpha = 0.22f),
+                        radius = size.minDimension * 0.46f * outerRingScale,
                         center = center,
-                        style = Stroke(width = 1.5.dp.toPx())
+                        style = Stroke(width = 1.4.dp.toPx())
                     )
                     drawCircle(
-                        color = softRingColor.copy(alpha = 0.35f),
-                        radius = size.minDimension * 0.36f,
+                        color = goldAccent.copy(alpha = 0.36f),
+                        radius = size.minDimension * 0.35f * innerRingScale,
                         center = center,
-                        style = Stroke(width = 1.5.dp.toPx())
+                        style = Stroke(width = 1.4.dp.toPx())
                     )
                 }
 
@@ -424,24 +553,27 @@ private fun AmonOverlayShieldScreen(
                         Image(
                             bitmap = appIconBitmap.asImageBitmap(),
                             contentDescription = "Blocked App Icon",
+                            colorFilter = dimmedIconFilter,
                             modifier = Modifier
-                                .size(92.dp)
-                                .clip(RoundedCornerShape(22.dp))
-                                .border(2.dp, goldAccent.copy(alpha = 0.7f), RoundedCornerShape(22.dp))
+                                .size(84.dp)
+                                .alpha(0.55f)
+                                .clip(RoundedCornerShape(20.dp))
+                                .border(1.5.dp, goldAccent.copy(alpha = 0.45f), RoundedCornerShape(20.dp))
                         )
                     } else {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(92.dp)
-                                .clip(RoundedCornerShape(22.dp))
+                                .size(84.dp)
+                                .alpha(0.6f)
+                                .clip(RoundedCornerShape(20.dp))
                                 .background(Color(0xFF1E1E28))
-                                .border(2.dp, goldAccent.copy(alpha = 0.7f), RoundedCornerShape(22.dp))
+                                .border(1.5.dp, goldAccent.copy(alpha = 0.45f), RoundedCornerShape(20.dp))
                         ) {
                             Text(
                                 text = "APP",
                                 color = goldAccent,
-                                fontSize = 18.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Black
                             )
                         }
@@ -450,17 +582,17 @@ private fun AmonOverlayShieldScreen(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .offset(x = 6.dp, y = 6.dp)
-                            .size(34.dp)
+                            .offset(x = 5.dp, y = 5.dp)
+                            .size(30.dp)
                             .clip(CircleShape)
                             .background(goldAccent)
-                            .border(2.5.dp, bgDark, CircleShape)
+                            .border(2.dp, bgDark, CircleShape)
                     ) {
-                        Canvas(modifier = Modifier.size(16.dp)) {
+                        Canvas(modifier = Modifier.size(14.dp)) {
                             val w = size.width
                             val h = size.height
                             drawRoundRect(
-                                color = Color(0xFF121216),
+                                color = bgDark,
                                 topLeft = Offset(w * 0.22f, h * 0.46f),
                                 size = Size(w * 0.56f, h * 0.42f),
                                 cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
@@ -477,8 +609,8 @@ private fun AmonOverlayShieldScreen(
                             }
                             drawPath(
                                 path = shackle,
-                                color = Color(0xFF121216),
-                                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+                                color = bgDark,
+                                style = Stroke(width = 1.9.dp.toPx(), cap = StrokeCap.Round)
                             )
                         }
                     }
@@ -487,39 +619,140 @@ private fun AmonOverlayShieldScreen(
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
                     text = "Focus Session Active",
                     color = Color.White,
-                    fontSize = 24.sp,
+                    fontSize = 23.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
                 Text(
                     text = "This app is blocked during focus",
                     color = subTextColor,
-                    fontSize = 14.sp,
+                    fontSize = 13.5.sp,
                     textAlign = TextAlign.Center
                 )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = timerDisplay,
+                    color = goldAccent,
+                    fontSize = 44.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    text = if (isStopwatch) "elapsed" else "remaining",
+                    color = subTextColor,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(chipBg)
+                        .border(1.dp, chipBorder, RoundedCornerShape(50))
+                        .padding(horizontal = 16.dp, vertical = 7.dp)
+                ) {
+                    Text(
+                        text = "Your Target: $dailyTargetText",
+                        color = Color.White,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(chipBg)
+                            .border(1.dp, chipBorder, RoundedCornerShape(50))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = focusedTodayText,
+                            color = subTextColor,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(chipBg)
+                            .border(1.dp, chipBorder, RoundedCornerShape(50))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "$openAttemptsCount open attempts",
+                            color = subTextColor,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
 
-            Button(
-                onClick = onReturnToAmon,
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = goldAccent,
-                    contentColor = Color(0xFF121216)
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "Return to AMON",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Button(
+                    onClick = onReturnToAmon,
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = goldAccent,
+                        contentColor = bgDark
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                ) {
+                    Text(
+                        text = "Return to AMON",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .scale(urgeButtonScale)
+                        .clip(RoundedCornerShape(50))
+                        .background(chipBg)
+                        .border(1.dp, chipBorder, RoundedCornerShape(50))
+                        .clickable {
+                            if (breatheRemaining == 0) {
+                                breatheRemaining = 10
+                            }
+                        }
+                ) {
+                    Text(
+                        text = if (breatheRemaining > 0) {
+                            "Breathe slowly... ${breatheRemaining}s"
+                        } else {
+                            "Feeling the urge? Breathe for 10 sec"
+                        },
+                        color = if (breatheRemaining > 0) goldAccent else Color(0xFFD1D5DB),
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }
