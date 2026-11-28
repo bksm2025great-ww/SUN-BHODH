@@ -68,8 +68,10 @@ class AmonAppBlockerService : Service() {
 
     private val pollRunnable = object : Runnable {
         override fun run() {
-            checkActiveAppAndShield()
-            mainHandler.postDelayed(this, POLL_INTERVAL_MS)
+            val shouldContinue = checkActiveAppAndShield()
+            if (shouldContinue) {
+                mainHandler.postDelayed(this, POLL_INTERVAL_MS)
+            }
         }
     }
 
@@ -78,13 +80,35 @@ class AmonAppBlockerService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as? WindowManager
+
+        val isFocusRunning = TimerService.isTimerRunning.value || TimerService.isTimerPaused.value
+        val isBlockerActive = BlockAppManager.isBlockingEnabled(this) &&
+            BlockAppManager.hasUsageStatsPermission(this)
+
+        if (!isFocusRunning || !isBlockerActive) {
+            stopSelf()
+            return
+        }
+
         startAsForegroundService()
         mainHandler.removeCallbacks(pollRunnable)
         mainHandler.post(pollRunnable)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val isFocusRunning = TimerService.isTimerRunning.value || TimerService.isTimerPaused.value
+        val isBlockerActive = BlockAppManager.isBlockingEnabled(this) &&
+            BlockAppManager.hasUsageStatsPermission(this)
+
+        if (!isFocusRunning || !isBlockerActive) {
+            removeOverlayShield()
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         startAsForegroundService()
+        mainHandler.removeCallbacks(pollRunnable)
+        mainHandler.post(pollRunnable)
         return START_STICKY
     }
 
@@ -121,32 +145,32 @@ class AmonAppBlockerService : Service() {
         } catch (_: Exception) {}
     }
 
-    private fun checkActiveAppAndShield() {
+    private fun checkActiveAppAndShield(): Boolean {
         val isFocusRunning = TimerService.isTimerRunning.value || TimerService.isTimerPaused.value
-        if (!isFocusRunning) {
-            removeOverlayShield()
-            return
-        }
+        val isBlockerActive = BlockAppManager.isBlockingEnabled(this) &&
+            BlockAppManager.hasUsageStatsPermission(this)
 
-        if (!BlockAppManager.isBlockingEnabled(this) || !BlockAppManager.hasUsageStatsPermission(this)) {
+        // Focus timer band ya blocker off hone par shield hata kar service stop kar dein
+        if (!isFocusRunning || !isBlockerActive) {
             removeOverlayShield()
-            return
+            stopSelf()
+            return false
         }
 
         val settingsConfig = BlockSettingsManager.loadConfig(this)
         if (TimerService.isPomoBreakActive.value && !settingsConfig.blockAppsDuringBreak) {
             removeOverlayShield()
-            return
+            return true
         }
 
         val pkgName = BlockAppManager.getForegroundPackageName(this).orEmpty()
-        if (pkgName.isBlank()) return
+        if (pkgName.isBlank()) return true
 
         if (pkgName == packageName || isSafeSystemOrLauncherPackage(pkgName)) {
             if (pkgName == packageName) {
                 removeOverlayShield()
             }
-            return
+            return true
         }
 
         if (BlockAppManager.isPackageBlocked(this, pkgName)) {
@@ -156,6 +180,7 @@ class AmonAppBlockerService : Service() {
         } else {
             removeOverlayShield()
         }
+        return true
     }
 
     private fun isSafeSystemOrLauncherPackage(pkgName: String): Boolean {
@@ -202,6 +227,7 @@ class AmonAppBlockerService : Service() {
                     appIconBitmap = appBitmap,
                     onReturnToAmon = {
                         removeOverlayShield()
+                        sendToPhoneHome()
                         openAmonApp()
                     }
                 )
@@ -258,6 +284,16 @@ class AmonAppBlockerService : Service() {
 
         overlayLifecycleOwner?.destroy()
         overlayLifecycleOwner = null
+    }
+
+    private fun sendToPhoneHome() {
+        try {
+            val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(homeIntent)
+        } catch (_: Exception) {}
     }
 
     private fun openAmonApp() {
